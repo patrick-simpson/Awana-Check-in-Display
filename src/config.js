@@ -11,12 +11,10 @@
 // ─────────────────────────────────────────────────────────────
 
 const config = {
-  // Where your local check-in server is running.
-  // Examples:
-  //   "ws://localhost:3000"          (same machine)
-  //   "ws://192.168.1.42:3000"       (another PC on the same network)
-  //   "https://my-awana-server.com"  (production, use https/wss)
-  websocketUrl: 'ws://localhost:3000',
+  // Pusher credentials. Sign up free at https://pusher.com, create a
+  // Channels app, and copy these two values from its "App Keys" page.
+  pusherAppKey: '',
+  pusherCluster: 'us2',
 
   // The OneDrive "Embed" URL for your looping PowerPoint.
   // Go to OneDrive → open .pptx → File → Share → Embed → copy the <iframe src="…"> value.

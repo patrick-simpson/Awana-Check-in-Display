@@ -1,54 +1,38 @@
 import { useEffect, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
+import Pusher from 'pusher-js';
+import { useConfig } from './useConfig.js';
 
-/**
- * Connects to the configured WebSocket URL and listens for `checkIn`
- * events. Validates the payload to strip any fields other than the four
- * public-facing ones before passing to the handler, so even a chatty
- * backend can't leak allergy or contact data to the screen.
- */
-export function useSocket(url, onCheckIn) {
+// Ignores its first arg (kept for App.jsx compatibility) and reads the
+// Pusher key/cluster from config. Subscribes to `awana-channel` and
+// forwards `checkin` payloads after sanitizing them to the four public
+// fields, so allergy/PII data can never reach the screen.
+export function useSocket(_unused, onCheckIn) {
+  const { config } = useConfig();
+  const { pusherAppKey, pusherCluster } = config;
   const [status, setStatus] = useState('disconnected');
-  // Keep the latest handler in a ref so changing it doesn't reopen the socket.
   const handlerRef = useRef(onCheckIn);
   useEffect(() => { handlerRef.current = onCheckIn; }, [onCheckIn]);
 
   useEffect(() => {
-    if (!url) {
-      setStatus('disconnected');
-      return undefined;
-    }
-
+    if (!pusherAppKey || !pusherCluster) { setStatus('disconnected'); return undefined; }
     setStatus('connecting');
-    const socket = io(url, {
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      timeout: 8000,
-    });
-
-    socket.on('connect',    () => setStatus('connected'));
-    socket.on('disconnect', () => setStatus('disconnected'));
-    socket.on('connect_error',   () => setStatus('disconnected'));
-    socket.on('reconnect_attempt', () => setStatus('connecting'));
-
-    socket.on('checkIn', (payload) => {
+    const pusher = new Pusher(pusherAppKey, { cluster: pusherCluster });
+    const map = { connected: 'connected', connecting: 'connecting', unavailable: 'disconnected', failed: 'disconnected', disconnected: 'disconnected' };
+    pusher.connection.bind('state_change', ({ current }) => setStatus(map[current] || 'disconnected'));
+    const channel = pusher.subscribe('awana-channel');
+    channel.bind('checkin', (payload) => {
       const safe = sanitize(payload);
       if (safe) handlerRef.current?.(safe);
     });
-
-    return () => { socket.removeAllListeners(); socket.disconnect(); };
-  }, [url]);
+    return () => { channel.unbind_all(); pusher.unsubscribe('awana-channel'); pusher.disconnect(); };
+  }, [pusherAppKey, pusherCluster]);
 
   return { status };
 }
 
 function sanitize(payload) {
   if (!payload || typeof payload !== 'object') return null;
-  const firstName = typeof payload.firstName === 'string'
-    ? payload.firstName.trim().slice(0, 40)
-    : '';
+  const firstName = typeof payload.firstName === 'string' ? payload.firstName.trim().slice(0, 40) : '';
   if (!firstName) return null;
   return {
     firstName,
