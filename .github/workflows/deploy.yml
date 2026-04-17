@@ -31,14 +31,17 @@ jobs:
         run: npm ci
 
       - name: Build
-        # VITE_BASE_PATH tells Vite to emit asset URLs under /<repo-name>/
-        # so the built site works on https://<user>.github.io/<repo>/.
-        env:
-          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+        # Vite is configured with `base: './'` so assets use relative
+        # paths and the bundle works under any URL (no env needed).
         run: npm run build
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Auto-enable Pages with "GitHub Actions" as the source the
+          # first time this workflow runs, so a novice fork doesn't have
+          # to flip a setting in the UI.
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

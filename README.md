@@ -16,15 +16,14 @@ A joyful welcome screen for your Awana club. Runs full-screen on a TV or project
 1. Click the **Fork** button at the top of this page (top-right on GitHub).
 2. On the next screen, click **Create fork**. You now own a copy.
 
-## 2. Turn on GitHub Pages
+## 2. (Skip — GitHub Pages turns itself on)
 
-GitHub Pages is a free service that hosts the app for you. You only do this once.
+The first time the deploy workflow runs in your fork it auto-enables
+GitHub Pages with "GitHub Actions" as the source. You don't have to
+flip any switches. If you ever want to confirm: **Settings → Pages**,
+the source should read **GitHub Actions**.
 
-1. In your fork, open the **Settings** tab (top of the repo page).
-2. In the left sidebar click **Pages**.
-3. Under **Build and deployment → Source**, choose **GitHub Actions**.
-
-That's it. No secrets, no tokens. Every push to `main` redeploys automatically.
+No secrets, no tokens. Every push to `main` redeploys automatically.
 
 ## 3. Get free Pusher API keys
 

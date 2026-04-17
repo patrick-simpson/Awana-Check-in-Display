@@ -1,12 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// The GitHub Actions workflow sets VITE_BASE_PATH to "/<repo-name>/"
-// so assets load from the correct path on GitHub Pages.
-// For local dev this is undefined and Vite falls back to "/".
+// Relative asset paths so the build works at any URL — local preview,
+// GitHub Pages under /<repo>/, a custom domain, anywhere — with zero
+// env-var configuration. Crucial for novice deploys.
 export default defineConfig({
   plugins: [react()],
-  base: process.env.VITE_BASE_PATH || '/',
+  base: './',
   server: {
     host: true,
     port: 5173,
