@@ -1,0 +1,396 @@
+:root {
+  color-scheme: dark;
+  --glass-bg: rgba(15, 20, 35, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --text: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.7);
+  font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0a0e1a;
+  color: var(--text);
+}
+
+/* Full-bleed stage that fills the display. */
+.stage {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Background iframe sits behind everything. */
+.background-iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  z-index: 0;
+}
+
+.background-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 20% 20%, #1a237e 0%, transparent 40%),
+    radial-gradient(circle at 80% 80%, #4a148c 0%, transparent 40%),
+    linear-gradient(135deg, #0a0e1a 0%, #1a1f3a 100%);
+  z-index: 0;
+}
+.background-placeholder .placeholder-card {
+  max-width: 640px;
+  padding: 2.5rem 3rem;
+  text-align: center;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.background-placeholder h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2.75rem;
+  letter-spacing: -0.02em;
+}
+.background-placeholder p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+.background-placeholder code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: 'Menlo', 'Consolas', monospace;
+}
+
+/* Transparent overlay layer — animations and banners live here. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+.overlay > * {
+  pointer-events: auto;
+}
+
+/* ── Banner shared styles ───────────────────────────────── */
+.banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: min(70vw, 900px);
+  padding: 3.5rem 5rem;
+  border-radius: 32px;
+  text-align: center;
+  color: #fff;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.18) inset,
+    0 0 120px var(--club-primary, #FFD54F);
+  background:
+    linear-gradient(135deg,
+      var(--club-primary, #FFD54F) 0%,
+      var(--club-accent, #FFF9C4) 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.banner .eyebrow {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-bottom: 0.75rem;
+}
+.banner h1 {
+  margin: 0;
+  font-size: clamp(3.5rem, 8vw, 8rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+}
+.banner .club-label {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: 0.5rem 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 999px;
+}
+
+/* Birthday banner extras */
+.banner.birthday {
+  background: linear-gradient(135deg, #FF1744 0%, #F50057 50%, #AA00FF 100%);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.25) inset,
+    0 0 140px #F50057;
+}
+.banner.birthday .cake {
+  font-size: clamp(5rem, 12vw, 10rem);
+  display: inline-block;
+  margin-bottom: 0.5rem;
+}
+
+/* First-timer banner extras */
+.banner.first-timer {
+  background: linear-gradient(135deg, #FFD54F 0%, #FF8F00 50%, #FF6F00 100%);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+    0 0 160px #FFD54F;
+}
+.banner.first-timer .halo {
+  position: absolute;
+  inset: -40px;
+  border-radius: 48px;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(255, 213, 79, 0.35) 0%, transparent 70%);
+  filter: blur(20px);
+  z-index: -1;
+}
+
+/* Falling gift emojis for birthdays */
+.gift-rain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.gift-rain .gift {
+  position: absolute;
+  top: -80px;
+  font-size: 3rem;
+  will-change: transform;
+}
+
+/* ── Countdown timer ───────────────────────────────────── */
+.countdown {
+  position: absolute;
+  right: 2rem;
+  bottom: 2rem;
+  padding: 1rem 1.75rem;
+  min-width: 220px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+}
+.countdown .label {
+  display: block;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+.countdown .time {
+  font-size: 2.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+}
+
+/* ── Settings gear button + panel ──────────────────────── */
+.settings-gear {
+  position: absolute;
+  left: 1.5rem;
+  bottom: 1.5rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: opacity 0.35s ease, transform 0.2s ease, background 0.2s ease;
+  padding: 0;
+}
+.settings-gear:hover { background: rgba(255, 255, 255, 0.2); transform: rotate(45deg); }
+.settings-gear.idle { opacity: 0; pointer-events: none; }
+
+.panel-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+}
+.panel {
+  width: min(560px, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  background: #1a1f3a;
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.7);
+}
+.panel h2 {
+  margin: 0 0 1.5rem;
+  font-size: 1.75rem;
+  letter-spacing: -0.01em;
+}
+.panel .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 1.25rem;
+}
+.panel label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.panel .hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  opacity: 0.85;
+  line-height: 1.4;
+}
+.panel input[type='text'],
+.panel input[type='number'],
+.panel input[type='url'] {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+}
+.panel input:focus { outline: 2px solid #FFD54F; outline-offset: 1px; }
+.panel .toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.panel .actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
+}
+.panel button {
+  padding: 0.65rem 1.25rem;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.panel button:hover { background: rgba(255, 255, 255, 0.18); }
+.panel button.primary { background: #FFD54F; color: #1a1f3a; border-color: transparent; }
+.panel button.primary:hover { background: #FFE082; }
+.panel button.danger { background: rgba(229, 57, 53, 0.18); }
+.panel button.danger:hover { background: rgba(229, 57, 53, 0.35); }
+
+/* ── Debug panel ───────────────────────────────────────── */
+.debug {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  padding: 1.25rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  display: grid;
+  gap: 0.5rem;
+  min-width: 260px;
+  z-index: 200;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+.debug h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.debug button {
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: 0.9rem;
+  transition: background 0.15s ease;
+}
+.debug button:hover { background: rgba(255, 255, 255, 0.18); }
+.debug .close-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+/* ── Connection status dot ─────────────────────────────── */
+.status-dot {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0.4rem 0.75rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.status-dot .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #9e9e9e;
+  box-shadow: 0 0 8px currentColor;
+}
+.status-dot.connected .dot    { background: #4caf50; }
+.status-dot.connecting .dot   { background: #ffb300; animation: pulse 1.2s ease-in-out infinite; }
+.status-dot.disconnected .dot { background: #e53935; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
