@@ -2,7 +2,8 @@ import { useState } from 'react';
 
 export default function SettingsPanel({ config, onChange, onReset, onClose }) {
   const [form, setForm] = useState({
-    websocketUrl: config.websocketUrl || '',
+    pusherAppKey: config.pusherAppKey || '',
+    pusherCluster: config.pusherCluster || 'us2',
     powerpointEmbedUrl: config.powerpointEmbedUrl || '',
     countdownTargetTime: config.countdownTargetTime || '',
     standardDisplayMs: config.standardDisplayMs ?? 6000,
@@ -38,15 +39,26 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
         <h2>Settings</h2>
 
         <div className="field">
-          <label htmlFor="ws">WebSocket server URL</label>
+          <label htmlFor="pkey">Pusher App Key</label>
           <input
-            id="ws" type="text" value={form.websocketUrl}
-            onChange={set('websocketUrl')}
-            placeholder="ws://localhost:3000"
+            id="pkey" type="text" value={form.pusherAppKey}
+            onChange={set('pusherAppKey')}
+            placeholder="abcdef1234567890"
           />
           <span className="hint">
-            Where your local check-in server is running. Use <code>ws://</code> on
-            your own network or <code>https://</code> / <code>wss://</code> for hosted servers.
+            From your Pusher Channels app's <code>App Keys</code> page — the <code>key</code> value (public, safe to ship).
+          </span>
+        </div>
+
+        <div className="field">
+          <label htmlFor="pcluster">Pusher Cluster</label>
+          <input
+            id="pcluster" type="text" value={form.pusherCluster}
+            onChange={set('pusherCluster')}
+            placeholder="us2"
+          />
+          <span className="hint">
+            From the same page (e.g. <code>us2</code>, <code>eu</code>, <code>ap1</code>).
           </span>
         </div>
 
