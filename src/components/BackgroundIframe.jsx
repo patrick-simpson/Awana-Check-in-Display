@@ -1,3 +1,13 @@
+// SharePoint/OneDrive "view document" URLs (Doc.aspx) refuse to render
+// inside third-party iframes unless `action=embedview` is present. A
+// novice who pastes the plain file URL sees a blank frame with no
+// error, so auto-upgrade the URL here.
+function normalizeEmbedUrl(url) {
+  if (!/\/Doc\.aspx\?/i.test(url)) return url;
+  if (/[?&]action=embedview\b/i.test(url)) return url;
+  return url + (url.includes('?') ? '&' : '?') + 'action=embedview';
+}
+
 export default function BackgroundIframe({ url }) {
   if (!url) {
     return (
@@ -16,7 +26,7 @@ export default function BackgroundIframe({ url }) {
   return (
     <iframe
       className="background-iframe"
-      src={url}
+      src={normalizeEmbedUrl(url)}
       title="Awana background presentation"
       allow="autoplay; fullscreen"
       allowFullScreen
