@@ -2,10 +2,25 @@
 // inside third-party iframes unless `action=embedview` is present. A
 // novice who pastes the plain file URL sees a blank frame with no
 // error, so auto-upgrade the URL here.
+//
+// wdSlideShowDelay=0 tells Office Online to advance slides using the
+// presentation's own built-in timings. Without it the viewer sits on
+// slide 1 forever even when the .pptx has timings set.
 function normalizeEmbedUrl(url) {
-  if (!/\/Doc\.aspx\?/i.test(url)) return url;
-  if (/[?&]action=embedview\b/i.test(url)) return url;
-  return url + (url.includes('?') ? '&' : '?') + 'action=embedview';
+  if (!url) return url;
+
+  // SharePoint Doc.aspx: must have action=embedview to load in an iframe
+  if (/\/Doc\.aspx\?/i.test(url) && !/[?&]action=embedview\b/i.test(url)) {
+    url = url + (url.includes('?') ? '&' : '?') + 'action=embedview';
+  }
+
+  // All Office Online embed URLs: add wdSlideShowDelay=0 so the deck
+  // auto-advances with its built-in per-slide timings.
+  if (!/[?&]wdSlideShowDelay=/i.test(url)) {
+    url = url + '&wdSlideShowDelay=0';
+  }
+
+  return url;
 }
 
 export default function BackgroundIframe({ url }) {
