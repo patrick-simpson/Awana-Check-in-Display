@@ -3,9 +3,7 @@
 // novice who pastes the plain file URL sees a blank frame with no
 // error, so auto-upgrade the URL here.
 //
-// wdSlideShowDelay=0 tells Office Online to advance slides using the
-// presentation's own built-in timings. Without it the viewer sits on
-// slide 1 forever even when the .pptx has timings set.
+// wdSlideShowDelay=5 tells Office Online to advance slides every 5 seconds.
 function normalizeEmbedUrl(url) {
   if (!url) return url;
 
@@ -17,7 +15,7 @@ function normalizeEmbedUrl(url) {
   // All Office Online embed URLs: add wdSlideShowDelay=0 so the deck
   // auto-advances with its built-in per-slide timings.
   if (!/[?&]wdSlideShowDelay=/i.test(url)) {
-    url = url + '&wdSlideShowDelay=0';
+    url = url + '&wdSlideShowDelay=5';
   }
 
   return url;
