@@ -4,18 +4,29 @@
 // error, so auto-upgrade the URL here.
 //
 // wdSlideShowDelay=5 tells Office Online to advance slides every 5 seconds.
+// OneDrive's embed dialog sets wdSlideShowDelay=0 when "no auto-advance" is
+// chosen, so we must replace any existing value, not merely append when absent.
+//
+// Personal OneDrive embed URLs also need em=2 to activate slideshow mode;
+// without it the viewer just shows the static document.
 function normalizeEmbedUrl(url) {
   if (!url) return url;
 
   // SharePoint Doc.aspx: must have action=embedview to load in an iframe
   if (/\/Doc\.aspx\?/i.test(url) && !/[?&]action=embedview\b/i.test(url)) {
-    url = url + (url.includes('?') ? '&' : '?') + 'action=embedview';
+    url += (url.includes('?') ? '&' : '?') + 'action=embedview';
   }
 
-  // All Office Online embed URLs: add wdSlideShowDelay=0 so the deck
-  // auto-advances with its built-in per-slide timings.
-  if (!/[?&]wdSlideShowDelay=/i.test(url)) {
-    url = url + '&wdSlideShowDelay=5';
+  // Personal OneDrive: em=2 activates slideshow/embed mode
+  if (/onedrive\.live\.com/i.test(url) && !/[?&]em=/i.test(url)) {
+    url += '&em=2';
+  }
+
+  // Force 5-second auto-advance, replacing any existing value (including 0)
+  if (/[?&]wdSlideShowDelay=/i.test(url)) {
+    url = url.replace(/([?&]wdSlideShowDelay=)[^&]*/i, '$15');
+  } else {
+    url += (url.includes('?') ? '&' : '?') + 'wdSlideShowDelay=5';
   }
 
   return url;
