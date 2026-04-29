@@ -12,6 +12,10 @@
 function normalizeEmbedUrl(url) {
   if (!url) return url;
 
+  // When users copy the src from an <iframe src="..."> HTML snippet, the &
+  // separators are HTML-escaped as &amp;. Decode them so they work as a real URL.
+  url = url.replace(/&amp;/gi, '&');
+
   // SharePoint Doc.aspx: must have action=embedview to load in an iframe
   if (/\/Doc\.aspx\?/i.test(url) && !/[?&]action=embedview\b/i.test(url)) {
     url += (url.includes('?') ? '&' : '?') + 'action=embedview';
@@ -22,7 +26,8 @@ function normalizeEmbedUrl(url) {
     url += '&em=2';
   }
 
-  // Force 5-second auto-advance, replacing any existing value (including 0)
+  // Force 5-second auto-advance, replacing any existing value (including 0,
+  // which OneDrive's embed dialog uses for "no auto-advance").
   if (/[?&]wdSlideShowDelay=/i.test(url)) {
     url = url.replace(/([?&]wdSlideShowDelay=)[^&]*/i, '$15');
   } else {
