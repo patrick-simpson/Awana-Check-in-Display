@@ -212,6 +212,14 @@ html, body, #root {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.05em;
 }
+.countdown .tomorrow-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
 
 /* ── Settings gear button + panel ──────────────────────── */
 .settings-gear {

@@ -15,9 +15,9 @@ export default function CountdownTimer({ targetTime }) {
     return () => clearInterval(interval);
   }, []);
 
-  const targetMs = resolveTarget(targetTime, now);
-  const remaining = targetMs ? targetMs - now : 0;
-  const visible = targetMs !== null && remaining > 0;
+  const result = resolveTarget(targetTime, now);
+  const remaining = result ? result.ms - now : 0;
+  const visible = result !== null && remaining > 0;
 
   return (
     <AnimatePresence>
@@ -31,6 +31,7 @@ export default function CountdownTimer({ targetTime }) {
         >
           <span className="label">Club starts in</span>
           <span className="time">{formatRemaining(remaining)}</span>
+          {result.isTomorrow && <span className="tomorrow-label">Tomorrow</span>}
         </motion.div>
       )}
     </AnimatePresence>
@@ -47,9 +48,10 @@ function resolveTarget(hhmm, now) {
 
   const d = new Date(now);
   d.setHours(hour, min, 0, 0);
+  const isTomorrow = d.getTime() <= now;
   // If we're already past today's target, count down to tomorrow's.
-  if (d.getTime() <= now) d.setDate(d.getDate() + 1);
-  return d.getTime();
+  if (isTomorrow) d.setDate(d.getDate() + 1);
+  return { ms: d.getTime(), isTomorrow };
 }
 
 function formatRemaining(ms) {

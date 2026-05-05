@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-let nextId = 1;
-
 /**
  * FIFO queue for check-in events. Shows one at a time — birthday /
  * first-timer events hold longer because their animations are richer.
@@ -13,13 +11,14 @@ export function useCheckInQueue(config) {
   const [currentEvent, setCurrentEvent] = useState(null);
   const holdTimerRef = useRef(null);
   const gapTimerRef = useRef(null);
+  const nextIdRef = useRef(1);
 
   const enqueue = useCallback((payload) => {
     if (!payload || !payload.firstName) return;
     setQueue((q) => [
       ...q,
       {
-        id: nextId++,
+        id: nextIdRef.current++,
         firstName: payload.firstName,
         club: payload.club || '',
         isBirthday: !!payload.isBirthday,
@@ -60,10 +59,19 @@ export function useCheckInQueue(config) {
     config.gapBetweenBannersMs,
   ]);
 
+  const skipCurrent = useCallback(() => {
+    clearTimeout(holdTimerRef.current);
+    setCurrentEvent(null);
+    gapTimerRef.current = setTimeout(() => {
+      gapTimerRef.current = null;
+      setQueue((q) => q.slice());
+    }, config.gapBetweenBannersMs);
+  }, [config.gapBetweenBannersMs]);
+
   useEffect(() => () => {
     clearTimeout(holdTimerRef.current);
     clearTimeout(gapTimerRef.current);
   }, []);
 
-  return { currentEvent, enqueue, pending: queue.length };
+  return { currentEvent, enqueue, skipCurrent, pending: queue.length };
 }

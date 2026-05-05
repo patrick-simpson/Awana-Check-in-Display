@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import CountdownTimer from './components/CountdownTimer.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
+import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue } from './hooks/useCheckInQueue.js';
 import { useSocket } from './hooks/useSocket.js';
 
 export default function App() {
   const { config, updateConfig, resetConfig } = useConfig();
-  const { currentEvent, enqueue } = useCheckInQueue(config);
+  const { currentEvent, enqueue, skipCurrent } = useCheckInQueue(config);
   const { status } = useSocket(config.websocketUrl, enqueue);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -51,18 +52,22 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  const simulate = useCallback((payload) => enqueue(payload), [enqueue]);
-
   return (
     <div className="stage">
       <BackgroundIframe url={config.powerpointEmbedUrl} delaySec={config.slideshowDelaySec} />
 
-      <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />
+      <ErrorBoundary eventKey={currentEvent?.id} onError={skipCurrent}>
+        <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />
+      </ErrorBoundary>
 
       <CountdownTimer targetTime={config.countdownTargetTime} />
 
       {config.showConnectionStatus && (
-        <div className={`status-dot ${status}`}>
+        <div
+          className={`status-dot ${status}`}
+          aria-live="polite"
+          aria-label={`Connection status: ${status}`}
+        >
           <span className="dot" />
           <span>{status}</span>
         </div>
@@ -88,7 +93,7 @@ export default function App() {
 
       {debugOpen && (
         <DebugPanel
-          onSimulate={simulate}
+          onSimulate={enqueue}
           onClose={() => setDebugOpen(false)}
         />
       )}

@@ -23,7 +23,12 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
   };
 
   const save = () => {
-    onChange(form);
+    onChange({
+      ...form,
+      standardDisplayMs: Math.max(2000, Math.min(20000, form.standardDisplayMs)),
+      specialDisplayMs: Math.max(3000, Math.min(25000, form.specialDisplayMs)),
+      slideshowDelaySec: Math.max(0, Math.min(120, form.slideshowDelaySec)),
+    });
     onClose();
   };
 
@@ -91,12 +96,11 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
         <div className="field">
           <label htmlFor="countdown">Club start time (24-hour)</label>
           <input
-            id="countdown" type="text" value={form.countdownTargetTime}
+            id="countdown" type="time" value={form.countdownTargetTime}
             onChange={set('countdownTargetTime')}
-            placeholder="18:30"
           />
           <span className="hint">
-            Format: <code>HH:MM</code>. Leave blank to hide the countdown.
+            Leave blank to hide the countdown.
           </span>
         </div>
 
