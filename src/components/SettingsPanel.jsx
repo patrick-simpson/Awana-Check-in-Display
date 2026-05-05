@@ -5,6 +5,7 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
     pusherAppKey: config.pusherAppKey || '',
     pusherCluster: config.pusherCluster || 'us2',
     powerpointEmbedUrl: config.powerpointEmbedUrl || '',
+    slideshowDelaySec: config.slideshowDelaySec ?? 5,
     countdownTargetTime: config.countdownTargetTime || '',
     standardDisplayMs: config.standardDisplayMs ?? 6000,
     specialDisplayMs: config.specialDisplayMs ?? 8000,
@@ -72,6 +73,18 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
           <span className="hint">
             In OneDrive, open your <code>.pptx</code> → File → Share → Embed, then paste the
             URL from the <code>&lt;iframe src="…"&gt;</code> snippet here.
+          </span>
+        </div>
+
+        <div className="field">
+          <label htmlFor="slideDelay">Slide auto-advance (seconds)</label>
+          <input
+            id="slideDelay" type="number" min="0" max="120" step="1"
+            value={form.slideshowDelaySec}
+            onChange={set('slideshowDelaySec')}
+          />
+          <span className="hint">
+            How long each slide stays on screen. 0 = let the PowerPoint file control its own timing.
           </span>
         </div>
 

@@ -3,13 +3,14 @@
 // novice who pastes the plain file URL sees a blank frame with no
 // error, so auto-upgrade the URL here.
 //
-// wdSlideShowDelay=5 tells Office Online to advance slides every 5 seconds.
-// OneDrive's embed dialog sets wdSlideShowDelay=0 when "no auto-advance" is
-// chosen, so we must replace any existing value, not merely append when absent.
-//
 // Personal OneDrive embed URLs also need em=2 to activate slideshow mode;
 // without it the viewer just shows the static document.
-function normalizeEmbedUrl(url) {
+//
+// delaySec > 0: inject/replace wdSlideShowDelay so Office Online advances
+//   slides on that interval. OneDrive's embed dialog sets wdSlideShowDelay=0
+//   for "no auto-advance", so we must replace any existing value.
+// delaySec === 0: leave wdSlideShowDelay alone — the PPTX's own timing is used.
+function normalizeEmbedUrl(url, delaySec) {
   if (!url) return url;
 
   // When users copy the src from an <iframe src="..."> HTML snippet, the &
@@ -26,18 +27,18 @@ function normalizeEmbedUrl(url) {
     url += '&em=2';
   }
 
-  // Force 5-second auto-advance, replacing any existing value (including 0,
-  // which OneDrive's embed dialog uses for "no auto-advance").
-  if (/[?&]wdSlideShowDelay=/i.test(url)) {
-    url = url.replace(/([?&]wdSlideShowDelay=)[^&]*/i, '$15');
-  } else {
-    url += (url.includes('?') ? '&' : '?') + 'wdSlideShowDelay=5';
+  if (delaySec > 0) {
+    if (/[?&]wdSlideShowDelay=/i.test(url)) {
+      url = url.replace(/([?&]wdSlideShowDelay=)[^&]*/i, `$1${delaySec}`);
+    } else {
+      url += (url.includes('?') ? '&' : '?') + `wdSlideShowDelay=${delaySec}`;
+    }
   }
 
   return url;
 }
 
-export default function BackgroundIframe({ url }) {
+export default function BackgroundIframe({ url, delaySec }) {
   if (!url) {
     return (
       <div className="background-placeholder">
@@ -55,7 +56,7 @@ export default function BackgroundIframe({ url }) {
   return (
     <iframe
       className="background-iframe"
-      src={normalizeEmbedUrl(url)}
+      src={normalizeEmbedUrl(url, delaySec)}
       title="Awana background presentation"
       allow="autoplay; fullscreen"
       allowFullScreen

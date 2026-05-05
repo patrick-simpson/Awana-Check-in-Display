@@ -21,6 +21,10 @@ const config = {
   // Leave blank to show a friendly placeholder instead.
   powerpointEmbedUrl: '',
 
+  // How many seconds between slide advances (sets wdSlideShowDelay in the embed URL).
+  // Set to 0 to let the PowerPoint file control its own slide timing.
+  slideshowDelaySec: 5,
+
   // Club start time. The corner countdown ticks down to this time today
   // (or tomorrow if today's time has already passed). 24-hour clock.
   countdownTargetTime: '18:30',
