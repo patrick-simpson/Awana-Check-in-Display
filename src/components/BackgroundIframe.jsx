@@ -26,8 +26,9 @@ function normalizeEmbedUrl(url) {
     url += '&em=2';
   }
 
-  // Enable auto-advance using the presentation's own timing
-  if (!/[?&]wdSlideShowDelay=/i.test(url)) {
+  // For SharePoint embeds: enable auto-advance using presentation timing
+  // (wdSlideShowDelay doesn't work reliably for OneDrive embeds with em=2)
+  if (/\/Doc\.aspx\?/i.test(url) && !/[?&]wdSlideShowDelay=/i.test(url)) {
     url += (url.includes('?') ? '&' : '?') + 'wdSlideShowDelay=0';
   }
 
