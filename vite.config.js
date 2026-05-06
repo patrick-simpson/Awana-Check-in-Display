@@ -9,6 +9,8 @@ export default defineConfig({
   base: './',
   server: {
     host: true,
-    port: 5173,
+    port: 3000,
   },
+  // Serve powerpoint-addon files as static assets
+  publicDir: 'powerpoint-addon',
 });
