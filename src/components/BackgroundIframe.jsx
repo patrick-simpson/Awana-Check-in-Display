@@ -60,9 +60,10 @@ export default function BackgroundIframe({ url }) {
       className="background-iframe"
       src={normalizedUrl}
       title="Awana background presentation"
-      allow="autoplay; fullscreen"
+      allow="autoplay; fullscreen; accelerometer; gyroscope; magnetometer"
       allowFullScreen
       frameBorder="0"
+      style={{ pointerEvents: 'auto' }}
     />
   );
 }
