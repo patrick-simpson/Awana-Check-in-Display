@@ -6,9 +6,9 @@
 // Personal OneDrive embed URLs need em=2 to activate slideshow mode;
 // without it the viewer just shows a static document.
 //
-// wdSlideShowDelay=0 tells Office Online to advance slides using the
-// presentation's own built-in timings. Without this parameter, Office
-// Online sits on the first slide indefinitely.
+// wdSlideShowDelay (in milliseconds) tells Office Online to advance slides.
+// Default is 5000ms (5 seconds). Without this parameter, slides won't
+// auto-advance on OneDrive embeds.
 function normalizeEmbedUrl(url) {
   if (!url) return url;
 
@@ -26,9 +26,9 @@ function normalizeEmbedUrl(url) {
     url += '&em=2';
   }
 
-  // Enable auto-advance using presentation's own timing
+  // Enable auto-advance: for OneDrive, use 5-second intervals (in milliseconds)
   if (!/[?&]wdSlideShowDelay=/i.test(url)) {
-    url += (url.includes('?') ? '&' : '?') + 'wdSlideShowDelay=0';
+    url += (url.includes('?') ? '&' : '?') + 'wdSlideShowDelay=5000';
   }
 
   return url;
