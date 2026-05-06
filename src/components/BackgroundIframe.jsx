@@ -53,10 +53,12 @@ export default function BackgroundIframe({ url, delaySec }) {
       </div>
     );
   }
+  const normalizedUrl = normalizeEmbedUrl(url, delaySec);
   return (
     <iframe
+      key={normalizedUrl}
       className="background-iframe"
-      src={normalizeEmbedUrl(url, delaySec)}
+      src={normalizedUrl}
       title="Awana background presentation"
       allow="autoplay; fullscreen"
       allowFullScreen
