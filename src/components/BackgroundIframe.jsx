@@ -1,37 +1,10 @@
-// SharePoint/OneDrive "view document" URLs (Doc.aspx) refuse to render
-// inside third-party iframes unless `action=embedview` is present. A
-// novice who pastes the plain file URL sees a blank frame with no
-// error, so auto-upgrade the URL here.
-//
-// Personal OneDrive embed URLs need em=2 to activate slideshow mode;
-// without it the viewer just shows a static document.
-//
-// wdSlideShowDelay (in milliseconds) tells Office Online to advance slides.
-// Default is 5000ms (5 seconds). Without this parameter, slides won't
-// auto-advance on OneDrive embeds.
-function normalizeEmbedUrl(url) {
-  if (!url) return url;
+import PptxSlideshow from './PptxSlideshow.jsx';
 
-  // When users copy the src from an <iframe src="..."> HTML snippet, the &
-  // separators are HTML-escaped as &amp;. Decode them so they work as a real URL.
-  url = url.replace(/&amp;/gi, '&');
-
-  // SharePoint Doc.aspx: must have action=embedview to load in an iframe
-  if (/\/Doc\.aspx\?/i.test(url) && !/[?&]action=embedview\b/i.test(url)) {
-    url += (url.includes('?') ? '&' : '?') + 'action=embedview';
-  }
-
-  // Personal OneDrive: em=2 activates slideshow/embed mode
-  if (/onedrive\.live\.com/i.test(url) && !/[?&]em=/i.test(url)) {
-    url += '&em=2';
-  }
-
-  // Enable auto-advance: for OneDrive, use 5-second intervals (in milliseconds)
-  if (!/[?&]wdSlideShowDelay=/i.test(url)) {
-    url += (url.includes('?') ? '&' : '?') + 'wdSlideShowDelay=5000';
-  }
-
-  return url;
+// Detect if URL is a OneDrive presentation URL
+function isOneDrivePptx(url) {
+  if (!url) return false;
+  // Match OneDrive URLs with .pptx
+  return /onedrive|1drv\.ms/i.test(url) && /\.pptx|\/p\/|presentation/i.test(url);
 }
 
 export default function BackgroundIframe({ url }) {
@@ -49,21 +22,25 @@ export default function BackgroundIframe({ url }) {
       </div>
     );
   }
-  const normalizedUrl = normalizeEmbedUrl(url);
-  console.log('BackgroundIframe URL:', url);
-  console.log('BackgroundIframe normalized:', normalizedUrl);
-  if (typeof window !== 'undefined') {
-    window.__debugIframeUrl = normalizedUrl;
+
+  // Use local slideshow for OneDrive PPTX
+  if (isOneDrivePptx(url)) {
+    return (
+      <div className="background-iframe">
+        <PptxSlideshow url={url} />
+      </div>
+    );
   }
+
+  // Fallback to iframe for other content (SharePoint, etc.)
   return (
     <iframe
       className="background-iframe"
-      src={normalizedUrl}
+      src={url}
       title="Awana background presentation"
-      allow="autoplay; fullscreen; accelerometer; gyroscope; magnetometer"
+      allow="autoplay; fullscreen"
       allowFullScreen
       frameBorder="0"
-      style={{ pointerEvents: 'auto' }}
     />
   );
 }
