@@ -50,7 +50,11 @@ export default function BackgroundIframe({ url }) {
     );
   }
   const normalizedUrl = normalizeEmbedUrl(url);
-  console.log('BackgroundIframe normalized URL:', normalizedUrl);
+  console.log('BackgroundIframe URL:', url);
+  console.log('BackgroundIframe normalized:', normalizedUrl);
+  if (typeof window !== 'undefined') {
+    window.__debugIframeUrl = normalizedUrl;
+  }
   return (
     <iframe
       className="background-iframe"
