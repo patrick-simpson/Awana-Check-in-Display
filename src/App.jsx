@@ -54,7 +54,7 @@ export default function App() {
 
   return (
     <div className="stage">
-      <BackgroundIframe url={config.powerpointEmbedUrl} delaySec={config.slideshowDelaySec} />
+      <BackgroundIframe url={config.powerpointEmbedUrl} />
 
       <ErrorBoundary eventKey={currentEvent?.id} onError={skipCurrent}>
         <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />

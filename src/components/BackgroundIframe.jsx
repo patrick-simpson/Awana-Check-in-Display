@@ -3,15 +3,13 @@
 // novice who pastes the plain file URL sees a blank frame with no
 // error, so auto-upgrade the URL here.
 //
-// Personal OneDrive embed URLs also need em=2 to activate slideshow mode;
-// without it the viewer just shows the static document.
+// Personal OneDrive embed URLs need em=2 to activate slideshow mode;
+// without it the viewer just shows a static document.
 //
-// delaySec > 0: inject/replace wdSlideShowDelay (in milliseconds) so Office
-//   Online advances slides on that interval. OneDrive's embed dialog sets
-//   wdSlideShowDelay=0 for "no auto-advance", so we must replace any existing
-//   value.
-// delaySec === 0: leave wdSlideShowDelay alone — the PPTX's own timing is used.
-function normalizeEmbedUrl(url, delaySec) {
+// wdSlideShowDelay=0 tells Office Online to advance slides using the
+// presentation's own built-in timings. Without this parameter, Office
+// Online sits on the first slide indefinitely.
+function normalizeEmbedUrl(url) {
   if (!url) return url;
 
   // When users copy the src from an <iframe src="..."> HTML snippet, the &
@@ -28,19 +26,15 @@ function normalizeEmbedUrl(url, delaySec) {
     url += '&em=2';
   }
 
-  if (delaySec > 0) {
-    const delayMs = delaySec * 1000;
-    if (/[?&]wdSlideShowDelay=/i.test(url)) {
-      url = url.replace(/([?&]wdSlideShowDelay=)[^&]*/i, `$1${delayMs}`);
-    } else {
-      url += (url.includes('?') ? '&' : '?') + `wdSlideShowDelay=${delayMs}`;
-    }
+  // Enable auto-advance using the presentation's own timing
+  if (!/[?&]wdSlideShowDelay=/i.test(url)) {
+    url += (url.includes('?') ? '&' : '?') + 'wdSlideShowDelay=0';
   }
 
   return url;
 }
 
-export default function BackgroundIframe({ url, delaySec }) {
+export default function BackgroundIframe({ url }) {
   if (!url) {
     return (
       <div className="background-placeholder">
@@ -55,10 +49,9 @@ export default function BackgroundIframe({ url, delaySec }) {
       </div>
     );
   }
-  const normalizedUrl = normalizeEmbedUrl(url, delaySec);
+  const normalizedUrl = normalizeEmbedUrl(url);
   return (
     <iframe
-      key={normalizedUrl}
       className="background-iframe"
       src={normalizedUrl}
       title="Awana background presentation"
