@@ -1,13 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { fireFirstTimer } from '../lib/confetti.js';
 import { playFirstTimerChime } from '../lib/audio.js';
 
 export default function FirstTimerBanner({ event, audioEnabled }) {
+  // Read audio state through a ref so toggling sound mid-banner doesn't
+  // re-fire the confetti effect.
+  const audioRef = useRef(audioEnabled);
+  useEffect(() => { audioRef.current = audioEnabled; }, [audioEnabled]);
+
   useEffect(() => {
     fireFirstTimer();
-    if (audioEnabled) playFirstTimerChime();
-  }, [event.id, audioEnabled]);
+    if (audioRef.current) playFirstTimerChime();
+  }, [event.id]);
 
   return (
     <motion.div

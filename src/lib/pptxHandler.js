@@ -34,72 +34,72 @@ export async function downloadPptx(url) {
   const downloadUrl = convertToDownloadUrl(url);
   if (!downloadUrl) throw new Error('Invalid OneDrive URL');
 
-  try {
-    const response = await fetch(downloadUrl);
-    if (!response.ok) throw new Error(`Failed to download: ${response.status}`);
-    return await response.blob();
-  } catch (err) {
-    console.error('PPTX download error:', err);
-    throw err;
-  }
+  const response = await fetch(downloadUrl);
+  if (!response.ok) throw new Error(`Failed to download presentation: HTTP ${response.status}`);
+  return await response.blob();
+}
+
+async function readZipText(zip, path) {
+  const file = zip.file(path);
+  if (!file) throw new Error(`Presentation is missing ${path} — not a valid .pptx?`);
+  return file.async('text');
 }
 
 /**
  * Parse PPTX blob and extract slides with timing info
  */
 export async function parsePptx(blob) {
-  try {
-    const zip = await JSZip.loadAsync(blob);
+  const zip = await JSZip.loadAsync(blob);
 
-    // Get presentation.xml to find slide list
-    const presXml = await zip.file('ppt/presentation.xml').async('text');
-    const presDoc = new DOMParser().parseFromString(presXml, 'text/xml');
+  // Get presentation.xml to find slide list
+  const presXml = await readZipText(zip, 'ppt/presentation.xml');
+  const presDoc = new DOMParser().parseFromString(presXml, 'text/xml');
 
-    // Get slide IDs
-    const slideIds = Array.from(
-      presDoc.querySelectorAll('p\\:sldId, sldId')
-    ).map(el => ({
-      id: el.getAttribute('id'),
-      rid: el.getAttribute('r:id') || el.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id')
-    }));
+  // Get slide IDs
+  const slideIds = Array.from(
+    presDoc.querySelectorAll('p\\:sldId, sldId')
+  ).map(el => ({
+    id: el.getAttribute('id'),
+    rid: el.getAttribute('r:id') || el.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id')
+  }));
 
-    // Get slide file names from relationships
-    const relsXml = await zip.file('ppt/_rels/presentation.xml.rels').async('text');
-    const relsDoc = new DOMParser().parseFromString(relsXml, 'text/xml');
+  // Get slide file names from relationships
+  const relsXml = await readZipText(zip, 'ppt/_rels/presentation.xml.rels');
+  const relsDoc = new DOMParser().parseFromString(relsXml, 'text/xml');
 
-    const slideMap = {};
-    relsDoc.querySelectorAll('Relationship').forEach(rel => {
-      if (rel.getAttribute('Type').includes('slide')) {
-        slideMap[rel.getAttribute('Id')] = rel.getAttribute('Target');
-      }
-    });
-
-    // Parse each slide
-    const slides = [];
-    for (const slideId of slideIds) {
-      const slidePath = `ppt/${slideMap[slideId.rid]}`;
-      const slideXml = await zip.file(slidePath).async('text');
-      const slideDoc = new DOMParser().parseFromString(slideXml, 'text/xml');
-
-      // Extract timing
-      const timing = extractTiming(slideDoc);
-
-      slides.push({
-        id: slideId.id,
-        duration: timing.duration,
-        path: slidePath,
-        xml: slideXml
-      });
+  const slideMap = {};
+  relsDoc.querySelectorAll('Relationship').forEach(rel => {
+    // Match the slide relationship type exactly — "slideLayout" and
+    // "slideMaster" relationship types also contain the word "slide".
+    if (/\/relationships\/slide$/.test(rel.getAttribute('Type') || '')) {
+      slideMap[rel.getAttribute('Id')] = rel.getAttribute('Target');
     }
+  });
 
-    return {
-      slides,
-      zip
-    };
-  } catch (err) {
-    console.error('PPTX parse error:', err);
-    throw err;
+  // Parse each slide
+  const slides = [];
+  for (const slideId of slideIds) {
+    const target = slideMap[slideId.rid];
+    if (!target) continue; // dangling relationship id — skip rather than crash
+    const slidePath = `ppt/${target.replace(/^\//, '').replace(/^ppt\//, '')}`;
+    const slideXml = await readZipText(zip, slidePath);
+    const slideDoc = new DOMParser().parseFromString(slideXml, 'text/xml');
+
+    // Extract timing
+    const timing = extractTiming(slideDoc);
+
+    slides.push({
+      id: slideId.id,
+      duration: timing.duration,
+      path: slidePath,
+      xml: slideXml
+    });
   }
+
+  return {
+    slides,
+    zip
+  };
 }
 
 /**

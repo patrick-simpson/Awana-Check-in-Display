@@ -1,27 +1,45 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { fireBirthday } from '../lib/confetti.js';
 import { playBirthdayChime } from '../lib/audio.js';
 
 const GIFTS = ['🎁', '🎈', '🎉', '🎊', '⭐'];
 
+// Small deterministic PRNG (mulberry32). Seeding it with the event id
+// keeps render pure — the same event always yields the same gift layout,
+// while different events still get fresh-looking randomness.
+function seededRandom(seed) {
+  let t = (seed * 2654435761) >>> 0;
+  return () => {
+    t += 0x6D2B79F5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export default function BirthdayBanner({ event, audioEnabled }) {
+  // Read audio state through a ref so toggling sound mid-banner doesn't
+  // re-fire the confetti effect.
+  const audioRef = useRef(audioEnabled);
+  useEffect(() => { audioRef.current = audioEnabled; }, [audioEnabled]);
+
   useEffect(() => {
     fireBirthday();
-    if (audioEnabled) playBirthdayChime();
-  }, [event.id, audioEnabled]);
+    if (audioRef.current) playBirthdayChime();
+  }, [event.id]);
 
   // Pre-compute the falling gift positions so they don't reshuffle every render.
-  const gifts = useMemo(
-    () => Array.from({ length: 18 }, (_, i) => ({
+  const gifts = useMemo(() => {
+    const rand = seededRandom(event.id);
+    return Array.from({ length: 18 }, (_, i) => ({
       emoji: GIFTS[i % GIFTS.length],
-      left: Math.random() * 100,
-      delay: Math.random() * 1.5,
-      duration: 4 + Math.random() * 3,
-      rotation: Math.random() * 360,
-    })),
-    [event.id],
-  );
+      left: rand() * 100,
+      delay: rand() * 1.5,
+      duration: 4 + rand() * 3,
+      rotation: rand() * 360,
+    }));
+  }, [event.id]);
 
   return (
     <>

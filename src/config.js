@@ -25,6 +25,12 @@ const config = {
   // Set to 0 to let the PowerPoint file control its own slide timing.
   slideshowDelaySec: 5,
 
+  // EXPERIMENTAL: download the .pptx from OneDrive and drive slide timing
+  // locally instead of using the Office Online iframe. Slide rendering is
+  // not implemented yet, so leave this off for real club nights — if it
+  // fails the app falls back to the iframe embed automatically.
+  useLocalSlideshow: false,
+
   // Club start time. The corner countdown ticks down to this time today
   // (or tomorrow if today's time has already passed). 24-hour clock.
   countdownTargetTime: '18:30',

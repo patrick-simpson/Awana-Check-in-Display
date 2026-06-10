@@ -20,7 +20,7 @@ The add-in files will be served at `http://localhost:3000/powerpoint-addon/`
 
 1. Open PowerPoint on Windows
 2. Go to **Insert** → **Get Add-ins** → **My Add-ins** → **Upload My Add-in**
-3. Click **Browse** and select the file: `powerpoint-addon/manifest.xml`
+3. Click **Browse** and select the file: `public/powerpoint-addon/manifest.xml`
 4. Click **Upload**
 5. PowerPoint will install the add-in (you may see a security prompt)
 

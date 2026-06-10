@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 // Relative asset paths so the build works at any URL — local preview,
@@ -11,6 +11,10 @@ export default defineConfig({
     host: true,
     port: 3000,
   },
-  // Serve powerpoint-addon files as static assets
-  publicDir: 'powerpoint-addon',
+  // The default public/ dir holds the favicon plus the PowerPoint add-in
+  // under public/powerpoint-addon/, matching the /powerpoint-addon/…
+  // URLs in the add-in manifest.
+  test: {
+    environment: 'jsdom',
+  },
 });

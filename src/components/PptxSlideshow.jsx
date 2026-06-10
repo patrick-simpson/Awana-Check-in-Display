@@ -1,87 +1,69 @@
 import { useEffect, useState } from 'react';
 import { downloadPptx, parsePptx } from '../lib/pptxHandler.js';
 
-export default function PptxSlideshow({ url }) {
-  const [slides, setSlides] = useState([]);
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+/**
+ * Experimental: downloads the .pptx from OneDrive and drives slide
+ * timing locally. Slide rendering isn't implemented yet, so this is
+ * opt-in (config.useLocalSlideshow) and renders `fallback` — normally
+ * the Office Online iframe embed — whenever the deck can't be
+ * downloaded or parsed, so the signage screen never shows an error.
+ */
+export default function PptxSlideshow({ url, fallback = null }) {
+  // Keyed by URL so switching decks shows "loading" again without any
+  // synchronous state resets inside the effect.
+  const [result, setResult] = useState({ url: null, status: 'loading', slides: [] });
 
-  // Download and parse PPTX on mount or when URL changes
   useEffect(() => {
-    if (!url) {
-      setError('No URL provided');
-      setLoading(false);
-      return;
-    }
+    let cancelled = false;
 
     (async () => {
       try {
-        setLoading(true);
-        setError(null);
-
-        console.log('Downloading PPTX from:', url);
         const blob = await downloadPptx(url);
-        console.log('Downloaded, parsing...');
-
-        const { slides: parsedSlides } = await parsePptx(blob);
-        console.log('Parsed slides:', parsedSlides.length);
-
-        setSlides(parsedSlides);
-        setCurrentSlideIndex(0);
+        const { slides } = await parsePptx(blob);
+        if (slides.length === 0) throw new Error('No slides found in presentation');
+        if (!cancelled) setResult({ url, status: 'ready', slides });
       } catch (err) {
-        console.error('Error:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+        console.error('PptxSlideshow falling back to iframe embed:', err);
+        if (!cancelled) setResult({ url, status: 'failed', slides: [] });
       }
     })();
+
+    return () => { cancelled = true; };
   }, [url]);
 
-  // Auto-advance slides
+  const { status, slides } = result.url === url ? result : { status: 'loading', slides: [] };
+
+  if (status === 'failed') return fallback;
+
+  if (status === 'loading') {
+    return (
+      <div className="background-iframe" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+        Loading presentation…
+      </div>
+    );
+  }
+
+  return <SlideshowView key={url} slides={slides} />;
+}
+
+function SlideshowView({ slides }) {
+  const [index, setIndex] = useState(0);
+
+  // Auto-advance slides.
   useEffect(() => {
-    if (slides.length === 0) return;
-
-    const currentSlide = slides[currentSlideIndex];
-    const duration = currentSlide.duration || 5000;
-
+    const duration = slides[index]?.duration || 5000;
     const timer = setTimeout(() => {
-      setCurrentSlideIndex((prev) => (prev + 1) % slides.length);
+      setIndex((prev) => (prev + 1) % slides.length);
     }, duration);
-
     return () => clearTimeout(timer);
-  }, [slides, currentSlideIndex]);
+  }, [slides, index]);
 
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'white' }}>
-        Loading presentation...
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'red' }}>
-        Error: {error}
-      </div>
-    );
-  }
-
-  if (slides.length === 0) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'white' }}>
-        No slides found
-      </div>
-    );
-  }
-
-  const currentSlide = slides[currentSlideIndex];
+  const currentSlide = slides[index];
 
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+    <div className="background-iframe" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
       <div style={{ color: 'white', fontSize: '24px', marginBottom: '20px' }}>
-        Slide {currentSlideIndex + 1} of {slides.length}
+        Slide {index + 1} of {slides.length}
       </div>
       <div style={{ color: 'white', fontSize: '16px' }}>
         Duration: {(currentSlide.duration / 1000).toFixed(1)}s

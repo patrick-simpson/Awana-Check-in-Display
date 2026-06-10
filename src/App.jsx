@@ -12,7 +12,7 @@ import { useSocket } from './hooks/useSocket.js';
 export default function App() {
   const { config, updateConfig, resetConfig } = useConfig();
   const { currentEvent, enqueue, skipCurrent } = useCheckInQueue(config);
-  const { status } = useSocket(config.websocketUrl, enqueue);
+  const { status } = useSocket(enqueue);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
@@ -54,7 +54,11 @@ export default function App() {
 
   return (
     <div className="stage">
-      <BackgroundIframe url={config.powerpointEmbedUrl} />
+      <BackgroundIframe
+        url={config.powerpointEmbedUrl}
+        slideshowDelaySec={config.slideshowDelaySec}
+        useLocalSlideshow={config.useLocalSlideshow}
+      />
 
       <ErrorBoundary eventKey={currentEvent?.id} onError={skipCurrent}>
         <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />

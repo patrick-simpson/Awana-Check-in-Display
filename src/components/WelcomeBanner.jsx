@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { getClubPalette } from '../lib/clubs.js';
 import { fireStandard } from '../lib/confetti.js';
@@ -7,10 +7,15 @@ import { playChime } from '../lib/audio.js';
 export default function WelcomeBanner({ event, audioEnabled }) {
   const palette = getClubPalette(event.club);
 
+  // Read audio state through a ref so toggling sound mid-banner doesn't
+  // re-fire the confetti effect.
+  const audioRef = useRef(audioEnabled);
+  useEffect(() => { audioRef.current = audioEnabled; }, [audioEnabled]);
+
   useEffect(() => {
     fireStandard(palette.confetti);
-    if (audioEnabled) playChime();
-  }, [event.id, palette.confetti, audioEnabled]);
+    if (audioRef.current) playChime();
+  }, [event.id, palette.confetti]);
 
   return (
     <motion.div

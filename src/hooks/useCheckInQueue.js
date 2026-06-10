@@ -37,9 +37,12 @@ export function useCheckInQueue(config) {
     setQueue(rest);
     setCurrentEvent(next);
 
-    const hold = next.isBirthday || next.isFirstTimer
+    const configured = next.isBirthday || next.isFirstTimer
       ? config.specialDisplayMs
       : config.standardDisplayMs;
+    // Guard against bad config so a banner never flashes (NaN/0 timeout)
+    // or sticks forever.
+    const hold = Number.isFinite(configured) && configured > 0 ? configured : 6000;
 
     clearTimeout(holdTimerRef.current);
     holdTimerRef.current = setTimeout(() => {
@@ -61,6 +64,7 @@ export function useCheckInQueue(config) {
 
   const skipCurrent = useCallback(() => {
     clearTimeout(holdTimerRef.current);
+    clearTimeout(gapTimerRef.current);
     setCurrentEvent(null);
     gapTimerRef.current = setTimeout(() => {
       gapTimerRef.current = null;

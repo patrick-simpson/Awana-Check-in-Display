@@ -3,10 +3,42 @@ import defaults from '../config.js';
 
 const STORAGE_KEY = 'awanaConfig.v1';
 
+// Per-key validators for override values coming back out of
+// localStorage. Anything that fails its check is dropped so a corrupt
+// or stale entry (e.g. a string where a number belongs) can never
+// produce NaN timers or a broken screen on club night.
+const isBool = (v) => typeof v === 'boolean';
+const isString = (v) => typeof v === 'string';
+const numberBetween = (min, max) => (v) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+
+const VALIDATORS = {
+  pusherAppKey: isString,
+  pusherCluster: isString,
+  powerpointEmbedUrl: isString,
+  slideshowDelaySec: numberBetween(0, 600),
+  useLocalSlideshow: isBool,
+  countdownTargetTime: isString,
+  standardDisplayMs: numberBetween(1000, 60000),
+  specialDisplayMs: numberBetween(1000, 60000),
+  gapBetweenBannersMs: numberBetween(0, 10000),
+  audioMuted: isBool,
+  showConnectionStatus: isBool,
+};
+
+export function sanitizeOverrides(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const clean = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const valid = VALIDATORS[key];
+    if (valid && valid(value)) clean[key] = value;
+  }
+  return clean;
+}
+
 function loadOverrides() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    return raw ? sanitizeOverrides(JSON.parse(raw)) : {};
   } catch {
     return {};
   }
@@ -44,7 +76,7 @@ export function useConfig() {
 
   const updateConfig = useCallback((patch) => {
     setOverrides((prev) => {
-      const next = { ...prev, ...patch };
+      const next = sanitizeOverrides({ ...prev, ...patch });
       saveOverrides(next);
       return next;
     });

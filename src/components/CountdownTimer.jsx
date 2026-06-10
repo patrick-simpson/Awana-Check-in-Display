@@ -38,7 +38,7 @@ export default function CountdownTimer({ targetTime }) {
   );
 }
 
-function resolveTarget(hhmm, now) {
+export function resolveTarget(hhmm, now) {
   if (!hhmm || typeof hhmm !== 'string') return null;
   const match = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
   if (!match) return null;
@@ -54,7 +54,7 @@ function resolveTarget(hhmm, now) {
   return { ms: d.getTime(), isTomorrow };
 }
 
-function formatRemaining(ms) {
+export function formatRemaining(ms) {
   const total = Math.max(0, Math.ceil(ms / 1000));
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);

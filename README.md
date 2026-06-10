@@ -149,7 +149,14 @@ npm install
 npm run dev
 ```
 
-Then open http://localhost:5173/.
+Then open http://localhost:3000/.
+
+Quality checks (these also run in CI and gate every deploy):
+
+```bash
+npm run lint   # ESLint (includes React hooks rules)
+npm test       # Vitest unit tests
+```
 
 ---
 
