@@ -39,7 +39,10 @@ export function useSocket(onCheckIn) {
     };
   }, [enabled, pusherAppKey, pusherCluster]);
 
-  return { status: enabled ? socketStatus : 'disconnected' };
+  // 'off' (not configured) is distinct from 'disconnected' (configured
+  // but the pipe is down) so the UI can warn about the latter without
+  // nagging brand-new installs.
+  return { status: enabled ? socketStatus : 'off' };
 }
 
 // PRIVACY INVARIANT — DO NOT relax. Every incoming payload is reduced

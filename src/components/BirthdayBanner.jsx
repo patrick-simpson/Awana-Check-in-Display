@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { fireBirthday } from '../lib/confetti.js';
 import { playBirthdayChime } from '../lib/audio.js';
+import Doodles from './Doodles.jsx';
 
 const GIFTS = ['🎁', '🎈', '🎉', '🎊', '⭐'];
 
@@ -71,6 +72,7 @@ export default function BirthdayBanner({ event, audioEnabled }) {
         }}
         exit={{ opacity: 0, scale: 0.7, transition: { duration: 0.4 } }}
       >
+        <Doodles />
         <motion.span
           className="cake"
           aria-hidden
@@ -81,6 +83,7 @@ export default function BirthdayBanner({ event, audioEnabled }) {
         </motion.span>
         <span className="eyebrow">Happy Birthday</span>
         <h1>{event.firstName}!</h1>
+        <span className="tagline">Hip hip hooray — it&rsquo;s your special day!</span>
       </motion.div>
     </>
   );

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useCheckInQueue } from './useCheckInQueue.js';
+import { useCheckInQueue, effectiveHoldMs } from './useCheckInQueue.js';
 
 const config = {
   standardDisplayMs: 6000,
@@ -66,6 +66,24 @@ describe('useCheckInQueue', () => {
     expect(result.current.currentEvent).toBeNull();
     act(() => vi.advanceTimersByTime(400));
     expect(result.current.currentEvent.firstName).toBe('Emma');
+  });
+
+  it('shortens banners during a check-in rush so the queue drains', () => {
+    const { result } = renderHook(() => useCheckInQueue(config));
+
+    act(() => {
+      for (let i = 0; i < 10; i++) {
+        result.current.enqueue({ firstName: `Kid${i}` });
+      }
+    });
+    expect(result.current.currentEvent.firstName).toBe('Kid0');
+
+    // 9 waiting → hold is compressed well below the configured 6s.
+    const hold = effectiveHoldMs(6000, 9);
+    act(() => vi.advanceTimersByTime(hold - 1));
+    expect(result.current.currentEvent?.firstName).toBe('Kid0');
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current.currentEvent).toBeNull();
   });
 
   it('survives broken duration config without flashing banners', () => {

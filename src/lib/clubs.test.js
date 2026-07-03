@@ -20,4 +20,18 @@ describe('getClubPalette', () => {
       expect(getClubPalette(club), `palette for ${club}`).not.toBe(fallback);
     }
   });
+
+  it('resolves common alternate spellings to the same club', () => {
+    expect(getClubPalette('Truth & Training')).toBe(getClubPalette('T&T'));
+    expect(getClubPalette('TNT')).toBe(getClubPalette('t&t'));
+    expect(getClubPalette('Cubbie')).toBe(getClubPalette('Cubbies'));
+  });
+
+  it('carries catalog identity data for on-screen display', () => {
+    const sparks = getClubPalette('Sparks');
+    expect(sparks.name).toBe('Sparks');
+    expect(sparks.ages).toBe('Grades K–2');
+    expect(sparks.tagline).toBeTruthy();
+    expect(sparks.confetti.length).toBeGreaterThan(1);
+  });
 });

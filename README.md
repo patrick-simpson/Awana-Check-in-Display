@@ -1,12 +1,14 @@
 # Awana Check-in Display
 
-A joyful welcome screen for your Awana club. Runs full-screen on a TV or projector, loops your PowerPoint in the background, and reacts to each child's check-in with a celebratory banner, confetti, and an optional chime.
+A joyful welcome screen for your Awana club, styled after the official Awana Clubs catalog — chunky rounded type, sparkle doodles, wavy shapes and warm orange gradients. Runs full-screen on a TV or projector, loops your PowerPoint in the background, and reacts to each child's check-in with a celebratory banner, confetti, and an optional chime.
 
-- **Dynamic club theming** — Cubbies banners are blue, Sparks red, T&T green, and so on.
+- **Catalog-true club theming** — every banner uses the club's real color, age range, and tagline (Sparks red with "Grades K–2", Cubbies royal blue with "Ages 3–5", and so on).
 - **Birthday mode** — falling gifts, fireworks, and "Happy Birthday, [Name]!"
-- **First-timer mode** — a special "Welcome to Awana, [Name]!" moment.
-- **Queueing** — if five kids scan at once, each gets their own moment in turn.
+- **First-timer mode** — a special "Welcome to Awana Clubs, [Name]!" moment.
+- **Queueing with burst mode** — if five kids scan at once, each still gets their own moment in turn; during a big rush the display automatically shortens banners so the line at the door never outruns the screen.
+- **Tonight's tally** — an optional corner counter ("23 checked in tonight"). It stores only a number and resets itself daily.
 - **Countdown** — a polished timer in the corner until club starts.
+- **Built for signage** — keeps the screen awake during club (Screen Wake Lock), double-click anywhere for fullscreen, and if the connection drops mid-club a warning dot appears on its own.
 - **Fully serverless** — no local server to run. Your check-in system publishes events to [Pusher](https://pusher.com) and this display subscribes to them over the internet.
 
 ---
@@ -106,7 +108,7 @@ On the display PC, open it in Chrome or Edge and press <kbd>F11</kbd> for fullsc
 | ------------------------------------------------------ | -------------------------------------------- |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>          | Open the Settings panel                      |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>          | Open the Debug panel (simulate check-ins)    |
-| <kbd>F11</kbd>                                         | Toggle browser fullscreen                    |
+| <kbd>F11</kbd> or double-click                         | Toggle fullscreen                            |
 
 The Debug panel is how you test without publishing any real Pusher events — click "Standard welcome", "Birthday welcome", or "Trigger 5 simultaneous" to see the exact same animations real check-ins trigger.
 
@@ -114,16 +116,16 @@ The Debug panel is how you test without publishing any real Pusher events — cl
 
 ## Supported clubs
 
-| Club      | Color  |
-| --------- | ------ |
-| Puggles   | Purple |
-| Cubbies   | Blue   |
-| Sparks    | Red    |
-| T&T       | Green  |
-| Trek      | Orange |
-| Journey   | Teal   |
+| Club      | Color      | Shown on banner |
+| --------- | ---------- | --------------- |
+| Puggles   | Orange     | Ages 2–3        |
+| Cubbies   | Royal blue | Ages 3–5        |
+| Sparks    | Red        | Grades K–2      |
+| T&T       | Green      | Grades 3–6      |
+| Trek      | Sky blue   | Grades 6–8      |
+| Journey   | Slate      | Grades 9–12     |
 
-Unknown club names still work — they just use the default yellow palette.
+Common alternate spellings (`Truth & Training`, `TNT`, `Cubbie`, …) resolve to the right club. Unknown club names still work — they just use the default Awana-orange palette.
 
 ---
 

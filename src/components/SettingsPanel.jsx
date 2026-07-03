@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
-export default function SettingsPanel({ config, onChange, onReset, onClose }) {
+const TEST_NAMES = ['Amelia', 'Noah', 'Olivia', 'Liam', 'Emma'];
+
+export default function SettingsPanel({ config, status, onChange, onReset, onClose, onTest, onResetTally }) {
   const [form, setForm] = useState({
     pusherAppKey: config.pusherAppKey || '',
     pusherCluster: config.pusherCluster || 'us2',
@@ -11,6 +13,8 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
     specialDisplayMs: config.specialDisplayMs ?? 8000,
     audioMuted: !!config.audioMuted,
     showConnectionStatus: !!config.showConnectionStatus,
+    showTally: config.showTally !== false,
+    keepScreenAwake: config.keepScreenAwake !== false,
   });
 
   const set = (key) => (e) => {
@@ -39,10 +43,32 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
     }
   };
 
+  const sendTest = () => {
+    onTest?.({
+      firstName: TEST_NAMES[Math.floor(Math.random() * TEST_NAMES.length)],
+      club: 'Sparks',
+    });
+    onClose(); // get out of the way so the banner is visible
+  };
+
+  const statusText = {
+    connected: 'Connected — check-ins will appear instantly',
+    connecting: 'Connecting to Pusher…',
+    disconnected: 'Disconnected — check the App Key and Cluster below',
+    off: 'Not set up yet — add your Pusher App Key below',
+  }[status] || status;
+
   return (
     <div className="panel-backdrop" onClick={onClose}>
       <div className="panel" onClick={(e) => e.stopPropagation()}>
         <h2>Settings</h2>
+
+        <div className={`status-line ${status}`}>
+          <span className="dot" />
+          <span>{statusText}</span>
+        </div>
+
+        <h3 className="section">Check-in connection</h3>
 
         <div className="field">
           <label htmlFor="pkey">Pusher App Key</label>
@@ -67,6 +93,8 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
             From the same page (e.g. <code>us2</code>, <code>eu</code>, <code>ap1</code>).
           </span>
         </div>
+
+        <h3 className="section">Background &amp; countdown</h3>
 
         <div className="field">
           <label htmlFor="iframe">OneDrive PowerPoint embed URL</label>
@@ -104,6 +132,8 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
           </span>
         </div>
 
+        <h3 className="section">Banners</h3>
+
         <div className="field">
           <label htmlFor="std">Standard banner duration (ms)</label>
           <input
@@ -111,6 +141,9 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
             value={form.standardDisplayMs}
             onChange={set('standardDisplayMs')}
           />
+          <span className="hint">
+            During a big rush the display automatically shortens banners so the line never backs up.
+          </span>
         </div>
 
         <div className="field">
@@ -124,7 +157,7 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
 
         <div className="toggle">
           <div>
-            <div style={{ fontWeight: 600 }}>Sound on</div>
+            <div style={{ fontWeight: 800 }}>Sound on</div>
             <div className="hint">
               Play a short chime alongside each welcome animation.
             </div>
@@ -135,11 +168,39 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
           />
         </div>
 
+        <h3 className="section">Display</h3>
+
         <div className="toggle">
           <div>
-            <div style={{ fontWeight: 600 }}>Show connection status dot</div>
+            <div style={{ fontWeight: 800 }}>Tonight's check-in counter</div>
             <div className="hint">
-              Tiny indicator showing whether we're connected to your server.
+              A small "checked in tonight" tally in the corner. Counts only a number, resets daily.
+            </div>
+          </div>
+          <input
+            type="checkbox" checked={form.showTally}
+            onChange={set('showTally')}
+          />
+        </div>
+
+        <div className="toggle">
+          <div>
+            <div style={{ fontWeight: 800 }}>Keep screen awake</div>
+            <div className="hint">
+              Ask the browser to stop the TV/monitor from sleeping while the display is open.
+            </div>
+          </div>
+          <input
+            type="checkbox" checked={form.keepScreenAwake}
+            onChange={set('keepScreenAwake')}
+          />
+        </div>
+
+        <div className="toggle">
+          <div>
+            <div style={{ fontWeight: 800 }}>Show connection status dot</div>
+            <div className="hint">
+              Tiny corner indicator. Even when off, it appears by itself if the connection drops.
             </div>
           </div>
           <input
@@ -149,6 +210,17 @@ export default function SettingsPanel({ config, onChange, onReset, onClose }) {
         </div>
 
         <div className="actions">
+          <button className="ghost" onClick={sendTest} title="Show a sample welcome banner">
+            Preview a check-in
+          </button>
+          {onResetTally && (
+            <button
+              className="ghost"
+              onClick={() => { if (window.confirm("Reset tonight's counter to zero?")) onResetTally(); }}
+            >
+              Reset counter
+            </button>
+          )}
           <button className="danger" onClick={reset}>Reset to defaults</button>
           <button onClick={onClose}>Cancel</button>
           <button className="primary" onClick={save}>Save</button>

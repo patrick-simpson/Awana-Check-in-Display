@@ -49,8 +49,18 @@ const config = {
   audioEnabledByDefault: false,
 
   // Show a tiny "● connected" dot in the corner? Useful while setting up,
-  // distracting during club. Defaults to hidden.
+  // distracting during club. Defaults to hidden. (If the connection drops
+  // mid-club the dot appears on its own either way, so a dead pipe is
+  // never silent.)
   showConnectionStatus: false,
+
+  // Show tonight's check-in counter in the corner. Counts only a number —
+  // no names are stored — and resets automatically each day.
+  showTally: true,
+
+  // Ask the browser to keep the TV/projector screen awake while the
+  // display is open (Screen Wake Lock API; ignored where unsupported).
+  keepScreenAwake: true,
 };
 
 export default config;

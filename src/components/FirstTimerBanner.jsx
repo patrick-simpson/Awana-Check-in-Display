@@ -1,9 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { getClubPalette } from '../lib/clubs.js';
 import { fireFirstTimer } from '../lib/confetti.js';
 import { playFirstTimerChime } from '../lib/audio.js';
+import Doodles from './Doodles.jsx';
 
 export default function FirstTimerBanner({ event, audioEnabled }) {
+  const club = getClubPalette(event.club);
+
   // Read audio state through a ref so toggling sound mid-banner doesn't
   // re-fire the confetti effect.
   const audioRef = useRef(audioEnabled);
@@ -25,9 +29,16 @@ export default function FirstTimerBanner({ event, audioEnabled }) {
       exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.4 } }}
     >
       <div className="halo" aria-hidden />
-      <span className="eyebrow">Welcome to Awana</span>
+      <Doodles />
+      <span className="eyebrow">Welcome to Awana Clubs</span>
       <h1>{event.firstName}!</h1>
-      <span className="club-label">So glad you're here</span>
+      {club.name && (
+        <span className="club-chip">
+          <strong>{club.name}</strong>
+          {club.ages && <span className="chip-ages">{club.ages}</span>}
+        </span>
+      )}
+      <span className="tagline">We&rsquo;re so glad you&rsquo;re here for the very first time!</span>
     </motion.div>
   );
 }

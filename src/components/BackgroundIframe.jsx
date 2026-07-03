@@ -55,13 +55,47 @@ export default function BackgroundIframe({ url, slideshowDelaySec, useLocalSlide
   if (!url) {
     return (
       <div className="background-placeholder">
-        <div className="placeholder-card">
-          <h1>Awana Welcome Screen</h1>
-          <p>
-            Your PowerPoint will appear here once you paste a OneDrive embed URL.
-            <br />
-            Open <code>Settings</code> (gear, bottom-left) or edit <code>src/config.js</code>.
-          </p>
+        {/* Catalog-style doodles drifting in the sky. */}
+        <svg className="placeholder-doodles" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden>
+          <g fill="none" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" opacity="0.75">
+            <path d="M120 180 C160 120 210 120 250 170" />
+            <path d="M1370 210 C1400 170 1450 170 1480 205" />
+            <path d="M240 640 l0 0 M260 660" />
+            <circle cx="1300" cy="520" r="14" />
+            <circle cx="340" cy="120" r="6" fill="#ffffff" stroke="none" />
+            <circle cx="1180" cy="130" r="7" fill="#ffffff" stroke="none" />
+            <path d="M1445 420 l26 26 M1471 420 l-26 26" strokeWidth="6" />
+            <path d="M180 430 l22 22 M202 430 l-22 22" strokeWidth="5" />
+          </g>
+          <g fill="#ffffff" opacity="0.9">
+            <path d="M480 100 c3 18 13 28 31 31 c-18 3 -28 13 -31 31 c-3 -18 -13 -28 -31 -31 c18 -3 28 -13 31 -31z" />
+            <path d="M1120 620 c4 22 16 34 38 38 c-22 4 -34 16 -38 38 c-4 -22 -16 -34 -38 -38 c22 -4 34 -16 38 -38z" />
+            <path d="M200 760 c2.5 15 11 23.5 26 26 c-15 2.5 -23.5 11 -26 26 c-2.5 -15 -11 -23.5 -26 -26 c15 -2.5 23.5 -11 26 -26z" />
+            <path d="M1490 700 c3 18 13 28 31 31 c-18 3 -28 13 -31 31 c-3 -18 -13 -28 -31 -31 c18 -3 28 -13 31 -31z" />
+          </g>
+        </svg>
+
+        <div className="placeholder-copy">
+          <span className="placeholder-eyebrow">Awana Clubs</span>
+          <h1>Welcome<br />to Club Night!</h1>
+        </div>
+
+        {/* The big orange catalog wave along the bottom. */}
+        <svg className="placeholder-wave" viewBox="0 0 1600 420" preserveAspectRatio="none" aria-hidden>
+          <defs>
+            <linearGradient id="awanaWave" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="#FFB81C" />
+              <stop offset="1" stopColor="#F26B21" />
+            </linearGradient>
+          </defs>
+          <path
+            fill="url(#awanaWave)"
+            d="M0 190 C220 80 420 80 640 160 C880 250 1120 250 1330 150 C1430 105 1530 100 1600 130 L1600 420 L0 420 Z"
+          />
+        </svg>
+
+        <div className="placeholder-hint">
+          Add your looping PowerPoint in <strong>Settings</strong> (gear, bottom-left) — check-in banners work either way.
         </div>
       </div>
     );

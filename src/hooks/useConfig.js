@@ -23,6 +23,8 @@ const VALIDATORS = {
   gapBetweenBannersMs: numberBetween(0, 10000),
   audioMuted: isBool,
   showConnectionStatus: isBool,
+  showTally: isBool,
+  keepScreenAwake: isBool,
 };
 
 export function sanitizeOverrides(raw) {

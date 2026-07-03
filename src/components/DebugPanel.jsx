@@ -30,6 +30,14 @@ export default function DebugPanel({ onSimulate, onClose }) {
     }
   };
 
+  // Simulates the after-dinner carpool wave — proves burst mode keeps
+  // the queue moving when 20 kids scan in seconds.
+  const bigRush = () => {
+    for (let i = 0; i < 20; i++) {
+      onSimulate({ firstName: pick(SAMPLE_NAMES), club: pick(getAllClubs()) });
+    }
+  };
+
   const everyClub = () => {
     for (const club of getAllClubs()) {
       onSimulate({ firstName: pick(SAMPLE_NAMES), club });
@@ -43,6 +51,7 @@ export default function DebugPanel({ onSimulate, onClose }) {
       <button onClick={birthday}>Birthday welcome</button>
       <button onClick={firstTimer}>First-timer welcome</button>
       <button onClick={fiveAtOnce}>Trigger 5 simultaneous</button>
+      <button onClick={bigRush}>Trigger 20-kid rush (burst mode)</button>
       <button onClick={everyClub}>Trigger every club</button>
       <button onClick={onClose}>Close</button>
       <span className="close-hint">Toggle with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></span>
