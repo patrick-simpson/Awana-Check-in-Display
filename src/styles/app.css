@@ -30,6 +30,13 @@
 
   --font-display: 'Baloo 2 Variable', 'Baloo 2', 'Segoe UI', system-ui, sans-serif;
   --font-body: 'Nunito Variable', 'Nunito', 'Segoe UI', system-ui, sans-serif;
+  /* The catalog's second voice: bold condensed uppercase for eyebrows,
+     callouts and chrome labels (subheads like "4 THINGS EVERY SPARKS
+     KID NEEDS" pair a condensed face with the chunky display caps). */
+  --font-condensed: 'Oswald Variable', 'Oswald', 'Arial Narrow', 'Segoe UI', system-ui, sans-serif;
+
+  /* TV title-safe inset for all fixed chrome — older panels overscan. */
+  --safe-inset: max(24px, 2.5vmin);
 
   color-scheme: light;
   font-family: var(--font-body);
@@ -99,18 +106,66 @@ html, body, #root {
   height: 100%;
   animation: doodle-drift 14s ease-in-out infinite alternate;
 }
-.scene-wave {
+/* The wave renders as two layers that drift against each other (see
+   SceneWave). Oversized 3% each side so the horizontal roll never
+   exposes a gap at the edges. */
+.scene-wave-layer {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: -3%;
+  right: -3%;
+  bottom: -2%;
+  height: 44%;
+  will-change: transform;
+}
+.scene-wave-svg {
   width: 100%;
-  height: 42%;
+  height: 100%;
   display: block;
 }
 @keyframes doodle-drift {
   from { transform: translate3d(0, 0, 0); }
   to   { transform: translate3d(0, -14px, 0); }
+}
+
+/* Tone-on-tone catalog blobs breathing behind the scene. */
+.scene-blobs {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.scene-blob {
+  position: absolute;
+  will-change: transform;
+}
+.scene-blob--a {
+  width: 48%;
+  height: 62%;
+  top: 4%;
+  left: -10%;
+  border-radius: 46% 54% 58% 42% / 52% 44% 56% 48%;
+}
+.scene-blob--b {
+  width: 40%;
+  height: 52%;
+  top: 34%;
+  right: -8%;
+  border-radius: 56% 44% 48% 52% / 46% 58% 42% 54%;
+}
+
+/* Ambient sparkle "winks" — occasional tiny bursts in the idle sky. */
+.scene-winks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.scene-wink {
+  position: absolute;
+}
+.scene-wink svg {
+  position: absolute;
+  left: -9px;
+  top: -9px;
 }
 .placeholder-copy {
   position: absolute;
@@ -122,10 +177,10 @@ html, body, #root {
 }
 .placeholder-eyebrow {
   display: inline-block;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(1.1rem, 2vw, 1.6rem);
-  letter-spacing: 0.32em;
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--awana-blue);
   margin-bottom: 0.5rem;
@@ -190,10 +245,10 @@ html, body, #root {
 }
 .manual-slide-eyebrow {
   display: inline-block;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(1.1rem, 2vw, 1.6rem);
-  letter-spacing: 0.32em;
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--awana-blue);
   margin-bottom: 0.5rem;
@@ -444,12 +499,79 @@ html, body, #root {
 }
 .doodle { position: absolute; display: inline-flex; }
 
+/* Sparkles twinkling inside the band itself. */
+.band-sparkles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+/* The catalog's tone-on-tone depth: a club-accent blob drifting slowly
+   inside the band. Transform-only — never repainted. The clip wrapper
+   keeps its drift from spilling past the band edge into the crest. */
+.band-blob-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.band-blob {
+  position: absolute;
+  width: 44%;
+  height: 170%;
+  top: -30%;
+  left: 6%;
+  background: var(--club-accent, #ffffff);
+  opacity: 0.13;
+  border-radius: 46% 54% 58% 42% / 52% 44% 56% 48%;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* First-timer starburst sticker — catalog badge language. */
+.first-time-burst {
+  position: absolute;
+  top: -34%;
+  left: 5.5%;
+  width: clamp(96px, 12vw, 170px);
+  z-index: 2;
+  pointer-events: none;
+}
+.first-time-burst-inner {
+  position: relative;
+  width: 100%;
+}
+.first-time-burst svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter:
+    drop-shadow(0 4px 0 rgba(0, 0, 0, 0.12))
+    drop-shadow(0 10px 24px rgba(0, 0, 0, 0.3));
+}
+.first-time-burst span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-condensed);
+  font-size: clamp(0.95rem, 1.5vw, 1.6rem);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #fff;
+}
+
 .banner .eyebrow {
   display: block;
-  font-family: var(--font-display);
-  font-size: clamp(1rem, 1.8vw, 1.4rem);
-  font-weight: 700;
-  letter-spacing: 0.3em;
+  font-family: var(--font-condensed);
+  font-size: clamp(1.15rem, 2.1vw, 1.7rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   opacity: 0.95;
   margin-bottom: 0.25rem;
@@ -512,9 +634,11 @@ html, body, #root {
 .banner .tagline {
   display: block;
   margin-top: 0.5rem;
-  font-size: clamp(0.95rem, 1.6vw, 1.25rem);
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  font-family: var(--font-condensed);
+  font-size: clamp(1.05rem, 1.8vw, 1.45rem);
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: rgba(255, 255, 255, 0.92);
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
 }
@@ -559,8 +683,8 @@ html, body, #root {
 /* ── Countdown timer ───────────────────────────────────── */
 .countdown {
   position: absolute;
-  right: 2rem;
-  bottom: 2rem;
+  right: var(--safe-inset);
+  bottom: var(--safe-inset);
   padding: 1rem 1.9rem 1.1rem;
   min-width: 240px;
   background: var(--glass-bg);
@@ -573,11 +697,11 @@ html, body, #root {
 }
 .countdown .label {
   display: block;
-  font-family: var(--font-display);
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-family: var(--font-condensed);
+  font-size: 0.95rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.24em;
+  letter-spacing: 0.14em;
   color: var(--text-on-glass-muted);
   margin-bottom: 0.15rem;
 }
@@ -606,8 +730,8 @@ html, body, #root {
 /* ── Tonight's tally ───────────────────────────────────── */
 .tally {
   position: absolute;
-  top: 1.25rem;
-  left: 1.25rem;
+  top: var(--safe-inset);
+  left: var(--safe-inset);
   display: flex;
   align-items: baseline;
   gap: 0.6rem;
@@ -627,9 +751,10 @@ html, body, #root {
   color: #ffd257;
 }
 .tally .tally-label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-family: var(--font-condensed);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-on-glass-muted);
 }
@@ -637,8 +762,8 @@ html, body, #root {
 /* ── Settings gear button ──────────────────────────────── */
 .settings-gear {
   position: absolute;
-  left: 1.5rem;
-  bottom: 1.5rem;
+  left: var(--safe-inset);
+  bottom: var(--safe-inset);
   width: 46px;
   height: 46px;
   border-radius: 50%;
@@ -890,14 +1015,15 @@ html, body, #root {
 /* ── Connection status dot ─────────────────────────────── */
 .status-dot {
   position: absolute;
-  top: 1.25rem;
-  right: 1.25rem;
+  top: var(--safe-inset);
+  right: var(--safe-inset);
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-family: var(--font-condensed);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   color: var(--text-on-glass-muted);
   padding: 0.45rem 0.9rem;
   background: var(--glass-bg);
@@ -919,7 +1045,7 @@ html, body, #root {
 
 /* When the wall clock occupies the top-right corner, the status dot
    slides down beneath it instead of overlapping. */
-.status-dot.below-clock { top: 5.4rem; }
+.status-dot.below-clock { top: calc(var(--safe-inset) + 4.15rem); }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -929,8 +1055,8 @@ html, body, #root {
 /* ── Wall clock ────────────────────────────────────────── */
 .wall-clock {
   position: absolute;
-  top: 1.25rem;
-  right: 1.25rem;
+  top: var(--safe-inset);
+  right: var(--safe-inset);
   display: flex;
   align-items: baseline;
   gap: 0.35rem;
@@ -951,14 +1077,17 @@ html, body, #root {
   color: #fff;
 }
 .wall-clock .meridiem {
-  font-size: 0.85rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-family: var(--font-condensed);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-on-glass-muted);
 }
 
 /* ── Milestone toast ───────────────────────────────────── */
+/* Stacked like the catalog's "RECOMMENDED 2026-2027" pill: small
+   condensed line over the big display line, sparkles at the corners. */
 .milestone-toast {
   position: absolute;
   top: 8%;
@@ -967,46 +1096,59 @@ html, body, #root {
   margin-left: max(-45vw, -320px);
   width: min(90vw, 640px);
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
-  gap: 0.8rem;
-  padding: 1rem 2rem 1.15rem;
+  gap: 1.4rem;
+  padding: 1.1rem 2rem 1.3rem;
   background: linear-gradient(135deg, var(--awana-orange) 0%, var(--awana-orange-deep) 100%);
-  border-radius: 999px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-deep);
   z-index: 40;
 }
+.milestone-toast .milestone-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
 .milestone-toast .milestone-count {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4.5vw, 3.4rem);
+  font-size: clamp(2.2rem, 5vw, 3.8rem);
   font-weight: 800;
   line-height: 1;
   color: #fff;
   font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.14);
 }
 .milestone-toast .milestone-label {
-  font-family: var(--font-display);
-  font-size: clamp(1.1rem, 2.2vw, 1.7rem);
-  font-weight: 800;
-  letter-spacing: 0.04em;
+  font-family: var(--font-condensed);
+  font-size: clamp(1rem, 1.9vw, 1.4rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.92);
+}
+.milestone-toast .milestone-sparkle {
+  display: inline-flex;
+  color: #fff;
+  opacity: 0.9;
 }
 
 /* ── "More coming" queue chip ──────────────────────────── */
 .up-next {
   position: absolute;
-  top: 1.25rem;
+  top: var(--safe-inset);
   left: 50%;
   /* framer-motion animates transform, so center with margin instead */
   margin-left: -110px;
   width: 220px;
   text-align: center;
   padding: 0.5rem 0;
-  font-family: var(--font-display);
-  font-size: 0.95rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-family: var(--font-condensed);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-on-glass-muted);
   background: var(--glass-bg);

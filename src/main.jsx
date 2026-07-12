@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 // church network that blocks or throttles font hosts.
 import '@fontsource-variable/baloo-2';
 import '@fontsource-variable/nunito';
+import '@fontsource-variable/oswald';
 import App from './App.jsx';
 import './styles/app.css';
 

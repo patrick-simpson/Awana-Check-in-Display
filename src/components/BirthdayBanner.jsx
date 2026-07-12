@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { fireBirthday } from '../lib/confetti.js';
 import { playBirthdayChime } from '../lib/audio.js';
-import Doodles from './Doodles.jsx';
+import Doodles, { BandSparkles } from './Doodles.jsx';
 import AnimatedName from './AnimatedName.jsx';
 import BannerWave from './BannerWave.jsx';
 
@@ -99,18 +99,33 @@ export default function BirthdayBanner({ event, audioEnabled }) {
         exit="exit"
       >
         <BannerWave />
+        <div className="band-blob-clip" aria-hidden>
+          <motion.div
+            className="band-blob"
+            animate={{ x: [0, 28, 0], rotate: [0, 5, 0], scale: [1, 1.05, 1] }}
+            transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </div>
+        <BandSparkles />
         <Doodles />
         <div className="banner-content">
           <motion.span
             className="cake"
             aria-hidden
-            animate={{ scale: [1, 1.15, 1], rotate: [0, -5, 5, 0] }}
+            animate={{ scale: [1, 1.22, 1], rotate: [0, -7, 7, 0] }}
             transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
           >
             🎂
           </motion.span>
           <div className="banner-text">
-            <motion.span variants={item} className="eyebrow">Happy Birthday</motion.span>
+            <motion.span variants={item} className="eyebrow">
+              <motion.span
+                animate={{ opacity: [0.82, 1, 0.82] }}
+                transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                Happy Birthday
+              </motion.span>
+            </motion.span>
             <motion.h1 variants={nameStagger}>
               <AnimatedName name={`${event.firstName}!`} />
             </motion.h1>

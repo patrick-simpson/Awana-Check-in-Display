@@ -21,6 +21,7 @@ const THEME_OPTIONS = [
   { value: 'sunset', label: 'Sunset cream' },
   { value: 'night', label: 'Night blue' },
   { value: 'meadow', label: 'Meadow green' },
+  { value: 'lavender', label: 'Lavender (catalog cover)' },
 ];
 
 const SIZE_OPTIONS = [
@@ -179,7 +180,7 @@ export default function SlideEditorPanel({ config, onChange, onClose }) {
                 {isVideoSlide(slide) ? (
                   <VideoThumb videoId={slide.videoId} />
                 ) : (
-                  <CatalogScene theme={resolveTheme(slide, i)}>
+                  <CatalogScene theme={resolveTheme(slide, i)} still>
                     <div className="manual-slide-copy">
                       {slide.eyebrow ? <span className="manual-slide-eyebrow">{slide.eyebrow}</span> : null}
                       <p className={`manual-slide-text ${resolveSizeClass(slide)}`}>

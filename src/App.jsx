@@ -8,6 +8,7 @@ import SettingsPanel from './components/SettingsPanel.jsx';
 import SlideEditorPanel from './components/SlideEditorPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
+import { Mark } from './components/Doodles.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useSocket } from './hooks/useSocket.js';
@@ -177,7 +178,17 @@ export default function App() {
 
       {!overlay && config.showTally && count > 0 && (
         <div className="tally" aria-live="off">
-          <span className="tally-count">{count}</span>
+          {/* Remounting on every increment gives the number a joyful
+              little pop as each kid checks in. */}
+          <motion.span
+            key={count}
+            className="tally-count"
+            initial={{ scale: 1.45 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 16 }}
+          >
+            {count}
+          </motion.span>
           <span className="tally-label">checked in tonight</span>
         </div>
       )}
@@ -191,8 +202,27 @@ export default function App() {
             animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
             exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
           >
-            <span className="milestone-count">{milestone}</span>
-            <span className="milestone-label">kids checked in tonight!</span>
+            {/* Corner sparkles twinkle for the whole time the toast is up. */}
+            <motion.span
+              className="milestone-sparkle milestone-sparkle--left"
+              aria-hidden
+              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8], rotate: [0, 16, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Mark kind="sparkle" size={30} />
+            </motion.span>
+            <div className="milestone-lines">
+              <span className="milestone-label">Checked in tonight</span>
+              <span className="milestone-count">{milestone} kids!</span>
+            </div>
+            <motion.span
+              className="milestone-sparkle milestone-sparkle--right"
+              aria-hidden
+              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8], rotate: [0, -16, 0] }}
+              transition={{ duration: 2.2, delay: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Mark kind="sparkle" size={36} />
+            </motion.span>
           </motion.div>
         )}
       </AnimatePresence>

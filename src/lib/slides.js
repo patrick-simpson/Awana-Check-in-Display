@@ -24,7 +24,7 @@
 //           long with the video looping underneath
 // ─────────────────────────────────────────────────────────────
 
-export const SLIDE_THEMES = ['sky', 'sunset', 'night', 'meadow'];
+export const SLIDE_THEMES = ['sky', 'sunset', 'night', 'meadow', 'lavender'];
 export const TEXT_SIZES = ['auto', 'xl', 'lg', 'md'];
 export const MAX_SLIDES = 50;
 export const MAX_TEXT = 500;

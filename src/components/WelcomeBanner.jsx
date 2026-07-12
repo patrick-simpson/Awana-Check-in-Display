@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { getClubPalette } from '../lib/clubs.js';
 import { fireStandard } from '../lib/confetti.js';
 import { playChime } from '../lib/audio.js';
-import Doodles from './Doodles.jsx';
+import Doodles, { BandSparkles } from './Doodles.jsx';
 import AnimatedName from './AnimatedName.jsx';
 import ClubBadge from './ClubBadge.jsx';
 import BannerWave from './BannerWave.jsx';
@@ -63,10 +63,27 @@ export default function WelcomeBanner({ event, audioEnabled }) {
       exit="exit"
     >
       <BannerWave />
+      {/* A soft club-accent blob drifting inside the band — the catalog's
+          tone-on-tone depth — plus sparkles glittering in the color. */}
+      <div className="band-blob-clip" aria-hidden>
+        <motion.div
+          className="band-blob"
+          animate={{ x: [0, 28, 0], rotate: [0, 5, 0], scale: [1, 1.05, 1] }}
+          transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </div>
+      <BandSparkles />
       <Doodles />
       <div className="banner-content">
         <div className="banner-text">
-          <motion.span variants={item} className="eyebrow">Welcome</motion.span>
+          <motion.span variants={item} className="eyebrow">
+            <motion.span
+              animate={{ opacity: [0.82, 1, 0.82] }}
+              transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              Welcome
+            </motion.span>
+          </motion.span>
           <motion.h1 variants={nameStagger}>
             <AnimatedName name={`${event.firstName}!`} />
           </motion.h1>

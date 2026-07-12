@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import PptxSlideshow from './PptxSlideshow.jsx';
 import ManualSlideshow from './ManualSlideshow.jsx';
 import CatalogScene from './CatalogScene.jsx';
@@ -66,8 +67,22 @@ export default function BackgroundIframe({ url, slideshowDelaySec, useLocalSlide
       <div className="background-placeholder">
         <CatalogScene theme="sky">
           <div className="placeholder-copy">
-            <span className="placeholder-eyebrow">Awana Clubs</span>
-            <h1>Welcome<br />to Club Night!</h1>
+            {/* Gentle shimmer + breath keep the welcome screen feeling
+                alive between check-ins; both loops are subtle enough to
+                read as "glow", not "blink". */}
+            <motion.span
+              className="placeholder-eyebrow"
+              animate={{ opacity: [0.75, 1, 0.75] }}
+              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              Awana Clubs
+            </motion.span>
+            <motion.h1
+              animate={{ scale: [1, 1.02, 1] }}
+              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              Welcome<br />to Club Night!
+            </motion.h1>
           </div>
           <div className="placeholder-hint">
             Add a looping PowerPoint or free-type your own slides in <strong>Settings</strong> (gear,
