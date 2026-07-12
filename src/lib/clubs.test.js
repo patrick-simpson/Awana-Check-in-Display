@@ -30,8 +30,17 @@ describe('getClubPalette', () => {
   it('carries catalog identity data for on-screen display', () => {
     const sparks = getClubPalette('Sparks');
     expect(sparks.name).toBe('Sparks');
-    expect(sparks.ages).toBe('Grades K–2');
-    expect(sparks.tagline).toBeTruthy();
     expect(sparks.confetti.length).toBeGreaterThan(1);
+    // Official catalog logos for the four clubs that have them; Trek and
+    // Journey fall back to a styled text pill (logo: null).
+    expect(sparks.logo).toBeTruthy();
+    expect(getClubPalette('Trek').logo).toBeNull();
+  });
+
+  it('no longer carries taglines or age ranges — banners show titles only', () => {
+    for (const club of getAllClubs()) {
+      expect(getClubPalette(club).tagline).toBeUndefined();
+      expect(getClubPalette(club).ages).toBeUndefined();
+    }
   });
 });

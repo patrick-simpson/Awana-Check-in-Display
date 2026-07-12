@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import CountdownTimer from './components/CountdownTimer.jsx';
@@ -142,6 +142,10 @@ export default function App() {
   }, [overlay]);
 
   return (
+    // reducedMotion="user" makes framer-motion honor the OS setting for
+    // every transform animation (the CSS media query and canvas-confetti
+    // already do); opacity fades remain so banners still appear.
+    <MotionConfig reducedMotion="user">
     <div
       className={`stage ${overlay ? 'overlay' : ''}`}
       style={chroma ? { background: chroma } : undefined}
@@ -245,6 +249,7 @@ export default function App() {
         />
       )}
     </div>
+    </MotionConfig>
   );
 }
 

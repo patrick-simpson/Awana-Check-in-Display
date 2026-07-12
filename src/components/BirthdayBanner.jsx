@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { fireBirthday } from '../lib/confetti.js';
 import { playBirthdayChime } from '../lib/audio.js';
 import Doodles from './Doodles.jsx';
+import AnimatedName from './AnimatedName.jsx';
 
 const GIFTS = ['🎁', '🎈', '🎉', '🎊', '⭐'];
 
@@ -25,6 +26,12 @@ const container = {
 const item = {
   hidden: { opacity: 0, y: 26 },
   show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 280, damping: 22 } },
+};
+
+// The h1 rides the normal stagger slot, then staggers its own letters.
+const nameStagger = {
+  hidden: item.hidden,
+  show: { ...item.show, transition: { ...item.show.transition, staggerChildren: 0.035 } },
 };
 
 // Small deterministic PRNG (mulberry32). Seeding it with the event id
@@ -101,7 +108,9 @@ export default function BirthdayBanner({ event, audioEnabled }) {
           🎂
         </motion.span>
         <motion.span variants={item} className="eyebrow">Happy Birthday</motion.span>
-        <motion.h1 variants={item}>{event.firstName}!</motion.h1>
+        <motion.h1 variants={nameStagger}>
+          <AnimatedName name={`${event.firstName}!`} />
+        </motion.h1>
         <motion.span variants={item} className="tagline">Hip hip hooray — it&rsquo;s your special day!</motion.span>
       </motion.div>
     </>

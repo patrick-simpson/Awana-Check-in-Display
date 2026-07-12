@@ -234,35 +234,49 @@ html, body, #root {
     0 14px 34px rgba(0, 0, 0, 0.3);
 }
 
-/* Club chip — styled after the catalog's charcoal AGES chips. */
-.banner .club-chip {
+/* Per-letter name animation (AnimatedName): letters are inline-block so
+   transforms apply; word wrappers keep natural line-break points. */
+.banner .name-word { display: inline-block; white-space: pre-wrap; }
+.banner .name-letter { display: inline-block; will-change: transform; }
+
+/* Club identity slot — the official catalog logo (white knockout art)
+   or, for clubs without one, a styled title pill. Fixed height so the
+   card never reflows when the image decodes. */
+.banner .club-logo-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: clamp(72px, 9.5vh, 128px);
+  margin-top: 1.5rem;
+}
+.banner .club-logo {
+  height: 100%;
+  width: auto;
+  max-width: clamp(240px, 30vw, 420px);
+  object-fit: contain;
+  filter:
+    drop-shadow(0 5px 0 rgba(0, 0, 0, 0.14))
+    drop-shadow(0 12px 28px rgba(0, 0, 0, 0.28));
+}
+.banner .club-title-fallback {
   display: inline-flex;
   align-items: center;
-  gap: 0.9rem;
-  margin-top: 1.6rem;
-  padding: 0.55rem 1.7rem;
+  height: 100%;
+  padding: 0 1.9rem;
   font-family: var(--font-display);
-  font-size: 1.45rem;
-  background: var(--ink);
-  border-radius: 18px;
-  box-shadow: 6px 6px 0 rgba(255, 255, 255, 0.32);
-}
-.banner .club-chip strong {
+  font-size: clamp(1.7rem, 3.2vw, 2.6rem);
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-.banner .club-chip .chip-ages {
-  padding-left: 0.9rem;
-  border-left: 2px solid rgba(255, 255, 255, 0.35);
-  font-weight: 600;
-  font-size: 1.15rem;
-  color: rgba(255, 255, 255, 0.85);
-  white-space: nowrap;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+  border: 3px solid var(--club-accent, rgba(255, 255, 255, 0.55));
+  border-radius: 999px;
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.16);
 }
 .banner .tagline {
   display: block;
-  margin-top: 1.1rem;
+  margin-top: 1.3rem;
   font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: 0.02em;

@@ -1,13 +1,21 @@
-// Club identity data — colors, age ranges, and taglines sourced from the
-// official Awana Clubs 2026–27 catalog. Lookup is case-insensitive and
+// Club identity data — colors and official logos sourced from the Awana
+// Clubs 2026–27 catalog (logos extracted as white-on-transparent PNGs via
+// scripts/extract-club-logos.py). Lookup is case-insensitive and
 // alias-aware; unknown or missing clubs fall back to the warm Awana-orange
 // default so a typo in the check-in system still produces a joyful banner.
+//
+// Trek and Journey have no logo art in the catalog (logo: null) — banners
+// show a styled club-title pill for them instead.
+
+import pugglesLogo from '../assets/clubs/puggles.png';
+import cubbiesLogo from '../assets/clubs/cubbies.png';
+import sparksLogo from '../assets/clubs/sparks.png';
+import tntLogo from '../assets/clubs/tnt.png';
 
 const CLUBS = {
   puggles: {
     name: 'Puggles',
-    ages: 'Ages 2–3',
-    tagline: 'A strong first impression of God’s love',
+    logo: pugglesLogo,
     primary: '#F79420',
     deep: '#E07C0A',
     accent: '#FFDCA8',
@@ -15,8 +23,7 @@ const CLUBS = {
   },
   cubbies: {
     name: 'Cubbies',
-    ages: 'Ages 3–5',
-    tagline: 'Celebrating the spiritual potential of preschoolers',
+    logo: cubbiesLogo,
     primary: '#3054A8',
     deep: '#24418C',
     accent: '#AEC4F2',
@@ -24,8 +31,7 @@ const CLUBS = {
   },
   sparks: {
     name: 'Sparks',
-    ages: 'Grades K–2',
-    tagline: 'Igniting curiosity and a foundation for knowing Christ',
+    logo: sparksLogo,
     primary: '#E14B4B',
     deep: '#C43737',
     accent: '#FFC9C4',
@@ -33,8 +39,7 @@ const CLUBS = {
   },
   't&t': {
     name: 'T&T',
-    ages: 'Grades 3–6',
-    tagline: 'A deeper understanding of God’s grace',
+    logo: tntLogo,
     primary: '#4CAF50',
     deep: '#3B8C3F',
     accent: '#C4E8C5',
@@ -42,8 +47,7 @@ const CLUBS = {
   },
   trek: {
     name: 'Trek',
-    ages: 'Grades 6–8',
-    tagline: 'Owning faith in the middle school years',
+    logo: null,
     primary: '#0083C9',
     deep: '#00679F',
     accent: '#B3E2F7',
@@ -51,8 +55,7 @@ const CLUBS = {
   },
   journey: {
     name: 'Journey',
-    ages: 'Grades 9–12',
-    tagline: 'Following Christ into adulthood',
+    logo: null,
     primary: '#46566B',
     deep: '#354355',
     accent: '#C3CFDE',
@@ -73,8 +76,7 @@ const ALIASES = {
 
 const DEFAULT_CLUB = {
   name: '',
-  ages: '',
-  tagline: 'So glad you’re here tonight',
+  logo: null,
   primary: '#F7A41C',
   deep: '#E08E00',
   accent: '#FFE3A3',
