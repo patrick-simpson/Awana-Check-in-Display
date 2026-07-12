@@ -247,6 +247,7 @@ export default function App() {
             setSettingsOpen(false);
             setSlideEditorOpen(true);
           }}
+          onOpenDebug={() => { setSettingsOpen(false); setDebugOpen(true); }}
         />
       )}
 

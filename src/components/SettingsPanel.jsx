@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 const TEST_NAMES = ['Amelia', 'Noah', 'Olivia', 'Liam', 'Emma'];
 
-export default function SettingsPanel({ config, status, lastEventAt, onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor }) {
+export default function SettingsPanel({ config, status, lastEventAt, onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug }) {
   const [form, setForm] = useState({
     pusherAppKey: config.pusherAppKey || '',
     pusherCluster: config.pusherCluster || 'us2',
@@ -302,6 +302,11 @@ export default function SettingsPanel({ config, status, lastEventAt, onChange, o
           <button className="ghost" onClick={sendTest} title="Show a sample welcome banner">
             Preview a check-in
           </button>
+          {onOpenDebug && (
+            <button className="ghost" onClick={onOpenDebug} title="Simulate check-ins, view connection stats">
+              Debug panel
+            </button>
+          )}
           {onResetTally && (
             <button
               className="ghost"
