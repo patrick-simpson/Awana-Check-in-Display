@@ -4,23 +4,23 @@ import { fireBirthday } from '../lib/confetti.js';
 import { playBirthdayChime } from '../lib/audio.js';
 import Doodles from './Doodles.jsx';
 import AnimatedName from './AnimatedName.jsx';
+import BannerWave from './BannerWave.jsx';
 
 const GIFTS = ['🎁', '🎈', '🎉', '🎊', '⭐'];
 
-// Staggered reveal like WelcomeBanner — the card lands, then each line.
-// The cake keeps its own looping wiggle animation outside the stagger.
+// Lower-third wave band like WelcomeBanner — rises from the bottom,
+// then each line staggers in. The cake keeps its own looping wiggle
+// animation outside the stagger.
 const container = {
-  hidden: { opacity: 0, scale: 0.5, rotate: -8 },
+  hidden: { y: '115%' },
   show: {
-    opacity: 1,
-    scale: 1,
-    rotate: 0,
+    y: 0,
     transition: {
-      type: 'spring', stiffness: 140, damping: 14,
+      type: 'spring', stiffness: 150, damping: 19,
       delayChildren: 0.12, staggerChildren: 0.09,
     },
   },
-  exit: { opacity: 0, scale: 0.7, transition: { duration: 0.4 } },
+  exit: { y: '115%', transition: { duration: 0.4, ease: 'easeIn' } },
 };
 
 const item = {
@@ -98,20 +98,25 @@ export default function BirthdayBanner({ event, audioEnabled }) {
         animate="show"
         exit="exit"
       >
+        <BannerWave />
         <Doodles />
-        <motion.span
-          className="cake"
-          aria-hidden
-          animate={{ scale: [1, 1.15, 1], rotate: [0, -5, 5, 0] }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-        >
-          🎂
-        </motion.span>
-        <motion.span variants={item} className="eyebrow">Happy Birthday</motion.span>
-        <motion.h1 variants={nameStagger}>
-          <AnimatedName name={`${event.firstName}!`} />
-        </motion.h1>
-        <motion.span variants={item} className="tagline">Hip hip hooray — it&rsquo;s your special day!</motion.span>
+        <div className="banner-content">
+          <motion.span
+            className="cake"
+            aria-hidden
+            animate={{ scale: [1, 1.15, 1], rotate: [0, -5, 5, 0] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            🎂
+          </motion.span>
+          <div className="banner-text">
+            <motion.span variants={item} className="eyebrow">Happy Birthday</motion.span>
+            <motion.h1 variants={nameStagger}>
+              <AnimatedName name={`${event.firstName}!`} />
+            </motion.h1>
+            <motion.span variants={item} className="tagline">Hip hip hooray — it&rsquo;s your special day!</motion.span>
+          </div>
+        </div>
       </motion.div>
     </>
   );

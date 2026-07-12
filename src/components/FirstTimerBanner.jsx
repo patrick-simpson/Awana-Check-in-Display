@@ -6,19 +6,20 @@ import { playFirstTimerChime } from '../lib/audio.js';
 import Doodles from './Doodles.jsx';
 import AnimatedName from './AnimatedName.jsx';
 import ClubBadge from './ClubBadge.jsx';
+import BannerWave from './BannerWave.jsx';
 
-// Staggered reveal like WelcomeBanner — card first, then each line.
+// Lower-third wave band like WelcomeBanner — rises from the bottom,
+// then each line staggers in.
 const container = {
-  hidden: { opacity: 0, scale: 0.5 },
+  hidden: { y: '115%' },
   show: {
-    opacity: 1,
-    scale: 1,
+    y: 0,
     transition: {
-      type: 'spring', stiffness: 160, damping: 15,
+      type: 'spring', stiffness: 150, damping: 19,
       delayChildren: 0.12, staggerChildren: 0.09,
     },
   },
-  exit: { opacity: 0, scale: 0.8, transition: { duration: 0.4 } },
+  exit: { y: '115%', transition: { duration: 0.4, ease: 'easeIn' } },
 };
 
 const item = {
@@ -53,14 +54,18 @@ export default function FirstTimerBanner({ event, audioEnabled }) {
       animate="show"
       exit="exit"
     >
-      <div className="halo" aria-hidden />
+      <BannerWave />
       <Doodles />
-      <motion.span variants={item} className="eyebrow">Welcome to Awana Clubs</motion.span>
-      <motion.h1 variants={nameStagger}>
-        <AnimatedName name={`${event.firstName}!`} />
-      </motion.h1>
-      <ClubBadge club={club} rawName={event.club} />
-      <motion.span variants={item} className="tagline">We&rsquo;re so glad you&rsquo;re here for the very first time!</motion.span>
+      <div className="banner-content">
+        <div className="banner-text">
+          <motion.span variants={item} className="eyebrow">Welcome to Awana Clubs</motion.span>
+          <motion.h1 variants={nameStagger}>
+            <AnimatedName name={`${event.firstName}!`} />
+          </motion.h1>
+          <motion.span variants={item} className="tagline">We&rsquo;re so glad you&rsquo;re here for the very first time!</motion.span>
+        </div>
+        <ClubBadge club={club} rawName={event.club} />
+      </div>
     </motion.div>
   );
 }
