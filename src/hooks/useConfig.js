@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import defaults from '../config.js';
+import { sanitizeSlides } from '../lib/slides.js';
 
 const STORAGE_KEY = 'awanaConfig.v1';
 
@@ -14,6 +15,8 @@ const numberBetween = (min, max) => (v) => typeof v === 'number' && Number.isFin
 const VALIDATORS = {
   pusherAppKey: isString,
   pusherCluster: isString,
+  backgroundSource: (v) => v === 'powerpoint' || v === 'manual',
+  manualSlides: Array.isArray,
   powerpointEmbedUrl: isString,
   slideshowDelaySec: numberBetween(0, 600),
   useLocalSlideshow: isBool,
@@ -29,12 +32,19 @@ const VALIDATORS = {
   showClock: isBool,
 };
 
+// Values that need repair beyond a type check. sanitizeSlides salvages
+// a partially-corrupt slide array slide-by-slide, so one bad entry
+// can't take out the whole typed deck.
+const TRANSFORMS = {
+  manualSlides: sanitizeSlides,
+};
+
 export function sanitizeOverrides(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const clean = {};
   for (const [key, value] of Object.entries(raw)) {
     const valid = VALIDATORS[key];
-    if (valid && valid(value)) clean[key] = value;
+    if (valid && valid(value)) clean[key] = TRANSFORMS[key] ? TRANSFORMS[key](value) : value;
   }
   return clean;
 }

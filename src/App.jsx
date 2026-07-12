@@ -5,6 +5,7 @@ import Overlay from './components/Overlay.jsx';
 import CountdownTimer from './components/CountdownTimer.jsx';
 import WallClock from './components/WallClock.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
+import SlideEditorPanel from './components/SlideEditorPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { useConfig } from './hooks/useConfig.js';
@@ -70,6 +71,7 @@ export default function App() {
   }, [milestone]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [slideEditorOpen, setSlideEditorOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [gearIdle, setGearIdle] = useState(true);
 
@@ -112,6 +114,9 @@ export default function App() {
       } else if (e.key.toLowerCase() === 's') {
         e.preventDefault();
         setSettingsOpen((v) => !v);
+      } else if (e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        setSlideEditorOpen((v) => !v);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -157,6 +162,8 @@ export default function App() {
           url={config.powerpointEmbedUrl}
           slideshowDelaySec={config.slideshowDelaySec}
           useLocalSlideshow={config.useLocalSlideshow}
+          backgroundSource={config.backgroundSource}
+          manualSlides={config.manualSlides}
         />
       )}
 
@@ -236,6 +243,18 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
           onTest={handleCheckIn}
           onResetTally={resetTally}
+          onOpenSlideEditor={() => {
+            setSettingsOpen(false);
+            setSlideEditorOpen(true);
+          }}
+        />
+      )}
+
+      {slideEditorOpen && (
+        <SlideEditorPanel
+          config={config}
+          onChange={updateConfig}
+          onClose={() => setSlideEditorOpen(false)}
         />
       )}
 

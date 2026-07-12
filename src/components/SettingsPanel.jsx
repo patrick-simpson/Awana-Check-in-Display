@@ -2,10 +2,11 @@ import { useState } from 'react';
 
 const TEST_NAMES = ['Amelia', 'Noah', 'Olivia', 'Liam', 'Emma'];
 
-export default function SettingsPanel({ config, status, lastEventAt, onChange, onReset, onClose, onTest, onResetTally }) {
+export default function SettingsPanel({ config, status, lastEventAt, onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor }) {
   const [form, setForm] = useState({
     pusherAppKey: config.pusherAppKey || '',
     pusherCluster: config.pusherCluster || 'us2',
+    backgroundSource: config.backgroundSource === 'manual' ? 'manual' : 'powerpoint',
     powerpointEmbedUrl: config.powerpointEmbedUrl || '',
     slideshowDelaySec: config.slideshowDelaySec ?? 5,
     countdownTargetTime: config.countdownTargetTime || '',
@@ -40,7 +41,7 @@ export default function SettingsPanel({ config, status, lastEventAt, onChange, o
   };
 
   const reset = () => {
-    if (window.confirm('Clear all saved overrides and go back to the defaults in config.js?')) {
+    if (window.confirm('Clear all saved overrides and go back to the defaults in config.js? This also deletes any typed slides saved on this device.')) {
       onReset();
       onClose();
     }
@@ -109,6 +110,54 @@ export default function SettingsPanel({ config, status, lastEventAt, onChange, o
         <h3 className="section">Background &amp; countdown</h3>
 
         <div className="field">
+          <label>Background source</label>
+          <div className="radio-row">
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="backgroundSource"
+                value="powerpoint"
+                checked={form.backgroundSource === 'powerpoint'}
+                onChange={set('backgroundSource')}
+              />
+              Looping PowerPoint
+            </label>
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="backgroundSource"
+                value="manual"
+                checked={form.backgroundSource === 'manual'}
+                onChange={set('backgroundSource')}
+              />
+              Typed slides
+            </label>
+          </div>
+          <span className="hint">
+            Typed slides are free-typed right here in the app — no PowerPoint needed — and get
+            the joyful catalog look automatically.
+          </span>
+        </div>
+
+        {form.backgroundSource === 'manual' && (
+          <div className="field">
+            <span className="hint">
+              {(config.manualSlides?.length || 0) === 0
+                ? 'No slides typed yet — the screen shows the welcome placeholder until you add some.'
+                : `${config.manualSlides.length} slide${config.manualSlides.length === 1 ? '' : 's'} saved on this device.`}
+            </span>
+            <button
+              type="button"
+              className="ghost"
+              style={{ alignSelf: 'flex-start' }}
+              onClick={onOpenSlideEditor}
+            >
+              Edit slides… (Ctrl+Shift+E)
+            </button>
+          </div>
+        )}
+
+        <div className="field">
           <label htmlFor="iframe">OneDrive PowerPoint embed URL</label>
           <input
             id="iframe" type="url" value={form.powerpointEmbedUrl}
@@ -129,7 +178,9 @@ export default function SettingsPanel({ config, status, lastEventAt, onChange, o
             onChange={set('slideshowDelaySec')}
           />
           <span className="hint">
-            How long each slide stays on screen. 0 = let the PowerPoint file control its own timing.
+            How long each slide stays on screen — for typed slides too, unless a slide sets its
+            own time. 0 = let the PowerPoint file control its own timing (typed slides fall back
+            to 8 seconds).
           </span>
         </div>
 

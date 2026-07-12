@@ -84,12 +84,29 @@ html, body, #root {
   background: linear-gradient(180deg, #cae0f2 0%, var(--awana-sky) 55%, #a9c9e6 100%);
   z-index: 0;
 }
-.placeholder-doodles {
+/* The shared catalog scene (CatalogScene.jsx): sky + doodles + wave.
+   Sized in % so the same scene works fullscreen and inside the scaled
+   slide-editor thumbnails. */
+.catalog-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.scene-doodles {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   animation: doodle-drift 14s ease-in-out infinite alternate;
+}
+.scene-wave {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 42%;
+  display: block;
 }
 @keyframes doodle-drift {
   from { transform: translate3d(0, 0, 0); }
@@ -126,15 +143,6 @@ html, body, #root {
     0 6px 0 rgba(48, 84, 168, 0.22),
     0 18px 50px rgba(48, 84, 168, 0.35);
 }
-.placeholder-wave {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  width: 100%;
-  height: 42vh;
-  display: block;
-}
 .placeholder-hint {
   position: absolute;
   bottom: 9vh;
@@ -147,6 +155,166 @@ html, body, #root {
   line-height: 1.55;
   color: #fff;
   text-shadow: 0 2px 10px rgba(160, 74, 5, 0.35);
+}
+
+/* ── Typed slides: full-screen slideshow ──────────────────
+   Free-typed background slides (ManualSlideshow.jsx) — same catalog
+   look as the placeholder, layered behind banners and confetti. */
+.manual-slideshow {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+}
+.manual-slide {
+  position: absolute;
+  inset: 0;
+}
+/* The text lives in a safe area that stops above the wave (the wave
+   fills the bottom 42%; its crest tops out around 64%), so long
+   announcements can never sink into it. Flex keeps short text
+   centered in that area — upper-middle, like the catalog covers. */
+.manual-slide-copy {
+  position: absolute;
+  top: 5%;
+  bottom: 36%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(90%, 1200px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  text-align: center;
+}
+.manual-slide-eyebrow {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.1rem, 2vw, 1.6rem);
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--awana-blue);
+  margin-bottom: 0.5rem;
+}
+.catalog-scene--night .manual-slide-eyebrow {
+  color: #ffd98a; /* Awana blue vanishes on the night-blue sky */
+}
+.catalog-scene--sunset .manual-slide-text {
+  /* Warm shadow: the blue one washes out on the cream sky */
+  text-shadow:
+    0 6px 0 rgba(210, 96, 22, 0.35),
+    0 18px 50px rgba(160, 74, 5, 0.4);
+}
+.manual-slide-text {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  text-shadow:
+    0 6px 0 rgba(48, 84, 168, 0.22),
+    0 18px 50px rgba(48, 84, 168, 0.35);
+}
+/* Auto-fit buckets picked by text length (slideSizeClass), sized so
+   even a max-length slide stays inside the safe area above the wave. */
+.manual-slide-text.slide-size-xl { font-size: clamp(3.2rem, 8.5vw, 8rem); text-wrap: balance; }
+.manual-slide-text.slide-size-lg { font-size: clamp(2.2rem, 5vw, 4.5rem); text-wrap: balance; }
+.manual-slide-text.slide-size-md { font-size: clamp(1.6rem, 3.2vw, 3rem); line-height: 1.2; }
+.manual-slide-text.slide-size-sm { font-size: clamp(1.3rem, 2.4vw, 2.2rem); line-height: 1.3; }
+
+/* ── Typed slides: editor panel ──────────────────────────── */
+.panel--slides {
+  width: min(860px, 94vw);
+}
+.slide-empty {
+  padding: 1.5rem;
+  border: 2px dashed rgba(51, 66, 79, 0.25);
+  border-radius: var(--radius-md);
+  text-align: center;
+  color: var(--ink-soft);
+  margin-bottom: 1rem;
+}
+.slide-card {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  background: #ffffff;
+  border: 2px solid rgba(51, 66, 79, 0.12);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+.slide-card-preview {
+  position: relative;
+  width: 240px;
+  height: 135px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  pointer-events: none;
+  box-shadow: var(--shadow-soft);
+}
+/* A fixed 1600×900 stage scaled down, so the thumbnail shows the same
+   composition the TV will. */
+.slide-card-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1600px;
+  height: 900px;
+  transform: scale(0.15);
+  transform-origin: top left;
+}
+.slide-card-fields {
+  flex: 1;
+  min-width: 0;
+}
+.slide-card-fields .field {
+  margin-bottom: 0.75rem;
+}
+.slide-card-row {
+  display: flex;
+  gap: 1rem;
+}
+.slide-card-row .field {
+  flex: 1;
+}
+.slide-card-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.slide-editor-error {
+  padding: 0.7rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: rgba(225, 75, 75, 0.1);
+  border: 1px solid rgba(225, 75, 75, 0.4);
+  color: var(--awana-red);
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+.radio-row {
+  display: flex;
+  gap: 1.25rem;
+}
+.radio-option {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.radio-option input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--awana-orange-deep);
+  cursor: pointer;
 }
 
 /* Transparent overlay layer — animations and banners live here.
@@ -510,7 +678,9 @@ html, body, #root {
 .panel input[type='text'],
 .panel input[type='number'],
 .panel input[type='url'],
-.panel input[type='time'] {
+.panel input[type='time'],
+.panel textarea,
+.panel select {
   width: 100%;
   padding: 0.7rem 0.9rem;
   border-radius: var(--radius-sm);
@@ -521,7 +691,14 @@ html, body, #root {
   font-size: 0.95rem;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.panel input:focus {
+.panel textarea {
+  resize: vertical;
+  min-height: 4.5rem;
+  line-height: 1.4;
+}
+.panel input:focus,
+.panel textarea:focus,
+.panel select:focus {
   outline: none;
   border-color: var(--awana-orange);
   box-shadow: 0 0 0 3px rgba(247, 164, 28, 0.3);
@@ -805,7 +982,7 @@ input:focus-visible {
 
 /* Respect users (and underpowered signage sticks) that prefer less motion. */
 @media (prefers-reduced-motion: reduce) {
-  .placeholder-doodles,
+  .scene-doodles,
   .status-dot.connecting .dot,
   .panel .status-line.connecting .dot {
     animation: none;

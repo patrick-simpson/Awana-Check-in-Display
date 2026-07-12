@@ -16,6 +16,18 @@ const config = {
   pusherAppKey: '',
   pusherCluster: 'us2',
 
+  // What plays behind the check-in banners:
+  //   'powerpoint' — the OneDrive PowerPoint embed below (the default)
+  //   'manual'     — slides you free-type in the on-screen editor
+  //                  (Settings → Typed slides, or Ctrl+Shift+E)
+  backgroundSource: 'powerpoint',
+
+  // Typed slides live here when you use the 'manual' source. Edit them
+  // with the on-screen editor rather than by hand — they're saved per
+  // device in the browser, and the editor can export/import them as a
+  // JSON file to move a deck between computers.
+  manualSlides: [],
+
   // The OneDrive "Embed" URL for your looping PowerPoint.
   // Go to OneDrive → open .pptx → File → Share → Embed → copy the <iframe src="…"> value.
   // Leave blank to show a friendly placeholder instead.
