@@ -25,6 +25,8 @@ const VALIDATORS = {
   showConnectionStatus: isBool,
   showTally: isBool,
   keepScreenAwake: isBool,
+  milestoneEvery: numberBetween(0, 10000),
+  showClock: isBool,
 };
 
 export function sanitizeOverrides(raw) {

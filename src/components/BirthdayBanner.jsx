@@ -6,6 +6,27 @@ import Doodles from './Doodles.jsx';
 
 const GIFTS = ['🎁', '🎈', '🎉', '🎊', '⭐'];
 
+// Staggered reveal like WelcomeBanner — the card lands, then each line.
+// The cake keeps its own looping wiggle animation outside the stagger.
+const container = {
+  hidden: { opacity: 0, scale: 0.5, rotate: -8 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    rotate: 0,
+    transition: {
+      type: 'spring', stiffness: 140, damping: 14,
+      delayChildren: 0.12, staggerChildren: 0.09,
+    },
+  },
+  exit: { opacity: 0, scale: 0.7, transition: { duration: 0.4 } },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 26 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 280, damping: 22 } },
+};
+
 // Small deterministic PRNG (mulberry32). Seeding it with the event id
 // keeps render pure — the same event always yields the same gift layout,
 // while different events still get fresh-looking randomness.
@@ -65,12 +86,10 @@ export default function BirthdayBanner({ event, audioEnabled }) {
 
       <motion.div
         className="banner birthday"
-        initial={{ opacity: 0, scale: 0.5, rotate: -8 }}
-        animate={{
-          opacity: 1, scale: 1, rotate: 0,
-          transition: { type: 'spring', stiffness: 140, damping: 14 },
-        }}
-        exit={{ opacity: 0, scale: 0.7, transition: { duration: 0.4 } }}
+        variants={container}
+        initial="hidden"
+        animate="show"
+        exit="exit"
       >
         <Doodles />
         <motion.span
@@ -81,9 +100,9 @@ export default function BirthdayBanner({ event, audioEnabled }) {
         >
           🎂
         </motion.span>
-        <span className="eyebrow">Happy Birthday</span>
-        <h1>{event.firstName}!</h1>
-        <span className="tagline">Hip hip hooray — it&rsquo;s your special day!</span>
+        <motion.span variants={item} className="eyebrow">Happy Birthday</motion.span>
+        <motion.h1 variants={item}>{event.firstName}!</motion.h1>
+        <motion.span variants={item} className="tagline">Hip hip hooray — it&rsquo;s your special day!</motion.span>
       </motion.div>
     </>
   );

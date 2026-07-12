@@ -1,19 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import CountdownTimer from './components/CountdownTimer.jsx';
+import WallClock from './components/WallClock.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { useConfig } from './hooks/useConfig.js';
-import { useCheckInQueue } from './hooks/useCheckInQueue.js';
+import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useSocket } from './hooks/useSocket.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
 import { useTally } from './hooks/useTally.js';
+import { fireMilestone, setConfettiLoad } from './lib/confetti.js';
+import { parseUrlFlags } from './lib/urlFlags.js';
+
+// Read once — the URL can't change without a full page load.
+const FLAGS = parseUrlFlags();
 
 export default function App() {
-  const { config, updateConfig, resetConfig } = useConfig();
-  const { currentEvent, enqueue, skipCurrent } = useCheckInQueue(config);
+  const { config: storedConfig, updateConfig, resetConfig } = useConfig();
+
+  // ?key=/&cluster= let an embedded browser (OBS source, ProPresenter web
+  // page) connect without localStorage access; they win over saved config.
+  const config = FLAGS.pusherAppKey
+    ? {
+        ...storedConfig,
+        pusherAppKey: FLAGS.pusherAppKey,
+        pusherCluster: FLAGS.pusherCluster || storedConfig.pusherCluster,
+      }
+    : storedConfig;
+  const { currentEvent, enqueue, skipCurrent, pending } = useCheckInQueue(config);
   const { count, bump, reset: resetTally } = useTally();
 
   // Every check-in — real or simulated — plays a banner and bumps
@@ -23,9 +40,34 @@ export default function App() {
     bump();
   }, [enqueue, bump]);
 
-  const { status } = useSocket(handleCheckIn);
+  const { status, lastEventAt } = useSocket(handleCheckIn);
 
   useWakeLock(config.keepScreenAwake);
+
+  // Thin the confetti while a rush is draining so cheap signage sticks
+  // hold 60fps with banners firing back-to-back.
+  useEffect(() => {
+    setConfettiLoad(pending > BURST_THRESHOLD);
+  }, [pending]);
+
+  // Tally milestones: every Nth check-in gets a room-wide celebration.
+  // Fires only on a genuine increment, so restoring a saved tally on
+  // page load can't re-celebrate.
+  const [milestone, setMilestone] = useState(null);
+  const prevCountRef = useRef(count);
+  useEffect(() => {
+    const prev = prevCountRef.current;
+    prevCountRef.current = count;
+    const every = config.milestoneEvery;
+    if (!every || count <= prev || count % every !== 0) return;
+    setMilestone(count);
+    fireMilestone();
+  }, [count, config.milestoneEvery]);
+  useEffect(() => {
+    if (milestone == null) return undefined;
+    const timer = setTimeout(() => setMilestone(null), 6000);
+    return () => clearTimeout(timer);
+  }, [milestone]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
@@ -88,30 +130,79 @@ export default function App() {
     }
   }, []);
 
+  // Overlay mode (?overlay=1): transparent stage with banners + confetti
+  // only, for use as an OBS browser source / ProPresenter web overlay.
+  // The html element also needs the class so nothing paints behind the
+  // stage; ?chroma=RRGGBB swaps transparency for a solid key color.
+  const { overlay, chroma } = FLAGS;
+  useEffect(() => {
+    if (!overlay) return undefined;
+    document.documentElement.classList.add('overlay-mode');
+    return () => document.documentElement.classList.remove('overlay-mode');
+  }, [overlay]);
+
   return (
-    <div className="stage" ref={stageRef} onDoubleClick={toggleFullscreen}>
-      <BackgroundIframe
-        url={config.powerpointEmbedUrl}
-        slideshowDelaySec={config.slideshowDelaySec}
-        useLocalSlideshow={config.useLocalSlideshow}
-      />
+    <div
+      className={`stage ${overlay ? 'overlay' : ''}`}
+      style={chroma ? { background: chroma } : undefined}
+      ref={stageRef}
+      onDoubleClick={toggleFullscreen}
+    >
+      {!overlay && (
+        <BackgroundIframe
+          url={config.powerpointEmbedUrl}
+          slideshowDelaySec={config.slideshowDelaySec}
+          useLocalSlideshow={config.useLocalSlideshow}
+        />
+      )}
 
       <ErrorBoundary eventKey={currentEvent?.id} onError={skipCurrent}>
         <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />
       </ErrorBoundary>
 
-      <CountdownTimer targetTime={config.countdownTargetTime} />
+      {!overlay && <CountdownTimer targetTime={config.countdownTargetTime} />}
 
-      {config.showTally && count > 0 && (
+      {!overlay && config.showClock && <WallClock />}
+
+      {!overlay && config.showTally && count > 0 && (
         <div className="tally" aria-live="off">
           <span className="tally-count">{count}</span>
           <span className="tally-label">checked in tonight</span>
         </div>
       )}
 
-      {showStatus && (
+      <AnimatePresence>
+        {milestone != null && (
+          <motion.div
+            key="milestone"
+            className="milestone-toast"
+            initial={{ opacity: 0, y: 40, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
+            exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
+          >
+            <span className="milestone-count">{milestone}</span>
+            <span className="milestone-label">kids checked in tonight!</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {!overlay && pending >= BURST_THRESHOLD && (
+          <motion.div
+            key="up-next"
+            className="up-next"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: 0.3 } }}
+            exit={{ opacity: 0, y: 16, transition: { duration: 0.3 } }}
+          >
+            +{pending} more coming
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {!overlay && showStatus && (
         <div
-          className={`status-dot ${status}`}
+          className={`status-dot ${status} ${config.showClock ? 'below-clock' : ''}`}
           aria-live="polite"
           aria-label={`Connection status: ${status}`}
         >
@@ -120,19 +211,22 @@ export default function App() {
         </div>
       )}
 
-      <button
-        className={`settings-gear ${gearIdle ? 'idle' : ''}`}
-        onClick={() => setSettingsOpen(true)}
-        title="Settings (Ctrl+Shift+S)"
-        aria-label="Open settings"
-      >
-        <Gear />
-      </button>
+      {!overlay && (
+        <button
+          className={`settings-gear ${gearIdle ? 'idle' : ''}`}
+          onClick={() => setSettingsOpen(true)}
+          title="Settings (Ctrl+Shift+S)"
+          aria-label="Open settings"
+        >
+          <Gear />
+        </button>
+      )}
 
       {settingsOpen && (
         <SettingsPanel
           config={config}
           status={status}
+          lastEventAt={lastEventAt}
           onChange={updateConfig}
           onReset={resetConfig}
           onClose={() => setSettingsOpen(false)}
@@ -145,6 +239,9 @@ export default function App() {
         <DebugPanel
           onSimulate={handleCheckIn}
           onClose={() => setDebugOpen(false)}
+          status={status}
+          lastEventAt={lastEventAt}
+          pending={pending}
         />
       )}
     </div>

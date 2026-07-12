@@ -8,8 +8,12 @@ describe('sanitizeOverrides', () => {
       standardDisplayMs: 7000,
       audioMuted: false,
       useLocalSlideshow: true,
+      milestoneEvery: 50,
+      showClock: true,
     };
     expect(sanitizeOverrides(overrides)).toEqual(overrides);
+    // 0 disables milestones and must survive validation
+    expect(sanitizeOverrides({ milestoneEvery: 0 })).toEqual({ milestoneEvery: 0 });
   });
 
   it('drops values of the wrong type so timers can never go NaN', () => {
@@ -26,6 +30,8 @@ describe('sanitizeOverrides', () => {
     expect(sanitizeOverrides({
       standardDisplayMs: -5,
       specialDisplayMs: 999999,
+      milestoneEvery: -1,
+      showClock: 'yes',
       hackedField: 'x',
     })).toEqual({});
   });

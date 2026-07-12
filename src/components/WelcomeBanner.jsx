@@ -5,6 +5,28 @@ import { fireStandard } from '../lib/confetti.js';
 import { playChime } from '../lib/audio.js';
 import Doodles from './Doodles.jsx';
 
+// Broadcast-style staggered reveal: the card lands first, then eyebrow,
+// name, chip, and tagline follow in quick succession. Transform/opacity
+// only, so it stays smooth on low-power signage hardware.
+const container = {
+  hidden: { opacity: 0, scale: 0.6, y: 60 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      type: 'spring', stiffness: 180, damping: 16,
+      delayChildren: 0.12, staggerChildren: 0.09,
+    },
+  },
+  exit: { opacity: 0, scale: 0.85, y: -40, transition: { duration: 0.35 } },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 26 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 280, damping: 22 } },
+};
+
 export default function WelcomeBanner({ event, audioEnabled }) {
   const club = getClubPalette(event.club);
 
@@ -26,25 +48,21 @@ export default function WelcomeBanner({ event, audioEnabled }) {
         '--club-deep': club.deep,
         '--club-accent': club.accent,
       }}
-      initial={{ opacity: 0, scale: 0.6, y: 60 }}
-      animate={{
-        opacity: 1,
-        scale: 1,
-        y: 0,
-        transition: { type: 'spring', stiffness: 180, damping: 16 },
-      }}
-      exit={{ opacity: 0, scale: 0.85, y: -40, transition: { duration: 0.35 } }}
+      variants={container}
+      initial="hidden"
+      animate="show"
+      exit="exit"
     >
       <Doodles />
-      <span className="eyebrow">Welcome</span>
-      <h1>{event.firstName}!</h1>
+      <motion.span variants={item} className="eyebrow">Welcome</motion.span>
+      <motion.h1 variants={item}>{event.firstName}!</motion.h1>
       {(club.name || event.club) && (
-        <span className="club-chip">
+        <motion.span variants={item} className="club-chip">
           <strong>{club.name || event.club}</strong>
           {club.ages && <span className="chip-ages">{club.ages}</span>}
-        </span>
+        </motion.span>
       )}
-      <span className="tagline">{club.tagline}</span>
+      <motion.span variants={item} className="tagline">{club.tagline}</motion.span>
     </motion.div>
   );
 }

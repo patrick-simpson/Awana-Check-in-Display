@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * shrinks the hold by 15%, down to a floor that still reads comfortably.
  * The queue drains, then durations return to normal on their own.
  */
-const BURST_THRESHOLD = 2;
+export const BURST_THRESHOLD = 2;
 const BURST_FLOOR_MS = 2500;
 const MAX_QUEUE = 100; // sanity cap against a runaway/duplicated feed
 

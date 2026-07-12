@@ -6,7 +6,7 @@ function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-export default function DebugPanel({ onSimulate, onClose }) {
+export default function DebugPanel({ onSimulate, onClose, status, lastEventAt, pending }) {
   const standard = () => onSimulate({
     firstName: pick(SAMPLE_NAMES),
     club: pick(getAllClubs()),
@@ -47,6 +47,15 @@ export default function DebugPanel({ onSimulate, onClose }) {
   return (
     <div className="debug">
       <h3>Debug · Simulate check-ins</h3>
+      <div className="debug-stats">
+        <span>pusher: {status ?? 'unknown'}</span>
+        <span>
+          last event: {lastEventAt
+            ? new Date(lastEventAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })
+            : 'none'}
+        </span>
+        <span>queued: {pending ?? 0}</span>
+      </div>
       <button onClick={standard}>Standard welcome</button>
       <button onClick={birthday}>Birthday welcome</button>
       <button onClick={firstTimer}>First-timer welcome</button>

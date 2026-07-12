@@ -11,6 +11,7 @@ export function useSocket(onCheckIn) {
   const { pusherAppKey, pusherCluster } = config;
   const enabled = Boolean(pusherAppKey && pusherCluster);
   const [socketStatus, setSocketStatus] = useState('connecting');
+  const [lastEventAt, setLastEventAt] = useState(null);
   const handlerRef = useRef(onCheckIn);
   useEffect(() => { handlerRef.current = onCheckIn; }, [onCheckIn]);
 
@@ -27,9 +28,31 @@ export function useSocket(onCheckIn) {
     });
     channel.bind('checkin', (payload) => {
       const safe = sanitize(payload);
-      if (safe) handlerRef.current?.(safe);
+      if (safe) {
+        setLastEventAt(Date.now());
+        handlerRef.current?.(safe);
+      }
     });
+
+    // When the TV wakes from sleep or the network returns, pusher-js can
+    // take minutes to notice its socket is dead (activity-timeout + pong
+    // cycle). Nudge it to reconnect immediately so the first kid through
+    // the door still gets a banner.
+    const nudge = () => {
+      const state = pusher.connection.state;
+      if (state === 'disconnected' || state === 'unavailable' || state === 'failed') {
+        pusher.connect();
+      }
+    };
+    const onVisible = () => { if (!document.hidden) nudge(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', nudge);
+    window.addEventListener('focus', nudge);
+
     return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', nudge);
+      window.removeEventListener('focus', nudge);
       // Unbind before disconnecting so the dying connection's final
       // state events can't clobber the status of a replacement socket.
       pusher.connection.unbind('state_change', onStateChange);
@@ -42,7 +65,7 @@ export function useSocket(onCheckIn) {
   // 'off' (not configured) is distinct from 'disconnected' (configured
   // but the pipe is down) so the UI can warn about the latter without
   // nagging brand-new installs.
-  return { status: enabled ? socketStatus : 'off' };
+  return { status: enabled ? socketStatus : 'off', lastEventAt };
 }
 
 // PRIVACY INVARIANT — DO NOT relax. Every incoming payload is reduced

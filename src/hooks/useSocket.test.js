@@ -52,3 +52,33 @@ describe('sanitize', () => {
     expect(sanitize({ firstName: 'Noah', club: 123 }).club).toBe('');
   });
 });
+
+// AWANA CHECK-IN BROADCAST CONTRACT v1 — see CONTRACT.md. The printer
+// repo (Print-TwoTimTwo-Labels/print-server) builds this exact payload
+// and runs mirrored tests against the same canonical fixture. If this
+// block fails, the two repos have drifted apart and the welcome screen
+// will silently go dark — fix the contract on both sides together.
+describe('printer contract', () => {
+  // Must match print-server/test/checkin-payload.test.js verbatim.
+  const CANONICAL_FIXTURE = {
+    firstName: 'Amelia',
+    club: 'Sparks',
+    isBirthday: false,
+    isFirstTimer: true,
+  };
+
+  it('accepts the canonical printer payload unchanged', () => {
+    expect(sanitize(CANONICAL_FIXTURE)).toEqual(CANONICAL_FIXTURE);
+  });
+
+  it('accepts the test-broadcast payload the print server dashboard sends', () => {
+    const testEvent = { firstName: 'Test', club: 'Sparks', isBirthday: false, isFirstTimer: false };
+    expect(sanitize(testEvent)).toEqual(testEvent);
+  });
+
+  it('passes exactly the four contract keys through', () => {
+    expect(Object.keys(sanitize(CANONICAL_FIXTURE)).sort()).toEqual([
+      'club', 'firstName', 'isBirthday', 'isFirstTimer',
+    ]);
+  });
+});

@@ -56,6 +56,16 @@ html, body, #root {
   overflow: hidden;
 }
 
+/* Overlay mode (?overlay=1): the page becomes a transparent layer for
+   OBS / ProPresenter browser sources — banners and confetti only.
+   ?chroma=RRGGBB sets an inline solid key color on .stage instead. */
+.overlay-mode,
+.overlay-mode body,
+.overlay-mode #root,
+.stage.overlay {
+  background: transparent;
+}
+
 /* Background iframe sits behind everything. */
 .background-iframe {
   position: absolute;
@@ -658,9 +668,118 @@ html, body, #root {
 .status-dot.disconnected .dot { background: var(--awana-red); }
 .status-dot.off .dot          { background: #9e9e9e; }
 
+/* When the wall clock occupies the top-right corner, the status dot
+   slides down beneath it instead of overlapping. */
+.status-dot.below-clock { top: 5.4rem; }
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.35; }
+}
+
+/* ── Wall clock ────────────────────────────────────────── */
+.wall-clock {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.55rem 1.2rem;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--shadow-soft);
+}
+.wall-clock .time {
+  font-family: var(--font-display);
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+.wall-clock .meridiem {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-on-glass-muted);
+}
+
+/* ── Milestone toast ───────────────────────────────────── */
+.milestone-toast {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  /* framer-motion animates transform, so center with margin instead */
+  margin-left: max(-45vw, -320px);
+  width: min(90vw, 640px);
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.8rem;
+  padding: 1rem 2rem 1.15rem;
+  background: linear-gradient(135deg, var(--awana-orange) 0%, var(--awana-orange-deep) 100%);
+  border-radius: 999px;
+  box-shadow: var(--shadow-deep);
+  z-index: 40;
+}
+.milestone-toast .milestone-count {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4.5vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.milestone-toast .milestone-label {
+  font-family: var(--font-display);
+  font-size: clamp(1.1rem, 2.2vw, 1.7rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+/* ── "More coming" queue chip ──────────────────────────── */
+.up-next {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  /* framer-motion animates transform, so center with margin instead */
+  margin-left: -110px;
+  width: 220px;
+  text-align: center;
+  padding: 0.5rem 0;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-on-glass-muted);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--shadow-soft);
+  z-index: 30;
+}
+
+/* ── Debug stats row ───────────────────────────────────── */
+.debug-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink-soft);
+  padding: 0.35rem 0.1rem 0.5rem;
+  border-bottom: 1px dashed rgba(51, 66, 79, 0.2);
+  margin-bottom: 0.25rem;
 }
 
 /* ── Shared interaction states ─────────────────────────── */

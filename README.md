@@ -69,7 +69,14 @@ Commit the change. A new build deploys in about a minute.
 
 ## 5. Point your check-in system at Pusher
 
-Whichever tool does your check-ins just needs to publish a `checkin` event on the `awana-channel` channel. Any Pusher server SDK works — Node, Python, PHP, etc. Node example:
+**Using the [Awana Label Printer](https://github.com/patrick-simpson/Print-TwoTimTwo-Labels)?**
+It broadcasts automatically: on its dashboard (`http://localhost:3456`) →
+Settings → Pusher Integration, enter the same Pusher app's App ID, Key,
+Secret, and Cluster, then click **Test Welcome Screen** — a "Test" banner
+should appear here within a second. The exact payload the two apps
+exchange is pinned down in [CONTRACT.md](./CONTRACT.md).
+
+Any other check-in tool just needs to publish a `checkin` event on the `awana-channel` channel. Any Pusher server SDK works — Node, Python, PHP, etc. Node example:
 
 ```js
 // In your check-in system, not this repo
@@ -99,6 +106,26 @@ https://<your-github-username>.github.io/<repo-name>/
 ```
 
 On the display PC, open it in Chrome or Edge and press <kbd>F11</kbd> for fullscreen.
+
+---
+
+## Overlay mode (OBS / ProPresenter / vMix)
+
+Add `?overlay=1` to the URL and the page becomes a transparent layer with
+only the celebration banners and confetti — no background, countdown,
+tally, or buttons — ready to sit on top of a livestream or projection:
+
+```
+https://<your-github-username>.github.io/<repo-name>/?overlay=1&key=YOUR_APP_KEY&cluster=us2
+```
+
+- `key` / `cluster` — your Pusher app key and cluster in the URL, since
+  embedded browsers can't open the settings panel. The key is Pusher's
+  public subscribe key, safe to put in a URL.
+- In OBS: add a **Browser** source with that URL at your canvas size —
+  the background is transparent automatically.
+- For systems that need a chroma key instead of transparency, use
+  `&chroma=00b140` (green) and key it out.
 
 ---
 

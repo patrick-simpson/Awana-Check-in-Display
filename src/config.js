@@ -58,6 +58,14 @@ const config = {
   // no names are stored — and resets automatically each day.
   showTally: true,
 
+  // Celebrate every Nth check-in with a room-wide confetti moment and a
+  // "25 kids tonight!" toast. Set to 0 to turn milestones off.
+  milestoneEvery: 25,
+
+  // Show the current time of day in the top-right corner (the countdown
+  // shows time-until-start; this is a plain wall clock).
+  showClock: false,
+
   // Ask the browser to keep the TV/projector screen awake while the
   // display is open (Screen Wake Lock API; ignored where unsupported).
   keepScreenAwake: true,

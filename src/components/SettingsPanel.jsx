@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 const TEST_NAMES = ['Amelia', 'Noah', 'Olivia', 'Liam', 'Emma'];
 
-export default function SettingsPanel({ config, status, onChange, onReset, onClose, onTest, onResetTally }) {
+export default function SettingsPanel({ config, status, lastEventAt, onChange, onReset, onClose, onTest, onResetTally }) {
   const [form, setForm] = useState({
     pusherAppKey: config.pusherAppKey || '',
     pusherCluster: config.pusherCluster || 'us2',
@@ -15,6 +15,8 @@ export default function SettingsPanel({ config, status, onChange, onReset, onClo
     showConnectionStatus: !!config.showConnectionStatus,
     showTally: config.showTally !== false,
     keepScreenAwake: config.keepScreenAwake !== false,
+    showClock: !!config.showClock,
+    milestoneEvery: config.milestoneEvery ?? 25,
   });
 
   const set = (key) => (e) => {
@@ -32,6 +34,7 @@ export default function SettingsPanel({ config, status, onChange, onReset, onClo
       standardDisplayMs: Math.max(2000, Math.min(20000, form.standardDisplayMs)),
       specialDisplayMs: Math.max(3000, Math.min(25000, form.specialDisplayMs)),
       slideshowDelaySec: Math.max(0, Math.min(120, form.slideshowDelaySec)),
+      milestoneEvery: Math.max(0, Math.min(10000, Math.round(form.milestoneEvery) || 0)),
     });
     onClose();
   };
@@ -68,6 +71,13 @@ export default function SettingsPanel({ config, status, onChange, onReset, onClo
           <span>{statusText}</span>
         </div>
 
+        <div className="hint" style={{ marginTop: 4, marginBottom: 8 }}>
+          Last check-in received:{' '}
+          {lastEventAt
+            ? new Date(lastEventAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+            : 'none yet this session'}
+        </div>
+
         <h3 className="section">Check-in connection</h3>
 
         <div className="field">
@@ -79,6 +89,8 @@ export default function SettingsPanel({ config, status, onChange, onReset, onClo
           />
           <span className="hint">
             From your Pusher Channels app's <code>App Keys</code> page — the <code>key</code> value (public, safe to ship).
+            Must be the <strong>same app</strong> the label print server is configured with — then use its
+            dashboard's "Test Welcome Screen" button to verify end-to-end.
           </span>
         </div>
 
@@ -90,7 +102,7 @@ export default function SettingsPanel({ config, status, onChange, onReset, onClo
             placeholder="us2"
           />
           <span className="hint">
-            From the same page (e.g. <code>us2</code>, <code>eu</code>, <code>ap1</code>).
+            From the same page (e.g. <code>us2</code>, <code>eu</code>, <code>ap1</code>) — must also match the print server.
           </span>
         </div>
 
@@ -180,6 +192,32 @@ export default function SettingsPanel({ config, status, onChange, onReset, onClo
           <input
             type="checkbox" checked={form.showTally}
             onChange={set('showTally')}
+          />
+        </div>
+
+        <div className="field">
+          <label htmlFor="milestone">Milestone celebration (every N check-ins)</label>
+          <input
+            id="milestone" type="number" min="0" max="10000" step="5"
+            value={form.milestoneEvery}
+            onChange={set('milestoneEvery')}
+          />
+          <span className="hint">
+            Every Nth kid triggers a room-wide confetti moment with a "{form.milestoneEvery || 25} kids
+            checked in tonight!" toast. Set to 0 to turn it off.
+          </span>
+        </div>
+
+        <div className="toggle">
+          <div>
+            <div style={{ fontWeight: 800 }}>Wall clock</div>
+            <div className="hint">
+              Show the current time in the top-right corner all night.
+            </div>
+          </div>
+          <input
+            type="checkbox" checked={form.showClock}
+            onChange={set('showClock')}
           />
         </div>
 

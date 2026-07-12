@@ -5,6 +5,25 @@ import { fireFirstTimer } from '../lib/confetti.js';
 import { playFirstTimerChime } from '../lib/audio.js';
 import Doodles from './Doodles.jsx';
 
+// Staggered reveal like WelcomeBanner — card first, then each line.
+const container = {
+  hidden: { opacity: 0, scale: 0.5 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      type: 'spring', stiffness: 160, damping: 15,
+      delayChildren: 0.12, staggerChildren: 0.09,
+    },
+  },
+  exit: { opacity: 0, scale: 0.8, transition: { duration: 0.4 } },
+};
+
+const item = {
+  hidden: { opacity: 0, y: 26 },
+  show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 280, damping: 22 } },
+};
+
 export default function FirstTimerBanner({ event, audioEnabled }) {
   const club = getClubPalette(event.club);
 
@@ -21,24 +40,22 @@ export default function FirstTimerBanner({ event, audioEnabled }) {
   return (
     <motion.div
       className="banner first-timer"
-      initial={{ opacity: 0, scale: 0.5 }}
-      animate={{
-        opacity: 1, scale: 1,
-        transition: { type: 'spring', stiffness: 160, damping: 15 },
-      }}
-      exit={{ opacity: 0, scale: 0.8, transition: { duration: 0.4 } }}
+      variants={container}
+      initial="hidden"
+      animate="show"
+      exit="exit"
     >
       <div className="halo" aria-hidden />
       <Doodles />
-      <span className="eyebrow">Welcome to Awana Clubs</span>
-      <h1>{event.firstName}!</h1>
+      <motion.span variants={item} className="eyebrow">Welcome to Awana Clubs</motion.span>
+      <motion.h1 variants={item}>{event.firstName}!</motion.h1>
       {club.name && (
-        <span className="club-chip">
+        <motion.span variants={item} className="club-chip">
           <strong>{club.name}</strong>
           {club.ages && <span className="chip-ages">{club.ages}</span>}
-        </span>
+        </motion.span>
       )}
-      <span className="tagline">We&rsquo;re so glad you&rsquo;re here for the very first time!</span>
+      <motion.span variants={item} className="tagline">We&rsquo;re so glad you&rsquo;re here for the very first time!</motion.span>
     </motion.div>
   );
 }
