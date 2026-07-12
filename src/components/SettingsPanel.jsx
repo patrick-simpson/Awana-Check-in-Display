@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
-const TEST_NAMES = ['Amelia', 'Noah', 'Olivia', 'Liam', 'Emma'];
+// Obviously-fake names only: a preview banner on the lobby TV must
+// never look like (or match) a real kid checking in.
+const TEST_NAMES = ['Test Kid', 'Demo Kid', 'Sample Star', 'Pretend Pal', 'Practice Run'];
 
 export default function SettingsPanel({ config, status, lastEventAt, onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug }) {
   const [form, setForm] = useState({
@@ -135,7 +137,8 @@ export default function SettingsPanel({ config, status, lastEventAt, onChange, o
           </div>
           <span className="hint">
             Typed slides are free-typed right here in the app — no PowerPoint needed — and get
-            the joyful catalog look automatically.
+            the joyful catalog look automatically. They can also include local video files,
+            which stay on this device and are never uploaded.
           </span>
         </div>
 

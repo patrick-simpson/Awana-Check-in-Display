@@ -50,10 +50,16 @@ describe('sanitizeOverrides', () => {
   });
 
   it('salvages typed slides slide-by-slide instead of nuking the deck', () => {
-    const good = { id: 's_1', eyebrow: '', text: 'Welcome!', theme: 'sky', durationSec: 0 };
+    const good = { id: 's_1', eyebrow: '', text: 'Welcome!', theme: 'sky', durationSec: 0, textSize: 'auto' };
     const out = sanitizeOverrides({ manualSlides: [good, { text: 42 }, 'junk'] });
     expect(out.manualSlides).toEqual([good]);
     // A non-array is dropped entirely.
     expect(sanitizeOverrides({ manualSlides: 'not slides' })).toEqual({});
+  });
+
+  it('passes video slides through the salvage and drops broken ones', () => {
+    const video = { id: 's_v', type: 'video', videoId: 'v_1', videoName: 'promo.mp4', videoSize: 100, durationSec: 0 };
+    const out = sanitizeOverrides({ manualSlides: [video, { type: 'video' }, { type: 'video', videoId: '' }] });
+    expect(out.manualSlides).toEqual([video]);
   });
 });

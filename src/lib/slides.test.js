@@ -3,12 +3,17 @@ import {
   MAX_EYEBROW,
   MAX_SLIDES,
   MAX_TEXT,
+  MAX_VIDEO_NAME,
+  isVideoSlide,
   makeSlide,
   makeSlideId,
+  makeVideoSlide,
+  resolveSizeClass,
   resolveTheme,
   sanitizeSlides,
   slideDurationMs,
   slideSizeClass,
+  videoSlideTimerMs,
 } from './slides.js';
 
 describe('sanitizeSlides', () => {
@@ -21,8 +26,13 @@ describe('sanitizeSlides', () => {
   });
 
   it('keeps valid slides unchanged', () => {
-    const slide = { id: 's_1', eyebrow: 'Awana', text: 'Welcome!', theme: 'night', durationSec: 10 };
+    const slide = { id: 's_1', eyebrow: 'Awana', text: 'Welcome!', theme: 'night', durationSec: 10, textSize: 'auto' };
     expect(sanitizeSlides([slide])).toEqual([slide]);
+  });
+
+  it('normalizes legacy slides (no textSize) without dropping them', () => {
+    const legacy = { id: 's_1', eyebrow: 'Awana', text: 'Welcome!', theme: 'night', durationSec: 10 };
+    expect(sanitizeSlides([legacy])).toEqual([{ ...legacy, textSize: 'auto' }]);
   });
 
   it('drops entries that are not slides or have no usable text', () => {
@@ -75,6 +85,79 @@ describe('sanitizeSlides', () => {
       { text: 'f', durationSec: 0 },
     ]).map((s) => s.durationSec);
     expect(durations).toEqual([0, 0, 0, 3, 600, 0]);
+  });
+
+  it('keeps a per-slide text size and falls back to auto for garbage', () => {
+    expect(sanitizeSlides([{ text: 'a', textSize: 'xl' }])[0].textSize).toBe('xl');
+    expect(sanitizeSlides([{ text: 'a', textSize: 'gigantic' }])[0].textSize).toBe('auto');
+    expect(sanitizeSlides([{ text: 'a', textSize: 42 }])[0].textSize).toBe('auto');
+  });
+
+  it('accepts video slides without text but requires a videoId', () => {
+    const video = { id: 's_v', type: 'video', videoId: 'v_1', videoName: 'promo.mp4', videoSize: 1000, durationSec: 0 };
+    expect(sanitizeSlides([video])).toEqual([video]);
+    expect(sanitizeSlides([{ type: 'video' }])).toEqual([]);
+    expect(sanitizeSlides([{ type: 'video', videoId: '' }])).toEqual([]);
+    expect(sanitizeSlides([{ type: 'video', videoId: '   ' }])).toEqual([]);
+    expect(sanitizeSlides([{ type: 'video', videoId: 42 }])).toEqual([]);
+  });
+
+  it('repairs video slide metadata', () => {
+    const [slide] = sanitizeSlides([{
+      type: 'video',
+      videoId: 'v_1',
+      videoName: 'x'.repeat(MAX_VIDEO_NAME + 40),
+      videoSize: 'huge',
+      durationSec: 9999,
+    }]);
+    expect(slide.videoName).toHaveLength(MAX_VIDEO_NAME);
+    expect(slide.videoSize).toBe(0);
+    expect(slide.durationSec).toBe(600);
+    // Video slides never carry text fields
+    expect(slide.text).toBeUndefined();
+    expect(slide.theme).toBeUndefined();
+  });
+
+  it('treats unknown types as text slides (dropped without text, normalized with it)', () => {
+    expect(sanitizeSlides([{ type: 'gif', videoId: 'v_1' }])).toEqual([]);
+    const [slide] = sanitizeSlides([{ type: 'gif', text: 'hi' }]);
+    expect(slide.text).toBe('hi');
+    expect(slide.type).toBeUndefined();
+  });
+});
+
+describe('makeVideoSlide / isVideoSlide / videoSlideTimerMs', () => {
+  it('makes a video slide that survives sanitizing', () => {
+    const slide = makeVideoSlide({ videoId: 'v_1', videoName: 'promo.mp4', videoSize: 12345 });
+    expect(isVideoSlide(slide)).toBe(true);
+    expect(sanitizeSlides([slide])).toEqual([slide]);
+  });
+
+  it('is not fooled by text slides or junk', () => {
+    expect(isVideoSlide(makeSlide({ text: 'hi' }))).toBe(false);
+    expect(isVideoSlide(null)).toBe(false);
+    expect(isVideoSlide({ type: 'gif' })).toBe(false);
+  });
+
+  it('returns null (ended-event mode) for duration 0, clamped ms otherwise', () => {
+    expect(videoSlideTimerMs({ durationSec: 0 })).toBeNull();
+    expect(videoSlideTimerMs(undefined)).toBeNull();
+    expect(videoSlideTimerMs({ durationSec: 5 })).toBe(5000);
+    expect(videoSlideTimerMs({ durationSec: 1 })).toBe(3000);
+    expect(videoSlideTimerMs({ durationSec: 9999 })).toBe(600000);
+  });
+});
+
+describe('resolveSizeClass', () => {
+  it('honors an explicit per-slide size', () => {
+    expect(resolveSizeClass({ text: 'x'.repeat(400), textSize: 'xl' })).toBe('slide-size-xl');
+    expect(resolveSizeClass({ text: 'hi', textSize: 'md' })).toBe('slide-size-md');
+  });
+
+  it('falls back to the length buckets on auto or garbage', () => {
+    expect(resolveSizeClass({ text: 'Welcome!', textSize: 'auto' })).toBe('slide-size-xl');
+    expect(resolveSizeClass({ text: 'x'.repeat(400), textSize: 'huge' })).toBe('slide-size-sm');
+    expect(resolveSizeClass(undefined)).toBe('slide-size-xl');
   });
 });
 

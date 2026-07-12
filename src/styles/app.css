@@ -177,7 +177,7 @@ html, body, #root {
 .manual-slide-copy {
   position: absolute;
   top: 5%;
-  bottom: 36%;
+  bottom: 34%;
   left: 50%;
   transform: translateX(-50%);
   width: min(90%, 1200px);
@@ -220,12 +220,34 @@ html, body, #root {
     0 6px 0 rgba(48, 84, 168, 0.22),
     0 18px 50px rgba(48, 84, 168, 0.35);
 }
-/* Auto-fit buckets picked by text length (slideSizeClass), sized so
-   even a max-length slide stays inside the safe area above the wave. */
-.manual-slide-text.slide-size-xl { font-size: clamp(3.2rem, 8.5vw, 8rem); text-wrap: balance; }
-.manual-slide-text.slide-size-lg { font-size: clamp(2.2rem, 5vw, 4.5rem); text-wrap: balance; }
-.manual-slide-text.slide-size-md { font-size: clamp(1.6rem, 3.2vw, 3rem); line-height: 1.2; }
-.manual-slide-text.slide-size-sm { font-size: clamp(1.3rem, 2.4vw, 2.2rem); line-height: 1.3; }
+/* Auto-fit buckets picked by text length (slideSizeClass) or forced
+   per-slide via textSize, sized for TV-across-the-room legibility while
+   a max-length slide still stays inside the safe area above the wave. */
+.manual-slide-text.slide-size-xl { font-size: clamp(4rem, 11vw, 10.5rem); text-wrap: balance; }
+.manual-slide-text.slide-size-lg { font-size: clamp(3rem, 7.5vw, 7rem); text-wrap: balance; }
+.manual-slide-text.slide-size-md { font-size: clamp(2.2rem, 4.8vw, 4.4rem); line-height: 1.2; }
+.manual-slide-text.slide-size-sm { font-size: clamp(1.7rem, 3.4vw, 3rem); line-height: 1.3; }
+
+/* ── Typed slides: video slides ──────────────────────────── */
+.manual-slide-video-wrap {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.manual-slide-video {
+  width: 100%;
+  height: 100%;
+  /* Letterbox rather than crop — announcement videos keep their titles. */
+  object-fit: contain;
+}
+.manual-slide-video-missing {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
 
 /* ── Typed slides: editor panel ──────────────────────────── */
 .panel--slides {
@@ -269,6 +291,50 @@ html, body, #root {
   height: 900px;
   transform: scale(0.15);
   transform-origin: top left;
+}
+/* Video slide thumbnail: fills the 1600×900 frame like a real slide. */
+.slide-card-video-thumb {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.slide-card-video-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.slide-card-video-glyph {
+  font-size: 220px;
+  color: rgba(255, 255, 255, 0.35);
+}
+/* Rendered inside the 0.15-scaled frame, so sizes are ~6.7× the
+   intended on-screen size. */
+.slide-badge-missing {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 24px 70px;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.92);
+  color: #442c05;
+  font-size: 88px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.slide-card-video-meta {
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slide-card-video-meta strong {
+  color: var(--ink);
 }
 .slide-card-fields {
   flex: 1;

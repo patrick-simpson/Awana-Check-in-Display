@@ -1,6 +1,8 @@
 import { getAllClubs } from '../lib/clubs.js';
 
-const SAMPLE_NAMES = ['Amelia', 'Noah', 'Olivia', 'Liam', 'Emma', 'Mason', 'Ava', 'Ethan', 'Sophia', 'Lucas'];
+// Obviously-fake names only: a simulated banner on the lobby TV must
+// never look like (or match) a real kid checking in.
+const SAMPLE_NAMES = ['Test Kid', 'Demo Kid', 'Sample Star', 'Pretend Pal', 'Practice Run'];
 
 function pick(list) {
   return list[Math.floor(Math.random() * list.length)];

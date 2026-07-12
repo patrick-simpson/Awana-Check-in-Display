@@ -67,6 +67,26 @@ Commit the change. A new build deploys in about a minute.
 2. Open it → **File → Share → Embed**.
 3. Copy the URL from the `<iframe src="…"></iframe>` snippet OneDrive gives you.
 
+### Typed slides — no PowerPoint needed
+
+Instead of a PowerPoint embed, you can free-type background slides right in
+the app: Settings → Background source → **Typed slides** → **Edit slides…**
+(or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>). Each slide gets the
+catalog look automatically, with a per-slide theme, text size, and duration.
+
+**Video slides** — the editor's **+ Add video** button drops a local video
+file (mp4/webm) into the rotation:
+
+- The file is stored in this browser's local storage (IndexedDB) on the
+  display machine only — it is **never uploaded** anywhere.
+- Videos play **muted** (browsers block autoplaying sound on a kiosk).
+- "Seconds on screen" = 0 plays the video to the end, then advances; a
+  number holds the slide that long while the video loops.
+- The JSON **Export** carries a video slide's *name* only — after importing
+  a deck on another machine, re-add the video files there (the editor
+  badges them "Video not on this device" until you do).
+- Clearing the browser's site data deletes stored videos.
+
 ## 5. Point your check-in system at Pusher
 
 **Using the [Awana Label Printer](https://github.com/patrick-simpson/Print-TwoTimTwo-Labels)?**
