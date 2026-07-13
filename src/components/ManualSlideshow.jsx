@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import CatalogScene from './CatalogScene.jsx';
+import WeatherSlide from './WeatherSlide.jsx';
 import {
   isVideoSlide,
   resolveTheme,
@@ -8,6 +9,7 @@ import {
   slideDurationMs,
   videoSlideTimerMs,
 } from '../lib/slides.js';
+import { weatherPresentation } from '../lib/weather.js';
 import { getVideo } from '../lib/videoStore.js';
 
 // If a video can't load (blob missing on this device, decode error,
@@ -24,7 +26,7 @@ export const MISSING_VIDEO_SKIP_MS = 4000;
  * unmuted autoplay is blocked). durationSec 0 = play to the end, then
  * advance; >0 = hold that long with the video looping underneath.
  */
-export default function ManualSlideshow({ slides, slideshowDelaySec }) {
+export default function ManualSlideshow({ slides, slideshowDelaySec, weather, weatherLocationName }) {
   const [index, setIndex] = useState(0);
 
   // The deck can shrink mid-show (editor save); keep the index valid
@@ -72,11 +74,18 @@ export default function ManualSlideshow({ slides, slideshowDelaySec }) {
               loop={slides.length <= 1 || slide.durationSec > 0}
               onFinished={slides.length > 1 ? advance : undefined}
             />
+          ) : slide.type === 'weather' ? (
+            // Live-weather slide: the sky theme follows the conditions
+            // (clear night → starry night, snow → lavender, …).
+            <CatalogScene theme={weatherPresentation(weather?.code, weather?.isDay).theme}>
+              <WeatherSlide weather={weather} locationName={weatherLocationName} />
+            </CatalogScene>
           ) : (
             <CatalogScene theme={resolveTheme(slide, safe)}>
               <div className="manual-slide-copy">
                 {slide.eyebrow ? <span className="manual-slide-eyebrow">{slide.eyebrow}</span> : null}
                 <p className={`manual-slide-text ${resolveSizeClass(slide)}`}>{slide.text}</p>
+                {slide.subtext ? <p className="manual-slide-subtext">{slide.subtext}</p> : null}
               </div>
             </CatalogScene>
           )}

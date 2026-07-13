@@ -4,6 +4,7 @@ import {
   MAX_SLIDES,
   MAX_TEXT,
   MAX_VIDEO_NAME,
+  SLIDE_THEMES,
   isVideoSlide,
   makeSlide,
   makeSlideId,
@@ -177,7 +178,7 @@ describe('resolveTheme', () => {
   it('rotates auto slides through the themes by position', () => {
     const auto = { theme: 'auto' };
     const first = resolveTheme(auto, 0);
-    expect(resolveTheme(auto, 4)).toBe(first); // 4 themes → wraps
+    expect(resolveTheme(auto, SLIDE_THEMES.length)).toBe(first); // full cycle → wraps
     expect(resolveTheme(auto, 1)).not.toBe(first);
   });
 

@@ -14,7 +14,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 // who prefer less motion. `still` renders a frozen frame — the slide
 // editor shows many scenes at once in 0.15-scale thumbnails, where a
 // dozen animation loops each would burn CPU for no visible payoff.
-const THEMES = {
+// Exported so sibling slide content (e.g. the weather glyph) can pick
+// stroke/fill colors that match the scene it's floating in.
+export const THEMES = {
   sky: {
     background: 'linear-gradient(180deg, #cae0f2 0%, var(--awana-sky) 55%, #a9c9e6 100%)',
     wave: ['#FFB81C', '#F26B21'],

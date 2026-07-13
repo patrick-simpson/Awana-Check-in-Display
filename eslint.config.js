@@ -20,4 +20,14 @@ export default [
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
+  {
+    // CLI scripts (the nightly calendar-feed builder) report via stdout.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+    rules: { 'no-console': 'off' },
+  },
 ];

@@ -36,6 +36,31 @@ describe('sanitizeOverrides', () => {
     })).toEqual({});
   });
 
+  it('keeps valid calendar & weather overrides', () => {
+    const overrides = {
+      calendarEnabled: false,
+      calendarUrl: 'https://example.org/calendar',
+      calendarCorsProxy: '',
+      calendarWelcomeText: 'Welcome to KVB Awana!',
+      calendarShowWeather: true,
+      weatherLocationName: 'Waterville, Maine',
+      weatherLat: 44.552,
+      weatherLon: -69.6317,
+      weatherUnits: 'celsius',
+    };
+    expect(sanitizeOverrides(overrides)).toEqual(overrides);
+  });
+
+  it('drops impossible coordinates and made-up units', () => {
+    expect(sanitizeOverrides({
+      weatherLat: 200,
+      weatherLon: -500,
+      weatherUnits: 'kelvin',
+      calendarEnabled: 'yes',
+      calendarUrl: 42,
+    })).toEqual({});
+  });
+
   it('tolerates garbage roots from corrupt localStorage', () => {
     expect(sanitizeOverrides(null)).toEqual({});
     expect(sanitizeOverrides('{}')).toEqual({});

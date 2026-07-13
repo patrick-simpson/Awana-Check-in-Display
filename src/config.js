@@ -81,6 +81,41 @@ const config = {
   // Ask the browser to keep the TV/projector screen awake while the
   // display is open (Screen Wake Lock API; ignored where unsupported).
   keepScreenAwake: true,
+
+  // ── Calendar-aware slides ─────────────────────────────────
+  // The display can read the church's Awana calendar and auto-generate
+  // slides in the typed-slides rotation: "Welcome to Water Night!",
+  // "Next week is Backwards Night!", "N nights remaining", and a live
+  // weather slide when there's nothing special to tease. A nightly
+  // GitHub Action turns the calendar page into calendar-feed.json;
+  // if that file is missing or stale the app falls back to fetching
+  // the calendar page live through the CORS proxy below.
+  calendarEnabled: true,
+
+  // The public calendar page to read (twotimtwo format).
+  calendarUrl: 'https://kvbchurch.twotimtwo.com/calendar/index',
+
+  // Fallback-only CORS proxy template; {url} is replaced with the
+  // encoded calendar URL. Leave blank to disable the runtime fallback
+  // and rely purely on the nightly feed.
+  calendarCorsProxy: 'https://api.allorigins.win/raw?url={url}',
+
+  // What the welcome slide says on an ordinary club night (special
+  // nights use their calendar title instead).
+  calendarWelcomeText: 'Welcome to Awana!',
+
+  // Turn individual auto-slides off without losing the others.
+  calendarShowWelcome: true,
+  calendarShowNextWeek: true,
+  calendarShowRemaining: true,
+  calendarShowWeather: true,
+
+  // Where the weather slide looks. Use Settings → Calendar & Weather →
+  // "Look up" to fill the coordinates from a town name.
+  weatherLocationName: 'Waterville, Maine',
+  weatherLat: 44.552,
+  weatherLon: -69.6317,
+  weatherUnits: 'fahrenheit', // or 'celsius'
 };
 
 export default config;

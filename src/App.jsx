@@ -14,6 +14,9 @@ import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useSocket } from './hooks/useSocket.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
 import { useTally } from './hooks/useTally.js';
+import { useCalendar } from './hooks/useCalendar.js';
+import { useWeather } from './hooks/useWeather.js';
+import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { fireMilestone, setConfettiLoad } from './lib/confetti.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
 
@@ -45,6 +48,29 @@ export default function App() {
   const { status, lastEventAt } = useSocket(handleCheckIn);
 
   useWakeLock(config.keepScreenAwake);
+
+  // ── Calendar-aware slides ─────────────────────────────────
+  // The local date key ticks over at midnight so "tonight" flips
+  // without a reload on a display that runs for days.
+  const [todayStr, setTodayStr] = useState(localDateStr);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const next = localDateStr();
+      setTodayStr((prev) => (prev === next ? prev : next));
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const calendar = useCalendar(config);
+  const weatherWanted =
+    config.calendarEnabled !== false &&
+    config.calendarShowWeather !== false &&
+    config.backgroundSource === 'manual';
+  const weather = useWeather(config, weatherWanted && !FLAGS.overlay);
+
+  const calendarSlides = config.calendarEnabled
+    ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr), config)
+    : [];
 
   // Thin the confetti while a rush is draining so cheap signage sticks
   // hold 60fps with banners firing back-to-back.
@@ -165,6 +191,9 @@ export default function App() {
           useLocalSlideshow={config.useLocalSlideshow}
           backgroundSource={config.backgroundSource}
           manualSlides={config.manualSlides}
+          calendarSlides={calendarSlides}
+          weather={weather}
+          weatherLocationName={config.weatherLocationName}
         />
       )}
 
@@ -268,6 +297,7 @@ export default function App() {
           config={config}
           status={status}
           lastEventAt={lastEventAt}
+          calendar={calendar}
           onChange={updateConfig}
           onReset={resetConfig}
           onClose={() => setSettingsOpen(false)}

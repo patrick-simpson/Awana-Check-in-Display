@@ -87,6 +87,44 @@ file (mp4/webm) into the rotation:
   badges them "Video not on this device" until you do).
 - Clearing the browser's site data deletes stored videos.
 
+### Calendar & weather slides — automatic, from the church calendar
+
+With **Typed slides** as the background source, the display also reads the
+church's Awana calendar and generates slides on its own (Settings →
+**Calendar & Weather**):
+
+- **Welcome** — "Welcome to Water Night!" on special nights (the calendar
+  title after any "` - `note" becomes a subtitle), or your own wording
+  ("Welcome to Awana!") on regular nights. On non-club days it points to
+  the next club night instead.
+- **Next week** — "Next week is Backwards Night!" when something special is
+  coming, "No club next week" on break weeks. **Awana Store nights are never
+  announced ahead of time** — any calendar title containing "store" is
+  hidden, and the slot shows the weather instead.
+- **Weather** — when next week has nothing to tease, a live current-conditions
+  slide (big temperature, animated hand-drawn glyph) from
+  [Open-Meteo](https://open-meteo.com) (free, no API key). Set your town in
+  Settings with the **Look up** button.
+- **Nights remaining** — once fewer than 10 club nights are left after
+  tonight, a big "N nights remaining" slide with the nudge *"Is your child
+  on track to finish their book?"*
+
+**How the data flows:** the calendar site doesn't allow direct browser
+fetches, so a nightly GitHub Action (`.github/workflows/update-calendar.yml`
+→ `scripts/fetch-calendar.mjs`) scrapes the calendar page into
+`public/calendar-feed.json` and redeploys when it changes. The display reads
+that file same-origin. If the file ever goes stale (>3 weeks), the display
+falls back to scraping the calendar live through a public CORS proxy and
+keeps the last good copy cached in the browser — the screen never goes
+calendar-blind. If parsing ever breaks (e.g. the calendar site redesigns),
+the Action refuses to overwrite the last good feed and the workflow run
+fails, which emails the repo owner.
+
+To point at a different church's calendar, change the URL in Settings →
+Calendar & Weather *and* the `DEFAULT_URL` in `scripts/fetch-calendar.mjs`
+(or run the workflow with `--url`). Note "tonight" is decided by the display
+device's own clock and timezone — keep the TV's clock right.
+
 ## 5. Point your check-in system at Pusher
 
 **Using the [Awana Label Printer](https://github.com/patrick-simpson/Print-TwoTimTwo-Labels)?**

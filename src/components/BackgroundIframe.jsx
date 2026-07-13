@@ -54,10 +54,28 @@ function isOneDrivePptx(url) {
   return /onedrive|1drv\.ms/i.test(url) && /\.pptx|\/p\/|presentation/i.test(url);
 }
 
-export default function BackgroundIframe({ url, slideshowDelaySec, useLocalSlideshow, backgroundSource, manualSlides }) {
+export default function BackgroundIframe({
+  url, slideshowDelaySec, useLocalSlideshow, backgroundSource, manualSlides,
+  calendarSlides, weather, weatherLocationName,
+}) {
   // Typed slides: free-typed in the on-screen editor, no PowerPoint.
-  if (backgroundSource === 'manual' && manualSlides?.length) {
-    return <ManualSlideshow slides={manualSlides} slideshowDelaySec={slideshowDelaySec} />;
+  // Calendar-derived slides (welcome / next week / nights remaining /
+  // weather) lead the rotation; they are generated fresh each render
+  // and never stored. The weather placeholder is dropped whenever no
+  // reading is available so an API outage can't blank a slot.
+  if (backgroundSource === 'manual') {
+    const generated = (calendarSlides || []).filter((s) => s.type !== 'weather' || weather);
+    const deck = [...generated, ...(manualSlides || [])];
+    if (deck.length) {
+      return (
+        <ManualSlideshow
+          slides={deck}
+          slideshowDelaySec={slideshowDelaySec}
+          weather={weather}
+          weatherLocationName={weatherLocationName}
+        />
+      );
+    }
   }
 
   // Manual source with nothing typed yet — or no PowerPoint URL — shows

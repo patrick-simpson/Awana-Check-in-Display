@@ -30,6 +30,18 @@ const VALIDATORS = {
   keepScreenAwake: isBool,
   milestoneEvery: numberBetween(0, 10000),
   showClock: isBool,
+  calendarEnabled: isBool,
+  calendarUrl: isString,
+  calendarCorsProxy: isString,
+  calendarWelcomeText: isString,
+  calendarShowWelcome: isBool,
+  calendarShowNextWeek: isBool,
+  calendarShowRemaining: isBool,
+  calendarShowWeather: isBool,
+  weatherLocationName: isString,
+  weatherLat: numberBetween(-90, 90),
+  weatherLon: numberBetween(-180, 180),
+  weatherUnits: (v) => v === 'fahrenheit' || v === 'celsius',
 };
 
 // Values that need repair beyond a type check. sanitizeSlides salvages
