@@ -67,6 +67,15 @@ describe('sanitizeOverrides', () => {
     expect(sanitizeOverrides([1, 2])).toEqual({});
   });
 
+  it('keeps a valid widget display mode and cycle interval', () => {
+    const overrides = { widgetDisplayMode: 'stickers', cycleIntervalSec: 12 };
+    expect(sanitizeOverrides(overrides)).toEqual(overrides);
+    expect(sanitizeOverrides({ widgetDisplayMode: 'cycle' })).toEqual({ widgetDisplayMode: 'cycle' });
+    expect(sanitizeOverrides({ widgetDisplayMode: 'both' })).toEqual({});
+    expect(sanitizeOverrides({ cycleIntervalSec: 2 })).toEqual({});
+    expect(sanitizeOverrides({ cycleIntervalSec: '12' })).toEqual({});
+  });
+
   it('keeps a valid backgroundSource and drops anything else', () => {
     expect(sanitizeOverrides({ backgroundSource: 'manual' })).toEqual({ backgroundSource: 'manual' });
     expect(sanitizeOverrides({ backgroundSource: 'powerpoint' })).toEqual({ backgroundSource: 'powerpoint' });

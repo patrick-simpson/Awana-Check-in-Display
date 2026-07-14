@@ -62,6 +62,19 @@ const config = {
   // at least once, so the chime is silent on first load either way.
   audioEnabledByDefault: false,
 
+  // How the corner data widgets (time, tally, weather, countdown) are
+  // presented:
+  //   'cycle'    — one big beautifully-animated data point at a time in
+  //                the bottom-right corner, cycling through whichever
+  //                items are enabled below (the default)
+  //   'stickers' — the classic look: sticker chips pinned to the top
+  //                corners plus the countdown card bottom-right
+  widgetDisplayMode: 'cycle',
+
+  // How long each data point holds the corner before the next one
+  // tumbles in (seconds). Only used in 'cycle' mode.
+  cycleIntervalSec: 12,
+
   // Show a tiny "● connected" dot in the corner? Useful while setting up,
   // distracting during club. Defaults to hidden. (If the connection drops
   // mid-club the dot appears on its own either way, so a dead pipe is
@@ -76,14 +89,16 @@ const config = {
   // "25 kids tonight!" toast. Set to 0 to turn milestones off.
   milestoneEvery: 25,
 
-  // Show the current time of day in the top-right corner (the countdown
-  // shows time-until-start; this is a plain wall clock).
-  showClock: false,
+  // Show the current time of day (the countdown shows time-until-start;
+  // this is a plain wall clock). A headline item in 'cycle' mode, a
+  // top-right sticker in 'stickers' mode.
+  showClock: true,
 
-  // Animated weather chip in the top-right corner, under the clock —
-  // temperature plus a living doodle of the sky. Refreshes every 15
-  // minutes from Open-Meteo (free, keyless). Works over any background
-  // source; hides itself whenever no reading is available.
+  // Animated weather — temperature plus a living doodle of the sky.
+  // Joins the cycle in 'cycle' mode, or sits under the clock as a
+  // top-right sticker in 'stickers' mode. Refreshes every 15 minutes
+  // from Open-Meteo (free, keyless). Works over any background source;
+  // hides itself whenever no reading is available.
   showWeatherChip: true,
 
   // Ask the browser to keep the TV/projector screen awake while the

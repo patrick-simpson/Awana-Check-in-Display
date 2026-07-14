@@ -826,6 +826,95 @@ html, body, #root {
   margin-top: 0.2rem;
 }
 
+/* ── Bottom-right data cycle ───────────────────────────── */
+/* The 'cycle' widget mode: no sticker chrome, just big floating
+   catalog type. One data point holds the corner at a time; the
+   reserved min box keeps AnimatePresence's mode="wait" handoff gap
+   from collapsing the corner between items. */
+.data-cycle {
+  position: absolute;
+  right: var(--safe-inset);
+  bottom: var(--safe-inset);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  min-height: 7.5rem;
+  min-width: 16rem;
+  text-align: right;
+  pointer-events: none;
+}
+.data-cycle-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  /* Drop-shadow filters instead of text-shadow: a text-shadow bleeds
+     through gradient-clipped glyphs, a filter wraps their alpha. */
+  filter: drop-shadow(0 3px 0 rgba(20, 26, 40, 0.45)) drop-shadow(0 10px 28px rgba(20, 26, 40, 0.5));
+}
+.data-cycle-eyebrow {
+  font-family: var(--font-condensed);
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.92);
+}
+.data-cycle-value {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 7vmin, 4.6rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+  background: linear-gradient(180deg, var(--awana-gold-pale) 10%, var(--awana-orange) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.data-cycle-colon,
+.data-cycle-pop {
+  display: inline-block;
+}
+.data-cycle-unit {
+  font-size: 0.4em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-left: 0.15em;
+  vertical-align: 0.55em;
+}
+.data-cycle-sub {
+  font-family: var(--font-condensed);
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.8);
+}
+.data-cycle-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.data-cycle-glyph {
+  display: inline-flex;
+  width: clamp(3rem, 6vmin, 4.2rem);
+}
+.data-cycle-glyph .weather-glyph {
+  width: 100%;
+  height: auto;
+}
+.data-cycle-spark {
+  position: absolute;
+  top: -14px;
+  right: -10px;
+  color: var(--awana-gold-pale);
+  pointer-events: none;
+}
+
 /* ── Tonight's tally ───────────────────────────────────── */
 .tally {
   position: absolute;
@@ -1471,6 +1560,11 @@ input:focus-visible {
   }
   .countdown .label { font-size: 0.62rem; letter-spacing: 0.1em; }
   .countdown .time { font-size: 1.8rem; }
+  .data-cycle { min-height: 4.5rem; min-width: 9rem; }
+  .data-cycle-value { font-size: 2rem; }
+  .data-cycle-eyebrow { font-size: 0.68rem; }
+  .data-cycle-sub { font-size: 0.65rem; }
+  .data-cycle-glyph { width: 2rem; }
   .tally,
   .wall-clock { padding: 0.4rem 0.85rem; }
   .tally .tally-count { font-size: 1.3rem; }
@@ -1578,6 +1672,11 @@ input:focus-visible {
   }
   .countdown .label { font-size: 0.58rem; letter-spacing: 0.1em; }
   .countdown .time { font-size: 1.6rem; }
+  .data-cycle { min-height: 4rem; min-width: 8rem; }
+  .data-cycle-value { font-size: 1.7rem; }
+  .data-cycle-eyebrow { font-size: 0.62rem; }
+  .data-cycle-sub { font-size: 0.6rem; }
+  .data-cycle-glyph { width: 1.8rem; }
   .tally,
   .wall-clock { padding: 0.35rem 0.8rem; }
   .tally .tally-count { font-size: 1.2rem; }

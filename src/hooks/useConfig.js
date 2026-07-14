@@ -31,6 +31,8 @@ const VALIDATORS = {
   milestoneEvery: numberBetween(0, 10000),
   showClock: isBool,
   showWeatherChip: isBool,
+  widgetDisplayMode: (v) => v === 'cycle' || v === 'stickers',
+  cycleIntervalSec: numberBetween(4, 120),
   calendarEnabled: isBool,
   calendarUrl: isString,
   calendarCorsProxy: isString,

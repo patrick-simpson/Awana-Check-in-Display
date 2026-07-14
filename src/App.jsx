@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import CountdownTimer from './components/CountdownTimer.jsx';
+import DataCycle from './components/DataCycle.jsx';
 import WallClock from './components/WallClock.jsx';
 import WeatherChip from './components/WeatherChip.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
@@ -125,6 +126,12 @@ export default function App() {
   }, [status]);
   const showStatus = config.showConnectionStatus || (droppedLong && status === 'disconnected');
 
+  // 'cycle' (default): one big animated data point at a time, bottom
+  // right. 'stickers': the classic corner-chip layout. The connection
+  // status dot stays a corner sticker in both modes — a dead pipe must
+  // never be silent, so it can't wait its turn in a rotation.
+  const stickerMode = config.widgetDisplayMode === 'stickers';
+
   // Reveal the gear on any mouse movement, fade it after 3 seconds of stillness.
   useEffect(() => {
     let timer;
@@ -211,14 +218,31 @@ export default function App() {
         <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />
       </ErrorBoundary>
 
-      {!overlay && <CountdownTimer targetTime={config.countdownTargetTime} clubDates={clubNightDates} />}
+      {!overlay && stickerMode && (
+        <CountdownTimer targetTime={config.countdownTargetTime} clubDates={clubNightDates} />
+      )}
+
+      {!overlay && !stickerMode && (
+        <DataCycle
+          count={count}
+          weather={weather}
+          showClock={config.showClock}
+          showTally={config.showTally}
+          showWeather={showWeatherChip}
+          countdownTargetTime={config.countdownTargetTime}
+          clubDates={clubNightDates}
+          intervalSec={config.cycleIntervalSec}
+        />
+      )}
 
       {/* Top-right corner stack: clock, weather chip, status dot flow
-          under one another so nothing ever overlaps. */}
-      {!overlay && (config.showClock || (showWeatherChip && weather) || showStatus) && (
+          under one another so nothing ever overlaps. In cycle mode the
+          clock and weather live in the rotation instead, so only the
+          status dot remains up here. */}
+      {!overlay && ((stickerMode && (config.showClock || (showWeatherChip && weather))) || showStatus) && (
         <div className="corner-stack">
-          {config.showClock && <WallClock />}
-          {showWeatherChip && <WeatherChip weather={weather} />}
+          {stickerMode && config.showClock && <WallClock />}
+          {stickerMode && showWeatherChip && <WeatherChip weather={weather} />}
           {showStatus && (
             <StickerChip
               className={`status-dot ${status}`}
@@ -234,7 +258,7 @@ export default function App() {
         </div>
       )}
 
-      {!overlay && config.showTally && count > 0 && (
+      {!overlay && stickerMode && config.showTally && count > 0 && (
         <StickerChip
           className="tally"
           label="Tonight"
