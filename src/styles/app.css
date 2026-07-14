@@ -725,6 +725,49 @@ html, body, #root {
   height: auto;
 }
 
+/* ── Sticker chips ─────────────────────────────────────────
+   The catalog's AGES/GRADES badge treatment, shared by every fixed
+   widget (StickerChip.jsx): dark tab, chunky cream die-cut border with
+   an offset halo ring, and a little condensed label tab slapped over
+   the top edge. Dark fill + blur keeps them readable over any slide.
+   Tilt comes from framer-motion (never CSS transform) so it composes
+   with entry/exit animations. */
+.sticker-chip {
+  position: relative;
+  background: var(--sticker-bg);
+  border: 3px solid var(--sticker-edge);
+  border-radius: var(--sticker-radius);
+  outline: 2px solid var(--sticker-edge-halo);
+  outline-offset: 3px;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow: var(--shadow-soft);
+}
+.sticker-chip-label {
+  position: absolute;
+  top: -0.85em;
+  left: 12px;
+  padding: 0.14em 0.65em 0.18em;
+  font-family: var(--font-condensed);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #fff;
+  background: linear-gradient(135deg, var(--awana-orange) 0%, var(--awana-orange-deep) 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(20, 26, 40, 0.35);
+  transform: rotate(-2deg);
+}
+.sticker-chip-spark {
+  position: absolute;
+  top: -9px;
+  right: -6px;
+  color: var(--awana-gold-pale);
+  pointer-events: none;
+}
+
 /* ── Countdown timer ───────────────────────────────────── */
 /* Big sibling of the corner sticker chips: same die-cut treatment,
    with its "Club starts in" line as the overlapping label tab. */
@@ -1184,49 +1227,6 @@ html, body, #root {
   background: #fff;
   font-family: inherit;
   font-size: 0.95em;
-}
-
-/* ── Sticker chips ─────────────────────────────────────────
-   The catalog's AGES/GRADES badge treatment, shared by every fixed
-   widget (StickerChip.jsx): dark tab, chunky cream die-cut border with
-   an offset halo ring, and a little condensed label tab slapped over
-   the top edge. Dark fill + blur keeps them readable over any slide.
-   Tilt comes from framer-motion (never CSS transform) so it composes
-   with entry/exit animations. */
-.sticker-chip {
-  position: relative;
-  background: var(--sticker-bg);
-  border: 3px solid var(--sticker-edge);
-  border-radius: var(--sticker-radius);
-  outline: 2px solid var(--sticker-edge-halo);
-  outline-offset: 3px;
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  box-shadow: var(--shadow-soft);
-}
-.sticker-chip-label {
-  position: absolute;
-  top: -0.85em;
-  left: 12px;
-  padding: 0.14em 0.65em 0.18em;
-  font-family: var(--font-condensed);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: #fff;
-  background: linear-gradient(135deg, var(--awana-orange) 0%, var(--awana-orange-deep) 100%);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(20, 26, 40, 0.35);
-  transform: rotate(-2deg);
-}
-.sticker-chip-spark {
-  position: absolute;
-  top: -9px;
-  right: -6px;
-  color: var(--awana-gold-pale);
-  pointer-events: none;
 }
 
 /* ── Connection status dot ─────────────────────────────── */
