@@ -1434,6 +1434,17 @@ input:focus-visible {
     gap: 0.5rem;
   }
   .milestone-toast .milestone-count { font-size: clamp(1.6rem, 7vw, 2.4rem); }
+
+  /* The setup hint wraps to several lines on a phone; keep it compact
+     and low so it stays on the orange wave, and deepen the shadow for
+     any line that pokes above the crest onto the pale sky. */
+  .placeholder-hint {
+    bottom: 4vh;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    max-width: 88vw;
+    text-shadow: 0 1px 3px rgba(160, 74, 5, 0.55), 0 2px 14px rgba(160, 74, 5, 0.45);
+  }
 }
 
 /* ── Small screens in EITHER direction: compact panels ────

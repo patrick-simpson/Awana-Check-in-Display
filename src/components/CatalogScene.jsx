@@ -277,10 +277,13 @@ export default function CatalogScene({ theme = 'sky', still = false, children })
 
       {!still && <SceneWinks color={t.doodleFill} />}
 
-      {children}
-
-      {/* The big catalog wave rolling along the bottom. */}
+      {/* The big catalog wave rolling along the bottom. It must paint
+          BEFORE the children: on tall/narrow screens the wave reaches
+          high enough to swallow bottom-anchored text (the setup hint),
+          and words are never allowed to hide behind decoration. */}
       <SceneWave gradientId={gradientId} colors={t.wave} still={still} />
+
+      {children}
     </div>
   );
 }
