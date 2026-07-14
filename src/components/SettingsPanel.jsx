@@ -346,7 +346,8 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
           onChange={set('countdownTargetTime')}
         />
         <span className="hint">
-          The corner countdown ticks down to this time. Leave blank to hide it.
+          The corner countdown ticks down to this time on club nights
+          (every day if the calendar is off). Leave blank to hide it.
         </span>
       </div>
     </>
@@ -545,7 +546,7 @@ function CalendarTab({ form, set, setForm, calendar }) {
       <Toggle checked={form.calendarShowWelcome} onChange={set('calendarShowWelcome')}
         title="Welcome slide" hint="Tonight's greeting — or a pointer to the next club night." />
       <Toggle checked={form.calendarShowNextWeek} onChange={set('calendarShowNextWeek')}
-        title="Next-week slide" hint='"Next week is…!" announcements and "No club next week" notices.' />
+        title="Next-week slide" hint='"Next week is…!" announcements and break-week notices.' />
       <Toggle checked={form.calendarShowRemaining} onChange={set('calendarShowRemaining')}
         title="Nights-remaining slide" hint="A countdown nudge once fewer than 10 club nights remain." />
       <Toggle checked={form.calendarShowWeather} onChange={set('calendarShowWeather')}

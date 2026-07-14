@@ -157,11 +157,55 @@ describe('buildCalendarSlides', () => {
     expect(next.text).toBe('Next week is Backwards Night!');
   });
 
-  it('next week cancelled → "No club next week"', () => {
+  it('next week cancelled → "No club next week" with the comeback date', () => {
+    // 2026-09-09 is a Wednesday; the cancelled row is the following week.
+    const info = deriveClubInfo(
+      [club('2026-09-09'), cancelled('2026-09-16'), club('2026-09-23')],
+      '2026-09-09'
+    );
+    const next = byId(buildCalendarSlides(info, {}), 'cal_next');
+    expect(next.text).toBe('No club next week');
+    // The boilerplate "No Awana this week" title must NOT echo under a
+    // "next week" headline — the comeback date is the useful subtext.
+    expect(next.subtext).toBe('Back Wed, Sep 23');
+  });
+
+  it('cancelled night later THIS week → "this week" phrasing', () => {
+    // Tuesday before a cancelled Wednesday: "next week" would be wrong.
+    const info = deriveClubInfo(
+      [cancelled('2026-09-16'), club('2026-09-23')],
+      '2026-09-15'
+    );
+    const next = byId(buildCalendarSlides(info, {}), 'cal_next');
+    expect(next.text).toBe('No club this week');
+    expect(next.subtext).toBe('Back Wed, Sep 23');
+  });
+
+  it('summer break → "Club is on a break", not "next week"', () => {
+    // Mid-July: weeks of cancelled rows, club resumes in September.
+    const info = deriveClubInfo(
+      [cancelled('2026-07-15'), cancelled('2026-07-22'), cancelled('2026-08-26'), club('2026-09-02')],
+      '2026-07-14'
+    );
+    const next = byId(buildCalendarSlides(info, {}), 'cal_next');
+    expect(next.text).toBe('Club is on a break');
+    expect(next.subtext).toBe('Back Wed, Sep 2');
+  });
+
+  it('a real cancellation reason survives; boilerplate does not', () => {
+    const info = deriveClubInfo(
+      [club('2026-12-16'), club('2026-12-23', 'Christmas Break', { isCancelled: true, isSpecial: false }), club('2026-12-30')],
+      '2026-12-16'
+    );
+    const next = byId(buildCalendarSlides(info, {}), 'cal_next');
+    expect(next.subtext).toBe('Christmas Break — Back Wed, Dec 30');
+  });
+
+  it('cancelled with no scheduled return → no comeback date, no boilerplate', () => {
     const info = deriveClubInfo([club('2026-09-09'), cancelled('2026-09-16')], '2026-09-09');
     const next = byId(buildCalendarSlides(info, {}), 'cal_next');
     expect(next.text).toBe('No club next week');
-    expect(next.subtext).toBe('No Awana this week');
+    expect(next.subtext).toBe('');
   });
 
   it('next week regular → weather slide instead', () => {

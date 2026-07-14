@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
@@ -71,6 +71,17 @@ export default function App() {
   const calendarSlides = config.calendarEnabled
     ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr), config)
     : [];
+
+  // Gate the corner countdown to real club nights once the calendar is
+  // loaded — otherwise it counts down to the configured time every day,
+  // even in the middle of summer break. No calendar (disabled, or not
+  // loaded yet) → null → the countdown keeps its everyday behavior.
+  const clubNightDates = useMemo(
+    () => (config.calendarEnabled && calendar.events.length
+      ? calendar.events.filter((e) => e.kind === 'club' && !e.isCancelled).map((e) => e.date)
+      : null),
+    [config.calendarEnabled, calendar.events]
+  );
 
   // Thin the confetti while a rush is draining so cheap signage sticks
   // hold 60fps with banners firing back-to-back.
@@ -201,7 +212,7 @@ export default function App() {
         <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />
       </ErrorBoundary>
 
-      {!overlay && <CountdownTimer targetTime={config.countdownTargetTime} />}
+      {!overlay && <CountdownTimer targetTime={config.countdownTargetTime} clubDates={clubNightDates} />}
 
       {!overlay && config.showClock && <WallClock />}
 

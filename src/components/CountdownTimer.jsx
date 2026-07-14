@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { localDateStr } from '../lib/calendarLogic.js';
 
 /**
  * Semi-transparent corner timer counting down to the configured HH:MM.
  * If that time has already passed today, it targets the same time tomorrow.
+ * When the calendar is loaded, `clubDates` (the non-cancelled club-night
+ * date keys) gates the timer to nights club actually meets — otherwise a
+ * display left running over summer break claims club starts tomorrow.
  * When it reaches zero it elegantly fades out and stays hidden until
  * the target rolls over to a future time.
  */
-export default function CountdownTimer({ targetTime }) {
+export default function CountdownTimer({ targetTime, clubDates = null }) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -15,7 +19,7 @@ export default function CountdownTimer({ targetTime }) {
     return () => clearInterval(interval);
   }, []);
 
-  const result = resolveTarget(targetTime, now);
+  const result = resolveTarget(targetTime, now, clubDates);
   const remaining = result ? result.ms - now : 0;
   const visible = result !== null && remaining > 0;
 
@@ -38,7 +42,7 @@ export default function CountdownTimer({ targetTime }) {
   );
 }
 
-export function resolveTarget(hhmm, now) {
+export function resolveTarget(hhmm, now, clubDates = null) {
   if (!hhmm || typeof hhmm !== 'string') return null;
   const match = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
   if (!match) return null;
@@ -51,6 +55,8 @@ export function resolveTarget(hhmm, now) {
   const isTomorrow = d.getTime() <= now;
   // If we're already past today's target, count down to tomorrow's.
   if (isTomorrow) d.setDate(d.getDate() + 1);
+  // With a loaded calendar, only count down to real club nights.
+  if (Array.isArray(clubDates) && !clubDates.includes(localDateStr(d))) return null;
   return { ms: d.getTime(), isTomorrow };
 }
 

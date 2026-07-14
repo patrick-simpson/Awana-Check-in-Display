@@ -56,6 +56,13 @@ export function daysBetween(fromStr, toStr) {
   return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86400000);
 }
 
+// Sunday-based day of week for a local date key (0 = Sunday).
+function dayOfWeek(dateStr) {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  if (!y || !m || !d) return 0;
+  return new Date(y, m - 1, d).getDay();
+}
+
 /**
  * Everything the slides need to know about where we are in the club
  * year, derived from the sanitized event list and a local date key.
@@ -144,10 +151,26 @@ export function buildCalendarSlides(info, cfg = {}) {
     const entry = info.nextEntry;
     const gap = daysBetween(info.todayStr || localDateStr(), entry.date);
     if (entry.isCancelled) {
+      // Phrase the cancellation by where the break actually falls.
+      // "No club next week" while the cancelled night is tomorrow (or
+      // months of summer break remain) reads as nonsense — and echoing
+      // the calendar's boilerplate title ("No Awana this week") under a
+      // "next week" headline contradicts it. Point at the comeback date
+      // instead; only a non-boilerplate reason (e.g. "Christmas Break")
+      // is worth repeating.
+      const todayKey = info.todayStr || localDateStr();
+      const resumeGap = info.nextNight ? daysBetween(todayKey, info.nextNight.date) : null;
+      const weeksAway = Math.floor((gap + dayOfWeek(todayKey)) / 7);
+      const longBreak = (resumeGap != null && resumeGap > 14) || weeksAway > 1;
+      const reason = splitTitle(entry.title).title;
+      const back = info.nextNight ? `Back ${formatShortDate(info.nextNight.date)}` : '';
       slides.push(slide('cal_next', {
         eyebrow: 'Heads up',
-        text: 'No club next week',
-        subtext: splitTitle(entry.title).title || '',
+        text: longBreak
+          ? 'Club is on a break'
+          : weeksAway === 0 ? 'No club this week' : 'No club next week',
+        subtext: [/^no\s+(awana|club)\b/i.test(reason) ? '' : reason, back]
+          .filter(Boolean).join(' — '),
         theme: 'sunset',
         textSize: 'lg',
       }));

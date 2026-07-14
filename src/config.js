@@ -45,6 +45,8 @@ const config = {
 
   // Club start time. The corner countdown ticks down to this time today
   // (or tomorrow if today's time has already passed). 24-hour clock.
+  // With calendar events loaded, it only shows when the target day is
+  // an actual club night — never during breaks.
   countdownTargetTime: '18:30',
 
   // How long each check-in banner stays on screen (milliseconds).

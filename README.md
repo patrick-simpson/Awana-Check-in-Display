@@ -98,9 +98,10 @@ church's Awana calendar and generates slides on its own (Settings →
   ("Welcome to Awana!") on regular nights. On non-club days it points to
   the next club night instead.
 - **Next week** — "Next week is Backwards Night!" when something special is
-  coming, "No club next week" on break weeks. **Awana Store nights are never
-  announced ahead of time** — any calendar title containing "store" is
-  hidden, and the slot shows the weather instead.
+  coming, "No club this/next week" on break weeks (with the comeback date),
+  or "Club is on a break" across long gaps like summer. **Awana Store nights
+  are never announced ahead of time** — any calendar title containing
+  "store" is hidden, and the slot shows the weather instead.
 - **Weather** — when next week has nothing to tease, a live current-conditions
   slide (big temperature, animated hand-drawn glyph) from
   [Open-Meteo](https://open-meteo.com) (free, no API key). Set your town in

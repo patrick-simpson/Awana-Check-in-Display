@@ -26,6 +26,33 @@ describe('resolveTarget', () => {
     expect(resolveTarget('12:75', noon)).toBeNull();
     expect(resolveTarget('soon', noon)).toBeNull();
   });
+
+  describe('club-night gating', () => {
+    // noon is local 2026-06-10.
+    it('counts down when today is a club night', () => {
+      const result = resolveTarget('18:30', noon, ['2026-06-10', '2026-09-02']);
+      expect(result).not.toBeNull();
+      expect(result.isTomorrow).toBe(false);
+    });
+
+    it('hides when the next occurrence is not a club night — the summer-break bug', () => {
+      // Club resumes months out; the timer must not claim it starts today.
+      expect(resolveTarget('18:30', noon, ['2026-09-02'])).toBeNull();
+    });
+
+    it('after tonight passes, only shows "tomorrow" if tomorrow is a club night', () => {
+      expect(resolveTarget('08:00', noon, ['2026-06-11'])).not.toBeNull();
+      expect(resolveTarget('08:00', noon, ['2026-06-10'])).toBeNull();
+    });
+
+    it('an empty club list hides the timer entirely', () => {
+      expect(resolveTarget('18:30', noon, [])).toBeNull();
+    });
+
+    it('null clubDates keeps the calendar-less everyday behavior', () => {
+      expect(resolveTarget('18:30', noon, null)).not.toBeNull();
+    });
+  });
 });
 
 describe('formatRemaining', () => {
