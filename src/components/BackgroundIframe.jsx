@@ -102,10 +102,6 @@ export default function BackgroundIframe({
               Welcome<br />to Club Night!
             </motion.h1>
           </div>
-          <div className="placeholder-hint">
-            Add a looping PowerPoint or free-type your own slides in <strong>Settings</strong> (gear,
-            bottom-left) — check-in banners work either way.
-          </div>
         </CatalogScene>
       </div>
     );
