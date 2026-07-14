@@ -634,6 +634,20 @@ html, body, #root {
     drop-shadow(0 5px 0 rgba(0, 0, 0, 0.14))
     drop-shadow(0 12px 28px rgba(0, 0, 0, 0.28));
 }
+/* Official mascot sticker (duck / bear / Sparky) riding shotgun on the
+   wordmark. Slightly overlaps it, like stickers slapped on together. */
+.banner .club-mascot {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: clamp(56px, 9vh, 104px);
+  margin-right: -0.5rem;
+  z-index: 1;
+}
+.banner .club-mascot img {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.3));
+}
 .banner .club-title-fallback {
   display: inline-flex;
   align-items: center;
@@ -668,10 +682,17 @@ html, body, #root {
   --band-bottom: var(--awana-raspberry);
 }
 .banner.birthday .cake {
-  font-size: clamp(3.5rem, 9vh, 7rem);
   display: inline-block;
   flex-shrink: 0;
+  width: clamp(72px, 13vh, 132px);
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
+}
+.banner.birthday .cake svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* The candle flames poke above the viewBox top. */
+  overflow: visible;
 }
 
 /* First-timer band: the big Awana-orange welcome, with a golden glow
@@ -684,7 +705,7 @@ html, body, #root {
     0 -10px 120px rgba(255, 184, 28, 0.45);
 }
 
-/* Falling gift emojis for birthdays */
+/* Falling birthday art (gifts / balloons / stars) */
 .gift-rain {
   position: absolute;
   inset: 0;
@@ -694,9 +715,14 @@ html, body, #root {
 .gift-rain .gift {
   position: absolute;
   top: -80px;
-  font-size: 3rem;
+  display: inline-block;
   will-change: transform;
   filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
+}
+.gift-rain .gift svg {
+  display: block;
+  width: 3.2rem;
+  height: auto;
 }
 
 /* ── Countdown timer ───────────────────────────────────── */

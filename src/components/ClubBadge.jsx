@@ -1,16 +1,30 @@
 import { motion, useReducedMotion } from 'framer-motion';
 
 /**
- * The club identity on a banner: the official catalog logo when we have
- * one (white-on-transparent, extracted via scripts/extract-club-logos.py),
- * otherwise a styled club-title pill so Trek/Journey/unknown clubs still
- * look intentional. Pops in like a sticker being slapped on (low damping
- * for a visible wobble), then floats gently for as long as the banner is
- * up — unless the viewer prefers reduced motion.
+ * The club identity on a banner: the club's mascot sticker (for the
+ * three clubs that have one) tumbling in beside the white-knockout
+ * wordmark (catalog extractions, plus custom catalog-style builds for
+ * Trek and Journey). Unknown clubs fall back to a styled title pill so
+ * a typo in the check-in system still looks intentional. Everything
+ * pops in like stickers being slapped on (low damping for a visible
+ * wobble), then floats gently for as long as the banner is up — unless
+ * the viewer prefers reduced motion.
  */
 const logoPop = {
   hidden: { opacity: 0, scale: 0.3, rotate: -12 },
   show: { opacity: 1, scale: 1, rotate: 0, transition: { type: 'spring', stiffness: 260, damping: 12 } },
+};
+
+// The mascot tumbles in a beat after the wordmark, like a second
+// sticker slapped on the band.
+const mascotPop = {
+  hidden: { opacity: 0, scale: 0.2, rotate: 24 },
+  show: {
+    opacity: 1,
+    scale: 1,
+    rotate: -6,
+    transition: { type: 'spring', stiffness: 240, damping: 11, delay: 0.18 },
+  },
 };
 
 export default function ClubBadge({ club, rawName }) {
@@ -20,6 +34,16 @@ export default function ClubBadge({ club, rawName }) {
 
   return (
     <motion.span className="club-logo-slot" variants={logoPop}>
+      {club.mascot && (
+        <motion.span className="club-mascot" variants={mascotPop}>
+          <motion.img
+            src={club.mascot}
+            alt=""
+            animate={reduced ? undefined : { y: [0, -6, 0], rotate: [0, 4, 0] }}
+            transition={{ duration: 3.8, delay: 0.6, repeat: Infinity, ease: 'easeInOut' }}
+          />
+        </motion.span>
+      )}
       {club.logo ? (
         <motion.img
           className="club-logo"

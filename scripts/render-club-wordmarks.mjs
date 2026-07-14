@@ -42,8 +42,8 @@ if (!chromium) {
 }
 
 const BOARDS = [
-  { name: 'trek', width: 800, height: 300 },
-  { name: 'journey', width: 800, height: 260 },
+  { name: 'trek', width: 620, height: 300 },
+  { name: 'journey', width: 780, height: 252 },
 ];
 
 for (const { name, width, height } of BOARDS) {
