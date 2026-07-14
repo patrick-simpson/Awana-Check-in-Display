@@ -42,7 +42,7 @@ export default function SettingsPanel({
     calendarShowWelcome: config.calendarShowWelcome !== false,
     calendarShowNextWeek: config.calendarShowNextWeek !== false,
     calendarShowRemaining: config.calendarShowRemaining !== false,
-    calendarShowWeather: config.calendarShowWeather !== false,
+    showWeatherChip: config.showWeatherChip !== false,
     weatherLocationName: config.weatherLocationName || '',
     weatherLat: config.weatherLat ?? 44.552,
     weatherLon: config.weatherLon ?? -69.6317,
@@ -290,7 +290,7 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
         <span className="hint">
           Typed slides are free-typed right here in the app — no PowerPoint needed — and get
           the joyful catalog look automatically. They can also include local video files
-          (kept on this device), and the calendar &amp; weather slides join their rotation.
+          (kept on this device), and the calendar slides join their rotation.
         </span>
       </div>
 
@@ -489,7 +489,7 @@ function CalendarTab({ form, set, setForm, calendar }) {
         checked={form.calendarEnabled}
         onChange={set('calendarEnabled')}
         title="Calendar-aware slides"
-        hint='Auto-generate "Welcome to…", "Next week is…", nights-remaining, and weather slides from the church calendar. They join the typed-slides rotation.'
+        hint='Auto-generate "Welcome to…", "Next week is…", and nights-remaining slides from the church calendar. They join the typed-slides rotation.'
       />
 
       {preview && form.calendarEnabled ? (
@@ -549,8 +549,8 @@ function CalendarTab({ form, set, setForm, calendar }) {
         title="Next-week slide" hint='"Next week is…!" announcements and break-week notices.' />
       <Toggle checked={form.calendarShowRemaining} onChange={set('calendarShowRemaining')}
         title="Nights-remaining slide" hint="A countdown nudge once fewer than 10 club nights remain." />
-      <Toggle checked={form.calendarShowWeather} onChange={set('calendarShowWeather')}
-        title="Weather slide" hint="Current conditions, shown when next week has nothing special to tease." />
+      <Toggle checked={form.showWeatherChip} onChange={set('showWeatherChip')}
+        title="Corner weather" hint="An animated temperature chip beside the clock, top-right. Updates every 15 minutes; works over any background." />
 
       <div className="field" style={{ marginTop: '1rem' }}>
         <label htmlFor="wloc">Weather location</label>

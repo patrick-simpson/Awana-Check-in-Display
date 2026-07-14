@@ -56,24 +56,17 @@ function isOneDrivePptx(url) {
 
 export default function BackgroundIframe({
   url, slideshowDelaySec, useLocalSlideshow, backgroundSource, manualSlides,
-  calendarSlides, weather, weatherLocationName,
+  calendarSlides,
 }) {
   // Typed slides: free-typed in the on-screen editor, no PowerPoint.
-  // Calendar-derived slides (welcome / next week / nights remaining /
-  // weather) lead the rotation; they are generated fresh each render
-  // and never stored. The weather placeholder is dropped whenever no
-  // reading is available so an API outage can't blank a slot.
+  // Calendar-derived slides (welcome / next week / nights remaining)
+  // lead the rotation; they are generated fresh each render and never
+  // stored.
   if (backgroundSource === 'manual') {
-    const generated = (calendarSlides || []).filter((s) => s.type !== 'weather' || weather);
-    const deck = [...generated, ...(manualSlides || [])];
+    const deck = [...(calendarSlides || []), ...(manualSlides || [])];
     if (deck.length) {
       return (
-        <ManualSlideshow
-          slides={deck}
-          slideshowDelaySec={slideshowDelaySec}
-          weather={weather}
-          weatherLocationName={weatherLocationName}
-        />
+        <ManualSlideshow slides={deck} slideshowDelaySec={slideshowDelaySec} />
       );
     }
   }

@@ -4,6 +4,7 @@ import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import CountdownTimer from './components/CountdownTimer.jsx';
 import WallClock from './components/WallClock.jsx';
+import WeatherChip from './components/WeatherChip.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import SlideEditorPanel from './components/SlideEditorPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
@@ -62,11 +63,10 @@ export default function App() {
   }, []);
 
   const calendar = useCalendar(config);
-  const weatherWanted =
-    config.calendarEnabled !== false &&
-    config.calendarShowWeather !== false &&
-    config.backgroundSource === 'manual';
-  const weather = useWeather(config, weatherWanted && !FLAGS.overlay);
+  // The corner chip works over any background source — it's an overlay
+  // widget like the clock, not part of the slide rotation.
+  const showWeatherChip = config.showWeatherChip !== false;
+  const weather = useWeather(config, showWeatherChip && !FLAGS.overlay);
 
   const calendarSlides = config.calendarEnabled
     ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr), config)
@@ -203,8 +203,6 @@ export default function App() {
           backgroundSource={config.backgroundSource}
           manualSlides={config.manualSlides}
           calendarSlides={calendarSlides}
-          weather={weather}
-          weatherLocationName={config.weatherLocationName}
         />
       )}
 
@@ -214,7 +212,24 @@ export default function App() {
 
       {!overlay && <CountdownTimer targetTime={config.countdownTargetTime} clubDates={clubNightDates} />}
 
-      {!overlay && config.showClock && <WallClock />}
+      {/* Top-right corner stack: clock, weather chip, status dot flow
+          under one another so nothing ever overlaps. */}
+      {!overlay && (config.showClock || (showWeatherChip && weather) || showStatus) && (
+        <div className="corner-stack">
+          {config.showClock && <WallClock />}
+          {showWeatherChip && <WeatherChip weather={weather} />}
+          {showStatus && (
+            <div
+              className={`status-dot ${status}`}
+              aria-live="polite"
+              aria-label={`Connection status: ${status}`}
+            >
+              <span className="dot" />
+              <span>{status === 'off' ? 'not set up' : status}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {!overlay && config.showTally && count > 0 && (
         <div className="tally" aria-live="off">
@@ -280,17 +295,6 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {!overlay && showStatus && (
-        <div
-          className={`status-dot ${status} ${config.showClock ? 'below-clock' : ''}`}
-          aria-live="polite"
-          aria-label={`Connection status: ${status}`}
-        >
-          <span className="dot" />
-          <span>{status === 'off' ? 'not set up' : status}</span>
-        </div>
-      )}
 
       {!overlay && (
         <button

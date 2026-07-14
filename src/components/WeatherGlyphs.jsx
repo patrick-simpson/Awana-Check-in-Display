@@ -1,12 +1,9 @@
 import { motion } from 'framer-motion';
-import { THEMES } from './CatalogScene.jsx';
-import { weatherPresentation } from '../lib/weather.js';
 
-// The weather moment — fills the "next week" slot when there's nothing
-// special to tease. Drawn in the catalog's hand-doodle language: a big
-// line-art glyph (rotating sun rays, drifting clouds, falling rain
-// dashes…) over the same CatalogScene sky the text slides use. All
-// animation is transform/opacity so cheap signage sticks keep 60fps.
+// Hand-doodle weather glyphs in the catalog's visual language: rotating
+// sun rays, drifting clouds, falling rain dashes, flashing lightning…
+// Drawn for the corner weather chip (WeatherChip.jsx). All animation is
+// transform/opacity so cheap signage sticks keep 60fps.
 
 const loop = (duration, extra = {}) => ({
   repeat: Infinity, ease: 'easeInOut', duration, ...extra,
@@ -202,37 +199,5 @@ export function WeatherGlyph({ icon, stroke, fill }) {
     <svg className="weather-glyph" viewBox="0 0 200 200" aria-hidden>
       <Glyph stroke={stroke} fill={fill} />
     </svg>
-  );
-}
-
-export default function WeatherSlide({ weather, locationName }) {
-  if (!weather) return null;
-  const { label, icon, theme } = weatherPresentation(weather.code, weather.isDay);
-  const t = THEMES[theme] || THEMES.sky;
-  const unit = weather.units === 'celsius' ? 'C' : 'F';
-  const showFeels = weather.apparent != null && weather.apparent !== weather.temp;
-
-  return (
-    <div className="manual-slide-copy weather-slide">
-      {locationName ? (
-        <span className="manual-slide-eyebrow">
-          {weather.isDay ? 'Today' : 'Tonight'} in {locationName}
-        </span>
-      ) : null}
-      <div className="weather-row">
-        <motion.div
-          className="weather-glyph-wrap"
-          animate={{ y: [0, -10, 0] }}
-          transition={loop(6)}
-        >
-          <WeatherGlyph icon={icon} stroke={t.doodleStroke} fill={t.doodleFill} />
-        </motion.div>
-        <div className="weather-temp">
-          {weather.temp}°<span className="weather-unit">{unit}</span>
-        </div>
-      </div>
-      <div className="weather-label">{label}</div>
-      {showFeels ? <div className="weather-feels">feels like {weather.apparent}°</div> : null}
-    </div>
   );
 }

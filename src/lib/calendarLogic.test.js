@@ -192,13 +192,13 @@ describe('buildCalendarSlides', () => {
     expect(next.subtext).toBe('Back Wed, Sep 2');
   });
 
-  it('break weeks still get the weather slide (feed lists cancelled rows, so seasonOver never fires)', () => {
-    const info = deriveClubInfo(
+  it('no weather slides in the rotation — weather lives in the corner chip', () => {
+    // Break week, regular week, and empty calendar: none emit cal_weather.
+    const breakWeek = deriveClubInfo(
       [cancelled('2026-07-15'), cancelled('2026-07-22'), club('2026-09-02')],
       '2026-07-14'
     );
-    expect(byId(buildCalendarSlides(info, {}), 'cal_weather')).toBeTruthy();
-    expect(ids(buildCalendarSlides(info, { calendarShowWeather: false }))).not.toContain('cal_weather');
+    expect(ids(buildCalendarSlides(breakWeek, {}))).not.toContain('cal_weather');
   });
 
   it('a real cancellation reason survives; boilerplate does not', () => {
@@ -217,17 +217,15 @@ describe('buildCalendarSlides', () => {
     expect(next.subtext).toBe('');
   });
 
-  it('next week regular → weather slide instead', () => {
+  it('next week regular → nothing to tease, no slide in the slot', () => {
     const info = deriveClubInfo([club('2026-09-09'), club('2026-09-16')], '2026-09-09');
-    const slides = buildCalendarSlides(info, {});
-    expect(byId(slides, 'cal_weather')).toEqual({ id: 'cal_weather', type: 'weather', durationSec: 0 });
-    expect(byId(slides, 'cal_next')).toBeUndefined();
+    expect(byId(buildCalendarSlides(info, {}), 'cal_next')).toBeUndefined();
   });
 
-  it('next week is the store → weather slide, title never leaks', () => {
+  it('next week is the store → no announcement, title never leaks', () => {
     const info = deriveClubInfo([club('2026-09-09'), club('2026-09-16', 'Awana Store Night - bring shekels')], '2026-09-09');
     const slides = buildCalendarSlides(info, {});
-    expect(byId(slides, 'cal_weather')).toBeTruthy();
+    expect(byId(slides, 'cal_next')).toBeUndefined();
     expect(JSON.stringify(slides)).not.toMatch(/store|shekel/i);
   });
 
@@ -269,20 +267,21 @@ describe('buildCalendarSlides', () => {
   });
 
   it('per-slide config toggles remove exactly their slide', () => {
-    const info = deriveClubInfo([club('2026-09-09'), club('2026-09-16'), club('2026-09-23')], '2026-09-09');
+    const info = deriveClubInfo(
+      [club('2026-09-09'), club('2026-09-16', 'Backwards Night'), club('2026-09-23')],
+      '2026-09-09'
+    );
     expect(ids(buildCalendarSlides(info, { calendarShowWelcome: false }))).not.toContain('cal_welcome');
-    expect(ids(buildCalendarSlides(info, { calendarShowWeather: false }))).not.toContain('cal_weather');
     expect(ids(buildCalendarSlides(info, { calendarShowRemaining: false }))).not.toContain('cal_remaining');
-    expect(ids(buildCalendarSlides(info, { calendarShowNextWeek: false }))).not.toContain('cal_weather');
+    expect(ids(buildCalendarSlides(info, { calendarShowNextWeek: false }))).not.toContain('cal_next');
   });
 
-  it('every text slide looks like a valid manual slide', () => {
+  it('every slide looks like a valid manual slide', () => {
     const info = deriveClubInfo(
       [club('2026-09-09', 'Water Night - fun'), cancelled('2026-09-16'), club('2026-09-23')],
       '2026-09-09'
     );
     for (const s of buildCalendarSlides(info, {})) {
-      if (s.type === 'weather') continue;
       expect(typeof s.id).toBe('string');
       expect(s.text.length).toBeGreaterThan(0);
       expect(['sky', 'sunset', 'night', 'meadow', 'lavender']).toContain(s.theme);
@@ -292,9 +291,6 @@ describe('buildCalendarSlides', () => {
 
   it('returns [] for null info or empty calendars', () => {
     expect(buildCalendarSlides(null, {})).toEqual([]);
-    const empty = deriveClubInfo([], '2026-09-09');
-    // seasonOver && no tonight → just the weather slide slot
-    expect(ids(buildCalendarSlides(empty, {}))).toEqual(['cal_weather']);
-    expect(buildCalendarSlides(empty, { calendarShowWeather: false })).toEqual([]);
+    expect(buildCalendarSlides(deriveClubInfo([], '2026-09-09'), {})).toEqual([]);
   });
 });

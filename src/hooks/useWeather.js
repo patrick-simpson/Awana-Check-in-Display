@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchCurrentWeather } from '../lib/weather.js';
 
-const REFRESH_MS = 30 * 60 * 1000;
+// Open-Meteo refreshes current conditions about every 15 minutes, so
+// polling any faster buys nothing.
+const REFRESH_MS = 15 * 60 * 1000;
 
 /**
- * Current conditions for the weather slide. Keeps the last good
- * reading through outages (a slightly old temperature beats a blank
- * slide), and fetches nothing at all while `enabled` is false so
- * PowerPoint-only installs never touch the weather API.
+ * Current conditions for the corner weather chip. Keeps the last good
+ * reading through outages (a slightly old temperature beats a missing
+ * chip), and fetches nothing at all while `enabled` is false so
+ * installs with the chip off never touch the weather API.
  */
 export function useWeather({ weatherLat, weatherLon, weatherUnits }, enabled) {
   const [weather, setWeather] = useState(null);

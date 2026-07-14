@@ -80,6 +80,12 @@ const config = {
   // shows time-until-start; this is a plain wall clock).
   showClock: false,
 
+  // Animated weather chip in the top-right corner, under the clock —
+  // temperature plus a living doodle of the sky. Refreshes every 15
+  // minutes from Open-Meteo (free, keyless). Works over any background
+  // source; hides itself whenever no reading is available.
+  showWeatherChip: true,
+
   // Ask the browser to keep the TV/projector screen awake while the
   // display is open (Screen Wake Lock API; ignored where unsupported).
   keepScreenAwake: true,
@@ -87,8 +93,7 @@ const config = {
   // ── Calendar-aware slides ─────────────────────────────────
   // The display can read the church's Awana calendar and auto-generate
   // slides in the typed-slides rotation: "Welcome to Water Night!",
-  // "Next week is Backwards Night!", "N nights remaining", and a live
-  // weather slide when there's nothing special to tease. A nightly
+  // "Next week is Backwards Night!", and "N nights remaining". A nightly
   // GitHub Action turns the calendar page into calendar-feed.json;
   // if that file is missing or stale the app falls back to fetching
   // the calendar page live through the CORS proxy below.
@@ -110,9 +115,8 @@ const config = {
   calendarShowWelcome: true,
   calendarShowNextWeek: true,
   calendarShowRemaining: true,
-  calendarShowWeather: true,
 
-  // Where the weather slide looks. Use Settings → Calendar & Weather →
+  // Where the weather chip looks. Use Settings → Calendar & Weather →
   // "Look up" to fill the coordinates from a town name.
   weatherLocationName: 'Waterville, Maine',
   weatherLat: 44.552,

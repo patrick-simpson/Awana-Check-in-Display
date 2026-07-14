@@ -42,7 +42,7 @@ describe('sanitizeOverrides', () => {
       calendarUrl: 'https://example.org/calendar',
       calendarCorsProxy: '',
       calendarWelcomeText: 'Welcome to KVB Awana!',
-      calendarShowWeather: true,
+      showWeatherChip: true,
       weatherLocationName: 'Waterville, Maine',
       weatherLat: 44.552,
       weatherLon: -69.6317,

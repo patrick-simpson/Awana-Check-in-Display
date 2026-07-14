@@ -8,6 +8,9 @@ A joyful welcome screen for your Awana club, styled after the official Awana Clu
 - **Queueing with burst mode** — if five kids scan at once, each still gets their own moment in turn; during a big rush the display automatically shortens banners so the line at the door never outruns the screen.
 - **Tonight's tally** — an optional corner counter ("23 checked in tonight"). It stores only a number and resets itself daily.
 - **Countdown** — a polished timer in the corner until club starts.
+- **Corner weather** — an animated temperature chip beside the clock (spinning
+  sun, drifting clouds, falling rain), live from [Open-Meteo](https://open-meteo.com)
+  every 15 minutes — free, no API key.
 - **Built for signage** — keeps the screen awake during club (Screen Wake Lock), double-click anywhere for fullscreen, and if the connection drops mid-club a warning dot appears on its own.
 - **Fully serverless** — no local server to run. Your check-in system publishes events to [Pusher](https://pusher.com) and this display subscribes to them over the internet.
 
@@ -87,7 +90,7 @@ file (mp4/webm) into the rotation:
   badges them "Video not on this device" until you do).
 - Clearing the browser's site data deletes stored videos.
 
-### Calendar & weather slides — automatic, from the church calendar
+### Calendar slides — automatic, from the church calendar
 
 With **Typed slides** as the background source, the display also reads the
 church's Awana calendar and generates slides on its own (Settings →
@@ -101,15 +104,15 @@ church's Awana calendar and generates slides on its own (Settings →
   coming, "No club this/next week" on break weeks (with the comeback date),
   or "Club is on a break" across long gaps like summer. **Awana Store nights
   are never announced ahead of time** — any calendar title containing
-  "store" is hidden, and the slot shows the weather instead.
-- **Weather** — when next week has nothing to tease (regular weeks, break
-  weeks, and the off-season), a live current-conditions
-  slide (big temperature, animated hand-drawn glyph) from
-  [Open-Meteo](https://open-meteo.com) (free, no API key). Set your town in
-  Settings with the **Look up** button.
+  "store" is hidden.
 - **Nights remaining** — once fewer than 10 club nights are left after
   tonight, a big "N nights remaining" slide with the nudge *"Is your child
   on track to finish their book?"*
+
+The **corner weather chip** is separate from these slides: it sits under the
+wall clock over any background source (PowerPoint or Typed slides), refreshes
+every 15 minutes, and hides itself whenever no reading is available. Set your
+town in Settings → Calendar & Weather with the **Look up** button.
 
 **How the data flows:** the calendar site doesn't allow direct browser
 fetches, so a nightly GitHub Action (`.github/workflows/update-calendar.yml`

@@ -8,7 +8,7 @@
 //     — in US-Eastern evenings UTC has already rolled to tomorrow,
 //     which is exactly club hours.
 //   • Awana Store nights are a surprise: /store/i titles are never
-//     announced ahead of time (they force the weather slide).
+//     announced ahead of time.
 //   • Saturday day-notes (Build Day, Grand Prix) are not weekly
 //     club nights: they never count toward "nights remaining" and
 //     never appear as "tonight"/"next week".
@@ -101,10 +101,6 @@ function slide(id, { eyebrow = '', text, subtext = '', theme = 'sky', textSize =
  * The auto-generated deck, in show order. Derived fresh every render
  * from (events, today, config) — these slides are NEVER persisted, so
  * they can't go stale in localStorage or leak into the user's deck.
- *
- * A `{ type: 'weather' }` placeholder slide asks the slideshow to show
- * live weather in that slot; the caller drops it when weather data is
- * unavailable, so a dead API can never put an empty slide on screen.
  */
 export function buildCalendarSlides(info, cfg = {}) {
   if (!info) return [];
@@ -112,7 +108,6 @@ export function buildCalendarSlides(info, cfg = {}) {
   const showWelcome = cfg.calendarShowWelcome !== false;
   const showNextWeek = cfg.calendarShowNextWeek !== false;
   const showRemaining = cfg.calendarShowRemaining !== false;
-  const showWeather = cfg.calendarShowWeather !== false;
 
   // 1 — Welcome / next-night pointer
   if (showWelcome) {
@@ -174,13 +169,6 @@ export function buildCalendarSlides(info, cfg = {}) {
         theme: 'sunset',
         textSize: 'lg',
       }));
-      if (showWeather) {
-        // A break week has nothing to tease either. The off-season
-        // branch below never fires while the feed still lists explicit
-        // cancelled rows (this feed marks every summer week that way),
-        // so break weeks get their weather moment here.
-        slides.push({ id: 'cal_weather', type: 'weather', durationSec: 0 });
-      }
     } else if (entry.isSpecial && !isStoreNight(entry.title)) {
       const { title, note } = splitTitle(entry.title);
       slides.push(slide('cal_next', {
@@ -190,14 +178,9 @@ export function buildCalendarSlides(info, cfg = {}) {
         theme: 'sunset',
         textSize: 'lg',
       }));
-    } else if (showWeather) {
-      // Regular (or hush-hush store) week ahead → nothing to tease, so
-      // fill the slot with something delightful instead: the weather.
-      slides.push({ id: 'cal_weather', type: 'weather', durationSec: 0 });
     }
-  } else if (showNextWeek && showWeather && info.seasonOver && !info.tonight) {
-    // Off-season screen still gets its weather moment.
-    slides.push({ id: 'cal_weather', type: 'weather', durationSec: 0 });
+    // Regular (or hush-hush store) week ahead → nothing to tease, no
+    // slide. Weather lives in the corner chip now, not the rotation.
   }
 
   // 3 — Nights remaining (the countdown-to-finish nudge)
