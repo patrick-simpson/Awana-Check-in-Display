@@ -13,6 +13,11 @@
   --awana-blue: #3054a8;
   --awana-sky: #b9d5ec;
   --awana-cream: #fff6e3;
+  --awana-gold: #ffb81c;       /* first-timer gold, CTA buttons */
+  --awana-gold-pale: #ffe6a3;  /* warm gradient tops, sparkle accents */
+  --awana-yellow: #ffd257;     /* tally count, star art */
+  --awana-coral: #ef5350;      /* birthday band top */
+  --awana-raspberry: #a04ba8;  /* birthday band bottom */
   --ink: #33424f;             /* the charcoal of the catalog's AGES chips */
   --ink-soft: #5b6b78;
 
@@ -21,6 +26,15 @@
   --glass-border: rgba(255, 255, 255, 0.18);
   --text-on-glass: #ffffff;
   --text-on-glass-muted: rgba(255, 255, 255, 0.75);
+  --status-ok: #4caf50;
+  --status-idle: #9e9e9e;
+
+  /* Catalog "sticker" chrome — the AGES/GRADES tab treatment applied to
+     every fixed widget (see .sticker-chip). */
+  --sticker-bg: rgba(28, 34, 48, 0.72);
+  --sticker-edge: rgba(255, 246, 227, 0.92);
+  --sticker-edge-halo: rgba(255, 246, 227, 0.3);
+  --sticker-radius: 18px;
 
   --radius-lg: 32px;
   --radius-md: 16px;
@@ -650,8 +664,8 @@ html, body, #root {
 
 /* Birthday band: catalog coral → raspberry. */
 .banner.birthday {
-  --band-top: #ef5350;
-  --band-bottom: #a04ba8;
+  --band-top: var(--awana-coral);
+  --band-bottom: var(--awana-raspberry);
 }
 .banner.birthday .cake {
   font-size: clamp(3.5rem, 9vh, 7rem);
@@ -663,7 +677,7 @@ html, body, #root {
 /* First-timer band: the big Awana-orange welcome, with a golden glow
    rising off the wave. */
 .banner.first-timer {
-  --band-top: #ffb81c;
+  --band-top: var(--awana-gold);
   --band-bottom: var(--awana-orange-deep);
   box-shadow:
     0 -18px 90px rgba(20, 26, 40, 0.35),
@@ -717,7 +731,7 @@ html, body, #root {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
   line-height: 1.1;
-  background: linear-gradient(180deg, #ffe6a3 10%, var(--awana-orange) 100%);
+  background: linear-gradient(180deg, var(--awana-gold-pale) 10%, var(--awana-orange) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -753,7 +767,7 @@ html, body, #root {
   font-size: 1.7rem;
   font-weight: 800;
   line-height: 1;
-  color: #ffd257;
+  color: var(--awana-yellow);
 }
 .tally .tally-label {
   font-family: var(--font-condensed);
@@ -1042,7 +1056,7 @@ html, body, #root {
 }
 .panel .status-line .dot {
   width: 10px; height: 10px; border-radius: 50%;
-  background: #9e9e9e;
+  background: var(--status-idle);
 }
 .panel .status-line.connected .dot    { background: #43a047; }
 .panel .status-line.connecting .dot   { background: var(--awana-orange); animation: pulse 1.2s ease-in-out infinite; }
@@ -1068,7 +1082,7 @@ html, body, #root {
 .panel button:hover { background: rgba(51, 66, 79, 0.06); }
 .panel button:active { transform: scale(0.97); }
 .panel button.primary {
-  background: linear-gradient(135deg, #ffb81c 0%, var(--awana-orange-deep) 100%);
+  background: linear-gradient(135deg, var(--awana-gold) 0%, var(--awana-orange-deep) 100%);
   color: #fff;
   border-color: transparent;
   box-shadow: 0 6px 20px rgba(242, 107, 33, 0.4);
@@ -1159,13 +1173,13 @@ html, body, #root {
 }
 .status-dot .dot {
   width: 8px; height: 8px; border-radius: 50%;
-  background: #9e9e9e;
+  background: var(--status-idle);
   box-shadow: 0 0 8px currentColor;
 }
-.status-dot.connected .dot    { background: #4caf50; }
+.status-dot.connected .dot    { background: var(--status-ok); }
 .status-dot.connecting .dot   { background: var(--awana-orange); animation: pulse 1.2s ease-in-out infinite; }
 .status-dot.disconnected .dot { background: var(--awana-red); }
-.status-dot.off .dot          { background: #9e9e9e; }
+.status-dot.off .dot          { background: var(--status-idle); }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -1245,7 +1259,7 @@ html, body, #root {
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  background: linear-gradient(180deg, #ffe6a3 10%, var(--awana-orange) 100%);
+  background: linear-gradient(180deg, var(--awana-gold-pale) 10%, var(--awana-orange) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -1260,7 +1274,7 @@ html, body, #root {
   position: absolute;
   top: -7px;
   right: -4px;
-  color: #ffe6a3;
+  color: var(--awana-gold-pale);
   pointer-events: none;
 }
 
