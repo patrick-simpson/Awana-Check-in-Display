@@ -82,6 +82,26 @@ describe('SettingsPanel (tabbed)', () => {
     expect(props.onChange.mock.calls[0][0].standardDisplayMs).toBe(20000);
   });
 
+  it('round-trips the widget display mode and cycle interval', () => {
+    const props = baseProps();
+    render(<SettingsPanel {...props} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Display' }));
+
+    // Default mode is the animated cycle, with its interval field shown.
+    expect(screen.getByLabelText('Animated cycle (recommended)').checked).toBe(true);
+    fireEvent.change(screen.getByLabelText('Seconds per item'), { target: { value: '2' } });
+
+    fireEvent.click(screen.getByLabelText('Classic corner stickers'));
+    // The interval only matters in cycle mode, so the field hides.
+    expect(screen.queryByLabelText('Seconds per item')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const patch = props.onChange.mock.calls[0][0];
+    expect(patch.widgetDisplayMode).toBe('stickers');
+    // Out-of-range interval edits still get clamped on save.
+    expect(patch.cycleIntervalSec).toBe(4);
+  });
+
   it('Cancel closes without writing anything', () => {
     const props = baseProps();
     render(<SettingsPanel {...props} />);

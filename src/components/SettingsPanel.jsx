@@ -34,6 +34,8 @@ export default function SettingsPanel({
     showTally: config.showTally !== false,
     keepScreenAwake: config.keepScreenAwake !== false,
     showClock: !!config.showClock,
+    widgetDisplayMode: config.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
+    cycleIntervalSec: config.cycleIntervalSec ?? 12,
     milestoneEvery: config.milestoneEvery ?? 25,
     calendarEnabled: config.calendarEnabled !== false,
     calendarUrl: config.calendarUrl || '',
@@ -70,6 +72,7 @@ export default function SettingsPanel({
       specialDisplayMs: clamp(form.specialDisplayMs, 3000, 25000),
       slideshowDelaySec: clamp(form.slideshowDelaySec, 0, 120),
       milestoneEvery: clamp(Math.round(form.milestoneEvery) || 0, 0, 10000),
+      cycleIntervalSec: clamp(Math.round(form.cycleIntervalSec) || 12, 4, 120),
       calendarUrl: form.calendarUrl.trim(),
       calendarCorsProxy: form.calendarCorsProxy.trim(),
       calendarWelcomeText: form.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
@@ -392,13 +395,59 @@ function BannersTab({ form, set, setForm }) {
 }
 
 function DisplayTab({ form, set }) {
+  const cycleMode = form.widgetDisplayMode !== 'stickers';
   return (
     <>
+      <div className="field">
+        <label>Corner widgets</label>
+        <div className="radio-row">
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="widgetDisplayMode"
+              value="cycle"
+              checked={cycleMode}
+              onChange={set('widgetDisplayMode')}
+            />
+            Animated cycle (recommended)
+          </label>
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="widgetDisplayMode"
+              value="stickers"
+              checked={!cycleMode}
+              onChange={set('widgetDisplayMode')}
+            />
+            Classic corner stickers
+          </label>
+        </div>
+        <span className="hint">
+          The animated cycle shows one big data point at a time in the bottom-right corner —
+          time, tonight's tally, weather, and the pre-club countdown — each tumbling in and
+          out playfully. Classic stickers pin them to the corners all at once.
+        </span>
+      </div>
+
+      {cycleMode && (
+        <div className="field">
+          <label htmlFor="cycleInterval">Seconds per item</label>
+          <input
+            id="cycleInterval" type="number" min="4" max="120" step="1"
+            value={form.cycleIntervalSec}
+            onChange={set('cycleIntervalSec')}
+          />
+          <span className="hint">
+            How long each data point holds the corner before the next one takes over.
+          </span>
+        </div>
+      )}
+
       <Toggle
         checked={form.showTally}
         onChange={set('showTally')}
         title="Tonight's check-in counter"
-        hint='A small "checked in tonight" tally in the corner. Counts only a number, resets daily.'
+        hint='A "checked in tonight" tally — joins the cycle, or sits top-left as a sticker. Counts only a number, resets daily.'
       />
 
       <div className="field" style={{ marginTop: '1rem' }}>
@@ -418,7 +467,7 @@ function DisplayTab({ form, set }) {
         checked={form.showClock}
         onChange={set('showClock')}
         title="Wall clock"
-        hint="Show the current time in the top-right corner all night."
+        hint="The current time of day — joins the cycle, or sits top-right as a sticker."
       />
 
       <Toggle
@@ -550,7 +599,7 @@ function CalendarTab({ form, set, setForm, calendar }) {
       <Toggle checked={form.calendarShowRemaining} onChange={set('calendarShowRemaining')}
         title="Nights-remaining slide" hint="A countdown nudge once fewer than 10 club nights remain." />
       <Toggle checked={form.showWeatherChip} onChange={set('showWeatherChip')}
-        title="Corner weather" hint="An animated temperature chip beside the clock, top-right. Updates every 15 minutes; works over any background." />
+        title="Corner weather" hint="Animated temperature with a living doodle of the sky — joins the cycle, or sits top-right as a sticker. Updates every 15 minutes; works over any background." />
 
       <div className="field" style={{ marginTop: '1rem' }}>
         <label htmlFor="wloc">Weather location</label>
