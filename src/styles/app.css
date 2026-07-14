@@ -870,6 +870,14 @@ html, body, #root {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   line-height: 1.05;
+}
+/* Chrome drops a background-clip:text background from any descendant
+   that carries its own transform (the pop/colon spans framer-motion
+   animates), leaving invisible glyphs — so every text-holding span
+   paints its own clipped gradient instead of inheriting the value's. */
+.data-cycle-value,
+.data-cycle-colon,
+.data-cycle-pop {
   background: linear-gradient(180deg, var(--awana-gold-pale) 10%, var(--awana-orange) 100%);
   -webkit-background-clip: text;
   background-clip: text;
