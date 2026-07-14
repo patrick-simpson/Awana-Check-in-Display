@@ -13,8 +13,9 @@ Usage:
 
 Output: src/assets/clubs/{puggles,cubbies,sparks,tnt}.png
 
-Trek and Journey have no logo art in this catalog; the display falls
-back to a styled text pill for them (see src/lib/clubs.js).
+Trek and Journey have no logo art in this catalog; their wordmarks are
+custom catalog-style builds instead (see render-club-wordmarks.mjs).
+Mascot sticker art comes from extract-club-art.py.
 """
 
 import sys

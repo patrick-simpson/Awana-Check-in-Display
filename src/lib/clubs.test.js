@@ -31,10 +31,19 @@ describe('getClubPalette', () => {
     const sparks = getClubPalette('Sparks');
     expect(sparks.name).toBe('Sparks');
     expect(sparks.confetti.length).toBeGreaterThan(1);
-    // Official catalog logos for the four clubs that have them; Trek and
-    // Journey fall back to a styled text pill (logo: null).
-    expect(sparks.logo).toBeTruthy();
-    expect(getClubPalette('Trek').logo).toBeNull();
+    // Every club now ships wordmark art: catalog extractions for the four
+    // that have them, custom catalog-style builds for Trek and Journey.
+    for (const club of getAllClubs()) {
+      expect(getClubPalette(club).logo, `logo for ${club}`).toBeTruthy();
+    }
+    // Mascot sticker art exists for the three character clubs only; the
+    // fallback palette has neither logo nor mascot.
+    expect(sparks.mascot).toBeTruthy();
+    expect(getClubPalette('Puggles').mascot).toBeTruthy();
+    expect(getClubPalette('Cubbies').mascot).toBeTruthy();
+    expect(getClubPalette('Trek').mascot).toBeNull();
+    expect(getClubPalette(undefined).logo).toBeNull();
+    expect(getClubPalette(undefined).mascot).toBeNull();
   });
 
   it('no longer carries taglines or age ranges — banners show titles only', () => {

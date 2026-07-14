@@ -1,21 +1,30 @@
-// Club identity data — colors and official logos sourced from the Awana
-// Clubs 2026–27 catalog (logos extracted as white-on-transparent PNGs via
-// scripts/extract-club-logos.py). Lookup is case-insensitive and
+// Club identity data — colors, official logos and mascot sticker art
+// sourced from the Awana Clubs 2026–27 catalog (white-knockout wordmarks
+// via scripts/extract-club-logos.py, mascot stickers via
+// scripts/extract-club-art.py). Lookup is case-insensitive and
 // alias-aware; unknown or missing clubs fall back to the warm Awana-orange
 // default so a typo in the check-in system still produces a joyful banner.
 //
-// Trek and Journey have no logo art in the catalog (logo: null) — banners
-// show a styled club-title pill for them instead.
+// Trek and Journey aren't in the catalog pages we have, so their
+// wordmarks are custom catalog-style art built from the app's own Baloo 2
+// face (scripts/render-club-wordmarks.mjs). Only Puggles, Cubbies and
+// Sparks have mascot characters (mascot: null elsewhere).
 
 import pugglesLogo from '../assets/clubs/puggles.png';
 import cubbiesLogo from '../assets/clubs/cubbies.png';
 import sparksLogo from '../assets/clubs/sparks.png';
 import tntLogo from '../assets/clubs/tnt.png';
+import trekLogo from '../assets/clubs/trek.png';
+import journeyLogo from '../assets/clubs/journey.png';
+import pugglesMascot from '../assets/clubs/puggles-mascot.png';
+import cubbiesMascot from '../assets/clubs/cubbies-mascot.png';
+import sparksMascot from '../assets/clubs/sparks-mascot.png';
 
 const CLUBS = {
   puggles: {
     name: 'Puggles',
     logo: pugglesLogo,
+    mascot: pugglesMascot,
     primary: '#F79420',
     deep: '#E07C0A',
     accent: '#FFDCA8',
@@ -24,6 +33,7 @@ const CLUBS = {
   cubbies: {
     name: 'Cubbies',
     logo: cubbiesLogo,
+    mascot: cubbiesMascot,
     primary: '#3054A8',
     deep: '#24418C',
     accent: '#AEC4F2',
@@ -32,6 +42,7 @@ const CLUBS = {
   sparks: {
     name: 'Sparks',
     logo: sparksLogo,
+    mascot: sparksMascot,
     primary: '#E14B4B',
     deep: '#C43737',
     accent: '#FFC9C4',
@@ -40,6 +51,7 @@ const CLUBS = {
   't&t': {
     name: 'T&T',
     logo: tntLogo,
+    mascot: null,
     primary: '#4CAF50',
     deep: '#3B8C3F',
     accent: '#C4E8C5',
@@ -47,7 +59,8 @@ const CLUBS = {
   },
   trek: {
     name: 'Trek',
-    logo: null,
+    logo: trekLogo,
+    mascot: null,
     primary: '#0083C9',
     deep: '#00679F',
     accent: '#B3E2F7',
@@ -55,7 +68,8 @@ const CLUBS = {
   },
   journey: {
     name: 'Journey',
-    logo: null,
+    logo: journeyLogo,
+    mascot: null,
     primary: '#46566B',
     deep: '#354355',
     accent: '#C3CFDE',
@@ -77,6 +91,7 @@ const ALIASES = {
 const DEFAULT_CLUB = {
   name: '',
   logo: null,
+  mascot: null,
   primary: '#F7A41C',
   deep: '#E08E00',
   accent: '#FFE3A3',
