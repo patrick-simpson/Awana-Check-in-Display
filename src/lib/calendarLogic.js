@@ -174,6 +174,13 @@ export function buildCalendarSlides(info, cfg = {}) {
         theme: 'sunset',
         textSize: 'lg',
       }));
+      if (showWeather) {
+        // A break week has nothing to tease either. The off-season
+        // branch below never fires while the feed still lists explicit
+        // cancelled rows (this feed marks every summer week that way),
+        // so break weeks get their weather moment here.
+        slides.push({ id: 'cal_weather', type: 'weather', durationSec: 0 });
+      }
     } else if (entry.isSpecial && !isStoreNight(entry.title)) {
       const { title, note } = splitTitle(entry.title);
       slides.push(slide('cal_next', {

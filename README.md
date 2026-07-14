@@ -102,7 +102,8 @@ church's Awana calendar and generates slides on its own (Settings →
   or "Club is on a break" across long gaps like summer. **Awana Store nights
   are never announced ahead of time** — any calendar title containing
   "store" is hidden, and the slot shows the weather instead.
-- **Weather** — when next week has nothing to tease, a live current-conditions
+- **Weather** — when next week has nothing to tease (regular weeks, break
+  weeks, and the off-season), a live current-conditions
   slide (big temperature, animated hand-drawn glyph) from
   [Open-Meteo](https://open-meteo.com) (free, no API key). Set your town in
   Settings with the **Look up** button.

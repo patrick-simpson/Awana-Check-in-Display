@@ -192,6 +192,15 @@ describe('buildCalendarSlides', () => {
     expect(next.subtext).toBe('Back Wed, Sep 2');
   });
 
+  it('break weeks still get the weather slide (feed lists cancelled rows, so seasonOver never fires)', () => {
+    const info = deriveClubInfo(
+      [cancelled('2026-07-15'), cancelled('2026-07-22'), club('2026-09-02')],
+      '2026-07-14'
+    );
+    expect(byId(buildCalendarSlides(info, {}), 'cal_weather')).toBeTruthy();
+    expect(ids(buildCalendarSlides(info, { calendarShowWeather: false }))).not.toContain('cal_weather');
+  });
+
   it('a real cancellation reason survives; boilerplate does not', () => {
     const info = deriveClubInfo(
       [club('2026-12-16'), club('2026-12-23', 'Christmas Break', { isCancelled: true, isSpecial: false }), club('2026-12-30')],
