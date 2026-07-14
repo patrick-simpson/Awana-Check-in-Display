@@ -29,6 +29,9 @@ export default function CountdownTimer({ targetTime, clubDates = null }) {
         <motion.div
           key="countdown"
           className="countdown"
+          // Sticker tilt rides framer-motion's transform (a CSS rotate
+          // would be clobbered the moment y animates).
+          style={{ rotate: -0.8 }}
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0, transition: { duration: 0.6 } }}
           exit={{ opacity: 0, y: 20, transition: { duration: 0.8 } }}

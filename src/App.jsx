@@ -10,6 +10,7 @@ import SlideEditorPanel from './components/SlideEditorPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { Mark } from './components/Doodles.jsx';
+import StickerChip from './components/StickerChip.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useSocket } from './hooks/useSocket.js';
@@ -219,33 +220,42 @@ export default function App() {
           {config.showClock && <WallClock />}
           {showWeatherChip && <WeatherChip weather={weather} />}
           {showStatus && (
-            <div
+            <StickerChip
               className={`status-dot ${status}`}
+              label="Signal"
+              tilt={-1}
               aria-live="polite"
               aria-label={`Connection status: ${status}`}
             >
               <span className="dot" />
               <span>{status === 'off' ? 'not set up' : status}</span>
-            </div>
+            </StickerChip>
           )}
         </div>
       )}
 
       {!overlay && config.showTally && count > 0 && (
-        <div className="tally" aria-live="off">
+        <StickerChip
+          className="tally"
+          label="Tonight"
+          tilt={1.2}
+          sparkle
+          sparkleDelay={5}
+          aria-live="off"
+        >
           {/* Remounting on every increment gives the number a joyful
-              little pop as each kid checks in. */}
+              little pop-and-twist as each kid checks in. */}
           <motion.span
             key={count}
             className="tally-count"
-            initial={{ scale: 1.45 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 16 }}
+            initial={{ scale: 1.5, rotate: -8 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 15 }}
           >
             {count}
           </motion.span>
-          <span className="tally-label">checked in tonight</span>
-        </div>
+          <span className="tally-label">checked in</span>
+        </StickerChip>
       )}
 
       <AnimatePresence>
@@ -253,6 +263,7 @@ export default function App() {
           <motion.div
             key="milestone"
             className="milestone-toast"
+            style={{ rotate: -1.2 }}
             initial={{ opacity: 0, y: 40, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
             exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
@@ -287,6 +298,7 @@ export default function App() {
           <motion.div
             key="up-next"
             className="up-next"
+            style={{ rotate: 0.6 }}
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0, transition: { duration: 0.3 } }}
             exit={{ opacity: 0, y: 16, transition: { duration: 0.3 } }}

@@ -1,8 +1,12 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import StickerChip from './StickerChip.jsx';
 
 /**
  * Corner wall clock. The countdown answers "how long until club starts";
  * this answers "what time is it" for parents and volunteers all night.
+ * The colon breathes once per couple of seconds so the sticker feels
+ * alive even when the minutes aren't moving.
  */
 export default function WallClock() {
   const [now, setNow] = useState(() => Date.now());
@@ -13,12 +17,30 @@ export default function WallClock() {
   }, []);
 
   const { time, meridiem } = formatClock(now);
+  const [hours, minutes] = time.split(':');
 
   return (
-    <div className="wall-clock" role="timer" aria-label={`Current time ${time} ${meridiem}`}>
-      <span className="time">{time}</span>
+    <StickerChip
+      className="wall-clock"
+      label="Right now"
+      tilt={-1.4}
+      role="timer"
+      aria-label={`Current time ${time} ${meridiem}`}
+    >
+      <span className="time">
+        {hours}
+        <motion.span
+          className="time-colon"
+          aria-hidden
+          animate={{ opacity: [1, 0.25, 1] }}
+          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        >
+          :
+        </motion.span>
+        {minutes}
+      </span>
       <span className="meridiem">{meridiem}</span>
-    </div>
+    </StickerChip>
   );
 }
 
