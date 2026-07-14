@@ -31,17 +31,20 @@ describe('getClubPalette', () => {
     const sparks = getClubPalette('Sparks');
     expect(sparks.name).toBe('Sparks');
     expect(sparks.confetti.length).toBeGreaterThan(1);
-    // Every club now ships wordmark art: catalog extractions for the four
-    // that have them, custom catalog-style builds for Trek and Journey.
+    // Every club ships official wordmark art (catalog extractions plus
+    // the club-supplied Trek/Journey marks via prepare-club-gfx.py).
     for (const club of getAllClubs()) {
       expect(getClubPalette(club).logo, `logo for ${club}`).toBeTruthy();
     }
-    // Mascot sticker art exists for the three character clubs only; the
-    // fallback palette has neither logo nor mascot.
+    // Mascot character art exists for the four character clubs; Trek and
+    // Journey have none, and the fallback palette has neither logo nor
+    // mascot.
     expect(sparks.mascot).toBeTruthy();
     expect(getClubPalette('Puggles').mascot).toBeTruthy();
     expect(getClubPalette('Cubbies').mascot).toBeTruthy();
+    expect(getClubPalette('T&T').mascot).toBeTruthy();
     expect(getClubPalette('Trek').mascot).toBeNull();
+    expect(getClubPalette('Journey').mascot).toBeNull();
     expect(getClubPalette(undefined).logo).toBeNull();
     expect(getClubPalette(undefined).mascot).toBeNull();
   });

@@ -1,14 +1,14 @@
-// Club identity data — colors, official logos and mascot sticker art
-// sourced from the Awana Clubs 2026–27 catalog (white-knockout wordmarks
+// Club identity data — colors, official logos and mascot art. The
+// Puggles/Cubbies/Sparks/T&T wordmarks and the Cubbies/Sparks mascots
+// come from the Awana Clubs 2026–27 catalog (white-knockout wordmarks
 // via scripts/extract-club-logos.py, mascot stickers via
-// scripts/extract-club-art.py). Lookup is case-insensitive and
+// scripts/extract-club-art.py); the official Trek/Journey wordmarks and
+// the Puggles duck / T&T Rabbot mascots come from club-supplied art
+// processed by scripts/prepare-club-gfx.py (spares live in
+// src/assets/clubs/extras/). Lookup is case-insensitive and
 // alias-aware; unknown or missing clubs fall back to the warm Awana-orange
 // default so a typo in the check-in system still produces a joyful banner.
-//
-// Trek and Journey aren't in the catalog pages we have, so their
-// wordmarks are custom catalog-style art built from the app's own Baloo 2
-// face (scripts/render-club-wordmarks.mjs). Only Puggles, Cubbies and
-// Sparks have mascot characters (mascot: null elsewhere).
+// Trek and Journey have no mascot characters (mascot: null).
 
 import pugglesLogo from '../assets/clubs/puggles.png';
 import cubbiesLogo from '../assets/clubs/cubbies.png';
@@ -19,6 +19,7 @@ import journeyLogo from '../assets/clubs/journey.png';
 import pugglesMascot from '../assets/clubs/puggles-mascot.png';
 import cubbiesMascot from '../assets/clubs/cubbies-mascot.png';
 import sparksMascot from '../assets/clubs/sparks-mascot.png';
+import tntMascot from '../assets/clubs/tnt-mascot.png';
 
 const CLUBS = {
   puggles: {
@@ -51,7 +52,7 @@ const CLUBS = {
   't&t': {
     name: 'T&T',
     logo: tntLogo,
-    mascot: null,
+    mascot: tntMascot,
     primary: '#4CAF50',
     deep: '#3B8C3F',
     accent: '#C4E8C5',
