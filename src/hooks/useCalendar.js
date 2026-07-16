@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseCalendarHtml, sanitizeEvents, sanitizeFeed } from '../lib/calendarParse.js';
 
-// Three layers of "the screen must never go calendar-blind":
+// Layers of "the screen must never go calendar-blind":
 //   1. calendar-feed.json — built nightly by the GitHub Action and
 //      shipped with the site (same-origin, no CORS, the normal path)
-//   2. live scrape of the calendar page through a public CORS proxy
-//      (only when the feed is missing or stale)
-//   3. the last good proxy scrape, cached in localStorage
+//   2. best-effort direct fetch of the calendar page (usually
+//      CORS-blocked in a browser — accepted; the third-party proxy
+//      dependency it replaced was the bigger liability)
+//   3. the last good direct scrape, cached in localStorage
 // A stale feed still beats an empty screen, so it's the final floor.
 
 const CACHE_KEY = 'awanaCalendar.v1';
@@ -44,11 +45,10 @@ async function fetchFeed() {
   }
 }
 
-async function fetchViaProxy(proxyTemplate, calendarUrl) {
-  if (!proxyTemplate || !calendarUrl || !proxyTemplate.includes('{url}')) return null;
+async function fetchDirect(calendarUrl) {
+  if (!calendarUrl) return null;
   try {
-    const url = proxyTemplate.replace('{url}', encodeURIComponent(calendarUrl));
-    const res = await fetch(url);
+    const res = await fetch(calendarUrl);
     if (!res.ok) return null;
     const events = sanitizeEvents(parseCalendarHtml(await res.text()));
     return events.filter((e) => e.kind === 'club').length >= MIN_CLUB_EVENTS ? events : null;
@@ -66,7 +66,7 @@ export function useCalendar(config) {
   const [state, setState] = useState({ events: [], source: 'none', generatedAt: null });
   const busy = useRef(false);
 
-  const { calendarEnabled, calendarUrl, calendarCorsProxy } = config;
+  const { calendarEnabled, calendarUrl } = config;
 
   const load = useCallback(async () => {
     if (!calendarEnabled || busy.current) return;
@@ -80,10 +80,10 @@ export function useCalendar(config) {
         return;
       }
 
-      const scraped = await fetchViaProxy(calendarCorsProxy, calendarUrl);
+      const scraped = await fetchDirect(calendarUrl);
       if (scraped) {
         saveCache(scraped);
-        setState({ events: scraped, source: 'proxy', generatedAt: new Date().toISOString() });
+        setState({ events: scraped, source: 'direct', generatedAt: new Date().toISOString() });
         return;
       }
 
@@ -100,7 +100,7 @@ export function useCalendar(config) {
     } finally {
       busy.current = false;
     }
-  }, [calendarEnabled, calendarUrl, calendarCorsProxy]);
+  }, [calendarEnabled, calendarUrl]);
 
   useEffect(() => {
     if (!calendarEnabled) return undefined;

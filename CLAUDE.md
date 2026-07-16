@@ -32,8 +32,14 @@ If the working branch is not already `main` (e.g. you started on a
 
 ## Privacy invariant — DO NOT relax
 
-`src/hooks/useSocket.js` runs every incoming payload through
-`sanitize()`, which keeps **only** `firstName`, `club`, `isBirthday`,
-and `isFirstTimer`. Allergy info, contact info, last names, photos —
-none of it can ever reach the screen. Preserve this invariant on every
-change to the socket layer or banner components.
+**One strict allowlist sanitizer per event type** — see
+`src/lib/eventSanitizers.js` (bound per-event in
+`src/hooks/useSocket.js`). Each incoming payload on the Pusher channel
+(`checkin`, `recap`, `tally`, `birthdays`, `ops`, `canary`) is reduced
+to exactly its allowlisted fields before anything else sees it: first
+names only, ever. Allergy info, contact info, last names, birth years,
+photos — none of it can ever reach the screen. Payload shapes are
+pinned by `src/lib/__fixtures__/contract-vectors.json` (a byte-identical
+mirror of the printer repo's canonical copy) and enforced by
+`src/lib/eventSanitizers.test.js`. Preserve this invariant on every
+change to the socket layer, the sanitizers, or banner components.

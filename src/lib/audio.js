@@ -35,32 +35,36 @@ function tone(ctx, freq, startAt, durationSec, peak = 0.18) {
   osc.stop(end + 0.05);
 }
 
+// Every chime takes a volume multiplier (0..1). Late arrivals during
+// the program play at a fraction of normal so a straggler's check-in
+// doesn't blast over the ceremony — see isLatePhase in lib/schedule.js.
+
 // Standard check-in chime: C5 → E5 → G5, rising.
-export function playChime() {
+export function playChime(volume = 1) {
   const ctx = getContext();
   if (!ctx) return;
   const t = ctx.currentTime;
-  tone(ctx, 523.25, t,        0.25); // C5
-  tone(ctx, 659.25, t + 0.12, 0.3);  // E5
-  tone(ctx, 783.99, t + 0.24, 0.5);  // G5
+  tone(ctx, 523.25, t,        0.25, 0.18 * volume); // C5
+  tone(ctx, 659.25, t + 0.12, 0.3,  0.18 * volume); // E5
+  tone(ctx, 783.99, t + 0.24, 0.5,  0.18 * volume); // G5
 }
 
 // Birthday chime: a slightly longer, brighter fanfare.
-export function playBirthdayChime() {
+export function playBirthdayChime(volume = 1) {
   const ctx = getContext();
   if (!ctx) return;
   const t = ctx.currentTime;
-  tone(ctx, 523.25, t,        0.25); // C5
-  tone(ctx, 659.25, t + 0.15, 0.25); // E5
-  tone(ctx, 783.99, t + 0.3,  0.25); // G5
-  tone(ctx, 1046.5, t + 0.45, 0.6);  // C6
+  tone(ctx, 523.25, t,        0.25, 0.18 * volume); // C5
+  tone(ctx, 659.25, t + 0.15, 0.25, 0.18 * volume); // E5
+  tone(ctx, 783.99, t + 0.3,  0.25, 0.18 * volume); // G5
+  tone(ctx, 1046.5, t + 0.45, 0.6,  0.18 * volume); // C6
 }
 
 // First-timer chime: softer, ascending perfect fifth.
-export function playFirstTimerChime() {
+export function playFirstTimerChime(volume = 1) {
   const ctx = getContext();
   if (!ctx) return;
   const t = ctx.currentTime;
-  tone(ctx, 440,    t,        0.3, 0.15); // A4
-  tone(ctx, 659.25, t + 0.18, 0.6, 0.15); // E5
+  tone(ctx, 440,    t,        0.3, 0.15 * volume); // A4
+  tone(ctx, 659.25, t + 0.18, 0.6, 0.15 * volume); // E5
 }

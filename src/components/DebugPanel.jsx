@@ -8,7 +8,10 @@ function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-export default function DebugPanel({ onSimulate, onClose, status, lastEventAt, pending }) {
+export default function DebugPanel({
+  onSimulate, onSimulateRecap, onSimulateOps, onClose,
+  status, lastEventAt, pending, phase, seenStats, opsFailures,
+}) {
   const standard = () => onSimulate({
     firstName: pick(SAMPLE_NAMES),
     club: pick(getAllClubs()),
@@ -46,6 +49,28 @@ export default function DebugPanel({ onSimulate, onClose, status, lastEventAt, p
     }
   };
 
+  // A recap the way the printer would send it: fresh ids, recent
+  // timestamps — proves the quiet "also joined us" replay path.
+  const recap = () => onSimulateRecap?.({
+    entries: Array.from({ length: 3 }, (_, i) => ({
+      id: `debug-recap-${Date.now()}-${i}`,
+      at: Date.now() - (i + 1) * 60 * 1000,
+      firstName: pick(SAMPLE_NAMES),
+      club: pick(getAllClubs()),
+      isBirthday: false,
+      isFirstTimer: false,
+    })),
+    at: Date.now(),
+  });
+
+  const printFailure = () => onSimulateOps?.({
+    type: 'print-failure',
+    club: pick(getAllClubs()),
+    at: Date.now(),
+  });
+
+  const seen = seenStats?.() ?? { size: 0 };
+
   return (
     <div className="debug">
       <h3>Debug · Simulate check-ins</h3>
@@ -57,6 +82,9 @@ export default function DebugPanel({ onSimulate, onClose, status, lastEventAt, p
             : 'none'}
         </span>
         <span>queued: {pending ?? 0}</span>
+        <span>phase: {phase ?? 'unknown'}</span>
+        <span>seen ids: {seen.size}</span>
+        <span>printer problems: {opsFailures?.length ?? 0}</span>
       </div>
       <button onClick={standard}>Standard welcome</button>
       <button onClick={birthday}>Birthday welcome</button>
@@ -64,6 +92,8 @@ export default function DebugPanel({ onSimulate, onClose, status, lastEventAt, p
       <button onClick={fiveAtOnce}>Trigger 5 simultaneous</button>
       <button onClick={bigRush}>Trigger 20-kid rush (burst mode)</button>
       <button onClick={everyClub}>Trigger every club</button>
+      {onSimulateRecap && <button onClick={recap}>Simulate recap replay (quiet banners)</button>}
+      {onSimulateOps && <button onClick={printFailure}>Simulate print failure (ops)</button>}
       <button onClick={onClose}>Close</button>
       <span className="close-hint">Toggle with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></span>
     </div>

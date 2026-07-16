@@ -1698,3 +1698,40 @@ input:focus-visible {
   .banner .tagline { font-size: clamp(0.75rem, 4vh, 1.05rem); margin-top: 0.25rem; }
   .banner .club-logo-slot { height: clamp(40px, 16vh, 84px); }
 }
+
+/* ── Wave 1: presentation variants + operator surfaces ─────────────── */
+
+/* Calm banners (recap replay / mid-program late arrivals): slightly
+   smaller and softer so they read as a gentle acknowledgment, not the
+   full door-moment celebration. */
+.banner.calm {
+  transform: scale(0.9);
+  transform-origin: bottom center;
+  filter: saturate(0.85);
+}
+
+/* Printer-problem count riding the Signal sticker. */
+.status-dot .ops-count {
+  margin-left: 0.4em;
+  color: #ff5252;
+  font-weight: 800;
+}
+
+/* "simplified mode" pill — quiet confirmation that panic mode is on. */
+.panic-pill {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-0.5deg);
+  background: rgba(20, 20, 24, 0.82);
+  color: #ffd257;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 210, 87, 0.4);
+  z-index: 40;
+  pointer-events: none;
+}

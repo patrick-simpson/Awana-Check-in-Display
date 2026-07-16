@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { getClubPalette } from '../lib/clubs.js';
 import { fireFirstTimer } from '../lib/confetti.js';
 import { playFirstTimerChime } from '../lib/audio.js';
-import { useCelebration } from '../hooks/useCelebration.js';
+import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import BannerShell, { Eyebrow, bannerItem, bannerNameStagger } from './BannerShell.jsx';
 import AnimatedName from './AnimatedName.jsx';
 import ClubBadge from './ClubBadge.jsx';
@@ -49,13 +49,14 @@ function FirstTimeBurst() {
 export default function FirstTimerBanner({ event, audioEnabled }) {
   const club = getClubPalette(event.club);
 
-  useCelebration(event.id, audioEnabled, {
+  const calm = event.presentation === 'replay' || event.presentation === 'late';
+  useCelebration(event.id, audioEnabled, celebrationProfile(event.presentation, {
     confetti: fireFirstTimer,
     chime: playFirstTimerChime,
-  });
+  }));
 
   return (
-    <BannerShell className="first-timer" decorations={<FirstTimeBurst />}>
+    <BannerShell className={calm ? 'first-timer calm' : 'first-timer'} decorations={<FirstTimeBurst />}>
       <div className="banner-text">
         <Eyebrow>Welcome to Awana Clubs</Eyebrow>
         <motion.h1 variants={bannerNameStagger}>

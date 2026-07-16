@@ -36,11 +36,16 @@ describe('sanitizeOverrides', () => {
     })).toEqual({});
   });
 
+  it('drops the retired calendarCorsProxy key from stored overrides', () => {
+    // The allorigins proxy fallback was removed; a value persisted by an
+    // older version must be silently discarded, not resurrected.
+    expect(sanitizeOverrides({ calendarCorsProxy: 'https://api.allorigins.win/raw?url={url}' })).toEqual({});
+  });
+
   it('keeps valid calendar & weather overrides', () => {
     const overrides = {
       calendarEnabled: false,
       calendarUrl: 'https://example.org/calendar',
-      calendarCorsProxy: '',
       calendarWelcomeText: 'Welcome to KVB Awana!',
       showWeatherChip: true,
       weatherLocationName: 'Waterville, Maine',

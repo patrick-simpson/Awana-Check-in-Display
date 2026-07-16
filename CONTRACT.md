@@ -1,49 +1,48 @@
-# Awana Check-in Broadcast Contract v1 (mirror)
+# Awana Event Bus Contract v2 (mirror)
 
 **The canonical copy of this contract lives in the printer repo:**
-[Print-TwoTimTwo-Labels → print-server/CONTRACT.md](https://github.com/patrick-simpson/Print-TwoTimTwo-Labels/blob/main/print-server/CONTRACT.md).
-If you change anything here, update the canonical copy and both repos'
-contract tests in the same change.
+[Print-TwoTimTwo-Labels → CONTRACT.md](https://github.com/patrick-simpson/Print-TwoTimTwo-Labels/blob/main/CONTRACT.md),
+alongside the machine-readable `contract-vectors.json`, which is mirrored
+byte-identical here as `src/lib/__fixtures__/contract-vectors.json`.
+If you change anything, update the canonical copy first, then the mirrors
+and every repo's contract tests in the same change.
 
 ## Transport
 
-- **Pusher Channels**, channel **`awana-channel`**, event **`checkin`**.
-- The display's settings (`pusherAppKey`, `pusherCluster`) must match the
-  Pusher app and cluster configured on the print server. The display only
-  ever needs the public key — never the secret.
-- Consumer code: `src/hooks/useSocket.js` (`sanitize()` enforces the
-  payload allowlist).
-- Producer code: `print-server/checkin-payload.js` +
-  `broadcastCheckin()` in the printer repo.
+- **Pusher Channels**, channel **`awana-channel`**.
+- Only the print server holds the publish secret; this display subscribes
+  with the public key (`pusherAppKey` + `pusherCluster` in settings).
+- Consumer code: `src/hooks/useSocket.js`, which binds every event through
+  its own strict allowlist sanitizer in `src/lib/eventSanitizers.js`.
 
-## Payload — exactly four fields, never more
+## Privacy invariant — do not relax
 
-```json
-{ "firstName": "Amelia", "club": "Sparks", "isBirthday": false, "isFirstTimer": true }
-```
+**One strict allowlist sanitizer per event type.** Every incoming payload
+is reduced to exactly its allowlisted fields before anything else sees
+it. First names only, ever: allergy info, last names, contact info, birth
+years, photos — none of it can ever reach the screen, even if a future
+producer starts sending more. `src/lib/eventSanitizers.test.js` proves
+this data-driven against the mirrored contract vectors (valid vectors
+survive intact, dirty-PII vectors are scrubbed, garbage is rejected).
 
-| Field | Type | Meaning |
+## Events
+
+| Event | Payload (wire) | Display behavior |
 |---|---|---|
-| `firstName` | string, required, non-empty | Kid's first name (truncated to 40 chars here) |
-| `club` | string, optional | Club name; mapped to palettes in `src/lib/clubs.js`, unknown values fall back to Awana orange |
-| `isBirthday` | strict boolean | `true` = birthday **week** (the printer computes this from the roster) |
-| `isFirstTimer` | strict boolean | `true` = the visitor checkbox was ticked at check-in |
-
-**Privacy invariant — do not relax.** `sanitize()` reduces every incoming
-payload to exactly these four fields. Allergy info, last names, contact
-info, photos — none of it can ever reach the screen, even if a future
-producer starts sending more. The canonical test fixture above is used
-verbatim in both repos' contract tests (`src/hooks/useSocket.test.js`
-here; `print-server/test/checkin-payload.test.js` in the printer repo).
+| `checkin` (v2) | `{ id?, at?, firstName, club, isBirthday, isFirstTimer }` | Full celebration banner. `id`/`at` are optional (v1 producers still work); `id` feeds the replay dedupe ledger. |
+| `recap` | `{ entries: [checkin…], at }` (≤30 used) | Quiet "Also joined us tonight" banners for unseen ids newer than `recapMaxAgeMin` (default 20 min) — no confetti, no chime. |
+| `tally` | `{ counts: {club: int}, total, at }` | Numbers only; reserved for club milestone celebrations. |
+| `birthdays` | `{ entries: [{firstName, club, month, day}], at }` | Consumed by the countdown app; sanitized here for forward use. |
+| `ops` | `{ type: 'print-failure'\|'selector-fail'\|'canary', club?, at }` | Operator-only: red count on the Signal sticker + panel details. **Never a public banner.** |
+| `canary` | `{ at, nonce? }` | End-to-end pipe test; updates last-event health only. |
 
 ## Semantics
 
-- One event per successful new label print. The printer suppresses
-  duplicates (25-second window), and reprints deliberately do not
+- One `checkin` per successful new label print. The printer suppresses
+  duplicates (25-second window); reprints and canary test prints do not
   broadcast.
-- Pusher does not replay missed events — if the display is offline when an
-  event fires, it's gone. The display is a celebration surface, not a
-  system of record.
-- The print server dashboard's **Test Welcome Screen** button sends
-  `{ "firstName": "Test", "club": "Sparks", ... }` for end-to-end pairing
-  verification.
+- Pusher does not replay missed events by itself — `recap` (published
+  every ~2 min during club hours) is the replay mechanism, deduped on
+  `id` against the sessionStorage seen-ledger (`useSeenEvents`).
+- New fields must stay optional for consumers for at least one release
+  cycle so producer/consumer deploy order never matters.

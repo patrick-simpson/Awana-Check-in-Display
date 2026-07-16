@@ -117,10 +117,21 @@ const config = {
   // The public calendar page to read (twotimtwo format).
   calendarUrl: 'https://kvbchurch.twotimtwo.com/calendar/index',
 
-  // Fallback-only CORS proxy template; {url} is replaced with the
-  // encoded calendar URL. Leave blank to disable the runtime fallback
-  // and rely purely on the nightly feed.
-  calendarCorsProxy: 'https://api.allorigins.win/raw?url={url}',
+  // The shared program schedule published by the countdown app —
+  // the single source of truth for the whole Awana app family. Drives
+  // "phase awareness": calm late-arrival banners + ducked chimes once
+  // the ceremony starts. Leave as-is unless you forked the countdown
+  // repo; blank disables the fetch (baked KVBC schedule still applies).
+  sharedScheduleUrl: 'https://patrick-simpson.github.io/KVBC-Awana-Countdown/shared/schedule.json',
+
+  // Recap replay: how far back (minutes) a replayed check-in may be and
+  // still get its quiet "also joined us" banner after a reconnect.
+  recapMaxAgeMin: 20,
+
+  // Panic mode strips the screen to its reliable core (placeholder
+  // background, clock only) while banners keep working. Toggle it live
+  // with Ctrl+Shift+X when something looks wrong mid-event.
+  panicMode: false,
 
   // What the welcome slide says on an ordinary club night (special
   // nights use their calendar title instead).

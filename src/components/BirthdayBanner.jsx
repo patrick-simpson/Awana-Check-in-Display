@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { fireBirthday } from '../lib/confetti.js';
 import { playBirthdayChime } from '../lib/audio.js';
-import { useCelebration } from '../hooks/useCelebration.js';
+import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import BannerShell, { Eyebrow, bannerItem, bannerNameStagger } from './BannerShell.jsx';
 import AnimatedName from './AnimatedName.jsx';
 import { CakeArt, GiftArt, BalloonArt, StarArt } from './BirthdayArt.jsx';
@@ -36,10 +36,11 @@ function seededRandom(seed) {
  * outside the band so it can fall over the whole display.
  */
 export default function BirthdayBanner({ event, audioEnabled }) {
-  useCelebration(event.id, audioEnabled, {
+  const calm = event.presentation === 'replay' || event.presentation === 'late';
+  useCelebration(event.id, audioEnabled, celebrationProfile(event.presentation, {
     confetti: fireBirthday,
     chime: playBirthdayChime,
-  });
+  }));
 
   // Pre-compute the falling pieces so they don't reshuffle every render.
   const gifts = useMemo(() => {
@@ -56,7 +57,7 @@ export default function BirthdayBanner({ event, audioEnabled }) {
 
   return (
     <>
-      <div className="gift-rain" aria-hidden>
+      {!calm && <div className="gift-rain" aria-hidden>
         {gifts.map((g, i) => (
           <motion.span
             key={i}
@@ -73,9 +74,9 @@ export default function BirthdayBanner({ event, audioEnabled }) {
             {g.piece(i)}
           </motion.span>
         ))}
-      </div>
+      </div>}
 
-      <BannerShell className="birthday">
+      <BannerShell className={calm ? 'birthday calm' : 'birthday'}>
         <motion.span
           className="cake"
           aria-hidden

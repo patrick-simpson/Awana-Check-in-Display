@@ -17,7 +17,7 @@ const TABS = [
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
 export default function SettingsPanel({
-  config, status, lastEventAt, calendar,
+  config, status, lastEventAt, calendar, phase, scheduleSource, opsFailures,
   onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug,
 }) {
   const [form, setForm] = useState({
@@ -33,13 +33,13 @@ export default function SettingsPanel({
     showConnectionStatus: !!config.showConnectionStatus,
     showTally: config.showTally !== false,
     keepScreenAwake: config.keepScreenAwake !== false,
+    panicMode: !!config.panicMode,
     showClock: !!config.showClock,
     widgetDisplayMode: config.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
     cycleIntervalSec: config.cycleIntervalSec ?? 3,
     milestoneEvery: config.milestoneEvery ?? 25,
     calendarEnabled: config.calendarEnabled !== false,
     calendarUrl: config.calendarUrl || '',
-    calendarCorsProxy: config.calendarCorsProxy || '',
     calendarWelcomeText: config.calendarWelcomeText || 'Welcome to Awana!',
     calendarShowWelcome: config.calendarShowWelcome !== false,
     calendarShowNextWeek: config.calendarShowNextWeek !== false,
@@ -52,6 +52,8 @@ export default function SettingsPanel({
   });
 
   const [tab, setTab] = useState('connection');
+  // Snapshot at open — the header line doesn't need to tick live.
+  const [openedAt] = useState(() => Date.now());
   const tabRefs = useRef({});
 
   // One shared form across all tabs: switching tabs never loses edits,
@@ -74,7 +76,6 @@ export default function SettingsPanel({
       milestoneEvery: clamp(Math.round(form.milestoneEvery) || 0, 0, 10000),
       cycleIntervalSec: clamp(Math.round(form.cycleIntervalSec) || 3, 2, 120),
       calendarUrl: form.calendarUrl.trim(),
-      calendarCorsProxy: form.calendarCorsProxy.trim(),
       calendarWelcomeText: form.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
       weatherLocationName: form.weatherLocationName.trim().slice(0, 80),
       weatherLat: clamp(Number(form.weatherLat) || 0, -90, 90),
@@ -138,6 +139,25 @@ export default function SettingsPanel({
             <span className="dot" />
             <span>{statusText}</span>
           </div>
+          <div className="hint" style={{ marginTop: '0.35rem' }}>
+            {lastEventAt
+              ? `Last event ${Math.max(0, Math.round((openedAt - lastEventAt) / 60000))} min ago`
+              : 'No events yet this session'}
+            {phase ? ` · program phase: ${phase}` : ''}
+            {scheduleSource ? ` (schedule: ${scheduleSource})` : ''}
+            {calendar?.source && calendar.source !== 'none' ? ` · calendar: ${calendar.source}` : ''}
+            {opsFailures?.length
+              ? ` · ⚠ ${opsFailures.length} printer problem${opsFailures.length > 1 ? 's' : ''} tonight`
+              : ''}
+          </div>
+          {opsFailures?.length > 0 && (
+            <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
+              Printer reported failures{opsFailures[0]?.club ? ` (latest: ${opsFailures[0].club}` : ' (latest'}
+              {' at '}
+              {new Date(opsFailures[0].at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})
+              — check the print server dashboard.
+            </div>
+          )}
         </div>
 
         <div className="panel-tabs" role="tablist" aria-label="Settings sections" onKeyDown={onTabKeyDown}>
@@ -450,6 +470,13 @@ function DisplayTab({ form, set }) {
         hint='A "checked in tonight" tally — joins the cycle, or sits top-left as a sticker. Counts only a number, resets daily.'
       />
 
+      <Toggle
+        checked={form.panicMode}
+        onChange={set('panicMode')}
+        title="Simplified mode (panic switch)"
+        hint="Strips the screen to a placeholder background and the clock while banners keep working. Also toggles live with Ctrl+Shift+X."
+      />
+
       <div className="field" style={{ marginTop: '1rem' }}>
         <label htmlFor="milestone">Milestone celebration (every N check-ins)</label>
         <input
@@ -561,22 +588,8 @@ function CalendarTab({ form, set, setForm, calendar }) {
         />
         <span className="hint">
           The public club calendar (twotimtwo format). A nightly GitHub Action turns it into a
-          data file the display reads; this URL is the fallback the display scrapes live if
-          that file goes stale.
-        </span>
-      </div>
-
-      <div className="field">
-        <label htmlFor="calproxy">Fallback fetch proxy</label>
-        <input
-          id="calproxy" type="text" value={form.calendarCorsProxy}
-          onChange={set('calendarCorsProxy')}
-          placeholder="https://api.allorigins.win/raw?url={url}"
-        />
-        <span className="hint">
-          Only used when the nightly data file is missing or stale — the calendar site blocks
-          direct browser fetches, so the fallback goes through this CORS proxy.
-          <code>{'{url}'}</code> is replaced with the calendar URL. Leave blank to disable.
+          data file the display reads; if that file goes stale the display tries a direct
+          fetch of this URL (usually blocked by the browser) and then its last good copy.
         </span>
       </div>
 

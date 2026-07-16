@@ -15,6 +15,8 @@ import StickerChip from './components/StickerChip.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useSocket } from './hooks/useSocket.js';
+import { useSeenEvents } from './hooks/useSeenEvents.js';
+import { useSchedule } from './hooks/useSchedule.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
 import { useTally } from './hooks/useTally.js';
 import { useCalendar } from './hooks/useCalendar.js';
@@ -22,33 +24,75 @@ import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { fireMilestone, setConfettiLoad } from './lib/confetti.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
+import { applyPanicMode } from './lib/panic.js';
+import { isLatePhase } from './lib/schedule.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
+
+const OPS_FAILURES_MAX = 20;
 
 export default function App() {
   const { config: storedConfig, updateConfig, resetConfig } = useConfig();
 
   // ?key=/&cluster= let an embedded browser (OBS source, ProPresenter web
   // page) connect without localStorage access; they win over saved config.
-  const config = FLAGS.pusherAppKey
+  const mergedConfig = FLAGS.pusherAppKey
     ? {
         ...storedConfig,
         pusherAppKey: FLAGS.pusherAppKey,
         pusherCluster: FLAGS.pusherCluster || storedConfig.pusherCluster,
       }
     : storedConfig;
+  // Panic mode last, so it can strip whatever the flags/overrides built.
+  const config = applyPanicMode(mergedConfig);
   const { currentEvent, enqueue, skipCurrent, pending } = useCheckInQueue(config);
   const { count, bump, reset: resetTally } = useTally();
+  const { hasSeen, markSeen, stats: seenStats } = useSeenEvents();
+  const { phase, source: scheduleSource } = useSchedule(config);
+  const phaseRef = useRef(phase);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
-  // Every check-in — real or simulated — plays a banner and bumps
-  // tonight's tally.
+  // Operator telemetry from the printer (ops events): a red count on the
+  // Signal sticker + details in the panels. NEVER a public banner.
+  const [opsFailures, setOpsFailures] = useState([]);
+  const recordOps = useCallback((ops) => {
+    setOpsFailures((prev) => [ops, ...prev].slice(0, OPS_FAILURES_MAX));
+  }, []);
+
+  // Every live check-in — real or simulated — plays a banner and bumps
+  // tonight's tally. Once the ceremony starts, live banners switch to
+  // the calm 'late' treatment (no confetti cannon, ducked chime).
   const handleCheckIn = useCallback((payload) => {
-    enqueue(payload);
+    if (payload.id) markSeen(payload.id, payload.at ?? Date.now());
+    enqueue({
+      ...payload,
+      presentation: isLatePhase(phaseRef.current) ? 'late' : 'live',
+    });
     bump();
-  }, [enqueue, bump]);
+  }, [enqueue, bump, markSeen]);
 
-  const { status, lastEventAt } = useSocket(handleCheckIn);
+  // Recap replay: after a reconnect, celebrate the kids this display
+  // missed — quiet variant, skipping ids already seen live and anything
+  // older than the replay window.
+  const handleRecap = useCallback((recap) => {
+    const maxAgeMs = (config.recapMaxAgeMin ?? 20) * 60 * 1000;
+    for (const entry of recap.entries) {
+      if (hasSeen(entry.id)) continue;
+      if (Date.now() - entry.at > maxAgeMs) continue;
+      markSeen(entry.id, entry.at);
+      enqueue({ ...entry, presentation: 'replay' });
+      bump();
+    }
+  }, [config.recapMaxAgeMin, hasSeen, markSeen, enqueue, bump]);
+
+  const socketHandlers = useMemo(() => ({
+    onCheckin: handleCheckIn,
+    onRecap: handleRecap,
+    onOps: recordOps,
+  }), [handleCheckIn, handleRecap, recordOps]);
+
+  const { status, lastEventAt } = useSocket(socketHandlers);
 
   useWakeLock(config.keepScreenAwake);
 
@@ -124,7 +168,11 @@ export default function App() {
     const timer = setTimeout(() => setDroppedLong(disconnected), disconnected ? 8000 : 0);
     return () => clearTimeout(timer);
   }, [status]);
-  const showStatus = config.showConnectionStatus || (droppedLong && status === 'disconnected');
+  // Printer trouble also forces the sticker visible — a kid at the door
+  // with no label is exactly when the operator needs the red count.
+  const showStatus = config.showConnectionStatus
+    || (droppedLong && status === 'disconnected')
+    || opsFailures.length > 0;
 
   // 'cycle' (default): one big animated data point at a time, bottom
   // right. 'stickers': the classic corner-chip layout. The connection
@@ -150,7 +198,8 @@ export default function App() {
     };
   }, []);
 
-  // Keyboard shortcuts for the hidden panels.
+  // Keyboard shortcuts for the hidden panels. Ctrl+Shift+X is the panic
+  // switch — S/E/D were taken.
   useEffect(() => {
     const onKey = (e) => {
       if (!e.ctrlKey || !e.shiftKey) return;
@@ -163,11 +212,14 @@ export default function App() {
       } else if (e.key.toLowerCase() === 'e') {
         e.preventDefault();
         setSlideEditorOpen((v) => !v);
+      } else if (e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        updateConfig({ panicMode: !storedConfig.panicMode });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [updateConfig, storedConfig.panicMode]);
 
   // Double-click anywhere on the stage toggles fullscreen — easier than
   // hunting for F11 on a TV keyboard or remote-desktop session. Panels
@@ -249,10 +301,15 @@ export default function App() {
               label="Signal"
               tilt={-1}
               aria-live="polite"
-              aria-label={`Connection status: ${status}`}
+              aria-label={`Connection status: ${status}${opsFailures.length ? `, ${opsFailures.length} printer problem(s)` : ''}`}
             >
               <span className="dot" />
               <span>{status === 'off' ? 'not set up' : status}</span>
+              {opsFailures.length > 0 && (
+                <span className="ops-count" title="Printer problems tonight — see Settings">
+                  ⚠ {opsFailures.length}
+                </span>
+              )}
             </StickerChip>
           )}
         </div>
@@ -332,6 +389,12 @@ export default function App() {
         )}
       </AnimatePresence>
 
+      {!overlay && config.panicMode && (
+        <div className="panic-pill" title="Simplified mode is on — toggle with Ctrl+Shift+X or in Settings → Display">
+          simplified mode
+        </div>
+      )}
+
       {!overlay && (
         <button
           className={`settings-gear ${gearIdle ? 'idle' : ''}`}
@@ -349,6 +412,9 @@ export default function App() {
           status={status}
           lastEventAt={lastEventAt}
           calendar={calendar}
+          phase={phase}
+          scheduleSource={scheduleSource}
+          opsFailures={opsFailures}
           onChange={updateConfig}
           onReset={resetConfig}
           onClose={() => setSettingsOpen(false)}
@@ -373,10 +439,15 @@ export default function App() {
       {debugOpen && (
         <DebugPanel
           onSimulate={handleCheckIn}
+          onSimulateRecap={handleRecap}
+          onSimulateOps={recordOps}
           onClose={() => setDebugOpen(false)}
           status={status}
           lastEventAt={lastEventAt}
           pending={pending}
+          phase={phase}
+          seenStats={seenStats}
+          opsFailures={opsFailures}
         />
       )}
     </div>
