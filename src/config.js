@@ -73,7 +73,7 @@ const config = {
 
   // How long each data point holds the corner before the next one
   // tumbles in (seconds). Only used in 'cycle' mode.
-  cycleIntervalSec: 12,
+  cycleIntervalSec: 3,
 
   // Show a tiny "● connected" dot in the corner? Useful while setting up,
   // distracting during club. Defaults to hidden. (If the connection drops

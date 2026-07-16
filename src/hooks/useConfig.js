@@ -32,7 +32,7 @@ const VALIDATORS = {
   showClock: isBool,
   showWeatherChip: isBool,
   widgetDisplayMode: (v) => v === 'cycle' || v === 'stickers',
-  cycleIntervalSec: numberBetween(4, 120),
+  cycleIntervalSec: numberBetween(2, 120),
   calendarEnabled: isBool,
   calendarUrl: isString,
   calendarCorsProxy: isString,

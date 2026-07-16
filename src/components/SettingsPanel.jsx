@@ -35,7 +35,7 @@ export default function SettingsPanel({
     keepScreenAwake: config.keepScreenAwake !== false,
     showClock: !!config.showClock,
     widgetDisplayMode: config.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
-    cycleIntervalSec: config.cycleIntervalSec ?? 12,
+    cycleIntervalSec: config.cycleIntervalSec ?? 3,
     milestoneEvery: config.milestoneEvery ?? 25,
     calendarEnabled: config.calendarEnabled !== false,
     calendarUrl: config.calendarUrl || '',
@@ -72,7 +72,7 @@ export default function SettingsPanel({
       specialDisplayMs: clamp(form.specialDisplayMs, 3000, 25000),
       slideshowDelaySec: clamp(form.slideshowDelaySec, 0, 120),
       milestoneEvery: clamp(Math.round(form.milestoneEvery) || 0, 0, 10000),
-      cycleIntervalSec: clamp(Math.round(form.cycleIntervalSec) || 12, 4, 120),
+      cycleIntervalSec: clamp(Math.round(form.cycleIntervalSec) || 3, 2, 120),
       calendarUrl: form.calendarUrl.trim(),
       calendarCorsProxy: form.calendarCorsProxy.trim(),
       calendarWelcomeText: form.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
@@ -433,7 +433,7 @@ function DisplayTab({ form, set }) {
         <div className="field">
           <label htmlFor="cycleInterval">Seconds per item</label>
           <input
-            id="cycleInterval" type="number" min="4" max="120" step="1"
+            id="cycleInterval" type="number" min="2" max="120" step="1"
             value={form.cycleIntervalSec}
             onChange={set('cycleIntervalSec')}
           />

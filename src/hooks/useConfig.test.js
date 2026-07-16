@@ -72,7 +72,8 @@ describe('sanitizeOverrides', () => {
     expect(sanitizeOverrides(overrides)).toEqual(overrides);
     expect(sanitizeOverrides({ widgetDisplayMode: 'cycle' })).toEqual({ widgetDisplayMode: 'cycle' });
     expect(sanitizeOverrides({ widgetDisplayMode: 'both' })).toEqual({});
-    expect(sanitizeOverrides({ cycleIntervalSec: 2 })).toEqual({});
+    expect(sanitizeOverrides({ cycleIntervalSec: 3 })).toEqual({ cycleIntervalSec: 3 });
+    expect(sanitizeOverrides({ cycleIntervalSec: 1 })).toEqual({});
     expect(sanitizeOverrides({ cycleIntervalSec: '12' })).toEqual({});
   });
 
