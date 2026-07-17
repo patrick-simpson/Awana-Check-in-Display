@@ -29,6 +29,39 @@ If the working branch is not already `main` (e.g. you started on a
 - framer-motion, canvas-confetti
 - pusher-js for realtime check-in events (no backend in this repo)
 - Vite `base: './'` so assets use relative paths and work under any URL
+- Two independent HTML entries: `index.html` (signage) and
+  `countdown.html` (presentation tool, `src/presentation/`)
+- Tailwind CSS 4 (`@tailwindcss/vite`) is imported ONLY by
+  `src/presentation/index.css`, with `@source` scanning pinned to that
+  subtree — the signage CSS graph must never see Tailwind
+- Jelly UI web components, vendored at `public/vendor/jelly-ui.js`
+  (loaded from `src/main.jsx`; provenance in `public/vendor/README.md`)
+
+## The presentation page (`src/presentation/` → /countdown.html)
+
+The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
+(see MIGRATION.md for the retirement plan). Its conventions carry over:
+
+- **Pure black page backgrounds** (`#000000`) — it is projected onto a
+  blank wall. Broadcast-ready quality on every screen; never regress an
+  animation, keyboard shortcut, or effect.
+- **Pure schedule engine**: `src/presentation/lib/schedule.js` is the
+  highest-risk code. Any change to it, to the window tables, or to
+  `shared/schedule.json` needs matching cases in
+  `src/presentation/lib/schedule.test.js`, and manual time-travel QA
+  via `countdown.html?now=<ISO>` across the 18:00 / 18:05 / 19:30 /
+  19:35 / midnight boundaries plus a non-Wednesday evening.
+- **Isolation rule**: `src/presentation/` may import from the existing
+  app ONLY `src/hooks/useSocket.js` and `src/hooks/useConfig.js` (its
+  realtime data must flow through the sanitized socket — never a second
+  Pusher stack). Nothing in the signage app imports from
+  `src/presentation/`.
+- `shared/` at the repo root is served at `/shared/` (dev middleware +
+  build copy in vite.config.js) for the whole Awana app family; the
+  KVBC-Awana-Countdown copy stays canonical until retirement.
+- Design tokens live in `src/presentation/index.css`; the `--dur-*`
+  timing values are mirrored in `src/presentation/lib/motion-tokens.js`
+  — keep the two in sync.
 
 ## Privacy invariant — DO NOT relax
 

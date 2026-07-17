@@ -267,7 +267,7 @@ export default function SettingsPanel({
           )}
           <button className="danger" onClick={reset}>Reset to defaults</button>
           <button onClick={onClose}>Cancel</button>
-          <button className="primary" onClick={save}>Save</button>
+          <jelly-button variant="mint" onClick={save}>Save</jelly-button>
         </div>
       </div>
     </div>

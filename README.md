@@ -16,6 +16,31 @@ A joyful welcome screen for your Awana club, styled after the official Awana Clu
 
 ---
 
+## The presentation page (`/countdown.html`)
+
+This repo also hosts the full **Awana Presentation Tool** as a second,
+independent page — migrated here from the KVBC-Awana-Countdown repo. It
+runs on the main projector during club night and automatically cycles
+through a week-long countdown, the opening ceremony slides (welcome +
+pledges), per-club game-time screens with live check-in counts and
+birthday shout-outs, a closing slide, and a shutdown view — all driven
+by a pure, tested schedule engine over `shared/schedule.json`.
+
+- **URL:** `https://<owner>.github.io/Awana-Check-in-Display/countdown.html`
+- **Source:** `src/presentation/` (fully isolated from the signage app;
+  it shares only the sanitized Pusher socket and the device config store)
+- **Time-travel QA:** append `?now=2026-09-16T18:04:00` (any ISO
+  timestamp) to simulate a moment; the simulated clock still ticks.
+- **Operator controls:** hover the top-right corner for the QuickNav
+  menu (jump between views, upload the birthday CSV, set the Pusher
+  key); Space/→ advance or skip, ←/PageUp go back, Esc twice exits a
+  slideshow.
+- **Shared data:** `shared/` at the repo root (schedule, club theme,
+  art) is served at `/shared/` for the whole Awana app family. See
+  `MIGRATION.md` for the plan to retire the old repo.
+
+---
+
 ## 1. Fork this repo
 
 1. Click the **Fork** button at the top of this page (top-right on GitHub).

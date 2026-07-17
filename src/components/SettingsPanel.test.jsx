@@ -7,6 +7,11 @@ import defaults from '../config.js';
 // (which needs a global afterEach) doesn't run — do it explicitly.
 afterEach(cleanup);
 
+// The Save control is a <jelly-button> web component (vendored script,
+// loaded via index.html — not in jsdom). Its accessible button role
+// lives in its shadow DOM, so tests target the host element by tag;
+// React's onClick is attached to the host and fires the same way.
+
 const baseProps = () => ({
   config: { ...defaults, audioMuted: true },
   status: 'off',
@@ -65,7 +70,7 @@ describe('SettingsPanel (tabbed)', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Connection' }));
     expect(screen.getByLabelText('Pusher App Key').value).toBe('key123');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByText('Save', { selector: 'jelly-button' }));
     expect(props.onChange).toHaveBeenCalledTimes(1);
     const patch = props.onChange.mock.calls[0][0];
     expect(patch.pusherAppKey).toBe('key123');
@@ -78,7 +83,7 @@ describe('SettingsPanel (tabbed)', () => {
     render(<SettingsPanel {...props} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Banners' }));
     fireEvent.change(screen.getByLabelText('Standard banner duration (ms)'), { target: { value: '999999' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByText('Save', { selector: 'jelly-button' }));
     expect(props.onChange.mock.calls[0][0].standardDisplayMs).toBe(20000);
   });
 
@@ -97,7 +102,7 @@ describe('SettingsPanel (tabbed)', () => {
     // The interval only matters in cycle mode, so the field hides.
     expect(screen.queryByLabelText('Seconds per item')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByText('Save', { selector: 'jelly-button' }));
     const patch = props.onChange.mock.calls[0][0];
     expect(patch.widgetDisplayMode).toBe('stickers');
     // Out-of-range interval edits still get clamped on save.
