@@ -15,7 +15,7 @@ const numberBetween = (min, max) => (v) => typeof v === 'number' && Number.isFin
 const VALIDATORS = {
   pusherAppKey: isString,
   pusherCluster: isString,
-  backgroundSource: (v) => v === 'powerpoint' || v === 'manual',
+  backgroundSource: (v) => ['powerpoint', 'manual', 'pptx'].includes(v),
   manualSlides: Array.isArray,
   powerpointEmbedUrl: isString,
   slideshowDelaySec: numberBetween(0, 600),
@@ -36,8 +36,11 @@ const VALIDATORS = {
   calendarEnabled: isBool,
   calendarUrl: isString,
   sharedScheduleUrl: isString,
+  sharedThemeUrl: isString,
   recapMaxAgeMin: numberBetween(1, 240),
   panicMode: isBool,
+  clubMilestoneEvery: numberBetween(0, 1000),
+  nightTheme: (v) => ['none', 'autumn', 'christmas', 'summer'].includes(v),
   calendarWelcomeText: isString,
   calendarShowWelcome: isBool,
   calendarShowNextWeek: isBool,
@@ -85,8 +88,10 @@ function saveOverrides(overrides) {
 /**
  * Merges the defaults from src/config.js with any per-device overrides
  * the user has set via the runtime Settings panel. Overrides win.
+ * `remoteDefaults` (from ?config=<url>, already sanitized) slot between
+ * the baked defaults and this device's overrides.
  */
-export function useConfig() {
+export function useConfig(remoteDefaults) {
   const [overrides, setOverrides] = useState(loadOverrides);
 
   // Keep multiple open tabs in sync.
@@ -101,6 +106,7 @@ export function useConfig() {
   const config = {
     ...defaults,
     audioMuted: !defaults.audioEnabledByDefault,
+    ...(remoteDefaults || {}),
     ...overrides,
   };
 
@@ -117,5 +123,5 @@ export function useConfig() {
     setOverrides({});
   }, []);
 
-  return { config, updateConfig, resetConfig };
+  return { config, overrides, updateConfig, resetConfig };
 }

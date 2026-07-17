@@ -128,6 +128,18 @@ const config = {
   // still get its quiet "also joined us" banner after a reconnect.
   recapMaxAgeMin: 20,
 
+  // The shared per-club theme (catalog colors + official club art),
+  // also published by the countdown app. Blank keeps the baked palette.
+  sharedThemeUrl: 'https://patrick-simpson.github.io/KVBC-Awana-Countdown/shared/theme.json',
+
+  // Celebrate when a single club's tally (from the printer's live
+  // broadcasts) crosses a multiple of this. 0 disables.
+  clubMilestoneEvery: 10,
+
+  // Themed night skin: 'none' | 'autumn' | 'christmas' | 'summer'.
+  // Recolors the stage decorations for special nights.
+  nightTheme: 'none',
+
   // Panic mode strips the screen to its reliable core (placeholder
   // background, clock only) while banners keep working. Toggle it live
   // with Ctrl+Shift+X when something looks wrong mid-event.

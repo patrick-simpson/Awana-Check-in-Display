@@ -19,10 +19,13 @@ import { useSeenEvents } from './hooks/useSeenEvents.js';
 import { useSchedule } from './hooks/useSchedule.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
 import { useTally } from './hooks/useTally.js';
+import { useTheme } from './hooks/useTheme.js';
 import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { fireMilestone, setConfettiLoad } from './lib/confetti.js';
+import { sanitizeOverrides } from './hooks/useConfig.js';
+import { getClubPalette } from './lib/clubs.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
@@ -33,7 +36,22 @@ const FLAGS = parseUrlFlags();
 const OPS_FAILURES_MAX = 20;
 
 export default function App() {
-  const { config: storedConfig, updateConfig, resetConfig } = useConfig();
+  // ?config=<url>: centrally-managed overrides fetched once at startup,
+  // sanitized through the same validators as localStorage overrides.
+  const [remoteDefaults, setRemoteDefaults] = useState({});
+  useEffect(() => {
+    if (!FLAGS.configUrl) return undefined;
+    let cancelled = false;
+    fetch(FLAGS.configUrl, { cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((raw) => {
+        if (!cancelled && raw) setRemoteDefaults(sanitizeOverrides(raw));
+      })
+      .catch(() => { /* unreachable remote config — defaults carry on */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const { config: storedConfig, overrides, updateConfig, resetConfig } = useConfig(remoteDefaults);
 
   // ?key=/&cluster= let an embedded browser (OBS source, ProPresenter web
   // page) connect without localStorage access; they win over saved config.
@@ -52,6 +70,32 @@ export default function App() {
   const { phase, source: scheduleSource } = useSchedule(config);
   const phaseRef = useRef(phase);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useTheme(config);
+
+  // Club milestones (#36): the printer's live tally broadcasts carry
+  // per-club counts; when one club crosses a multiple of
+  // clubMilestoneEvery, the milestone toast celebrates that club.
+  const clubCountsRef = useRef({});
+  const [clubMilestone, setClubMilestone] = useState(null);
+  const handleTally = useCallback((tally) => {
+    const every = config.clubMilestoneEvery;
+    const prevCounts = clubCountsRef.current;
+    if (every > 0) {
+      for (const [club, n] of Object.entries(tally.counts)) {
+        const prev = prevCounts[club] ?? n; // first sight is baseline, not a crossing
+        if (n > prev && Math.floor(n / every) > Math.floor(prev / every)) {
+          setClubMilestone({ club, count: Math.floor(n / every) * every });
+          fireMilestone();
+        }
+      }
+    }
+    clubCountsRef.current = { ...prevCounts, ...tally.counts };
+  }, [config.clubMilestoneEvery]);
+  useEffect(() => {
+    if (clubMilestone == null) return undefined;
+    const timer = setTimeout(() => setClubMilestone(null), 6000);
+    return () => clearTimeout(timer);
+  }, [clubMilestone]);
 
   // Operator telemetry from the printer (ops events): a red count on the
   // Signal sticker + details in the panels. NEVER a public banner.
@@ -90,7 +134,8 @@ export default function App() {
     onCheckin: handleCheckIn,
     onRecap: handleRecap,
     onOps: recordOps,
-  }), [handleCheckIn, handleRecap, recordOps]);
+    onTally: handleTally,
+  }), [handleCheckIn, handleRecap, recordOps, handleTally]);
 
   const { status, lastEventAt } = useSocket(socketHandlers);
 
@@ -251,6 +296,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
     <div
       className={`stage ${overlay ? 'overlay' : ''}`}
+      data-skin={config.nightTheme && config.nightTheme !== 'none' ? config.nightTheme : undefined}
       style={chroma ? { background: chroma } : undefined}
       ref={stageRef}
       onDoubleClick={toggleFullscreen}
@@ -375,6 +421,24 @@ export default function App() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {clubMilestone != null && (
+          <motion.div
+            key={`club-milestone-${clubMilestone.club}-${clubMilestone.count}`}
+            className="milestone-toast club-milestone"
+            style={{ rotate: 1.1, '--club-primary': getClubPalette(clubMilestone.club).primary }}
+            initial={{ opacity: 0, y: 40, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
+            exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
+          >
+            <div className="milestone-lines">
+              <span className="milestone-label">{clubMilestone.club}</span>
+              <span className="milestone-count">{clubMilestone.count} kids strong!</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {!overlay && pending >= BURST_THRESHOLD && (
           <motion.div
             key="up-next"
@@ -409,6 +473,7 @@ export default function App() {
       {settingsOpen && (
         <SettingsPanel
           config={config}
+          overrides={overrides}
           status={status}
           lastEventAt={lastEventAt}
           calendar={calendar}

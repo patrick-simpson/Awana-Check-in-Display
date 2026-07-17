@@ -4,7 +4,7 @@ import { parseUrlFlags } from './urlFlags.js';
 describe('parseUrlFlags', () => {
   it('defaults to normal signage mode', () => {
     expect(parseUrlFlags('')).toEqual({
-      overlay: false, chroma: null, pusherAppKey: null, pusherCluster: null,
+      overlay: false, chroma: null, pusherAppKey: null, pusherCluster: null, configUrl: null,
     });
     expect(parseUrlFlags('?foo=bar').overlay).toBe(false);
   });

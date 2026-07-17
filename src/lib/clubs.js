@@ -99,10 +99,40 @@ const DEFAULT_CLUB = {
   confetti: ['#F7A41C', '#FFB300', '#FFFFFF'],
 };
 
+// Shared-theme overrides (#3): merged field-by-field over the baked
+// values by applyClubOverrides(), so call sites are unchanged and a
+// partial theme (color only, no art) still works. theme.json keys the
+// clubs slightly differently ('tnt') — normalize here.
+const THEME_KEY_MAP = { tnt: 't&t' };
+let clubOverrides = {};
+let aliasOverrides = {};
+
+export function applyClubOverrides(overrides) {
+  clubOverrides = {};
+  aliasOverrides = {};
+  if (!overrides || typeof overrides !== 'object') return;
+  for (const [rawKey, o] of Object.entries(overrides)) {
+    const key = THEME_KEY_MAP[rawKey] || rawKey;
+    if (!CLUBS[key] || !o) continue;
+    const merged = {};
+    if (o.primary) merged.primary = o.primary;
+    if (o.deep) merged.deep = o.deep;
+    if (o.accent) merged.accent = o.accent;
+    if (Array.isArray(o.confetti) && o.confetti.length) merged.confetti = o.confetti;
+    if (o.logoUrl) merged.logo = o.logoUrl;
+    clubOverrides[key] = merged;
+    for (const alias of o.aliases || []) aliasOverrides[alias] = key;
+  }
+}
+
 export function getClubPalette(clubName) {
   if (!clubName || typeof clubName !== 'string') return DEFAULT_CLUB;
   const key = clubName.trim().toLowerCase();
-  return CLUBS[ALIASES[key] || key] || DEFAULT_CLUB;
+  const canonical = ALIASES[key] || aliasOverrides[key] || key;
+  const base = CLUBS[canonical];
+  if (!base) return DEFAULT_CLUB;
+  const override = clubOverrides[canonical];
+  return override ? { ...base, ...override } : base;
 }
 
 export function getAllClubs() {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { deleteDeck, getDeck, putDeck } from '../lib/pptxStore.js';
 import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
 
@@ -17,13 +18,13 @@ const TABS = [
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
 export default function SettingsPanel({
-  config, status, lastEventAt, calendar, phase, scheduleSource, opsFailures,
+  config, overrides, status, lastEventAt, calendar, phase, scheduleSource, opsFailures,
   onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug,
 }) {
   const [form, setForm] = useState({
     pusherAppKey: config.pusherAppKey || '',
     pusherCluster: config.pusherCluster || 'us2',
-    backgroundSource: config.backgroundSource === 'manual' ? 'manual' : 'powerpoint',
+    backgroundSource: ['manual', 'pptx'].includes(config.backgroundSource) ? config.backgroundSource : 'powerpoint',
     powerpointEmbedUrl: config.powerpointEmbedUrl || '',
     slideshowDelaySec: config.slideshowDelaySec ?? 5,
     countdownTargetTime: config.countdownTargetTime || '',
@@ -36,6 +37,8 @@ export default function SettingsPanel({
     panicMode: !!config.panicMode,
     showClock: !!config.showClock,
     widgetDisplayMode: config.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
+    nightTheme: ['autumn', 'christmas', 'summer'].includes(config.nightTheme) ? config.nightTheme : 'none',
+    clubMilestoneEvery: config.clubMilestoneEvery ?? 10,
     cycleIntervalSec: config.cycleIntervalSec ?? 3,
     milestoneEvery: config.milestoneEvery ?? 25,
     calendarEnabled: config.calendarEnabled !== false,
@@ -74,6 +77,7 @@ export default function SettingsPanel({
       specialDisplayMs: clamp(form.specialDisplayMs, 3000, 25000),
       slideshowDelaySec: clamp(form.slideshowDelaySec, 0, 120),
       milestoneEvery: clamp(Math.round(form.milestoneEvery) || 0, 0, 10000),
+      clubMilestoneEvery: clamp(Math.round(form.clubMilestoneEvery) || 0, 0, 1000),
       cycleIntervalSec: clamp(Math.round(form.cycleIntervalSec) || 3, 2, 120),
       calendarUrl: form.calendarUrl.trim(),
       calendarWelcomeText: form.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
@@ -89,6 +93,40 @@ export default function SettingsPanel({
       onReset();
       onClose();
     }
+  };
+
+  // #35: move a display's whole setup between machines as a JSON file.
+  // Exports the OVERRIDES (what differs from defaults), so importing on
+  // a fresh install reproduces this screen. Local video/deck bytes stay
+  // on their device — only the slide metadata travels.
+  const exportSettings = () => {
+    const blob = new Blob(
+      [JSON.stringify(overrides || {}, null, 2)],
+      { type: 'application/json' }
+    );
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'awana-display-settings.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const importSettings = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const raw = JSON.parse(reader.result);
+        onChange(raw); // updateConfig sanitizes key-by-key
+        window.alert('Settings imported. Note: video files and uploaded decks do not travel — re-add those on this device.');
+        onClose();
+      } catch {
+        window.alert('That file is not a valid settings export.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const sendTest = () => {
@@ -207,6 +245,13 @@ export default function SettingsPanel({
           <button className="ghost" onClick={sendTest} title="Show a sample welcome banner">
             Preview a check-in
           </button>
+          <button className="ghost" onClick={exportSettings} title="Download this display's settings as a JSON file">
+            Export
+          </button>
+          <label className="ghost" style={{ cursor: 'pointer' }} title="Import a settings JSON exported from another display">
+            Import
+            <input type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={importSettings} />
+          </label>
           {onOpenDebug && (
             <button className="ghost" onClick={onOpenDebug} title="Simulate check-ins, view connection stats">
               Debug panel
@@ -309,6 +354,16 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
             />
             Typed slides
           </label>
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="backgroundSource"
+              value="pptx"
+              checked={form.backgroundSource === 'pptx'}
+              onChange={set('backgroundSource')}
+            />
+            Uploaded PowerPoint
+          </label>
         </div>
         <span className="hint">
           Typed slides are free-typed right here in the app — no PowerPoint needed — and get
@@ -334,6 +389,8 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
           </button>
         </div>
       )}
+
+      {form.backgroundSource === 'pptx' && <PptxUploadField />}
 
       <div className="field">
         <label htmlFor="iframe">OneDrive PowerPoint embed URL</label>
@@ -469,6 +526,31 @@ function DisplayTab({ form, set }) {
         title="Tonight's check-in counter"
         hint='A "checked in tonight" tally — joins the cycle, or sits top-left as a sticker. Counts only a number, resets daily.'
       />
+
+      <div className="field">
+        <label htmlFor="nightTheme">Themed night skin</label>
+        <select id="nightTheme" value={form.nightTheme} onChange={set('nightTheme')}>
+          <option value="none">None (classic)</option>
+          <option value="autumn">Autumn / harvest</option>
+          <option value="christmas">Christmas</option>
+          <option value="summer">Summer</option>
+        </select>
+        <span className="hint">
+          Recolors the stage decorations for special nights. Banners keep their club colors.
+        </span>
+      </div>
+
+      <div className="field">
+        <label htmlFor="clubMilestone">Club milestone celebration (every N per club)</label>
+        <input
+          id="clubMilestone" type="number" min="0" max="1000" step="5"
+          value={form.clubMilestoneEvery}
+          onChange={set('clubMilestoneEvery')}
+        />
+        <span className="hint">
+          Uses the printer's live per-club counts — "Sparks 20 kids strong!". 0 turns it off.
+        </span>
+      </div>
 
       <Toggle
         checked={form.panicMode}
@@ -649,5 +731,51 @@ function CalendarTab({ form, set, setForm, calendar }) {
         </select>
       </div>
     </>
+  );
+}
+
+function PptxUploadField() {
+  const [stored, setStored] = useState(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    let live = true;
+    getDeck().then((d) => { if (live) setStored(d); });
+    return () => { live = false; };
+  }, []);
+
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    const ok = await putDeck(file, file.name);
+    setBusy(false);
+    if (ok) setStored({ blob: file, name: file.name, savedAt: Date.now() });
+    else window.alert('Could not save the deck on this device (storage blocked or full).');
+    e.target.value = '';
+  };
+
+  const remove = async () => {
+    await deleteDeck();
+    setStored(null);
+  };
+
+  return (
+    <div className="field">
+      <label htmlFor="pptx-upload">Upload a .pptx</label>
+      <input id="pptx-upload" type="file" accept=".pptx" onChange={onFile} disabled={busy} />
+      <span className="hint">
+        {stored
+          ? `Saved on this device: ${stored.name || 'presentation.pptx'} — it renders locally, no iframe.`
+          : 'The deck is stored on this device only (never uploaded). '}
+        Rendering covers backgrounds, text and pictures with per-slide timings; animations,
+        SmartArt, charts and tables are not rendered, and fonts substitute to the system stack.
+        If the deck cannot render, the OneDrive embed URL below is the automatic fallback.
+      </span>
+      {stored && (
+        <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={remove}>
+          Remove uploaded deck
+        </button>
+      )}
+    </div>
   );
 }
