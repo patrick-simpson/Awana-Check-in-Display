@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { sanitizeTheme } from './theme.js';
 
-const BASE = 'https://patrick-simpson.github.io/KVBC-Awana-Countdown/shared/theme.json';
+const BASE = 'https://patrick-simpson.github.io/Awana-Check-in-Display/shared/theme.json';
 
-// The real shared/theme.json shape from the countdown repo.
+// The real shared/theme.json shape.
 const SHARED = {
   version: 1,
   clubs: {
@@ -21,7 +21,7 @@ describe('sanitizeTheme', () => {
   it('parses the shared theme into per-club overrides', () => {
     const t = sanitizeTheme(SHARED, BASE);
     expect(t.tnt.primary).toBe('#00A651');
-    expect(t.tnt.logoUrl).toBe('https://patrick-simpson.github.io/KVBC-Awana-Countdown/shared/art/tnt-logo.png');
+    expect(t.tnt.logoUrl).toBe('https://patrick-simpson.github.io/Awana-Check-in-Display/shared/art/tnt-logo.png');
     expect(t.tnt.aliases).toContain('t&t');
     expect(t.tnt.deep).toMatch(/^#[0-9a-f]{6}$/);
     expect(t.tnt.confetti).toHaveLength(3);

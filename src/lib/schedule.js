@@ -1,7 +1,7 @@
 // Pure club-night phase resolution — where are we in tonight's program?
-// The shared schedule is hosted by the countdown repo's Pages site
-// (…/KVBC-Awana-Countdown/shared/schedule.json); useSchedule fetches it
-// with a cache and this baked fallback underneath.
+// The shared schedule is hosted by this repo's own Pages site
+// (…/Awana-Check-in-Display/shared/schedule.json); useSchedule fetches
+// it with a cache and this baked fallback underneath.
 //
 // Phases drive presentation, not logic-critical behavior: after the
 // ceremony starts, live check-in banners switch to the calm 'late'

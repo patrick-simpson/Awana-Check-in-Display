@@ -4,6 +4,10 @@ on:
   push:
     branches-ignore: [main]
   pull_request:
+  schedule:
+    # Weekly sweep: contract drift is created by a printer-repo push,
+    # which this repo's push-triggered CI never sees.
+    - cron: '30 12 * * 4'
 
 jobs:
   checks:
@@ -20,6 +24,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Check contract-vectors drift
+        run: node scripts/check-contract-drift.mjs
 
       - name: Lint
         run: npm run lint

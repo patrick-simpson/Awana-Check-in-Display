@@ -57,8 +57,8 @@ The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
   Pusher stack). Nothing in the signage app imports from
   `src/presentation/`.
 - `shared/` at the repo root is served at `/shared/` (dev middleware +
-  build copy in vite.config.js) for the whole Awana app family; the
-  KVBC-Awana-Countdown copy stays canonical until retirement.
+  build copy in vite.config.js) for the whole Awana app family; this
+  repo's copy is the canonical one (KVBC-Awana-Countdown is retired).
 - Design tokens live in `src/presentation/index.css`; the `--dur-*`
   timing values are mirrored in `src/presentation/lib/motion-tokens.js`
   — keep the two in sync.

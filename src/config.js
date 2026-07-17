@@ -117,20 +117,21 @@ const config = {
   // The public calendar page to read (twotimtwo format).
   calendarUrl: 'https://kvbchurch.twotimtwo.com/calendar/index',
 
-  // The shared program schedule published by the countdown app —
-  // the single source of truth for the whole Awana app family. Drives
-  // "phase awareness": calm late-arrival banners + ducked chimes once
-  // the ceremony starts. Leave as-is unless you forked the countdown
-  // repo; blank disables the fetch (baked KVBC schedule still applies).
-  sharedScheduleUrl: 'https://patrick-simpson.github.io/KVBC-Awana-Countdown/shared/schedule.json',
+  // The shared program schedule, served by this repo's own Pages site
+  // (shared/ at the repo root → dist/shared/ on build) — the single
+  // source of truth for the whole Awana app family. Drives "phase
+  // awareness": calm late-arrival banners + ducked chimes once the
+  // ceremony starts. Leave as-is unless you forked this repo; blank
+  // disables the fetch (baked KVBC schedule still applies).
+  sharedScheduleUrl: 'https://patrick-simpson.github.io/Awana-Check-in-Display/shared/schedule.json',
 
   // Recap replay: how far back (minutes) a replayed check-in may be and
   // still get its quiet "also joined us" banner after a reconnect.
   recapMaxAgeMin: 20,
 
   // The shared per-club theme (catalog colors + official club art),
-  // also published by the countdown app. Blank keeps the baked palette.
-  sharedThemeUrl: 'https://patrick-simpson.github.io/KVBC-Awana-Countdown/shared/theme.json',
+  // also served from this repo's shared/. Blank keeps the baked palette.
+  sharedThemeUrl: 'https://patrick-simpson.github.io/Awana-Check-in-Display/shared/theme.json',
 
   // Celebrate when a single club's tally (from the printer's live
   // broadcasts) crosses a multiple of this. 0 disables.

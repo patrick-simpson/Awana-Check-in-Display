@@ -56,6 +56,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check contract-vectors drift
+        # Warns (never fails) on network trouble so an outage can't block
+        # a club-night redeploy; fails only on a real byte mismatch.
+        run: node scripts/check-contract-drift.mjs
+
       - name: Lint
         # Gate the deploy: a push that fails lint or tests never reaches
         # the live signage site.

@@ -5,40 +5,42 @@ The full presentation tool now lives in this repo at
 **KVBC-Awana-Countdown** repo was left untouched and keeps working; the
 two can run side by side for as long as needed.
 
-## Current state (transition period)
+## Current state
 
-- `shared/` (schedule.json, theme.json, art/) exists in **both** repos
-  with identical content. **KVBC-Awana-Countdown remains canonical** —
-  edit there first, mirror here (see the note in `shared/README.md`).
-- This repo's signage page still runtime-fetches
-  `…/KVBC-Awana-Countdown/shared/*.json` (see `sharedScheduleUrl` /
+- **This repo's `shared/` is now canonical** (see `shared/README.md`).
+  The copy in KVBC-Awana-Countdown is frozen; edit here only.
+- The signage page runtime-fetches this repo's own
+  `…/Awana-Check-in-Display/shared/*.json` (see `sharedScheduleUrl` /
   `sharedThemeUrl` in `src/config.js`).
-- The printer repo (Print-TwoTimTwo-Labels) also still reads the old
-  repo's `shared/` URLs.
-- The presentation page reads its *own* copy at build time
+- The presentation page reads the same copy at build time
   (`src/presentation/lib/shared-config.js`) — no runtime dependency on
   the old repo.
 
 ## Retirement checklist (do these in order, when ready)
 
-1. **Repoint this repo's signage config:** change `sharedScheduleUrl` /
-   `sharedThemeUrl` in `src/config.js` to
-   `https://<owner>.github.io/Awana-Check-in-Display/shared/…` (and the
-   matching URLs in `src/lib/theme.test.js` / `src/lib/schedule.test.js`).
-2. **Repoint the printer repo** (Print-TwoTimTwo-Labels) off the old
-   `shared/` URLs the same way.
+1. ~~**Repoint this repo's signage config**~~ — **done 2026-07-17**:
+   `sharedScheduleUrl` / `sharedThemeUrl` in `src/config.js` now point at
+   `https://<owner>.github.io/Awana-Check-in-Display/shared/…` (plus the
+   matching URLs in `src/lib/theme.test.js`).
+2. ~~**Repoint the printer repo**~~ — **closed as a no-op 2026-07-17**:
+   verified Print-TwoTimTwo-Labels has no runtime consumer of the old
+   `shared/` URLs. Its group schedule is a dashboard-edited local config
+   (`print-server/church-config.json`); the earlier claim that it fetches
+   `schedule.json` at server startup was stale documentation.
 3. **Operator cutover:** switch the projector machine's kiosk
    bookmark/autostart from `…/KVBC-Awana-Countdown/` to
    `…/Awana-Check-in-Display/countdown.html`. localStorage does not
    cross origins, so on the new page re-upload the birthday CSV and
    re-enter the Pusher key once (QuickNav → Display Settings, or
    `?key=…&cluster=…` on first load).
-4. **Flip canonical:** declare this repo's `shared/` the canonical copy —
-   remove the transition note in `shared/README.md` (both repos) and
-   update the old repo's README.
-5. **Archive:** optionally add a redirect page to the old repo, then
-   archive KVBC-Awana-Countdown. Keep its Pages site up until steps 1–2
-   have shipped everywhere.
+4. ~~**Flip canonical (this repo's half)**~~ — **done 2026-07-17**:
+   `shared/README.md` here now declares this copy canonical. The old
+   repo's README/transition note still needs the matching update (fold
+   into step 5).
+5. **Archive:** update the old repo's README, optionally add a redirect
+   page, then archive KVBC-Awana-Countdown. Keep its Pages site up until
+   step 3 (kiosk cutover) has happened and this repo's repoint (step 1)
+   has deployed to `main`.
 
 ## Follow-up ideas (optional, not required)
 
