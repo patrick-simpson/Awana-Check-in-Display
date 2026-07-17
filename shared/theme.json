@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "church": { "name": "KVBC", "displayName": "Kennebec Valley Bible Church" },
+  "brand": { "yellow": "#FFC107", "orange": "#F7941D" },
+  "clubs": {
+    "puggles": {
+      "name": "Puggles",
+      "color": "#F7941D",
+      "aliases": ["puggle"],
+      "art": {
+        "logo": "art/puggles-logo.png",
+        "characters": [
+          "art/puggles-char-alice.png",
+          "art/puggles-char-maya.png",
+          "art/puggles-char-sydney.png",
+          "art/puggles-char-duck.png"
+        ],
+        "group": "art/puggles-chars.png"
+      }
+    },
+    "cubbies": {
+      "name": "Cubbies",
+      "color": "#0072CE",
+      "aliases": ["cubbie", "cubby"],
+      "art": {}
+    },
+    "sparks": {
+      "name": "Sparks",
+      "color": "#E8192C",
+      "aliases": ["spark"],
+      "art": {}
+    },
+    "tnt": {
+      "name": "T&T",
+      "color": "#00A651",
+      "aliases": ["t&t", "t & t", "tt", "truth & training", "truth and training"],
+      "art": {
+        "logo": "art/tnt-logo.png",
+        "title": "art/tnt-title-agents-of-grace.png",
+        "characters": [
+          "art/tnt-char-chase.png",
+          "art/tnt-char-tommy.png",
+          "art/tnt-char-nora.png",
+          "art/tnt-char-marcos.png",
+          "art/tnt-char-rabbot.png"
+        ],
+        "group": "art/tnt-chars.png"
+      }
+    },
+    "trek": {
+      "name": "Trek",
+      "color": "#0083C9",
+      "aliases": [],
+      "art": { "logo": "art/trek-logo.png", "monochrome": true }
+    },
+    "journey": {
+      "name": "Journey",
+      "color": "#46566B",
+      "aliases": [],
+      "art": { "logo": "art/journey-logo.png", "monochrome": true }
+    }
+  }
+}
