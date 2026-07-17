@@ -15,40 +15,129 @@ import StickerChip from './components/StickerChip.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useSocket } from './hooks/useSocket.js';
+import { useSeenEvents } from './hooks/useSeenEvents.js';
+import { useSchedule } from './hooks/useSchedule.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
 import { useTally } from './hooks/useTally.js';
+import { useTheme } from './hooks/useTheme.js';
 import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { fireMilestone, setConfettiLoad } from './lib/confetti.js';
+import { sanitizeOverrides } from './hooks/useConfig.js';
+import { getClubPalette } from './lib/clubs.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
+import { applyPanicMode } from './lib/panic.js';
+import { isLatePhase } from './lib/schedule.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
 
+const OPS_FAILURES_MAX = 20;
+
 export default function App() {
-  const { config: storedConfig, updateConfig, resetConfig } = useConfig();
+  // ?config=<url>: centrally-managed overrides fetched once at startup,
+  // sanitized through the same validators as localStorage overrides.
+  const [remoteDefaults, setRemoteDefaults] = useState({});
+  useEffect(() => {
+    if (!FLAGS.configUrl) return undefined;
+    let cancelled = false;
+    fetch(FLAGS.configUrl, { cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((raw) => {
+        if (!cancelled && raw) setRemoteDefaults(sanitizeOverrides(raw));
+      })
+      .catch(() => { /* unreachable remote config — defaults carry on */ });
+    return () => { cancelled = true; };
+  }, []);
+
+  const { config: storedConfig, overrides, updateConfig, resetConfig } = useConfig(remoteDefaults);
 
   // ?key=/&cluster= let an embedded browser (OBS source, ProPresenter web
   // page) connect without localStorage access; they win over saved config.
-  const config = FLAGS.pusherAppKey
+  const mergedConfig = FLAGS.pusherAppKey
     ? {
         ...storedConfig,
         pusherAppKey: FLAGS.pusherAppKey,
         pusherCluster: FLAGS.pusherCluster || storedConfig.pusherCluster,
       }
     : storedConfig;
+  // Panic mode last, so it can strip whatever the flags/overrides built.
+  const config = applyPanicMode(mergedConfig);
   const { currentEvent, enqueue, skipCurrent, pending } = useCheckInQueue(config);
   const { count, bump, reset: resetTally } = useTally();
+  const { hasSeen, markSeen, stats: seenStats } = useSeenEvents();
+  const { phase, source: scheduleSource } = useSchedule(config);
+  const phaseRef = useRef(phase);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
+  useTheme(config);
 
-  // Every check-in — real or simulated — plays a banner and bumps
-  // tonight's tally.
+  // Club milestones (#36): the printer's live tally broadcasts carry
+  // per-club counts; when one club crosses a multiple of
+  // clubMilestoneEvery, the milestone toast celebrates that club.
+  const clubCountsRef = useRef({});
+  const [clubMilestone, setClubMilestone] = useState(null);
+  const handleTally = useCallback((tally) => {
+    const every = config.clubMilestoneEvery;
+    const prevCounts = clubCountsRef.current;
+    if (every > 0) {
+      for (const [club, n] of Object.entries(tally.counts)) {
+        const prev = prevCounts[club] ?? n; // first sight is baseline, not a crossing
+        if (n > prev && Math.floor(n / every) > Math.floor(prev / every)) {
+          setClubMilestone({ club, count: Math.floor(n / every) * every });
+          fireMilestone();
+        }
+      }
+    }
+    clubCountsRef.current = { ...prevCounts, ...tally.counts };
+  }, [config.clubMilestoneEvery]);
+  useEffect(() => {
+    if (clubMilestone == null) return undefined;
+    const timer = setTimeout(() => setClubMilestone(null), 6000);
+    return () => clearTimeout(timer);
+  }, [clubMilestone]);
+
+  // Operator telemetry from the printer (ops events): a red count on the
+  // Signal sticker + details in the panels. NEVER a public banner.
+  const [opsFailures, setOpsFailures] = useState([]);
+  const recordOps = useCallback((ops) => {
+    setOpsFailures((prev) => [ops, ...prev].slice(0, OPS_FAILURES_MAX));
+  }, []);
+
+  // Every live check-in — real or simulated — plays a banner and bumps
+  // tonight's tally. Once the ceremony starts, live banners switch to
+  // the calm 'late' treatment (no confetti cannon, ducked chime).
   const handleCheckIn = useCallback((payload) => {
-    enqueue(payload);
+    if (payload.id) markSeen(payload.id, payload.at ?? Date.now());
+    enqueue({
+      ...payload,
+      presentation: isLatePhase(phaseRef.current) ? 'late' : 'live',
+    });
     bump();
-  }, [enqueue, bump]);
+  }, [enqueue, bump, markSeen]);
 
-  const { status, lastEventAt } = useSocket(handleCheckIn);
+  // Recap replay: after a reconnect, celebrate the kids this display
+  // missed — quiet variant, skipping ids already seen live and anything
+  // older than the replay window.
+  const handleRecap = useCallback((recap) => {
+    const maxAgeMs = (config.recapMaxAgeMin ?? 20) * 60 * 1000;
+    for (const entry of recap.entries) {
+      if (hasSeen(entry.id)) continue;
+      if (Date.now() - entry.at > maxAgeMs) continue;
+      markSeen(entry.id, entry.at);
+      enqueue({ ...entry, presentation: 'replay' });
+      bump();
+    }
+  }, [config.recapMaxAgeMin, hasSeen, markSeen, enqueue, bump]);
+
+  const socketHandlers = useMemo(() => ({
+    onCheckin: handleCheckIn,
+    onRecap: handleRecap,
+    onOps: recordOps,
+    onTally: handleTally,
+  }), [handleCheckIn, handleRecap, recordOps, handleTally]);
+
+  const { status, lastEventAt } = useSocket(socketHandlers);
 
   useWakeLock(config.keepScreenAwake);
 
@@ -124,7 +213,11 @@ export default function App() {
     const timer = setTimeout(() => setDroppedLong(disconnected), disconnected ? 8000 : 0);
     return () => clearTimeout(timer);
   }, [status]);
-  const showStatus = config.showConnectionStatus || (droppedLong && status === 'disconnected');
+  // Printer trouble also forces the sticker visible — a kid at the door
+  // with no label is exactly when the operator needs the red count.
+  const showStatus = config.showConnectionStatus
+    || (droppedLong && status === 'disconnected')
+    || opsFailures.length > 0;
 
   // 'cycle' (default): one big animated data point at a time, bottom
   // right. 'stickers': the classic corner-chip layout. The connection
@@ -150,7 +243,8 @@ export default function App() {
     };
   }, []);
 
-  // Keyboard shortcuts for the hidden panels.
+  // Keyboard shortcuts for the hidden panels. Ctrl+Shift+X is the panic
+  // switch — S/E/D were taken.
   useEffect(() => {
     const onKey = (e) => {
       if (!e.ctrlKey || !e.shiftKey) return;
@@ -163,11 +257,14 @@ export default function App() {
       } else if (e.key.toLowerCase() === 'e') {
         e.preventDefault();
         setSlideEditorOpen((v) => !v);
+      } else if (e.key.toLowerCase() === 'x') {
+        e.preventDefault();
+        updateConfig({ panicMode: !storedConfig.panicMode });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [updateConfig, storedConfig.panicMode]);
 
   // Double-click anywhere on the stage toggles fullscreen — easier than
   // hunting for F11 on a TV keyboard or remote-desktop session. Panels
@@ -199,6 +296,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
     <div
       className={`stage ${overlay ? 'overlay' : ''}`}
+      data-skin={config.nightTheme && config.nightTheme !== 'none' ? config.nightTheme : undefined}
       style={chroma ? { background: chroma } : undefined}
       ref={stageRef}
       onDoubleClick={toggleFullscreen}
@@ -249,10 +347,15 @@ export default function App() {
               label="Signal"
               tilt={-1}
               aria-live="polite"
-              aria-label={`Connection status: ${status}`}
+              aria-label={`Connection status: ${status}${opsFailures.length ? `, ${opsFailures.length} printer problem(s)` : ''}`}
             >
               <span className="dot" />
               <span>{status === 'off' ? 'not set up' : status}</span>
+              {opsFailures.length > 0 && (
+                <span className="ops-count" title="Printer problems tonight — see Settings">
+                  ⚠ {opsFailures.length}
+                </span>
+              )}
             </StickerChip>
           )}
         </div>
@@ -318,6 +421,24 @@ export default function App() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {clubMilestone != null && (
+          <motion.div
+            key={`club-milestone-${clubMilestone.club}-${clubMilestone.count}`}
+            className="milestone-toast club-milestone"
+            style={{ rotate: 1.1, '--club-primary': getClubPalette(clubMilestone.club).primary }}
+            initial={{ opacity: 0, y: 40, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
+            exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
+          >
+            <div className="milestone-lines">
+              <span className="milestone-label">{clubMilestone.club}</span>
+              <span className="milestone-count">{clubMilestone.count} kids strong!</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {!overlay && pending >= BURST_THRESHOLD && (
           <motion.div
             key="up-next"
@@ -331,6 +452,12 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {!overlay && config.panicMode && (
+        <div className="panic-pill" title="Simplified mode is on — toggle with Ctrl+Shift+X or in Settings → Display">
+          simplified mode
+        </div>
+      )}
 
       {!overlay && (
         <button
@@ -346,9 +473,13 @@ export default function App() {
       {settingsOpen && (
         <SettingsPanel
           config={config}
+          overrides={overrides}
           status={status}
           lastEventAt={lastEventAt}
           calendar={calendar}
+          phase={phase}
+          scheduleSource={scheduleSource}
+          opsFailures={opsFailures}
           onChange={updateConfig}
           onReset={resetConfig}
           onClose={() => setSettingsOpen(false)}
@@ -373,10 +504,15 @@ export default function App() {
       {debugOpen && (
         <DebugPanel
           onSimulate={handleCheckIn}
+          onSimulateRecap={handleRecap}
+          onSimulateOps={recordOps}
           onClose={() => setDebugOpen(false)}
           status={status}
           lastEventAt={lastEventAt}
           pending={pending}
+          phase={phase}
+          seenStats={seenStats}
+          opsFailures={opsFailures}
         />
       )}
     </div>

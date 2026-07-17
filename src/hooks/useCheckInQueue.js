@@ -39,6 +39,11 @@ export function useCheckInQueue(config) {
         club: payload.club || '',
         isBirthday: !!payload.isBirthday,
         isFirstTimer: !!payload.isFirstTimer,
+        // 'live' (default) | 'replay' (recap after reconnect) | 'late'
+        // (arrived mid-program) — presentation only, never logic.
+        presentation: payload.presentation === 'replay' || payload.presentation === 'late'
+          ? payload.presentation
+          : 'live',
       },
     ]);
   }, []);

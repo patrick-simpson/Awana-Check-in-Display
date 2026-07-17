@@ -21,10 +21,23 @@ export function parseUrlFlags(search = window.location.search) {
   const key = (params.get('key') || '').trim();
   const cluster = (params.get('cluster') || '').trim();
 
+  // ?config=<https-url>: fetch a JSON of config overrides at startup —
+  // central management for a fleet of displays. Precedence stays
+  // defaults < remote config < this device's saved overrides < ?key.
+  const configRaw = (params.get('config') || '').trim();
+  let configUrl = null;
+  try {
+    if (configRaw) {
+      const u = new URL(configRaw);
+      if (u.protocol === 'https:' || u.protocol === 'http:') configUrl = u.href;
+    }
+  } catch { /* malformed — ignore */ }
+
   return {
     overlay: ['1', 'true', 'yes'].includes(overlayParam) || chroma !== null,
     chroma,
     pusherAppKey: key || null,
     pusherCluster: cluster || null,
+    configUrl,
   };
 }

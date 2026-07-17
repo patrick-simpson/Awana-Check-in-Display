@@ -1698,3 +1698,103 @@ input:focus-visible {
   .banner .tagline { font-size: clamp(0.75rem, 4vh, 1.05rem); margin-top: 0.25rem; }
   .banner .club-logo-slot { height: clamp(40px, 16vh, 84px); }
 }
+
+/* ── Wave 1: presentation variants + operator surfaces ─────────────── */
+
+/* Calm banners (recap replay / mid-program late arrivals): slightly
+   smaller and softer so they read as a gentle acknowledgment, not the
+   full door-moment celebration. */
+.banner.calm {
+  transform: scale(0.9);
+  transform-origin: bottom center;
+  filter: saturate(0.85);
+}
+
+/* Printer-problem count riding the Signal sticker. */
+.status-dot .ops-count {
+  margin-left: 0.4em;
+  color: #ff5252;
+  font-weight: 800;
+}
+
+/* "simplified mode" pill — quiet confirmation that panic mode is on. */
+.panic-pill {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-0.5deg);
+  background: rgba(20, 20, 24, 0.82);
+  color: #ffd257;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 210, 87, 0.4);
+  z-index: 40;
+  pointer-events: none;
+}
+
+/* ── Local .pptx renderer ──────────────────────────────────────────── */
+.pptx-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pptx-slide-wrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pptx-slide {
+  position: relative;
+  /* Letterbox to the deck's own aspect ratio (inline style sets it);
+     container units size the type against the rendered width. */
+  width: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
+  margin: auto;
+  container-type: size;
+  overflow: hidden;
+}
+
+/* ── Themed night skins (#37) ──────────────────────────────────────── */
+/* Recolor the ambient stage decorations for special nights. Banners
+   keep club colors — the skin dresses the room, not the kids. */
+.stage[data-skin] .placeholder-eyebrow { letter-spacing: 0.14em; }
+.stage[data-skin='autumn'] {
+  --skin-a: #d97706;
+  --skin-b: #7c2d12;
+}
+.stage[data-skin='christmas'] {
+  --skin-a: #dc2626;
+  --skin-b: #14532d;
+}
+.stage[data-skin='summer'] {
+  --skin-a: #0ea5e9;
+  --skin-b: #fbbf24;
+}
+.stage[data-skin] .background-placeholder .placeholder-copy h1 {
+  background: linear-gradient(120deg, var(--skin-a), var(--skin-b));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.stage[data-skin] .milestone-toast {
+  border-color: var(--skin-a);
+}
+.stage[data-skin] .up-next {
+  border-color: var(--skin-b);
+}
+
+/* Club milestone toast variant (#36) — takes the club's color. */
+.milestone-toast.club-milestone {
+  border-color: var(--club-primary, #f7a41c);
+}
+.milestone-toast.club-milestone .milestone-label {
+  color: var(--club-primary, #f7a41c);
+}

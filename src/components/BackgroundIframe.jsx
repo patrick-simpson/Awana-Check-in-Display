@@ -58,6 +58,32 @@ export default function BackgroundIframe({
   url, slideshowDelaySec, useLocalSlideshow, backgroundSource, manualSlides,
   calendarSlides,
 }) {
+  // Uploaded .pptx deck rendered locally (Settings → Background →
+  // "Uploaded PowerPoint"). Whole-deck failure falls back to the URL
+  // embed when one is configured, else the placeholder scene.
+  if (backgroundSource === 'pptx') {
+    const pptxFallback = url ? (
+      <iframe
+        className="background-iframe"
+        src={normalizeEmbedUrl(url, slideshowDelaySec)}
+        title="Awana background presentation"
+        allow="autoplay; fullscreen"
+        allowFullScreen
+        frameBorder="0"
+      />
+    ) : (
+      <div className="background-placeholder">
+        <CatalogScene theme="sky">
+          <div className="placeholder-copy">
+            <span className="placeholder-eyebrow">Awana Clubs</span>
+            <h1>Upload a PowerPoint<br />in Settings</h1>
+          </div>
+        </CatalogScene>
+      </div>
+    );
+    return <PptxSlideshow source="store" slideshowDelaySec={slideshowDelaySec} fallback={pptxFallback} />;
+  }
+
   // Typed slides: free-typed in the on-screen editor, no PowerPoint.
   // Calendar-derived slides (welcome / next week / nights remaining)
   // lead the rotation; they are generated fresh each render and never
@@ -115,7 +141,7 @@ export default function BackgroundIframe({
   // download or parse the deck it falls back to the iframe embed so the
   // signage screen never shows an error.
   if (useLocalSlideshow && isOneDrivePptx(url)) {
-    return <PptxSlideshow url={url} fallback={embed} />;
+    return <PptxSlideshow url={url} source="url" slideshowDelaySec={slideshowDelaySec} fallback={embed} />;
   }
 
   return embed;
