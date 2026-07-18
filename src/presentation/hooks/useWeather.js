@@ -1,55 +1,39 @@
 import { useEffect, useState } from 'react';
 import { CHURCH } from '../church.config.js';
+import { fetchCurrentWeather, getWeatherType } from '../../lib/weather.js';
 
-const { lat: KVBC_LAT, lon: KVBC_LON } = CHURCH.coords;
+// One Open-Meteo fetcher for the whole repo: this hook rides the
+// signage app's lib/weather.js (on the presentation import allowlist)
+// instead of maintaining a second URL builder + code mapping.
 const REFRESH_MS = 15 * 60 * 1000;
 
-function getWeatherType(code) {
-  if (code === 0 || code === 1) return 'clear';
-  if (code <= 3) return 'cloudy';
-  if (code <= 48) return 'fog';
-  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rain';
-  if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return 'snow';
-  if (code >= 95) return 'thunder';
-  return 'clear';
-}
-
 /**
- * Live weather for the ambient scene. Fails silently to 'clear' —
- * the show must never depend on the network. Refetches on a 15-minute
- * interval and whenever the page becomes visible again (projector
- * machines sleep).
+ * Live weather type for the ambient scene ('clear' | 'cloudy' | 'fog' |
+ * 'rain' | 'snow' | 'thunder'). Fails silently to 'clear' — the show
+ * must never depend on the network. Refetches on a 15-minute interval
+ * and whenever the page becomes visible again (projector machines
+ * sleep).
  */
 export function useWeather() {
   const [weather, setWeather] = useState('clear');
 
   useEffect(() => {
-    const controller = new AbortController();
+    let cancelled = false;
 
-    const fetchWeather = async () => {
-      try {
-        const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${KVBC_LAT}&longitude=${KVBC_LON}&current=weather_code`,
-          { signal: controller.signal },
-        );
-        const data = await res.json();
-        if (data.current?.weather_code !== undefined) {
-          setWeather(getWeatherType(data.current.weather_code));
-        }
-      } catch {
-        // silently fail — default 'clear' is acceptable
-      }
+    const update = async () => {
+      const cur = await fetchCurrentWeather({ lat: CHURCH.coords.lat, lon: CHURCH.coords.lon });
+      if (!cancelled && cur) setWeather(getWeatherType(cur.code));
     };
 
-    fetchWeather();
-    const interval = setInterval(fetchWeather, REFRESH_MS);
+    update();
+    const interval = setInterval(update, REFRESH_MS);
     const onVisible = () => {
-      if (document.visibilityState === 'visible') fetchWeather();
+      if (document.visibilityState === 'visible') update();
     };
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
-      controller.abort();
+      cancelled = true;
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisible);
     };

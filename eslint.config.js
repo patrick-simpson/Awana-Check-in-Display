@@ -51,4 +51,13 @@ export default [
     languageOptions: { globals: { ...globals.node } },
     rules: { 'no-console': 'off' },
   },
+  {
+    // The service worker runs in its own global scope.
+    files: ['src/sw.js'],
+    languageOptions: { globals: { ...globals.serviceworker } },
+    rules: {
+      // __PRECACHE_MANIFEST__ is replaced at build time.
+      'no-undef': 'off',
+    },
+  },
 ];

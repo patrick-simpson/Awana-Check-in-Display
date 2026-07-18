@@ -42,6 +42,22 @@ const ICON_THEMES = {
   storm: { day: 'night', night: 'night' },
 };
 
+/**
+ * WMO code → coarse scene type for the presentation tool's ambient
+ * WeatherScene ('clear' | 'cloudy' | 'fog' | 'rain' | 'snow' |
+ * 'thunder'). Shared by both apps (this module is on the presentation
+ * import allowlist) so the two never disagree about the sky.
+ */
+export function getWeatherType(code) {
+  if (code === 0 || code === 1) return 'clear';
+  if (code <= 3) return 'cloudy';
+  if (code <= 48) return 'fog';
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rain';
+  if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return 'snow';
+  if (code >= 95) return 'thunder';
+  return 'clear';
+}
+
 export function weatherPresentation(code, isDay = true) {
   const group = WMO.find((g) => g.codes.includes(Number(code)));
   const { label, icon } = group || { label: 'Partly cloudy', icon: 'partly' };

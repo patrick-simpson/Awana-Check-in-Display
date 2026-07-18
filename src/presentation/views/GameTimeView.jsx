@@ -131,7 +131,18 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
               {clubCounts.map(({ club, count }) => (
                 <Badge key={club.id} color={club.color} size="sm" style={{ opacity: 0.85 }}>
                   {clubCounts.length > 1 ? `${club.name}: ` : ''}
-                  {count} checked in
+                  {/* Remount on each increment: leaders see the arrival
+                      land as a little pop, same trick as the signage tally. */}
+                  <motion.span
+                    key={count}
+                    className="inline-block"
+                    initial={{ scale: 1.45, rotate: -6 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 15 }}
+                  >
+                    {count}
+                  </motion.span>
+                  {' checked in'}
                 </Badge>
               ))}
             </motion.div>

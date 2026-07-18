@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
-import CountdownTimer from './components/CountdownTimer.jsx';
 import DataCycle from './components/DataCycle.jsx';
 import WallClock from './components/WallClock.jsx';
 import WeatherChip from './components/WeatherChip.jsx';
@@ -183,17 +182,6 @@ export default function App() {
     ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr), config)
     : [];
 
-  // Gate the corner countdown to real club nights once the calendar is
-  // loaded — otherwise it counts down to the configured time every day,
-  // even in the middle of summer break. No calendar (disabled, or not
-  // loaded yet) → null → the countdown keeps its everyday behavior.
-  const clubNightDates = useMemo(
-    () => (config.calendarEnabled && calendar.events.length
-      ? calendar.events.filter((e) => e.kind === 'club' && !e.isCancelled).map((e) => e.date)
-      : null),
-    [config.calendarEnabled, calendar.events]
-  );
-
   // Thin the confetti while a rush is draining so cheap signage sticks
   // hold 60fps with banners firing back-to-back.
   useEffect(() => {
@@ -341,12 +329,6 @@ export default function App() {
         <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />
       </ErrorBoundary>
 
-      {!overlay && stickerMode && (
-        <ErrorBoundary label="countdown">
-          <CountdownTimer targetTime={config.countdownTargetTime} clubDates={clubNightDates} />
-        </ErrorBoundary>
-      )}
-
       {!overlay && !stickerMode && (
         <ErrorBoundary label="data-cycle">
           <DataCycle
@@ -355,8 +337,6 @@ export default function App() {
             showClock={config.showClock}
             showTally={config.showTally}
             showWeather={showWeatherChip}
-            countdownTargetTime={config.countdownTargetTime}
-            clubDates={clubNightDates}
             intervalSec={config.cycleIntervalSec}
           />
         </ErrorBoundary>

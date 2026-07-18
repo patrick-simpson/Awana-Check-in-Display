@@ -1,0 +1,73 @@
+// Offline shell for both display pages. Emitted at build time by the
+// serviceWorker() plugin in vite.config.js, which replaces the two
+// placeholder tokens below with the real build hash + precache list —
+// the cache name is versioned by build content, so a deploy invalidates
+// every old cache on activate and stale JS can never outlive a reload.
+//
+// Routing rules (same-origin GET only; Pusher/Open-Meteo/etc. pass
+// through untouched):
+//   · JSON (schedule/theme/calendar feeds)  → network-first, cache
+//     fallback — fresh data when online, last-known-good in a blip.
+//     Checked BEFORE the generic asset rule so the schedule can never
+//     freeze inside a cache.
+//   · HTML navigations                      → network-first, cache
+//     fallback — fresh HTML always references the new hashed assets.
+//   · Everything else (hashed assets, fonts,
+//     shared/art/*)                         → cache-first, backfilled
+//     from the network on first touch.
+
+const VERSION = '__BUILD_HASH__';
+const PRECACHE = __PRECACHE_MANIFEST__;
+
+const CACHE_NAME = `awana-v${VERSION}`;
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  try {
+    const fresh = await fetch(request);
+    if (fresh.ok) cache.put(request, fresh.clone());
+    return fresh;
+  } catch (err) {
+    const cached = await cache.match(request, { ignoreSearch: request.mode === 'navigate' });
+    if (cached) return cached;
+    throw err;
+  }
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const fresh = await fetch(request);
+  if (fresh.ok) cache.put(request, fresh.clone());
+  return fresh;
+}
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  if (request.method !== 'GET') return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  if (request.mode === 'navigate' || url.pathname.endsWith('.json')) {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+  event.respondWith(cacheFirst(request));
+});

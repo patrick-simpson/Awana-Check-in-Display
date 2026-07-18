@@ -12,6 +12,7 @@ import { BigTimer } from '../components/BigTimer.jsx';
 import { EventChips } from '../components/EventChips.jsx';
 import { GlowText } from '../components/GlowText.jsx';
 import { secondsUntil } from '../lib/schedule.js';
+import { playStinger } from '../lib/stingers.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
 import { useKeydown } from '../hooks/useKeydown.js';
 import { useWeather } from '../hooks/useWeather.js';
@@ -44,6 +45,9 @@ export const CountdownView = ({ now, target, onSkip }) => {
     if (hit && !shownMilestones.current.has(hit.time)) {
       shownMilestones.current.add(hit.time);
       setMilestone(hit.text);
+      // Optional synthesized chime (QuickNav toggle, off by default);
+      // the final minute gets the big three-note version.
+      playStinger(hit.time <= 60 ? 1 : 0.5);
       const timer = setTimeout(() => setMilestone(null), 2400);
       return () => clearTimeout(timer);
     }

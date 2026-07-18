@@ -8,6 +8,7 @@
  */
 import rawSchedule from '../../../shared/schedule.json';
 import rawTheme from '../../../shared/theme.json';
+import rawSlides from '../../../shared/slides.json';
 
 /* ── Validation helpers (hand-rolled; no runtime deps) ────────────── */
 
@@ -157,10 +158,53 @@ export function parseThemeConfig(raw) {
   return { church: { name: raw.church.name, displayName: raw.church.displayName }, brand, clubs };
 }
 
+/**
+ * Validate an arbitrary JSON value into a SlidesConfig (exported for
+ * tests). Everything is optional — decks fall back to their baked text —
+ * but anything present must be well-formed so a typo'd slides.json
+ * fails the build, never the projector.
+ */
+export function parseSlidesConfig(raw) {
+  if (!isRecord(raw)) fail('slides.json must be an object');
+  if (raw.version !== 1) fail(`slides.json: unsupported version ${String(raw.version)}`);
+  const out = {};
+  if (raw.verseOfTheMonth !== undefined) {
+    const v = raw.verseOfTheMonth;
+    if (!isRecord(v)) fail('slides.json: verseOfTheMonth must be an object');
+    if (typeof v.reference !== 'string' || !v.reference.trim() || v.reference.length > 80) {
+      fail('slides.json: verseOfTheMonth.reference must be a short string');
+    }
+    if (typeof v.text !== 'string' || !v.text.trim() || v.text.length > 600) {
+      fail('slides.json: verseOfTheMonth.text must be a string (≤600 chars)');
+    }
+    out.verseOfTheMonth = { reference: v.reference.trim(), text: v.text.trim() };
+  }
+  if (raw.closing !== undefined) {
+    const c = raw.closing;
+    if (!isRecord(c)) fail('slides.json: closing must be an object');
+    const closing = {};
+    if (c.title !== undefined) {
+      if (typeof c.title !== 'string' || !c.title.trim() || c.title.length > 120) {
+        fail('slides.json: closing.title must be a string (≤120 chars)');
+      }
+      closing.title = c.title.trim();
+    }
+    if (c.body !== undefined) {
+      if (typeof c.body !== 'string' || !c.body.trim() || c.body.length > 300) {
+        fail('slides.json: closing.body must be a string (≤300 chars)');
+      }
+      closing.body = c.body.trim();
+    }
+    out.closing = closing;
+  }
+  return out;
+}
+
 /* ── Validated singletons ─────────────────────────────────────────── */
 
 export const SCHEDULE_CONFIG = parseScheduleConfig(rawSchedule);
 export const THEME = parseThemeConfig(rawTheme);
+export const SLIDES_CONFIG = parseSlidesConfig(rawSlides);
 
 /** Absolute URL for a theme.json-relative art path. */
 export function artUrl(path) {

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppMode } from '../types.js';
 import { CHURCH } from '../church.config.js';
-import { SCHEDULE_CONFIG } from '../lib/shared-config.js';
 import { evaluateOverride } from '../lib/watchdog.js';
+import { useEffectiveSchedule } from './useEffectiveSchedule.js';
 import {
   getNextMeeting,
   resolveState,
@@ -26,7 +26,10 @@ import {
 export function useSchedule(now) {
   const [override, setOverride] = useState(null);
 
-  const natural = resolveState(now);
+  // Shared schedule.json + this device's "skip week" overlay.
+  const cfg = useEffectiveSchedule();
+
+  const natural = resolveState(now, cfg);
   const naturalKey = stateKey(natural);
 
   // The clock and natural key the callbacks should capture, without
@@ -39,7 +42,7 @@ export function useSchedule(now) {
 
   // The window table in effect today (special dates can replace it), so
   // an override index always points into what QuickNav displayed.
-  const effectiveWindows = windowsForDate(now) ?? SCHEDULE_CONFIG.windows;
+  const effectiveWindows = windowsForDate(now, cfg) ?? cfg.windows;
 
   let state = natural;
   let resumeAt = null;
@@ -47,7 +50,7 @@ export function useSchedule(now) {
 
   if (override !== null) {
     if (override.target.type === 'countdown') {
-      state = { mode: AppMode.COUNTDOWN, target: getNextMeeting(now) };
+      state = { mode: AppMode.COUNTDOWN, target: getNextMeeting(now, cfg) };
       // No timeout: countdown is the safe default (this is also the
       // post-shutdown restart path). Resume when the schedule catches up
       // or crosses a boundary underneath us.

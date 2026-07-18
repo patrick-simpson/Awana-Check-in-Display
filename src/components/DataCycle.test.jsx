@@ -49,8 +49,6 @@ describe('DataCycle', () => {
         showClock={false}
         showTally={false}
         showWeather={false}
-        countdownTargetTime=""
-        clubDates={null}
         intervalSec={10}
         {...props}
       />
@@ -102,26 +100,10 @@ describe('DataCycle', () => {
     expect(screen.queryByText(/tonight/i)).toBeNull();
   });
 
-  it('lets the countdown join while a target is ahead and drops it at zero', () => {
-    // Tonight is a club night but tomorrow isn't, so once 18:30 passes
-    // the countdown has nothing left to count to.
+  it('has no countdown card (retired in favor of the presentation tool)', () => {
+    // Legacy countdown props are simply ignored — old saved settings
+    // must not resurrect the card.
     renderCycle({ showClock: true, countdownTargetTime: '18:30', clubDates: ['2026-07-14'] });
-    expect(screen.getByText(/right now/i)).toBeTruthy();
-
-    advance(10000);
-    expect(screen.getByText(/club starts in/i)).toBeTruthy();
-    expect(screen.getByText(/29:/)).toBeTruthy();
-
-    // Ride the countdown past zero mid-hold: the item vanishes and the
-    // cycle snaps back to the clock rather than showing a dead timer.
-    advance(30 * 60 * 1000);
-    expect(screen.getByText(/right now/i)).toBeTruthy();
-    expect(screen.queryByText(/club starts in/i)).toBeNull();
-  });
-
-  it('respects clubDates gating for the countdown item', () => {
-    // No club night today or tomorrow → the countdown never joins.
-    renderCycle({ showClock: true, countdownTargetTime: '18:30', clubDates: [] });
     advance(10000);
     expect(screen.getByText(/right now/i)).toBeTruthy();
     expect(screen.queryByText(/club starts in/i)).toBeNull();

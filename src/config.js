@@ -54,10 +54,10 @@ const config = {
   // fails the app falls back to the iframe embed automatically.
   useLocalSlideshow: false,
 
-  // Club start time. The corner countdown ticks down to this time today
-  // (or tomorrow if today's time has already passed). 24-hour clock.
-  // With calendar events loaded, it only shows when the target day is
-  // an actual club night — never during breaks.
+  // RETIRED: the corner countdown card moved to the presentation tool
+  // (countdown.html), which owns countdown duty for the program. The
+  // key is kept so older saved settings still validate; it no longer
+  // drives anything on the signage page.
   countdownTargetTime: '18:30',
 
   // How long each check-in banner stays on screen (milliseconds).

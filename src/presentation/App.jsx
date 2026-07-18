@@ -7,8 +7,10 @@ import { DUR, EASE } from './lib/motion-tokens.js';
 import { useClock } from './hooks/useClock.js';
 import { useSchedule } from './hooks/useSchedule.js';
 import { useRealtime } from './hooks/useRealtime.js';
+import { useWakeLock } from '../hooks/useWakeLock.js';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary.jsx';
 import { ResumePill } from './components/ResumePill.jsx';
+import { SetupChecklist } from './components/SetupChecklist.jsx';
 import { CountdownView } from './views/CountdownView.jsx';
 import { GameTimeView } from './views/GameTimeView.jsx';
 import { SlideshowView } from './views/SlideshowView.jsx';
@@ -52,6 +54,10 @@ export const App = () => {
   // adoptPusherUrlFlags/useBirthdaySync startup chores.
   const { tally } = useRealtime();
 
+  // The projector must never doze off mid-countdown (same shared hook
+  // as the signage page — on the presentation import allowlist).
+  useWakeLock(true);
+
   return (
     <MotionConfig reducedMotion={FLAGS.vr ? 'always' : 'user'}>
     <div className="w-full h-full relative" style={{ background: '#000000' }}>
@@ -74,6 +80,7 @@ export const App = () => {
 
       <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} />
       {isOverride && <ResumePill now={now} resumeAt={resumeAt} onStay={stay} />}
+      <SetupChecklist />
     </div>
     </MotionConfig>
   );

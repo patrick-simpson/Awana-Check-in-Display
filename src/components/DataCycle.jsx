@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { formatClock } from './WallClock.jsx';
-import { resolveTarget, formatRemaining } from './CountdownTimer.jsx';
 import { WeatherGlyph } from './WeatherGlyphs.jsx';
 import { weatherPresentation } from '../lib/weather.js';
 import { Mark } from './Doodles.jsx';
@@ -9,7 +8,7 @@ import { Mark } from './Doodles.jsx';
 /**
  * Bottom-right animated data cycle — the 'cycle' widget display mode.
  * One data point holds the corner at a time (time, tonight's tally,
- * weather, and the pre-club countdown while one is running), then hands
+ * weather), then hands
  * off to the next with its own playful entrance and exit. No sticker
  * chrome: just big floating catalog type over whatever slide is up.
  *
@@ -20,7 +19,7 @@ import { Mark } from './Doodles.jsx';
 
 // Each item enters, idles and leaves in character: the clock springs up
 // like it bounced off the floor, the tally slaps on like a sticker, the
-// weather drifts through like a passing cloud, and the countdown drops
+// weather drifts through like a passing cloud, and items drop
 // in from above. Tilt lives in the variants (declared in every state)
 // so framer-motion owns the transform end to end — a CSS rotate would
 // be clobbered the moment x/y/scale animate.
@@ -59,17 +58,6 @@ const VARIANTS = {
       transition: { duration: 0.4, ease: 'easeIn' },
     },
   },
-  countdown: {
-    hidden: { opacity: 0, y: -64, scale: 0.85, rotate: 0 },
-    show: {
-      opacity: 1, y: 0, scale: 1, rotate: -0.8,
-      transition: { type: 'spring', stiffness: 500, damping: 13 },
-    },
-    exit: {
-      opacity: 0, y: 30, scale: 1, rotate: -0.8,
-      transition: { duration: 0.5, ease: 'easeIn' },
-    },
-  },
 };
 
 // Pure so the cycling order is unit-testable. Tracks the active item by
@@ -81,27 +69,25 @@ export function nextActiveId(ids, activeId) {
   return i === -1 ? ids[0] : ids[(i + 1) % ids.length];
 }
 
+// The pre-club countdown card retired in favor of the presentation
+// tool (countdown.html), which owns countdown duty for the program —
+// see MIGRATION.md. The clock/tally/weather rotation is unchanged.
 export default function DataCycle({
   count,
   weather,
   showClock,
   showTally,
   showWeather,
-  countdownTargetTime,
-  clubDates,
   intervalSec,
 }) {
   const reduced = useReducedMotion();
 
-  // One shared 1-second tick drives both the clock and the countdown.
+  // One shared 1-second tick drives the clock face.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
-
-  const target = resolveTarget(countdownTargetTime, now, clubDates);
-  const countdownActive = target !== null && target.ms - now > 0;
 
   // Booleans only in the deps — a weather refresh or tally bump must
   // not rebuild the list and restart the hold timer mid-item.
@@ -112,9 +98,8 @@ export default function DataCycle({
       showClock && 'clock',
       hasTally && 'tally',
       hasWeather && 'weather',
-      countdownActive && 'countdown',
     ].filter(Boolean),
-    [showClock, hasTally, hasWeather, countdownActive]
+    [showClock, hasTally, hasWeather]
   );
 
   const [activeId, setActiveId] = useState(() => ids[0] ?? null);
@@ -152,7 +137,6 @@ export default function DataCycle({
           {active === 'clock' && <ClockFace now={now} reduced={reduced} />}
           {active === 'tally' && <TallyFace count={count} reduced={reduced} />}
           {active === 'weather' && <WeatherFace weather={weather} reduced={reduced} />}
-          {active === 'countdown' && <CountdownFace target={target} now={now} reduced={reduced} />}
           {/* One sparkle winks just after each item lands. */}
           <motion.span
             className="data-cycle-spark"
@@ -260,19 +244,3 @@ function WeatherFace({ weather, reduced }) {
   );
 }
 
-function CountdownFace({ target, now, reduced }) {
-  return (
-    <>
-      <span className="data-cycle-eyebrow">Club starts in</span>
-      <motion.span
-        className="data-cycle-value"
-        role="timer"
-        animate={reduced ? undefined : { scale: [1, 1.02, 1] }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-      >
-        {formatRemaining(target.ms - now)}
-      </motion.span>
-      {target.isTomorrow && <span className="data-cycle-sub">Tomorrow</span>}
-    </>
-  );
-}

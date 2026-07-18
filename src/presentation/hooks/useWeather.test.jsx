@@ -6,7 +6,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 /** Mount the hook against a stubbed Open-Meteo response, return the type. */
 async function weatherFor(payload) {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ json: async () => payload }));
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => payload }));
   const { result, unmount } = renderHook(() => useWeather());
   await act(async () => {});
   const type = result.current;
@@ -14,7 +14,9 @@ async function weatherFor(payload) {
   return type;
 }
 
-const forCode = (code) => weatherFor({ current: { weather_code: code } });
+// The hook rides the shared fetchCurrentWeather (lib/weather.js), which
+// requires a numeric temperature_2m before it trusts the payload.
+const forCode = (code) => weatherFor({ current: { weather_code: code, temperature_2m: 50 } });
 
 describe('useWeather WMO code → ambient scene type', () => {
   it('maps each documented code group', async () => {
@@ -43,7 +45,11 @@ describe('useWeather WMO code → ambient scene type', () => {
 });
 
 describe('useWeather network resilience', () => {
-  it('stays clear when the payload has no weather_code', async () => {
+  it('defaults a reading without a weather_code to the shared fetcher fallback (cloudy)', async () => {
+    expect(await weatherFor({ current: { temperature_2m: 50 } })).toBe('cloudy');
+  });
+
+  it('stays clear when the payload is not a valid reading', async () => {
     expect(await weatherFor({ current: {} })).toBe('clear');
     expect(await weatherFor({})).toBe('clear');
   });

@@ -1,4 +1,5 @@
 import { cpSync, existsSync, readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { configDefaults, defineConfig } from 'vitest/config';
@@ -49,11 +50,35 @@ function sharedDir() {
   };
 }
 
+// Emits sw.js (from src/sw.js) with a build-content hash and a precache
+// manifest baked in. The hash is a sha of the emitted filenames — any
+// code change renames a hashed asset, so every deploy gets a new cache
+// name and `activate` drops the old one (never-stale-JS guarantee).
+// shared/ is deliberately NOT precached (sharedDir() copies it after
+// this hook); it's runtime-cached by the SW's fetch rules instead.
+function serviceWorker() {
+  return {
+    name: 'awana-service-worker',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const files = Object.keys(bundle).sort();
+      const hash = createHash('sha256').update(files.join('\n')).digest('hex').slice(0, 12);
+      const precache = files
+        .filter((f) => /\.(html|js|css|woff2?)$/.test(f) && !f.startsWith('powerpoint-addon/'))
+        .map((f) => `./${f}`);
+      const source = readFileSync(resolve(__dirname, 'src/sw.js'), 'utf8')
+        .replace('__BUILD_HASH__', hash)
+        .replace('__PRECACHE_MANIFEST__', JSON.stringify(precache, null, 2));
+      this.emitFile({ type: 'asset', fileName: 'sw.js', source });
+    },
+  };
+}
+
 // Relative asset paths so the build works at any URL — local preview,
 // GitHub Pages under /<repo>/, a custom domain, anywhere — with zero
 // env-var configuration. Crucial for novice deploys.
 export default defineConfig({
-  plugins: [react(), tailwindcss(), sharedDir()],
+  plugins: [react(), tailwindcss(), sharedDir(), serviceWorker()],
   base: './',
   server: {
     host: true,

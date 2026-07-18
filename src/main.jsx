@@ -17,6 +17,13 @@ import './styles/app.css';
 // render below never waits on it.
 import(/* @vite-ignore */ new URL('vendor/jelly-ui.js', document.baseURI).href);
 
+// Offline shell: cache-first for hashed assets and shared/ club art,
+// network-first for HTML/JSON (see src/sw.js — emitted with a per-build
+// cache version). Production only; failures are the pre-SW status quo.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
 // <jelly-theme> scopes the Jelly UI design tokens to the app (mode="auto"
 // follows the OS light/dark preference). It renders display:contents —
 // layout-neutral, paints nothing — so the signage stage is unaffected.

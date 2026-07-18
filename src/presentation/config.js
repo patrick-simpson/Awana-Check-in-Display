@@ -7,7 +7,7 @@
  * shared/theme.json — validated in src/presentation/lib/shared-config.js).
  * Slide decks and pledge text remain here as defaults.
  */
-import { SCHEDULE_CONFIG, THEME } from './lib/shared-config.js';
+import { SCHEDULE_CONFIG, SLIDES_CONFIG, THEME } from './lib/shared-config.js';
 
 /* ── Clubs (colors follow the 2026–27 Awana catalog via theme.json) ── */
 
@@ -21,6 +21,20 @@ export const CLUBS = Object.fromEntries(
 
 export const US_PLEDGE_TEXT = `I pledge allegiance to the Flag of the United States of America, and to the Republic for which it stands, one Nation under God, indivisible, with liberty and justice for all.`;
 export const AWANA_PLEDGE_TEXT = `I pledge allegiance to the Awana flag, which stands for the Awana clubs, whose goal is to reach boys and girls with the gospel of Christ, and train them to serve Him.`;
+
+// shared/slides.json can add a verse-of-the-month slide and reword the
+// goodnight slide without touching code (validated in shared-config.js
+// — a malformed file fails the build, never the projector).
+const VERSE_SLIDE = SLIDES_CONFIG.verseOfTheMonth
+  ? [{
+      id: 'verse-of-the-month',
+      layout: 'pledge',
+      title: `Verse of the Month · ${SLIDES_CONFIG.verseOfTheMonth.reference}`,
+      body: SLIDES_CONFIG.verseOfTheMonth.text,
+      accentColor: CLUBS.tnt.color,
+      showClock: true,
+    }]
+  : [];
 
 export const DECKS = {
   opening: [
@@ -46,13 +60,14 @@ export const DECKS = {
       accentColor: CLUBS.cubbies.color,
       showClock: true,
     },
+    ...VERSE_SLIDE,
   ],
   closing: [
     {
       id: 'goodnight',
       layout: 'closing',
-      title: 'Have a great night!',
-      body: 'See you next week!',
+      title: SLIDES_CONFIG.closing?.title ?? 'Have a great night!',
+      body: SLIDES_CONFIG.closing?.body ?? 'See you next week!',
     },
   ],
 };

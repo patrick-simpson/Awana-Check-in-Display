@@ -1,9 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { CLUBS } from '../config.js';
-import { SCHEDULE_CONFIG } from '../lib/shared-config.js';
 import { stateKey, stateForWindow, windowsForDate } from '../lib/schedule.js';
 import { parseBirthdayCSV } from '../lib/birthdays.js';
+import { localDateKey } from '../lib/shared-config.js';
+import { addSkipDate, overlayEntries, removeSkipDate, subscribeOverlay } from '../lib/scheduleOverlay.js';
+import { setStingersEnabled, stingersEnabled, subscribeStingers } from '../lib/stingers.js';
 import { clearBirthdays, saveBirthdays, useBirthdayRoster } from '../hooks/useBirthdays.js';
+import { useEffectiveSchedule } from '../hooks/useEffectiveSchedule.js';
+import { lowPowerPreference, setLowPowerPreference, useLowPower } from '../hooks/useLowPower.js';
+import { useClockDrift } from '../hooks/useClockDrift.js';
 import { useConfig } from '../../hooks/useConfig.js';
 import { GlassPanel } from '../components/GlassPanel.jsx';
 
@@ -16,12 +21,25 @@ import { GlassPanel } from '../components/GlassPanel.jsx';
  */
 export const QuickNav = ({ now, state, isOverride, onSelect, onResume }) => {
   const activeKey = stateKey(state);
-  const windows = windowsForDate(now) ?? SCHEDULE_CONFIG.windows;
+  const cfg = useEffectiveSchedule();
+  const windows = windowsForDate(now, cfg) ?? cfg.windows;
+  const skewMs = useClockDrift();
 
   return (
     <div className="absolute top-0 right-0 z-50 p-4 pl-16 pb-16 group/nav">
+      {/* Clock-drift warning is visible WITHOUT hovering — a wrong clock
+          means every screen below is wrong, so it must not hide. */}
+      {skewMs !== null && (
+        <div
+          className="absolute top-3 right-3 px-3 py-1 rounded-full text-[0.65rem] uppercase text-amber-300 bg-amber-500/15 border border-amber-400/40"
+          style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.1em' }}
+          title="This device's clock disagrees with the web server — the countdown and schedule may be wrong. Fix the system clock / enable network time."
+        >
+          ⚠ clock off by ~{Math.round(Math.abs(skewMs) / 60000)} min
+        </div>
+      )}
       <div className="opacity-0 group-hover/nav:opacity-100 transition-opacity duration-300">
-        <GlassPanel className="p-2 flex flex-col gap-1">
+        <GlassPanel className="p-2 flex flex-col gap-1 max-h-[92vh] overflow-y-auto">
           <NavButton
             label="Main Countdown"
             active={activeKey === 'countdown'}
@@ -45,13 +63,146 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume }) => {
               Resume Schedule
             </button>
           )}
+          <SkipWeeks now={now} cfg={cfg} />
           <BirthdayUpload />
+          <TogglesRow />
           <DisplaySettings />
         </GlassPanel>
       </div>
     </div>
   );
 };
+
+/**
+ * Operator "skip weeks" editor (device-local overlay over the shared
+ * schedule): cancel an upcoming club night without a deploy. Entries
+ * baked into shared/schedule.json show read-only; reshaped window
+ * tables still require editing the JSON (validated in CI).
+ */
+const SkipWeeks = ({ now, cfg }) => {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState('');
+  const [error, setError] = useState(null);
+  const overlay = useSyncExternalStore(subscribeOverlay, overlayEntries, overlayEntries);
+
+  const todayKey = localDateKey(now);
+  const upcoming = Object.entries(cfg.specialDates)
+    .filter(([key, val]) => key >= todayKey && val.noClub)
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .slice(0, 6);
+
+  const add = () => {
+    const err = addSkipDate(date, 'No club (set at the projector)');
+    setError(err);
+    if (!err) setDate('');
+  };
+
+  const inputStyle =
+    'px-2 py-1 text-xs rounded bg-white/10 border border-white/15 text-white outline-none focus:border-white/40 w-40';
+
+  return (
+    <div
+      className="mt-2 pt-2 border-t border-white/10 flex flex-col gap-1"
+      style={{ fontFamily: 'var(--font-condensed)', letterSpacing: '0.12em' }}
+    >
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="px-3 py-1.5 text-xs uppercase text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all text-right flex items-center justify-end gap-2"
+        style={{ fontWeight: 700 }}
+      >
+        Skip Weeks
+        <span style={{ letterSpacing: 0 }}>{open ? '▴' : '📅'}</span>
+      </button>
+      {open && (
+        <div className="px-3 pb-1 flex flex-col items-end gap-1.5">
+          {upcoming.length > 0 && (
+            <ul className="flex flex-col items-end gap-1">
+              {upcoming.map(([key, val]) => (
+                <li key={key} className="flex items-center gap-2 text-[0.65rem] uppercase text-gray-400">
+                  <span style={{ fontWeight: 700 }}>
+                    {key} — no club{val.label ? ` (${val.label})` : ''}
+                  </span>
+                  {key in overlay ? (
+                    <button
+                      onClick={() => removeSkipDate(key)}
+                      className="text-red-400/70 hover:text-red-400 transition-colors"
+                      style={{ fontWeight: 700 }}
+                    >
+                      Undo
+                    </button>
+                  ) : (
+                    <span className="text-gray-600" title="Baked into shared/schedule.json — edit the file to change">
+                      (shared)
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <input
+            type="date"
+            className={inputStyle}
+            value={date}
+            onChange={(e) => { setDate(e.target.value); setError(null); }}
+          />
+          <button
+            onClick={add}
+            className="px-3 py-1 text-xs uppercase text-amber-300 hover:bg-amber-400/10 rounded-lg transition-all border border-amber-400/25"
+            style={{ fontWeight: 800 }}
+          >
+            Mark “no club”
+          </button>
+          <p className="text-[0.6rem] uppercase text-gray-500 text-right" style={{ fontWeight: 700 }}>
+            {error ? error : 'This device only · shared/schedule.json is the master copy'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/** Low-power mode + countdown-stinger switches. */
+const TogglesRow = () => {
+  useLowPower(); // subscribe so the row re-renders when either side flips
+  const stingers = useSyncExternalStore(subscribeStingers, stingersEnabled, stingersEnabled);
+
+  return (
+    <div
+      className="mt-2 pt-2 border-t border-white/10 flex flex-col gap-1"
+      style={{ fontFamily: 'var(--font-condensed)', letterSpacing: '0.12em' }}
+    >
+      <ToggleButton
+        label="Low power mode"
+        hint="Hides particle / weather layers for weak hardware"
+        on={lowPowerPreference()}
+        onToggle={() => setLowPowerPreference(!lowPowerPreference())}
+      />
+      <ToggleButton
+        label="Countdown sounds"
+        hint="Chimes at 1hr/30/10/5/1min — off by default"
+        on={stingers}
+        onToggle={() => setStingersEnabled(!stingers)}
+      />
+    </div>
+  );
+};
+
+const ToggleButton = ({ label, hint, on, onToggle }) => (
+  <button
+    onClick={onToggle}
+    title={hint}
+    className={`px-3 py-1.5 text-xs uppercase rounded-lg transition-all text-right flex items-center justify-end gap-2 ${
+      on ? 'text-emerald-300 bg-emerald-400/10' : 'text-gray-400 hover:text-white hover:bg-white/10'
+    }`}
+    style={{ fontFamily: 'var(--font-condensed)', fontWeight: 700, letterSpacing: '0.12em' }}
+  >
+    {label}
+    <span
+      className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${on ? 'bg-emerald-400' : 'bg-gray-600'}`}
+      style={on ? { boxShadow: '0 0 8px rgba(52,211,153,0.8)' } : undefined}
+    />
+  </button>
+);
 
 /**
  * Operator control for the birthday roster: pick a CSV (name, birthday,

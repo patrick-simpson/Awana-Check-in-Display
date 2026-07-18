@@ -33,6 +33,10 @@ two can run side by side for as long as needed.
    cross origins, so on the new page re-upload the birthday CSV and
    re-enter the Pusher key once (QuickNav → Display Settings, or
    `?key=…&cluster=…` on first load).
+   *Tooling shipped 2026-07-18:* the presentation page now detects a
+   fresh origin (no key / no roster) and shows a dismissible setup
+   checklist pointing at those two QuickNav actions — the cutover is
+   a self-guided two-step now.
 4. ~~**Flip canonical (this repo's half)**~~ — **done 2026-07-17**:
    `shared/README.md` here now declares this copy canonical. The old
    repo's README/transition note still needs the matching update (fold
@@ -44,7 +48,11 @@ two can run side by side for as long as needed.
 
 ## Follow-up ideas (optional, not required)
 
-- Unify the presentation page's ambient `useWeather` (WeatherType enum)
-  with the signage `lib/weather.js` reading through one shared fetcher.
-- The signage corner `CountdownTimer.jsx` chip is a different surface
-  and stays; retire it only if it ever becomes redundant.
+- ~~Unify the presentation page's ambient `useWeather` with the signage
+  `lib/weather.js`~~ — **done 2026-07-18**: both apps read through
+  `fetchCurrentWeather` + `getWeatherType` in `src/lib/weather.js`
+  (added to the presentation import allowlist in CLAUDE.md).
+- ~~Retire the signage corner `CountdownTimer.jsx` chip~~ — **done
+  2026-07-18**: removed from the DataCycle rotation and sticker layout;
+  the presentation tool owns countdown duty. The component file and its
+  `resolveTarget` tests remain one release for easy revert.
