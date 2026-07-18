@@ -17,6 +17,10 @@ import JSZip from 'jszip';
 
 const RELS_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 
+// Bumped whenever the slide model shape changes so cached models
+// (pptxStore 'models') from an older parser are re-parsed, not reused.
+export const PARSER_VERSION = 2;
+
 /**
  * Convert OneDrive embed/share URL to download URL
  */
@@ -252,7 +256,24 @@ function parseXfrm(spPr) {
   if (!off || !ext) return null;
   const nums = [off.getAttribute('x'), off.getAttribute('y'), ext.getAttribute('cx'), ext.getAttribute('cy')].map(Number);
   if (nums.some((n) => !Number.isFinite(n))) return null;
-  return { x: nums[0], y: nums[1], w: nums[2], h: nums[3] };
+  // rot is in 1/60000ths of a degree; flips mirror around the center.
+  const rotRaw = Number(xfrm.getAttribute('rot'));
+  return {
+    x: nums[0], y: nums[1], w: nums[2], h: nums[3],
+    rot: Number.isFinite(rotRaw) ? rotRaw / 60000 : 0,
+    flipH: xfrm.getAttribute('flipH') === '1',
+    flipV: xfrm.getAttribute('flipV') === '1',
+  };
+}
+
+// Geometry presets the renderer can approximate with border-radius.
+// Everything else degrades to a plain rectangle rather than vanishing.
+const KNOWN_GEOMS = new Set(['rect', 'roundRect', 'ellipse']);
+
+function parseGeom(spPr) {
+  const prst = firstByTag(spPr, 'prstGeom');
+  const name = prst && prst.getAttribute('prst');
+  return KNOWN_GEOMS.has(name) ? name : 'rect';
 }
 
 function placeholderKey(sp) {
@@ -279,35 +300,94 @@ function indexPlaceholders(doc) {
 function parseTextBody(sp, ctx) {
   const txBody = firstDescendantByTag(sp, 'txBody');
   if (!txBody) return null;
+
+  const bodyPr = firstByTag(txBody, 'bodyPr');
+  // Vertical anchor: 't' top / 'ctr' center / 'b' bottom.
+  const anchorRaw = bodyPr && bodyPr.getAttribute('anchor');
+  const anchor = ['t', 'ctr', 'b'].includes(anchorRaw) ? anchorRaw : 'ctr';
+  // "Shrink text on overflow": PowerPoint bakes the shrunken size into
+  // normAutofit@fontScale (per-100000) instead of changing the runs.
+  const autofit = bodyPr && firstByTag(bodyPr, 'normAutofit');
+  const fontScaleRaw = autofit && Number(autofit.getAttribute('fontScale'));
+  const fontScale = Number.isFinite(fontScaleRaw) && fontScaleRaw > 0 ? fontScaleRaw / 100000 : 1;
+
   const paragraphs = [];
+  let hasText = false;
   for (const p of childrenByTag(txBody, 'p')) {
     const pPr = firstByTag(p, 'pPr');
     const align = (pPr && pPr.getAttribute('algn')) || 'l';
     const runs = [];
-    for (const r of childrenByTag(p, 'r')) {
-      const t = firstByTag(r, 't');
+    // Walk children in document order so <a:br> lands between the runs
+    // it actually separates.
+    for (const child of p.children) {
+      if (child.localName === 'br') {
+        runs.push({ br: true });
+        continue;
+      }
+      if (child.localName !== 'r') continue;
+      const t = firstByTag(child, 't');
       if (!t || !t.textContent) continue;
-      const rPr = firstByTag(r, 'rPr');
+      const rPr = firstByTag(child, 'rPr');
       const fill = rPr && firstByTag(rPr, 'solidFill');
+      const u = rPr && rPr.getAttribute('u');
+      hasText = true;
       runs.push({
         text: t.textContent,
         bold: !!(rPr && rPr.getAttribute('b') === '1'),
         italic: !!(rPr && rPr.getAttribute('i') === '1'),
-        sizePt: rPr && rPr.getAttribute('sz') ? Number(rPr.getAttribute('sz')) / 100 : null,
+        underline: !!(u && u !== 'none'),
+        sizePt: rPr && rPr.getAttribute('sz') ? (Number(rPr.getAttribute('sz')) / 100) * fontScale : null,
         color: fill ? resolveColor(fill, ctx) : null,
       });
     }
-    if (runs.length) paragraphs.push({ align, runs });
+    // Empty <a:p> paragraphs are kept: they are how decks make vertical
+    // whitespace, and dropping them squashes the layout.
+    paragraphs.push({ align, runs });
   }
-  return paragraphs.length ? paragraphs : null;
+  // A txBody with no actual text is "not a text shape" — the sp falls
+  // through to fill-only shape handling instead.
+  return hasText ? { paragraphs, anchor } : null;
 }
 
-function parseShapes(slideDoc, ctx, layoutPh, masterPh) {
-  const spTree = firstDescendantByTag(slideDoc.documentElement, 'spTree');
-  if (!spTree) return [];
-  const shapes = [];
+// Group (p:grpSp) flattening: children live in the group's child
+// coordinate space (chOff/chExt) and get mapped through the group's
+// own off/ext into the parent space. `mapBox` composes those affine
+// transforms so the emitted model stays a flat list in slide space.
+function parseGroupTransform(grpSp, outerMap) {
+  const grpSpPr = firstByTag(grpSp, 'grpSpPr');
+  const xfrm = grpSpPr && firstByTag(grpSpPr, 'xfrm');
+  if (!xfrm) return null;
+  const off = firstByTag(xfrm, 'off');
+  const ext = firstByTag(xfrm, 'ext');
+  const chOff = firstByTag(xfrm, 'chOff');
+  const chExt = firstByTag(xfrm, 'chExt');
+  if (!off || !ext || !chOff || !chExt) return null;
+  const n = (el, a) => Number(el.getAttribute(a));
+  const [ox, oy, ex, ey] = [n(off, 'x'), n(off, 'y'), n(ext, 'cx'), n(ext, 'cy')];
+  const [cx, cy, cw, ch] = [n(chOff, 'x'), n(chOff, 'y'), n(chExt, 'cx'), n(chExt, 'cy')];
+  if ([ox, oy, ex, ey, cx, cy, cw, ch].some((v) => !Number.isFinite(v)) || cw === 0 || ch === 0) return null;
+  const sx = ex / cw;
+  const sy = ey / ch;
+  const rotRaw = Number(xfrm.getAttribute('rot'));
+  const grpRot = Number.isFinite(rotRaw) ? rotRaw / 60000 : 0;
+  const grpFlipH = xfrm.getAttribute('flipH') === '1';
+  const grpFlipV = xfrm.getAttribute('flipV') === '1';
+  return (box) => outerMap({
+    ...box,
+    x: ox + (box.x - cx) * sx,
+    y: oy + (box.y - cy) * sy,
+    w: box.w * sx,
+    h: box.h * sy,
+    // Group-level rotation/flip is approximated by composing it onto
+    // each child (exact for unrotated groups; close enough otherwise).
+    rot: (box.rot || 0) + grpRot,
+    flipH: !!box.flipH !== grpFlipH,
+    flipV: !!box.flipV !== grpFlipV,
+  });
+}
 
-  for (const node of spTree.children) {
+function collectShapes(container, ctx, layoutPh, masterPh, mapBox, out) {
+  for (const node of container.children) {
     try {
       if (node.localName === 'sp') {
         const spPr = firstDescendantByTag(node, 'spPr');
@@ -316,23 +396,41 @@ function parseShapes(slideDoc, ctx, layoutPh, masterPh) {
           const key = placeholderKey(node);
           xfrm = (key && (layoutPh[key] || masterPh[key])) || null;
         }
-        const paragraphs = parseTextBody(node, ctx);
-        if (!paragraphs || !xfrm) continue;
+        if (!xfrm) continue;
+        xfrm = mapBox(xfrm);
         const fill = spPr ? parseFill(spPr, ctx) : null;
-        shapes.push({
-          type: 'text', ...xfrm, paragraphs,
-          fill: fill && fill.type === 'solid' ? fill.color : null,
-        });
+        const text = parseTextBody(node, ctx);
+        if (text) {
+          out.push({
+            type: 'text', ...xfrm, paragraphs: text.paragraphs, anchor: text.anchor,
+            fill: fill && fill.type === 'solid' ? fill.color : null,
+          });
+        } else if (fill && (fill.type === 'solid' || fill.type === 'gradient')) {
+          // Fill-only decoration: a colored rect / rounded rect / ellipse.
+          out.push({ type: 'shape', ...xfrm, fill, geom: parseGeom(spPr) });
+        }
       } else if (node.localName === 'pic') {
         const spPr = firstDescendantByTag(node, 'spPr');
         const xfrm = spPr && parseXfrm(spPr);
         const rid = relId(firstDescendantByTag(node, 'blip'), 'embed');
-        if (xfrm && rid) shapes.push({ type: 'image', ...xfrm, rid });
+        if (xfrm && rid) out.push({ type: 'image', ...mapBox(xfrm), rid });
+      } else if (node.localName === 'grpSp') {
+        const groupMap = parseGroupTransform(node, mapBox);
+        // A group without a usable transform still gets its children
+        // rendered, just un-remapped — better than dropping them.
+        collectShapes(node, ctx, layoutPh, masterPh, groupMap || mapBox, out);
       }
     } catch {
       // One bad shape must not take out the slide.
     }
   }
+}
+
+function parseShapes(slideDoc, ctx, layoutPh, masterPh) {
+  const spTree = firstDescendantByTag(slideDoc.documentElement, 'spTree');
+  if (!spTree) return [];
+  const shapes = [];
+  collectShapes(spTree, ctx, layoutPh, masterPh, (box) => box, shapes);
   return shapes;
 }
 
@@ -450,10 +548,15 @@ export async function parsePptxToModel(blob) {
         if (shape.type === 'image') shape.imageKey = await materialize(shape.rid, slideRels);
       }
 
+      const renderable = shapes.filter((s) => s.type !== 'image' || s.imageKey);
+      // Nothing to paint at all (e.g. a slide made entirely of SmartArt
+      // or charts): mark it so the renderer shows the CatalogScene
+      // placeholder instead of a dead black frame.
       slides.push({
         durationMs: parseDuration(slideDoc),
         background,
-        shapes: shapes.filter((s) => s.type !== 'image' || s.imageKey),
+        shapes: renderable,
+        ...(!background && !renderable.length ? { error: true } : {}),
       });
     } catch (err) {
       // Per-slide failure → placeholder slide, deck keeps playing.

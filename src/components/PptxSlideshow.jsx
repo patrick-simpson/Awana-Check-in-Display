@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { downloadPptx, parsePptxToModel } from '../lib/pptxHandler.js';
-import { getDeck } from '../lib/pptxStore.js';
+import { getStoredDeckModel } from '../lib/pptxModel.js';
 import CatalogScene from './CatalogScene.jsx';
+import { ErrorBoundary } from './ErrorBoundary.jsx';
 
 /**
  * Renders a .pptx deck as positioned DOM — no Office Online iframe.
- * Input priority: the uploaded deck in IndexedDB (source='store'),
+ * Input priority: the uploaded deck in IndexedDB (source='store',
+ * served through the pptxModel cache so boots skip re-parsing),
  * else download from the OneDrive URL (often CORS-blocked; accepted).
  *
  * Geometry: OOXML positions are EMUs in the slide's own coordinate
@@ -15,8 +17,10 @@ import CatalogScene from './CatalogScene.jsx';
  * renders correctly at any screen size with zero resize JS.
  *
  * Failure ladder: a bad shape is skipped at parse time; a slide that
- * failed to parse renders the CatalogScene placeholder for its turn;
- * a deck that can't load at all renders `fallback` (the iframe embed).
+ * failed to parse (or crashes at render time — each slide sits in its
+ * own ErrorBoundary) shows the CatalogScene placeholder for its turn
+ * while the advance timer keeps ticking; a deck that can't load at all
+ * renders `fallback` (the iframe embed).
  */
 export default function PptxSlideshow({ url, source = 'url', slideshowDelaySec = 5, fallback = null }) {
   const [result, setResult] = useState({ key: null, status: 'loading', model: null });
@@ -27,15 +31,12 @@ export default function PptxSlideshow({ url, source = 'url', slideshowDelaySec =
 
     (async () => {
       try {
-        let blob = null;
+        let model;
         if (source === 'store') {
-          const deck = await getDeck();
-          blob = deck && deck.blob;
-          if (!blob) throw new Error('No uploaded deck on this device');
+          model = await getStoredDeckModel();
         } else {
-          blob = await downloadPptx(url);
+          model = await parsePptxToModel(await downloadPptx(url));
         }
-        const model = await parsePptxToModel(blob);
         if (!cancelled) setResult({ key, status: 'ready', model });
       } catch (err) {
         console.error('PptxSlideshow falling back:', err);
@@ -78,6 +79,8 @@ function DeckView({ model, slideshowDelaySec }) {
   }, [imageUrls]);
 
   // Auto-advance: the slide's own advTm when it has one, else config.
+  // Lives OUTSIDE the per-slide ErrorBoundary so a crashing slide still
+  // yields the stage to the next one.
   useEffect(() => {
     const fallbackMs = Math.max(1000, (Number(slideshowDelaySec) || 5) * 1000);
     const duration = slides[index]?.durationMs || fallbackMs;
@@ -99,23 +102,36 @@ function DeckView({ model, slideshowDelaySec }) {
           animate={{ opacity: 1, transition: { duration: 0.6 } }}
           exit={{ opacity: 0, transition: { duration: 0.4 } }}
         >
-          {slide.error
-            ? <CatalogScene theme="sky" />
-            : <SlideView slide={slide} widthEmu={widthEmu} heightEmu={heightEmu} imageUrls={imageUrls} />}
+          <ErrorBoundary
+            label={`pptx slide ${index + 1}`}
+            eventKey={index}
+            fallback={<CatalogScene theme="sky" />}
+          >
+            {slide.error
+              ? <CatalogScene theme="sky" />
+              : <SlideView slide={slide} widthEmu={widthEmu} heightEmu={heightEmu} imageUrls={imageUrls} />}
+          </ErrorBoundary>
         </motion.div>
       </AnimatePresence>
     </div>
   );
 }
 
-function backgroundStyle(background, imageUrls) {
-  if (!background) return { background: '#000' };
-  if (background.type === 'solid') return { background: background.color };
-  if (background.type === 'gradient') {
-    const stops = background.stops.map((s) => `${s.color} ${Math.round(s.pos * 100)}%`).join(', ');
-    return { background: `linear-gradient(${Math.round(background.angle)}deg, ${stops})` };
+// Shared fill-object → CSS background value (solid + gradient).
+function fillCss(fill) {
+  if (!fill) return null;
+  if (fill.type === 'solid') return fill.color;
+  if (fill.type === 'gradient') {
+    const stops = fill.stops.map((s) => `${s.color} ${Math.round(s.pos * 100)}%`).join(', ');
+    return `linear-gradient(${Math.round(fill.angle)}deg, ${stops})`;
   }
-  if (background.type === 'image' && imageUrls[background.imageKey]) {
+  return null;
+}
+
+function backgroundStyle(background, imageUrls) {
+  const css = fillCss(background);
+  if (css) return { background: css };
+  if (background && background.type === 'image' && imageUrls[background.imageKey]) {
     return {
       backgroundImage: `url(${imageUrls[background.imageKey]})`,
       backgroundSize: 'cover',
@@ -126,6 +142,18 @@ function backgroundStyle(background, imageUrls) {
 }
 
 const ALIGN = { l: 'left', ctr: 'center', r: 'right', just: 'justify' };
+const ANCHOR = { t: 'flex-start', ctr: 'center', b: 'flex-end' };
+const GEOM_RADIUS = { rect: undefined, roundRect: '8%', ellipse: '50%' };
+
+// xfrm rotation (degrees, clockwise) + mirror flips → CSS transform.
+function shapeTransform(shape) {
+  const parts = [];
+  if (shape.rot) parts.push(`rotate(${shape.rot}deg)`);
+  if (shape.flipH || shape.flipV) {
+    parts.push(`scale(${shape.flipH ? -1 : 1}, ${shape.flipV ? -1 : 1})`);
+  }
+  return parts.length ? parts.join(' ') : undefined;
+}
 
 function SlideView({ slide, widthEmu, heightEmu, imageUrls }) {
   const pct = (v, total) => `${(v / total) * 100}%`;
@@ -145,6 +173,7 @@ function SlideView({ slide, widthEmu, heightEmu, imageUrls }) {
           top: pct(shape.y, heightEmu),
           width: pct(shape.w, widthEmu),
           height: pct(shape.h, heightEmu),
+          transform: shapeTransform(shape),
         };
         if (shape.type === 'image') {
           return (
@@ -157,6 +186,19 @@ function SlideView({ slide, widthEmu, heightEmu, imageUrls }) {
             />
           );
         }
+        if (shape.type === 'shape') {
+          return (
+            <div
+              key={i}
+              data-pptx-shape={shape.geom}
+              style={{
+                ...box,
+                background: fillCss(shape.fill) || 'transparent',
+                borderRadius: GEOM_RADIUS[shape.geom],
+              }}
+            />
+          );
+        }
         return (
           <div
             key={i}
@@ -164,27 +206,36 @@ function SlideView({ slide, widthEmu, heightEmu, imageUrls }) {
               ...box,
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'center',
+              justifyContent: ANCHOR[shape.anchor] || 'center',
               background: shape.fill || 'transparent',
               overflow: 'hidden',
             }}
           >
             {shape.paragraphs.map((p, j) => (
-              <div key={j} style={{ textAlign: ALIGN[p.align] || 'left', lineHeight: 1.25 }}>
-                {p.runs.map((r, k) => (
-                  <span
-                    key={k}
-                    style={{
-                      fontSize: `${ptToCqw(r.sizePt || 18).toFixed(3)}cqw`,
-                      fontWeight: r.bold ? 700 : 400,
-                      fontStyle: r.italic ? 'italic' : 'normal',
-                      color: r.color || '#111',
-                      fontFamily: "'Segoe UI', system-ui, sans-serif",
-                    }}
-                  >
-                    {r.text}
-                  </span>
-                ))}
+              <div key={j} style={{ textAlign: ALIGN[p.align] || 'left', lineHeight: 1.25, whiteSpace: 'pre-wrap' }}>
+                {p.runs.length === 0
+                  // Empty <a:p>: hold the line's height so vertical
+                  // rhythm survives (pre-wrap + nbsp renders one blank line).
+                  ? ' '
+                  : p.runs.map((r, k) => (
+                    r.br
+                      ? '\n'
+                      : (
+                        <span
+                          key={k}
+                          style={{
+                            fontSize: `${ptToCqw(r.sizePt || 18).toFixed(3)}cqw`,
+                            fontWeight: r.bold ? 700 : 400,
+                            fontStyle: r.italic ? 'italic' : 'normal',
+                            textDecoration: r.underline ? 'underline' : 'none',
+                            color: r.color || '#111',
+                            fontFamily: "'Segoe UI', system-ui, sans-serif",
+                          }}
+                        >
+                          {r.text}
+                        </span>
+                      )
+                  ))}
               </div>
             ))}
           </div>

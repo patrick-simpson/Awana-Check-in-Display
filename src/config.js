@@ -31,6 +31,8 @@ const config = {
   //   'powerpoint' — the OneDrive PowerPoint embed below (the default)
   //   'manual'     — slides you free-type in the on-screen editor
   //                  (Settings → Typed slides, or Ctrl+Shift+E)
+  //   'pptx'       — a .pptx you upload in Settings, rendered locally
+  //                  on this device (no OneDrive, no iframe)
   backgroundSource: 'powerpoint',
 
   // Typed slides live here when you use the 'manual' source. Edit them
@@ -48,10 +50,15 @@ const config = {
   // Set to 0 to let the PowerPoint file control its own slide timing.
   slideshowDelaySec: 5,
 
-  // EXPERIMENTAL: download the .pptx from OneDrive and drive slide timing
-  // locally instead of using the Office Online iframe. Slide rendering is
-  // not implemented yet, so leave this off for real club nights — if it
-  // fails the app falls back to the iframe embed automatically.
+  // Download the .pptx from the OneDrive URL above and render it locally
+  // instead of using the Office Online iframe. Local rendering covers
+  // backgrounds, text, pictures and solid/gradient shapes (with rotation
+  // and per-slide timings); it does NOT render animations, SmartArt,
+  // charts or tables, and fonts substitute to the system stack. Applies
+  // only to this URL-fetch path — the primary way to use local rendering
+  // is uploading a deck in Settings (backgroundSource: 'pptx'), which
+  // avoids OneDrive's CORS blocks entirely. If the download or parse
+  // fails, the app falls back to the iframe embed automatically.
   useLocalSlideshow: false,
 
   // RETIRED: the corner countdown card moved to the presentation tool

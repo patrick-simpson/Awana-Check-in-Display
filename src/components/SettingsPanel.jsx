@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { deleteDeck, getDeck, putDeck } from '../lib/pptxStore.js';
+import { parseAndCacheDeck } from '../lib/pptxModel.js';
 import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
 
@@ -787,6 +788,8 @@ function CalendarTab({ form, set, setForm, calendar }) {
 function PptxUploadField() {
   const [stored, setStored] = useState(null);
   const [busy, setBusy] = useState(false);
+  // Inline status line (replaces window.alert): { tone, text }.
+  const [status, setStatus] = useState(null);
   useEffect(() => {
     let live = true;
     getDeck().then((d) => { if (live) setStored(d); });
@@ -797,29 +800,68 @@ function PptxUploadField() {
     const file = e.target.files?.[0];
     if (!file) return;
     setBusy(true);
+    setStatus({ tone: 'info', text: 'Reading deck…' });
+
     const ok = await putDeck(file, file.name);
+    if (!ok) {
+      setBusy(false);
+      setStatus({ tone: 'warn', text: 'Could not save the deck on this device (storage blocked or full).' });
+      e.target.value = '';
+      return;
+    }
+    // Re-read so the model cache is keyed to the real stored savedAt.
+    const deck = await getDeck();
+    setStored(deck || { blob: file, name: file.name, savedAt: Date.now() });
+
+    try {
+      const model = await parseAndCacheDeck(file, deck?.savedAt);
+      const broken = model.slides.filter((s) => s.error).length;
+      const ready = model.slides.length - broken;
+      setStatus({
+        tone: 'ok',
+        text: `Saved: ${file.name} — ${ready} slide${ready === 1 ? '' : 's'} ready`
+          + (broken
+            ? ` · ${broken} slide${broken === 1 ? ' has' : 's have'} unsupported content and will show the placeholder`
+            : ''),
+      });
+    } catch (err) {
+      console.warn('pptx: uploaded deck failed to parse:', err);
+      setStatus({
+        tone: 'warn',
+        text: `Saved ${file.name}, but it couldn't be read as a presentation — the display will fall back to the embed URL or placeholder.`,
+      });
+    }
     setBusy(false);
-    if (ok) setStored({ blob: file, name: file.name, savedAt: Date.now() });
-    else window.alert('Could not save the deck on this device (storage blocked or full).');
     e.target.value = '';
   };
 
   const remove = async () => {
     await deleteDeck();
     setStored(null);
+    setStatus(null);
   };
 
   return (
     <div className="field">
       <label htmlFor="pptx-upload">Upload a .pptx</label>
       <input id="pptx-upload" type="file" accept=".pptx" onChange={onFile} disabled={busy} />
+      {status && (
+        <span
+          className="hint"
+          role="status"
+          style={status.tone === 'warn' ? { color: '#ff8a80' } : undefined}
+        >
+          {status.text}
+        </span>
+      )}
       <span className="hint">
         {stored
           ? `Saved on this device: ${stored.name || 'presentation.pptx'} — it renders locally, no iframe.`
           : 'The deck is stored on this device only (never uploaded). '}
-        Rendering covers backgrounds, text and pictures with per-slide timings; animations,
-        SmartArt, charts and tables are not rendered, and fonts substitute to the system stack.
-        If the deck cannot render, the OneDrive embed URL below is the automatic fallback.
+        Rendering covers backgrounds, text, pictures and solid/gradient shapes (with rotation
+        and per-slide timings); animations, SmartArt, charts and tables are not rendered, and
+        fonts substitute to the system stack. If the deck cannot render, the OneDrive embed
+        URL below is the automatic fallback.
       </span>
       {stored && (
         <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={remove}>
