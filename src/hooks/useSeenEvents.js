@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { SEEN_EVENTS_MAX } from '../lib/constants.js';
 
 // Dedupe ledger for checkin event ids: live delivery marks an id seen,
 // recap replay skips anything already seen — so a display that stayed
@@ -6,7 +7,6 @@ import { useCallback, useRef } from 'react';
 // replay what it missed. Persisted to sessionStorage so an accidental
 // mid-club refresh doesn't re-celebrate the whole recap buffer.
 const STORAGE_KEY = 'awanaSeenEvents.v1';
-const MAX_ENTRIES = 500;
 
 function loadMap() {
   try {
@@ -39,7 +39,7 @@ export function useSeenEvents() {
     const map = mapRef.current;
     map.set(id, at);
     // Trim oldest insertion first — Map preserves insertion order.
-    while (map.size > MAX_ENTRIES) {
+    while (map.size > SEEN_EVENTS_MAX) {
       map.delete(map.keys().next().value);
     }
     persist();

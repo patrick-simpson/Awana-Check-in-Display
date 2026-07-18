@@ -10,6 +10,17 @@
 // a sensible default.
 // ─────────────────────────────────────────────────────────────
 
+// Resolve a path relative to wherever this app is being served from —
+// so forks and mirrors read their own /shared/ files instead of the
+// original deployment's. (Guarded for non-browser contexts like tests.)
+const fromSiteRoot = (path) => {
+  try {
+    return new URL(path, window.location.href).href;
+  } catch {
+    return '';
+  }
+};
+
 const config = {
   // Pusher credentials. Sign up free at https://pusher.com, create a
   // Channels app, and copy these two values from its "App Keys" page.
@@ -114,24 +125,39 @@ const config = {
   // the calendar page live through the CORS proxy below.
   calendarEnabled: true,
 
+  // ── Church profile ────────────────────────────────────────
+  // Everything specific to YOUR church lives in this block — if you
+  // forked this repo for a different church, these are the values to
+  // change (all of them can also be overridden at runtime in Settings).
+
   // The public calendar page to read (twotimtwo format).
   calendarUrl: 'https://kvbchurch.twotimtwo.com/calendar/index',
 
-  // The shared program schedule, served by this repo's own Pages site
-  // (shared/ at the repo root → dist/shared/ on build) — the single
-  // source of truth for the whole Awana app family. Drives "phase
-  // awareness": calm late-arrival banners + ducked chimes once the
-  // ceremony starts. Leave as-is unless you forked this repo; blank
-  // disables the fetch (baked KVBC schedule still applies).
-  sharedScheduleUrl: 'https://patrick-simpson.github.io/Awana-Check-in-Display/shared/schedule.json',
+  // The shared program schedule (shared/ at the repo root →
+  // dist/shared/ on build) — the single source of truth for the whole
+  // Awana app family. Drives "phase awareness": calm late-arrival
+  // banners + ducked chimes once the ceremony starts. Resolved against
+  // wherever this site is served from, so forks automatically read
+  // their own copy; blank disables the fetch (baked KVBC schedule
+  // still applies).
+  sharedScheduleUrl: fromSiteRoot('shared/schedule.json'),
+
+  // The shared per-club theme (catalog colors + official club art),
+  // also served from this site's shared/. Blank keeps the baked palette.
+  sharedThemeUrl: fromSiteRoot('shared/theme.json'),
+
+  // Where the weather chip looks. Use Settings → Calendar & Weather →
+  // "Look up" to fill the coordinates from a town name.
+  weatherLocationName: 'Waterville, Maine',
+  weatherLat: 44.552,
+  weatherLon: -69.6317,
+  weatherUnits: 'fahrenheit', // or 'celsius'
+
+  // ── End church profile ────────────────────────────────────
 
   // Recap replay: how far back (minutes) a replayed check-in may be and
   // still get its quiet "also joined us" banner after a reconnect.
   recapMaxAgeMin: 20,
-
-  // The shared per-club theme (catalog colors + official club art),
-  // also served from this repo's shared/. Blank keeps the baked palette.
-  sharedThemeUrl: 'https://patrick-simpson.github.io/Awana-Check-in-Display/shared/theme.json',
 
   // Celebrate when a single club's tally (from the printer's live
   // broadcasts) crosses a multiple of this. 0 disables.
@@ -155,12 +181,15 @@ const config = {
   calendarShowNextWeek: true,
   calendarShowRemaining: true,
 
-  // Where the weather chip looks. Use Settings → Calendar & Weather →
-  // "Look up" to fill the coordinates from a town name.
-  weatherLocationName: 'Waterville, Maine',
-  weatherLat: 44.552,
-  weatherLon: -69.6317,
-  weatherUnits: 'fahrenheit', // or 'celsius'
+  // Self-heal watchdog: reload the page automatically after this many
+  // minutes of continuously-lost realtime connection (never more than
+  // twice an hour). 0 disables. Only fires when Pusher is configured —
+  // a display that was never set up is left alone.
+  watchdogReloadMin: 30,
+
+  // Burst mode floor: even during a check-in rush, no banner ever holds
+  // for less than this (milliseconds).
+  burstFloorMs: 2500,
 };
 
 export default config;

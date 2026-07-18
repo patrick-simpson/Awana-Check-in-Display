@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseCalendarHtml, sanitizeEvents, sanitizeFeed } from '../lib/calendarParse.js';
+import { MIN_CLUB_EVENTS } from '../lib/constants.js';
 
 // Layers of "the screen must never go calendar-blind":
 //   1. calendar-feed.json — built nightly by the GitHub Action and
@@ -13,7 +14,6 @@ import { parseCalendarHtml, sanitizeEvents, sanitizeFeed } from '../lib/calendar
 const CACHE_KEY = 'awanaCalendar.v1';
 const FEED_STALE_MS = 21 * 24 * 60 * 60 * 1000; // Action heartbeats weekly; 3 missed = broken
 const RECHECK_MS = 6 * 60 * 60 * 1000;
-const MIN_CLUB_EVENTS = 5; // refuse to trust a scrape that lost the calendar
 
 function loadCache() {
   try {

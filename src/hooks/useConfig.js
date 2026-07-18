@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import defaults from '../config.js';
 import { sanitizeSlides } from '../lib/slides.js';
 
@@ -49,6 +49,8 @@ const VALIDATORS = {
   weatherLat: numberBetween(-90, 90),
   weatherLon: numberBetween(-180, 180),
   weatherUnits: (v) => v === 'fahrenheit' || v === 'celsius',
+  watchdogReloadMin: numberBetween(0, 1440),
+  burstFloorMs: numberBetween(1000, 10000),
 };
 
 // Values that need repair beyond a type check. sanitizeSlides salvages
@@ -103,12 +105,14 @@ export function useConfig(remoteDefaults) {
     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  const config = {
+  // Stable identity between renders so consumers can use it (or values
+  // derived from it) in dependency arrays without re-firing every render.
+  const config = useMemo(() => ({
     ...defaults,
     audioMuted: !defaults.audioEnabledByDefault,
     ...(remoteDefaults || {}),
     ...overrides,
-  };
+  }), [remoteDefaults, overrides]);
 
   const updateConfig = useCallback((patch) => {
     setOverrides((prev) => {

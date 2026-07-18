@@ -18,7 +18,22 @@ export default [
       ...reactHooks.configs.recommended.rules,
       'no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^[A-Z_]' }],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
+      // PRIVACY INVARIANT (see CLAUDE.md): all realtime data must flow
+      // through the sanitized socket in src/hooks/useSocket.js. A second
+      // Pusher stack anywhere else would bypass the per-event allowlist
+      // sanitizers, so importing pusher-js is mechanically forbidden.
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: 'pusher-js',
+          message: 'Realtime data must flow through the sanitized socket — use src/hooks/useSocket.js instead of importing pusher-js directly.',
+        }],
+      }],
     },
+  },
+  {
+    // The one sanctioned pusher-js import site.
+    files: ['src/hooks/useSocket.js'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   {
     // CLI scripts (the nightly calendar-feed builder) report via stdout.

@@ -12,14 +12,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * shrinks the hold by 15%, down to a floor that still reads comfortably.
  * The queue drains, then durations return to normal on their own.
  */
-export const BURST_THRESHOLD = 2;
-const BURST_FLOOR_MS = 2500;
-const MAX_QUEUE = 100; // sanity cap against a runaway/duplicated feed
+import { BURST_FLOOR_MS, BURST_THRESHOLD, DEFAULT_HOLD_MS, MAX_QUEUE } from '../lib/constants.js';
 
-export function effectiveHoldMs(configuredMs, waiting) {
-  const base = Number.isFinite(configuredMs) && configuredMs > 0 ? configuredMs : 6000;
+export { BURST_THRESHOLD };
+
+export function effectiveHoldMs(configuredMs, waiting, floorMs = BURST_FLOOR_MS) {
+  const base = Number.isFinite(configuredMs) && configuredMs > 0 ? configuredMs : DEFAULT_HOLD_MS;
   const over = Math.max(0, waiting - BURST_THRESHOLD);
-  return Math.round(Math.max(BURST_FLOOR_MS, base * Math.pow(0.85, over)));
+  const floor = Number.isFinite(floorMs) && floorMs > 0 ? floorMs : BURST_FLOOR_MS;
+  return Math.round(Math.max(floor, base * Math.pow(0.85, over)));
 }
 
 export function useCheckInQueue(config) {
@@ -63,7 +64,7 @@ export function useCheckInQueue(config) {
       : config.standardDisplayMs;
     // effectiveHoldMs also guards against bad config so a banner never
     // flashes (NaN/0 timeout) or sticks forever.
-    const hold = effectiveHoldMs(configured, rest.length);
+    const hold = effectiveHoldMs(configured, rest.length, config.burstFloorMs);
 
     clearTimeout(holdTimerRef.current);
     holdTimerRef.current = setTimeout(() => {
@@ -81,6 +82,7 @@ export function useCheckInQueue(config) {
     config.standardDisplayMs,
     config.specialDisplayMs,
     config.gapBetweenBannersMs,
+    config.burstFloorMs,
   ]);
 
   const skipCurrent = useCallback(() => {

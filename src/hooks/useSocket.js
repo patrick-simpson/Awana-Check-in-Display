@@ -42,7 +42,11 @@ const HANDLER_NAMES = {
  *   useSocket({ onCheckin, onRecap, onTally, onBirthdays, onOps, onCanary })
  *
  * A bare function is accepted as shorthand for `{ onCheckin }`.
- * Returns { status, lastEventAt, lastCheckinAt }.
+ * Returns { status, lastEventAt, lastCheckinAt, retry }.
+ * `retry` is { attempts, delaySec } while the pipe is down (pusher-js
+ * announces each backoff via its 'connecting_in' event), null otherwise
+ * — so the Signal sticker can say "retrying in ~Ns" instead of a bare
+ * "disconnected".
  */
 export function useSocket(handlers) {
   const { config } = useConfig();
@@ -51,6 +55,7 @@ export function useSocket(handlers) {
   const [socketStatus, setSocketStatus] = useState('connecting');
   const [lastEventAt, setLastEventAt] = useState(null);
   const [lastCheckinAt, setLastCheckinAt] = useState(null);
+  const [retry, setRetry] = useState(null);
   const handlersRef = useRef(handlers);
   useEffect(() => { handlersRef.current = handlers; }, [handlers]);
 
@@ -58,8 +63,18 @@ export function useSocket(handlers) {
     if (!enabled) return undefined;
     const pusher = new Pusher(pusherAppKey, { cluster: pusherCluster });
     const map = { initialized: 'connecting', connecting: 'connecting', connected: 'connected', unavailable: 'disconnected', failed: 'disconnected', disconnected: 'disconnected' };
-    const onStateChange = ({ current }) => setSocketStatus(map[current] || 'disconnected');
+    const onStateChange = ({ current }) => {
+      setSocketStatus(map[current] || 'disconnected');
+      if (current === 'connected') setRetry(null);
+    };
+    const onConnectingIn = (delaySec) => {
+      setRetry((prev) => ({
+        attempts: (prev?.attempts ?? 0) + 1,
+        delaySec: Number.isFinite(delaySec) ? Math.round(delaySec) : null,
+      }));
+    };
     pusher.connection.bind('state_change', onStateChange);
+    pusher.connection.bind('connecting_in', onConnectingIn);
     const channel = pusher.subscribe('awana-channel');
     channel.bind('pusher:subscription_error', (err) => {
       console.error('Pusher subscription failed:', err);
@@ -102,6 +117,7 @@ export function useSocket(handlers) {
       // Unbind before disconnecting so the dying connection's final
       // state events can't clobber the status of a replacement socket.
       pusher.connection.unbind('state_change', onStateChange);
+      pusher.connection.unbind('connecting_in', onConnectingIn);
       channel.unbind_all();
       pusher.unsubscribe('awana-channel');
       pusher.disconnect();
@@ -111,7 +127,12 @@ export function useSocket(handlers) {
   // 'off' (not configured) is distinct from 'disconnected' (configured
   // but the pipe is down) so the UI can warn about the latter without
   // nagging brand-new installs.
-  return { status: enabled ? socketStatus : 'off', lastEventAt, lastCheckinAt };
+  return {
+    status: enabled ? socketStatus : 'off',
+    lastEventAt,
+    lastCheckinAt,
+    retry: enabled && socketStatus !== 'connected' ? retry : null,
+  };
 }
 
 // Historical export: the checkin sanitizer began life here and the

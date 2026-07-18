@@ -19,6 +19,7 @@ const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
 export default function SettingsPanel({
   config, overrides, status, lastEventAt, calendar, phase, scheduleSource, opsFailures,
+  remoteConfigError, wakeLockStatus,
   onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug,
 }) {
   const [form, setForm] = useState({
@@ -194,6 +195,20 @@ export default function SettingsPanel({
               {' at '}
               {new Date(opsFailures[0].at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})
               — check the print server dashboard.
+            </div>
+          )}
+          {remoteConfigError && (
+            <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
+              The central config from this page's <code>?config=</code> URL could not be
+              applied ({remoteConfigError}) — this display is running on its baked
+              defaults and local overrides instead.
+            </div>
+          )}
+          {wakeLockStatus && wakeLockStatus !== 'active' && wakeLockStatus !== 'off' && wakeLockStatus !== 'requesting' && (
+            <div className="hint" style={{ marginTop: '0.25rem', color: '#ffcc80' }}>
+              {wakeLockStatus === 'unsupported'
+                ? 'This browser has no Screen Wake Lock — the TV may sleep mid-club; disable sleep in the device settings instead.'
+                : 'The browser refused the screen wake lock (battery saver?) — the TV may sleep mid-club.'}
             </div>
           )}
         </div>

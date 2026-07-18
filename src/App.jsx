@@ -29,25 +29,37 @@ import { getClubPalette } from './lib/clubs.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
+import { useWatchdogReload } from './hooks/useWatchdogReload.js';
+import { DROPPED_GRACE_MS, GEAR_IDLE_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
 
-const OPS_FAILURES_MAX = 20;
-
 export default function App() {
   // ?config=<url>: centrally-managed overrides fetched once at startup,
   // sanitized through the same validators as localStorage overrides.
+  // Failures are remembered so the Settings panel can tell the operator
+  // their central config isn't being applied — silently falling back
+  // looks identical to working until club night.
   const [remoteDefaults, setRemoteDefaults] = useState({});
+  const [remoteConfigError, setRemoteConfigError] = useState(null);
   useEffect(() => {
     if (!FLAGS.configUrl) return undefined;
     let cancelled = false;
     fetch(FLAGS.configUrl, { cache: 'no-cache' })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((raw) => {
-        if (!cancelled && raw) setRemoteDefaults(sanitizeOverrides(raw));
+        if (cancelled) return;
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+          setRemoteDefaults(sanitizeOverrides(raw));
+          setRemoteConfigError(null);
+        } else {
+          setRemoteConfigError('remote config is not a JSON settings object');
+        }
       })
-      .catch(() => { /* unreachable remote config — defaults carry on */ });
+      .catch((err) => {
+        if (!cancelled) setRemoteConfigError(err?.message || 'fetch failed');
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -55,15 +67,19 @@ export default function App() {
 
   // ?key=/&cluster= let an embedded browser (OBS source, ProPresenter web
   // page) connect without localStorage access; they win over saved config.
-  const mergedConfig = FLAGS.pusherAppKey
-    ? {
-        ...storedConfig,
-        pusherAppKey: FLAGS.pusherAppKey,
-        pusherCluster: FLAGS.pusherCluster || storedConfig.pusherCluster,
-      }
-    : storedConfig;
   // Panic mode last, so it can strip whatever the flags/overrides built.
-  const config = applyPanicMode(mergedConfig);
+  // Memoized so `config` keeps a stable identity between renders —
+  // effects and children that depend on it don't re-fire spuriously.
+  const config = useMemo(() => {
+    const merged = FLAGS.pusherAppKey
+      ? {
+          ...storedConfig,
+          pusherAppKey: FLAGS.pusherAppKey,
+          pusherCluster: FLAGS.pusherCluster || storedConfig.pusherCluster,
+        }
+      : storedConfig;
+    return applyPanicMode(merged);
+  }, [storedConfig]);
   const { currentEvent, enqueue, skipCurrent, pending } = useCheckInQueue(config);
   const { count, bump, reset: resetTally } = useTally();
   const { hasSeen, markSeen, stats: seenStats } = useSeenEvents();
@@ -93,7 +109,7 @@ export default function App() {
   }, [config.clubMilestoneEvery]);
   useEffect(() => {
     if (clubMilestone == null) return undefined;
-    const timer = setTimeout(() => setClubMilestone(null), 6000);
+    const timer = setTimeout(() => setClubMilestone(null), MILESTONE_TOAST_MS);
     return () => clearTimeout(timer);
   }, [clubMilestone]);
 
@@ -137,9 +153,13 @@ export default function App() {
     onTally: handleTally,
   }), [handleCheckIn, handleRecap, recordOps, handleTally]);
 
-  const { status, lastEventAt } = useSocket(socketHandlers);
+  const { status, lastEventAt, retry } = useSocket(socketHandlers);
 
-  useWakeLock(config.keepScreenAwake);
+  const wakeLockStatus = useWakeLock(config.keepScreenAwake);
+
+  // Kiosk self-heal: reload once if the pipe stays dead far longer than
+  // any normal blip (rate-limited; 'off' — never configured — is exempt).
+  useWatchdogReload(status, config.watchdogReloadMin);
 
   // ── Calendar-aware slides ─────────────────────────────────
   // The local date key ticks over at midnight so "tonight" flips
@@ -195,7 +215,7 @@ export default function App() {
   }, [count, config.milestoneEvery]);
   useEffect(() => {
     if (milestone == null) return undefined;
-    const timer = setTimeout(() => setMilestone(null), 6000);
+    const timer = setTimeout(() => setMilestone(null), MILESTONE_TOAST_MS);
     return () => clearTimeout(timer);
   }, [milestone]);
 
@@ -210,7 +230,7 @@ export default function App() {
   const [droppedLong, setDroppedLong] = useState(false);
   useEffect(() => {
     const disconnected = status === 'disconnected';
-    const timer = setTimeout(() => setDroppedLong(disconnected), disconnected ? 8000 : 0);
+    const timer = setTimeout(() => setDroppedLong(disconnected), disconnected ? DROPPED_GRACE_MS : 0);
     return () => clearTimeout(timer);
   }, [status]);
   // Printer trouble also forces the sticker visible — a kid at the door
@@ -231,7 +251,7 @@ export default function App() {
     const wake = () => {
       setGearIdle(false);
       clearTimeout(timer);
-      timer = setTimeout(() => setGearIdle(true), 3000);
+      timer = setTimeout(() => setGearIdle(true), GEAR_IDLE_MS);
     };
     window.addEventListener('mousemove', wake);
     window.addEventListener('touchstart', wake);
@@ -301,36 +321,45 @@ export default function App() {
       ref={stageRef}
       onDoubleClick={toggleFullscreen}
     >
+      {/* Every stage layer sits behind its own crash fence: a broken
+          background or corner widget disappears quietly instead of
+          white-screening the whole display mid-club. */}
       {!overlay && (
-        <BackgroundIframe
-          url={config.powerpointEmbedUrl}
-          slideshowDelaySec={config.slideshowDelaySec}
-          useLocalSlideshow={config.useLocalSlideshow}
-          backgroundSource={config.backgroundSource}
-          manualSlides={config.manualSlides}
-          calendarSlides={calendarSlides}
-        />
+        <ErrorBoundary label="background">
+          <BackgroundIframe
+            url={config.powerpointEmbedUrl}
+            slideshowDelaySec={config.slideshowDelaySec}
+            useLocalSlideshow={config.useLocalSlideshow}
+            backgroundSource={config.backgroundSource}
+            manualSlides={config.manualSlides}
+            calendarSlides={calendarSlides}
+          />
+        </ErrorBoundary>
       )}
 
-      <ErrorBoundary eventKey={currentEvent?.id} onError={skipCurrent}>
+      <ErrorBoundary label="banner" eventKey={currentEvent?.id} onError={skipCurrent}>
         <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />
       </ErrorBoundary>
 
       {!overlay && stickerMode && (
-        <CountdownTimer targetTime={config.countdownTargetTime} clubDates={clubNightDates} />
+        <ErrorBoundary label="countdown">
+          <CountdownTimer targetTime={config.countdownTargetTime} clubDates={clubNightDates} />
+        </ErrorBoundary>
       )}
 
       {!overlay && !stickerMode && (
-        <DataCycle
-          count={count}
-          weather={weather}
-          showClock={config.showClock}
-          showTally={config.showTally}
-          showWeather={showWeatherChip}
-          countdownTargetTime={config.countdownTargetTime}
-          clubDates={clubNightDates}
-          intervalSec={config.cycleIntervalSec}
-        />
+        <ErrorBoundary label="data-cycle">
+          <DataCycle
+            count={count}
+            weather={weather}
+            showClock={config.showClock}
+            showTally={config.showTally}
+            showWeather={showWeatherChip}
+            countdownTargetTime={config.countdownTargetTime}
+            clubDates={clubNightDates}
+            intervalSec={config.cycleIntervalSec}
+          />
+        </ErrorBoundary>
       )}
 
       {/* Top-right corner stack: clock, weather chip, status dot flow
@@ -350,7 +379,14 @@ export default function App() {
               aria-label={`Connection status: ${status}${opsFailures.length ? `, ${opsFailures.length} printer problem(s)` : ''}`}
             >
               <span className="dot" />
-              <span>{status === 'off' ? 'not set up' : status}</span>
+              <span>
+                {status === 'off' ? 'not set up' : status}
+                {/* While the pipe is down, show what pusher-js is doing
+                    about it — "disconnected" alone reads as dead-forever. */}
+                {status !== 'connected' && retry
+                  ? ` · retry ${retry.attempts}${retry.delaySec ? ` in ~${retry.delaySec}s` : '…'}`
+                  : ''}
+              </span>
               {opsFailures.length > 0 && (
                 <span className="ops-count" title="Printer problems tonight — see Settings">
                   ⚠ {opsFailures.length}
@@ -471,49 +507,58 @@ export default function App() {
       )}
 
       {settingsOpen && (
-        <SettingsPanel
-          config={config}
-          overrides={overrides}
-          status={status}
-          lastEventAt={lastEventAt}
-          calendar={calendar}
-          phase={phase}
-          scheduleSource={scheduleSource}
-          opsFailures={opsFailures}
-          onChange={updateConfig}
-          onReset={resetConfig}
-          onClose={() => setSettingsOpen(false)}
-          onTest={handleCheckIn}
-          onResetTally={resetTally}
-          onOpenSlideEditor={() => {
-            setSettingsOpen(false);
-            setSlideEditorOpen(true);
-          }}
-          onOpenDebug={() => { setSettingsOpen(false); setDebugOpen(true); }}
-        />
+        <ErrorBoundary label="settings-panel" onError={() => setSettingsOpen(false)}>
+          <SettingsPanel
+            config={config}
+            overrides={overrides}
+            status={status}
+            lastEventAt={lastEventAt}
+            calendar={calendar}
+            phase={phase}
+            scheduleSource={scheduleSource}
+            opsFailures={opsFailures}
+            remoteConfigError={FLAGS.configUrl ? remoteConfigError : null}
+            wakeLockStatus={wakeLockStatus}
+            onChange={updateConfig}
+            onReset={resetConfig}
+            onClose={() => setSettingsOpen(false)}
+            onTest={handleCheckIn}
+            onResetTally={resetTally}
+            onOpenSlideEditor={() => {
+              setSettingsOpen(false);
+              setSlideEditorOpen(true);
+            }}
+            onOpenDebug={() => { setSettingsOpen(false); setDebugOpen(true); }}
+          />
+        </ErrorBoundary>
       )}
 
       {slideEditorOpen && (
-        <SlideEditorPanel
-          config={config}
-          onChange={updateConfig}
-          onClose={() => setSlideEditorOpen(false)}
-        />
+        <ErrorBoundary label="slide-editor" onError={() => setSlideEditorOpen(false)}>
+          <SlideEditorPanel
+            config={config}
+            onChange={updateConfig}
+            onClose={() => setSlideEditorOpen(false)}
+          />
+        </ErrorBoundary>
       )}
 
       {debugOpen && (
-        <DebugPanel
-          onSimulate={handleCheckIn}
-          onSimulateRecap={handleRecap}
-          onSimulateOps={recordOps}
-          onClose={() => setDebugOpen(false)}
-          status={status}
-          lastEventAt={lastEventAt}
-          pending={pending}
-          phase={phase}
-          seenStats={seenStats}
-          opsFailures={opsFailures}
-        />
+        <ErrorBoundary label="debug-panel" onError={() => setDebugOpen(false)}>
+          <DebugPanel
+            onSimulate={handleCheckIn}
+            onSimulateRecap={handleRecap}
+            onSimulateOps={recordOps}
+            onClose={() => setDebugOpen(false)}
+            status={status}
+            lastEventAt={lastEventAt}
+            pending={pending}
+            phase={phase}
+            seenStats={seenStats}
+            opsFailures={opsFailures}
+            wakeLockStatus={wakeLockStatus}
+          />
+        </ErrorBoundary>
       )}
     </div>
     </MotionConfig>

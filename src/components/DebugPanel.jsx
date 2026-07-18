@@ -10,7 +10,7 @@ function pick(list) {
 
 export default function DebugPanel({
   onSimulate, onSimulateRecap, onSimulateOps, onClose,
-  status, lastEventAt, pending, phase, seenStats, opsFailures,
+  status, lastEventAt, pending, phase, seenStats, opsFailures, wakeLockStatus,
 }) {
   const standard = () => onSimulate({
     firstName: pick(SAMPLE_NAMES),
@@ -85,6 +85,7 @@ export default function DebugPanel({
         <span>phase: {phase ?? 'unknown'}</span>
         <span>seen ids: {seen.size}</span>
         <span>printer problems: {opsFailures?.length ?? 0}</span>
+        <span>wake lock: {wakeLockStatus ?? 'unknown'}</span>
       </div>
       <button onClick={standard}>Standard welcome</button>
       <button onClick={birthday}>Birthday welcome</button>
