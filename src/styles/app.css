@@ -1778,6 +1778,18 @@ input:focus-visible {
   --skin-a: #0ea5e9;
   --skin-b: #fbbf24;
 }
+.stage[data-skin='spring'] {
+  --skin-a: #22c55e;
+  --skin-b: #f472b6;
+}
+.stage[data-skin='harvest'] {
+  --skin-a: #b45309;
+  --skin-b: #4d7c0f;
+}
+.stage[data-skin='snowday'] {
+  --skin-a: #38bdf8;
+  --skin-b: #e0f2fe;
+}
 .stage[data-skin] .background-placeholder .placeholder-copy h1 {
   background: linear-gradient(120deg, var(--skin-a), var(--skin-b));
   -webkit-background-clip: text;
@@ -1797,4 +1809,22 @@ input:focus-visible {
 }
 .milestone-toast.club-milestone .milestone-label {
   color: var(--club-primary, #f7a41c);
+}
+
+/* ── Per-name accents (#8) + per-club phrases (#15) ────────────────── */
+.name-sparkle {
+  display: inline-block;
+  margin-left: 0.3em;
+  vertical-align: super;
+  color: var(--club-accent, #ffd257);
+}
+.club-phrase {
+  display: block;
+  margin-top: 0.15em;
+  font-family: var(--font-hand, inherit);
+  font-size: clamp(1rem, 2.2cqw, 1.6rem);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: color-mix(in srgb, var(--club-accent, #ffd257) 75%, white);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
 }

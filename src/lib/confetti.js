@@ -11,10 +11,19 @@ let loadFactor = 1;
 export function setConfettiLoad(bursting) {
   loadFactor = bursting ? 0.5 : 1;
 }
-const scaled = (count) => Math.max(1, Math.round(count * loadFactor));
+
+// Operator-tunable room-wide intensity (Settings → Banners):
+// 'full' 1×, 'reduced' 0.5×, 'off' skips every burst entirely.
+let levelFactor = 1;
+export function setConfettiLevel(level) {
+  levelFactor = level === 'off' ? 0 : level === 'reduced' ? 0.5 : 1;
+}
+const off = () => levelFactor === 0;
+const scaled = (count) => Math.max(1, Math.round(count * loadFactor * levelFactor));
 
 // Standard celebration: two side cannons using the club's colors.
 export function fireStandard(colors) {
+  if (off()) return;
   const defaults = { ...BASE, spread: 60, ticks: 180, gravity: 0.9, scalar: 1.1, colors };
   confetti({ ...defaults, particleCount: scaled(80), angle: 60, origin: { x: 0, y: 0.75 } });
   confetti({ ...defaults, particleCount: scaled(80), angle: 120, origin: { x: 1, y: 0.75 } });
@@ -22,6 +31,7 @@ export function fireStandard(colors) {
 
 // Birthday: a fireworks-style burst plus a rainbow shower from the top.
 export function fireBirthday() {
+  if (off()) return;
   const colors = ['#FF1744', '#F50057', '#AA00FF', '#FFD600', '#00E676', '#2979FF'];
   const end = Date.now() + 1500;
   (function frame() {
@@ -50,6 +60,7 @@ export function fireBirthday() {
 
 // First-timer: gentle golden stars drifting down.
 export function fireFirstTimer() {
+  if (off()) return;
   const colors = ['#FFD54F', '#FFB300', '#FFF176', '#FFFFFF'];
   confetti({
     ...BASE,
@@ -71,6 +82,7 @@ export function fireFirstTimer() {
 // Tally milestone (every Nth check-in): a big room-wide moment in Awana
 // gold and club colors, bigger than any single kid's banner burst.
 export function fireMilestone() {
+  if (off()) return;
   const colors = ['#F7A41C', '#FFD257', '#FFFFFF', '#4CAF50', '#2979FF', '#E53935'];
   confetti({
     ...BASE,

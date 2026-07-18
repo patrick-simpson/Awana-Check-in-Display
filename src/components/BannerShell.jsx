@@ -56,7 +56,7 @@ export function Eyebrow({ children }) {
   );
 }
 
-export default function BannerShell({ className = '', style, decorations, children }) {
+export default function BannerShell({ className = '', style, decorations, doodlePhase = 0, children }) {
   return (
     <motion.div
       className={`banner ${className}`.trim()}
@@ -77,7 +77,7 @@ export default function BannerShell({ className = '', style, decorations, childr
         />
       </div>
       <BandSparkles />
-      <Doodles />
+      <Doodles phase={doodlePhase} />
       {decorations}
       <div className="banner-content">{children}</div>
     </motion.div>

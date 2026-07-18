@@ -40,7 +40,7 @@ const VALIDATORS = {
   recapMaxAgeMin: numberBetween(1, 240),
   panicMode: isBool,
   clubMilestoneEvery: numberBetween(0, 1000),
-  nightTheme: (v) => ['none', 'autumn', 'christmas', 'summer'].includes(v),
+  nightTheme: (v) => ['none', 'auto', 'autumn', 'christmas', 'summer', 'spring', 'harvest', 'snowday'].includes(v),
   calendarWelcomeText: isString,
   calendarShowWelcome: isBool,
   calendarShowNextWeek: isBool,
@@ -51,13 +51,29 @@ const VALIDATORS = {
   weatherUnits: (v) => v === 'fahrenheit' || v === 'celsius',
   watchdogReloadMin: numberBetween(0, 1440),
   burstFloorMs: numberBetween(1000, 10000),
+  clubPhrases: (v) => !!v && typeof v === 'object' && !Array.isArray(v),
+  confettiLevel: (v) => ['full', 'reduced', 'off'].includes(v),
 };
+
+// Banner flavor text per club: keep only short strings, keyed
+// case-insensitively, capped so a runaway import can't bloat storage.
+function sanitizeClubPhrases(raw) {
+  const clean = {};
+  for (const [club, phrase] of Object.entries(raw).slice(0, 15)) {
+    if (typeof phrase !== 'string' || !phrase.trim()) continue;
+    const key = club.trim().toLowerCase().slice(0, 40);
+    if (!key) continue;
+    clean[key] = phrase.trim().slice(0, 80);
+  }
+  return clean;
+}
 
 // Values that need repair beyond a type check. sanitizeSlides salvages
 // a partially-corrupt slide array slide-by-slide, so one bad entry
 // can't take out the whole typed deck.
 const TRANSFORMS = {
   manualSlides: sanitizeSlides,
+  clubPhrases: sanitizeClubPhrases,
 };
 
 export function sanitizeOverrides(raw) {

@@ -22,7 +22,8 @@ import { useTheme } from './hooks/useTheme.js';
 import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
-import { fireMilestone, setConfettiLoad } from './lib/confetti.js';
+import { fireMilestone, setConfettiLevel, setConfettiLoad } from './lib/confetti.js';
+import { resolveSkin } from './lib/skins.js';
 import { sanitizeOverrides } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
@@ -188,6 +189,11 @@ export default function App() {
     setConfettiLoad(pending > BURST_THRESHOLD);
   }, [pending]);
 
+  // Room-wide confetti intensity (Settings → Banners).
+  useEffect(() => {
+    setConfettiLevel(config.confettiLevel);
+  }, [config.confettiLevel]);
+
   // Tally milestones: every Nth check-in gets a room-wide celebration.
   // Fires only on a genuine increment, so restoring a saved tally on
   // page load can't re-celebrate.
@@ -232,6 +238,11 @@ export default function App() {
   // status dot stays a corner sticker in both modes — a dead pipe must
   // never be silent, so it can't wait its turn in a rotation.
   const stickerMode = config.widgetDisplayMode === 'stickers';
+
+  // Themed skin — 'auto' resolves by season, and because it derives
+  // from todayStr it rolls over at midnight without a reload, like
+  // everything else date-derived. Noon avoids TZ edge cases.
+  const skin = resolveSkin(config.nightTheme, new Date(`${todayStr}T12:00:00`));
 
   // Reveal the gear on any mouse movement, fade it after 3 seconds of stillness.
   useEffect(() => {
@@ -304,7 +315,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
     <div
       className={`stage ${overlay ? 'overlay' : ''}`}
-      data-skin={config.nightTheme && config.nightTheme !== 'none' ? config.nightTheme : undefined}
+      data-skin={skin !== 'none' ? skin : undefined}
       style={chroma ? { background: chroma } : undefined}
       ref={stageRef}
       onDoubleClick={toggleFullscreen}
@@ -326,7 +337,7 @@ export default function App() {
       )}
 
       <ErrorBoundary label="banner" eventKey={currentEvent?.id} onError={skipCurrent}>
-        <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} />
+        <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} clubPhrases={config.clubPhrases} />
       </ErrorBoundary>
 
       {!overlay && !stickerMode && (

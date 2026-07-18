@@ -163,9 +163,22 @@ const config = {
   // broadcasts) crosses a multiple of this. 0 disables.
   clubMilestoneEvery: 10,
 
-  // Themed night skin: 'none' | 'autumn' | 'christmas' | 'summer'.
-  // Recolors the stage decorations for special nights.
+  // Themed night skin: 'none' | 'auto' | 'autumn' | 'christmas' |
+  // 'summer' | 'spring' | 'harvest' | 'snowday'. Recolors the stage
+  // decorations for special nights; 'auto' picks by calendar month so
+  // the display dresses itself for the season.
   nightTheme: 'none',
+
+  // Per-club banner flavor text, shown under the kid's name on their
+  // welcome banner. Keys match the club name the printer sends
+  // (case-insensitive); missing clubs just get no subtitle. Example:
+  //   clubPhrases: { sparks: 'Shine bright tonight!', 't&t': 'Bring it!' },
+  clubPhrases: {},
+
+  // Room-wide confetti intensity: 'full' | 'reduced' | 'off'.
+  // 'reduced' halves the particle counts (weak hardware / busy nights);
+  // 'off' keeps banners and chimes but never fires the cannons.
+  confettiLevel: 'full',
 
   // Panic mode strips the screen to its reliable core (placeholder
   // background, clock only) while banners keep working. Toggle it live

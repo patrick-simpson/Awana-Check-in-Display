@@ -38,7 +38,11 @@ export default function SettingsPanel({
     panicMode: !!config.panicMode,
     showClock: !!config.showClock,
     widgetDisplayMode: config.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
-    nightTheme: ['autumn', 'christmas', 'summer'].includes(config.nightTheme) ? config.nightTheme : 'none',
+    nightTheme: ['auto', 'autumn', 'christmas', 'summer', 'spring', 'harvest', 'snowday'].includes(config.nightTheme)
+      ? config.nightTheme
+      : 'none',
+    confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
+    burstFloorMs: config.burstFloorMs ?? 2500,
     clubMilestoneEvery: config.clubMilestoneEvery ?? 10,
     cycleIntervalSec: config.cycleIntervalSec ?? 3,
     milestoneEvery: config.milestoneEvery ?? 25,
@@ -79,6 +83,7 @@ export default function SettingsPanel({
       slideshowDelaySec: clamp(form.slideshowDelaySec, 0, 120),
       milestoneEvery: clamp(Math.round(form.milestoneEvery) || 0, 0, 10000),
       clubMilestoneEvery: clamp(Math.round(form.clubMilestoneEvery) || 0, 0, 1000),
+      burstFloorMs: clamp(Math.round(form.burstFloorMs) || 2500, 1000, 10000),
       cycleIntervalSec: clamp(Math.round(form.cycleIntervalSec) || 3, 2, 120),
       calendarUrl: form.calendarUrl.trim(),
       calendarWelcomeText: form.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
@@ -546,9 +551,13 @@ function DisplayTab({ form, set }) {
         <label htmlFor="nightTheme">Themed night skin</label>
         <select id="nightTheme" value={form.nightTheme} onChange={set('nightTheme')}>
           <option value="none">None (classic)</option>
-          <option value="autumn">Autumn / harvest</option>
-          <option value="christmas">Christmas</option>
+          <option value="auto">Auto (by season)</option>
+          <option value="spring">Spring</option>
           <option value="summer">Summer</option>
+          <option value="autumn">Autumn</option>
+          <option value="harvest">Harvest</option>
+          <option value="christmas">Christmas</option>
+          <option value="snowday">Snow day</option>
         </select>
         <span className="hint">
           Recolors the stage decorations for special nights. Banners keep their club colors.
@@ -584,6 +593,32 @@ function DisplayTab({ form, set }) {
         <span className="hint">
           Every Nth kid triggers a room-wide confetti moment with a "{form.milestoneEvery || 25} kids
           checked in tonight!" toast. Set to 0 to turn it off.
+        </span>
+      </div>
+
+      <div className="field">
+        <label htmlFor="confettiLevel">Confetti intensity</label>
+        <select id="confettiLevel" value={form.confettiLevel} onChange={set('confettiLevel')}>
+          <option value="full">Full celebration</option>
+          <option value="reduced">Reduced (half the particles)</option>
+          <option value="off">Off (banners and chimes only)</option>
+        </select>
+        <span className="hint">
+          Room-wide setting for every burst — welcomes, birthdays, milestones. "Reduced" helps
+          weak signage sticks keep 60fps on busy nights.
+        </span>
+      </div>
+
+      <div className="field">
+        <label htmlFor="burstFloor">Rush-mode minimum banner time (ms)</label>
+        <input
+          id="burstFloor" type="number" min="1000" max="10000" step="250"
+          value={form.burstFloorMs}
+          onChange={set('burstFloorMs')}
+        />
+        <span className="hint">
+          During a check-in rush banners shrink to keep up with the door — but never below this.
+          Lower drains a backlog faster; higher keeps every name readable longer.
         </span>
       </div>
 

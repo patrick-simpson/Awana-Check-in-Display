@@ -9,22 +9,22 @@ import FirstTimerBanner from './FirstTimerBanner.jsx';
  *
  * Priority: birthday > first-timer > standard welcome.
  */
-export default function Overlay({ currentEvent, audioEnabled }) {
+export default function Overlay({ currentEvent, audioEnabled, clubPhrases }) {
   return (
     <div className="overlay">
       <AnimatePresence mode="wait">
-        {currentEvent && renderBanner(currentEvent, audioEnabled)}
+        {currentEvent && renderBanner(currentEvent, audioEnabled, clubPhrases)}
       </AnimatePresence>
     </div>
   );
 }
 
-function renderBanner(event, audioEnabled) {
+function renderBanner(event, audioEnabled, clubPhrases) {
   if (event.isBirthday) {
     return <BirthdayBanner key={event.id} event={event} audioEnabled={audioEnabled} />;
   }
   if (event.isFirstTimer) {
     return <FirstTimerBanner key={event.id} event={event} audioEnabled={audioEnabled} />;
   }
-  return <WelcomeBanner key={event.id} event={event} audioEnabled={audioEnabled} />;
+  return <WelcomeBanner key={event.id} event={event} audioEnabled={audioEnabled} clubPhrases={clubPhrases} />;
 }

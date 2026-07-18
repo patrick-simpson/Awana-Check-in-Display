@@ -95,7 +95,9 @@ export function BandSparkles() {
   );
 }
 
-export default function Doodles() {
+// `phase` shifts every twinkle delay (per-name accent #8) so each
+// kid's banner glitters on its own rhythm.
+export default function Doodles({ phase = 0 }) {
   return (
     <div className="doodle-field" aria-hidden>
       {LAYOUT.map((d, i) => (
@@ -104,7 +106,7 @@ export default function Doodles() {
           className="doodle"
           style={{ top: d.top, left: d.left }}
           animate={{ opacity: [0.35, 1, 0.35], scale: [0.8, 1.1, 0.8], rotate: [0, 12, 0] }}
-          transition={{ duration: 3.2, delay: d.delay, repeat: Infinity, ease: 'easeInOut' }}
+          transition={{ duration: 3.2, delay: d.delay + phase, repeat: Infinity, ease: 'easeInOut' }}
         >
           <Mark kind={d.kind} size={d.size} />
         </motion.span>
