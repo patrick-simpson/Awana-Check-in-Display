@@ -4,6 +4,11 @@ dist-ssr
 *.local
 .vite
 
+# Test artifacts
+coverage/
+test-results/
+playwright-report/
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLowPower } from '../hooks/useLowPower.js';
 
 // ── Rain ──
 const RAINDROPS = Array.from({ length: 60 }, (_, i) => ({
@@ -108,9 +109,11 @@ const FIREFLIES = Array.from({ length: 10 }, (_, i) => ({
 }));
 
 export const WeatherScene = ({ weather }) => {
+  const lowPower = useLowPower();
   // Computed per render (not at module load) so a projector left
   // running for months rolls into the new season's effects.
   const season = getSeason();
+  if (lowPower) return null;
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
 

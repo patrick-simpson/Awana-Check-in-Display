@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useLowPower } from '../hooks/useLowPower.js';
 
 const CONFETTI_COLORS = ['#E8192C', '#FFC107', '#0072CE', '#00A651', '#ffffff'];
 
@@ -20,11 +21,15 @@ const CONFETTI_PIECES = Array.from({ length: 100 }, (_, i) => {
 });
 
 export const ConfettiBurst = ({ onComplete }) => {
+  const lowPower = useLowPower();
   useEffect(() => {
     const timer = setTimeout(() => onComplete?.(), 3500);
     return () => clearTimeout(timer);
   }, [onComplete]);
 
+  // Low power: the celebration still "happens" (onComplete timing is
+  // unchanged) — only the falling pieces are skipped.
+  if (lowPower) return null;
   return (
     <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
       {CONFETTI_PIECES.map(piece => (

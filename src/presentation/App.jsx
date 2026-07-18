@@ -1,6 +1,7 @@
-import React from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import React, { useEffect } from 'react';
+import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppMode } from './types.js';
+import { FLAGS } from './lib/flags.js';
 import { stateKey } from './lib/schedule.js';
 import { DUR, EASE } from './lib/motion-tokens.js';
 import { useClock } from './hooks/useClock.js';
@@ -20,6 +21,31 @@ export const App = () => {
   const now = useClock();
   const { state, isOverride, resumeAt, select, resume, stay } = useSchedule(now);
 
+  // ?vr=1 (visual-regression / screenshot mode): stamp the root so CSS
+  // can kill every keyframe animation, and tell framer-motion to skip
+  // transform animations — two renders of one state become identical.
+  useEffect(() => {
+    if (!FLAGS.vr) return undefined;
+    document.documentElement.dataset.vr = '1';
+    return () => { delete document.documentElement.dataset.vr; };
+  }, []);
+
+  // While the tab is hidden (projector input switched away, window
+  // minimized) pause every ambient keyframe loop — no reason to burn
+  // GPU on animations nobody can see. Resumes on return.
+  useEffect(() => {
+    const sync = () => {
+      if (document.hidden) document.documentElement.dataset.animPaused = '1';
+      else delete document.documentElement.dataset.animPaused;
+    };
+    document.addEventListener('visibilitychange', sync);
+    sync();
+    return () => {
+      document.removeEventListener('visibilitychange', sync);
+      delete document.documentElement.dataset.animPaused;
+    };
+  }, []);
+
   // All realtime data (live tally + birthday sync + ?key= adoption)
   // flows through the display's sanctioned sanitized socket — see
   // hooks/useRealtime.js. This replaces the original repo's
@@ -27,11 +53,14 @@ export const App = () => {
   const { tally } = useRealtime();
 
   return (
+    <MotionConfig reducedMotion={FLAGS.vr ? 'always' : 'user'}>
     <div className="w-full h-full relative" style={{ background: '#000000' }}>
       <AnimatePresence mode="wait">
         <motion.div
           key={stateKey(state)}
           className="absolute inset-0"
+          data-mode={slugFor(state)}
+          data-deck={state.mode === AppMode.SLIDESHOW ? state.deck : undefined}
           initial={{ opacity: 0, scale: 0.985 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 1.01 }}
@@ -46,6 +75,7 @@ export const App = () => {
       <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} />
       {isOverride && <ResumePill now={now} resumeAt={resumeAt} onStay={stay} />}
     </div>
+    </MotionConfig>
   );
 };
 
@@ -53,6 +83,16 @@ const labelFor = (state) =>
   ({
     [AppMode.COUNTDOWN]: 'countdown',
     [AppMode.GAME_TIME]: 'game time',
+    [AppMode.SLIDESHOW]: 'slideshow',
+    [AppMode.SHUTDOWN]: 'shutdown',
+  })[state.mode];
+
+// Stable machine-readable id for the active view — the hook the e2e
+// smoke tests assert on (e2e/countdown-modes.spec.js).
+const slugFor = (state) =>
+  ({
+    [AppMode.COUNTDOWN]: 'countdown',
+    [AppMode.GAME_TIME]: 'game-time',
     [AppMode.SLIDESHOW]: 'slideshow',
     [AppMode.SHUTDOWN]: 'shutdown',
   })[state.mode];

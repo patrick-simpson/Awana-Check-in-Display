@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLowPower } from '../hooks/useLowPower.js';
 
 // Deterministic particles — no randomization on each render
 const PARTICLES = Array.from({ length: 45 }, (_, i) => ({
@@ -12,7 +13,10 @@ const PARTICLES = Array.from({ length: 45 }, (_, i) => ({
   color: ['#FFFFFF', '#FFC107', '#E8192C', '#0072CE', '#00A651'][i % 5],
 }));
 
-export const ParticleField = () => (
+export const ParticleField = () => {
+  const lowPower = useLowPower();
+  if (lowPower) return null;
+  return (
   <div className="absolute inset-0 overflow-hidden pointer-events-none">
     {PARTICLES.map(p => (
       <div
@@ -31,4 +35,5 @@ export const ParticleField = () => (
       />
     ))}
   </div>
-);
+  );
+};

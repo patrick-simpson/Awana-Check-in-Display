@@ -319,3 +319,23 @@
 .glow-sm { text-shadow: var(--glow-sm); }
 .glow-md { text-shadow: var(--glow-md); }
 .glow-lg { text-shadow: var(--glow-lg); }
+
+/* ── Test / kiosk determinism modes ─────────────────────────────
+   [data-vr]          — ?vr=1 visual-regression mode: every animation
+                        and transition frozen so two renders of one
+                        state are pixel-identical (screenshot tests).
+   [data-anim-paused] — set while the tab is hidden: ambient keyframe
+                        loops pause instead of burning GPU offscreen,
+                        and resume exactly where they left off. */
+[data-vr] *,
+[data-vr] *::before,
+[data-vr] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+[data-anim-paused] *,
+[data-anim-paused] *::before,
+[data-anim-paused] *::after {
+  animation-play-state: paused !important;
+}

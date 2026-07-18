@@ -16,3 +16,6 @@
   `index.html`, served from our own origin instead.
 - **To update:** re-download the URL above over this file, verify the
   Settings panel still renders, and update the retrieved date.
+  Dependabot cannot see vendored files, so this is a manual check —
+  glance at jelly-ui.com's changelog every few months (or whenever a
+  Settings-panel bug appears) and refresh if upstream moved.

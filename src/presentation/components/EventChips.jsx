@@ -34,7 +34,9 @@ export const EventChips = ({ events }) => {
   if (special.length === 0) return null;
 
   return (
-    <div className="mt-8 flex justify-center">
+    // data-live: content depends on the real calendar/wall clock, so
+    // visual-regression tests mask this region (e2e/countdown.visual.spec.js).
+    <div className="mt-8 flex justify-center" data-live>
       <div className="flex gap-4 flex-wrap justify-center max-w-4xl">
         {special.map((event, idx) => (
           <motion.div

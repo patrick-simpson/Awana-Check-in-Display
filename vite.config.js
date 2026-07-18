@@ -1,7 +1,7 @@
 import { cpSync, existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -76,5 +76,26 @@ export default defineConfig({
   // URLs in the add-in manifest.
   test: {
     environment: 'jsdom',
+    // Playwright specs live in e2e/ and must never run under vitest.
+    exclude: [...configDefaults.exclude, 'e2e/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text-summary', 'html', 'lcov'],
+      // Count un-imported files in the denominator so untested code is
+      // visible, not invisible.
+      include: ['src/**/*.{js,jsx}'],
+      exclude: [
+        'src/**/*.test.{js,jsx}',
+        'src/**/__fixtures__/**',
+        'src/main.jsx',
+        'src/presentation/main.jsx',
+        'src/sw.js', // service worker — never runs under jsdom
+      ],
+      // Ratchet DELIBERATELY (no autoUpdate): measured 2026-07 baseline
+      // (stmts 44 / branches 47 / funcs 37 / lines 46) minus ~5 points
+      // of headroom. Raise as the component layer gains tests; never
+      // lower without a written reason.
+      thresholds: { lines: 41, statements: 39, functions: 31, branches: 41 },
+    },
   },
 });

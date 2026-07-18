@@ -3,7 +3,7 @@ import globals from 'globals';
 import reactHooks from 'eslint-plugin-react-hooks';
 
 export default [
-  { ignores: ['dist/', 'node_modules/', 'public/'] },
+  { ignores: ['dist/', 'node_modules/', 'public/', 'coverage/', 'test-results/', 'playwright-report/'] },
   js.configs.recommended,
   {
     files: ['**/*.{js,jsx}'],
@@ -43,6 +43,12 @@ export default [
       sourceType: 'module',
       globals: { ...globals.node },
     },
+    rules: { 'no-console': 'off' },
+  },
+  {
+    // Playwright specs run in Node, drive a browser, and log freely.
+    files: ['e2e/**/*.js', 'playwright.config.js'],
+    languageOptions: { globals: { ...globals.node } },
     rules: { 'no-console': 'off' },
   },
 ];

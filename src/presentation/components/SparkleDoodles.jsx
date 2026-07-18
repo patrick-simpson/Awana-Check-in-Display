@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { mulberry32 } from '../lib/color.js';
+import { useLowPower } from '../hooks/useLowPower.js';
 
 const KINDS = ['sparkle', 'sparkle', 'star', 'dot', 'ring', 'squiggle', 'zigzag'];
 
@@ -17,6 +18,7 @@ export const SparkleDoodles = ({
   count = 14,
   className = '',
 }) => {
+  const lowPower = useLowPower();
   const doodles = useMemo(() => {
     const rand = mulberry32(seed * 7919 + 17);
     const items = [];
@@ -43,6 +45,7 @@ export const SparkleDoodles = ({
     return items;
   }, [seed, colors, count]);
 
+  if (lowPower) return null;
   return (
     <div className={`absolute inset-0 overflow-hidden pointer-events-none ${className}`} aria-hidden="true">
       {doodles.map((d) => (

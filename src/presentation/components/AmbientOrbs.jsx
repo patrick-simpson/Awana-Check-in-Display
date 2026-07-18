@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useLowPower } from '../hooks/useLowPower.js';
 
 /** The one orb table (previously duplicated in CountdownView and Slide). */
 const ORBS = [
@@ -20,6 +21,7 @@ const COOL_MAP = {
 };
 
 export const AmbientOrbs = ({ tint, dim = false, variant = 'full' }) => {
+  const lowPower = useLowPower();
   const orbs = useMemo(() => {
     let list = variant === 'quiet'
       ? ORBS.slice(0, 4).map((o) => ({ ...o, opacity: o.opacity * 0.45 }))
@@ -36,6 +38,7 @@ export const AmbientOrbs = ({ tint, dim = false, variant = 'full' }) => {
     return list;
   }, [tint, dim, variant]);
 
+  if (lowPower) return null;
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
       {orbs.map((orb, i) => (

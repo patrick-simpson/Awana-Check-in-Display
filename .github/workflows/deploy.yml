@@ -62,17 +62,35 @@ jobs:
         run: node scripts/check-contract-drift.mjs
 
       - name: Lint
-        # Gate the deploy: a push that fails lint or tests never reaches
-        # the live signage site.
+        # Gate the deploy: a push that fails lint, types, tests, or the
+        # e2e smoke suite never reaches the live signage site.
         run: npm run lint
 
-      - name: Test
-        run: npm test
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test (with coverage gate)
+        run: npm run test:coverage
 
       - name: Build
         # Vite is configured with `base: './'` so assets use relative
         # paths and the bundle works under any URL (no env needed).
         run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E smoke tests
+        # Functional only — the visual-regression project runs in ci.yml,
+        # where a 1-px drift can't block a club-night redeploy.
+        run: npm run e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
