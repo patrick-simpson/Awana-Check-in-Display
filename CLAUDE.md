@@ -36,6 +36,17 @@ If the working branch is not already `main` (e.g. you started on a
   subtree — the signage CSS graph must never see Tailwind
 - Jelly UI web components, vendored at `public/vendor/jelly-ui.js`
   (loaded from `src/main.jsx`; provenance in `public/vendor/README.md`)
+- Shared timing/cap constants live in `src/lib/constants.js` (signage);
+  operator-tunable ones are mirrored as validated `config.js` keys
+- A hand-written service worker (`src/sw.js`, emitted with a per-build
+  cache version by the `serviceWorker()` plugin in vite.config.js)
+  gives both pages an offline shell — JSON and HTML stay network-first
+  so deploys and schedule edits are never masked by a cache
+- Quality gates on every push to `main`: lint, `tsc` typecheck of the
+  `@ts-check` seams, vitest with coverage thresholds, build, and the
+  Playwright smoke suite; visual regression runs in ci.yml only
+  (baselines under `e2e/__screenshots__`, regenerate via the
+  update-snapshots workflow)
 
 ## The presentation page (`src/presentation/` → /countdown.html)
 
@@ -48,9 +59,15 @@ The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
 - **Pure schedule engine**: `src/presentation/lib/schedule.js` is the
   highest-risk code. Any change to it, to the window tables, or to
   `shared/schedule.json` needs matching cases in
-  `src/presentation/lib/schedule.test.js`, and manual time-travel QA
+  `src/presentation/lib/schedule.test.js`, and time-travel QA
   via `countdown.html?now=<ISO>` across the 18:00 / 18:05 / 19:30 /
-  19:35 / midnight boundaries plus a non-Wednesday evening.
+  19:35 / midnight boundaries plus a non-Wednesday evening — the
+  Playwright suite (`npm run e2e`, `e2e/countdown-modes.spec.js`)
+  automates exactly those boundaries and gates every deploy, but a
+  manual spot-check is still good manners for engine changes.
+  A device-local "skip weeks" overlay (`lib/scheduleOverlay.js`,
+  QuickNav editor) can mark dates no-club; `shared/schedule.json`
+  remains canonical for anything structural.
 - **Isolation rule**: `src/presentation/` may import from the existing
   app ONLY `src/hooks/useSocket.js`, `src/hooks/useConfig.js`,
   `src/hooks/useWakeLock.js`, and `src/lib/weather.js` (its realtime

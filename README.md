@@ -7,7 +7,8 @@ A joyful welcome screen for your Awana club, styled after the official Awana Clu
 - **First-timer mode** — a special "Welcome to Awana Clubs, [Name]!" moment.
 - **Queueing with burst mode** — if five kids scan at once, each still gets their own moment in turn; during a big rush the display automatically shortens banners so the line at the door never outruns the screen.
 - **Tonight's tally** — an optional corner counter ("23 checked in tonight"). It stores only a number and resets itself daily.
-- **Countdown** — a polished timer in the corner until club starts.
+- **Seasonal skins** — autumn, Christmas, spring and more, or `auto`
+  to dress the stage by the calendar.
 - **Corner weather** — an animated temperature chip beside the clock (spinning
   sun, drifting clouds, falling rain), live from [Open-Meteo](https://open-meteo.com)
   every 15 minutes — free, no API key.
@@ -38,6 +39,11 @@ by a pure, tested schedule engine over `shared/schedule.json`.
 - **Shared data:** `shared/` at the repo root (schedule, club theme,
   art) is served at `/shared/` for the whole Awana app family. See
   `MIGRATION.md` for the plan to retire the old repo.
+
+> **Running the displays on club night?** The step-by-step operator
+> guide — pre-club checks, panic mode, the "screen is wrong at
+> 5:55 PM" decision tree — lives in
+> [docs/RUNBOOK.md](docs/RUNBOOK.md).
 
 ---
 
