@@ -11,7 +11,7 @@ import { SCHEDULE_CONFIG, SLIDES_CONFIG, THEME } from './lib/shared-config.js';
 
 /* ── Clubs (colors follow the 2026–27 Awana catalog via theme.json) ── */
 
-const CLUB_IDS = ['puggles', 'cubbies', 'sparks', 'tnt'];
+const CLUB_IDS = ['puggles', 'cubbies', 'sparks', 'tnt', 'trek', 'journey'];
 
 export const CLUBS = Object.fromEntries(
   CLUB_IDS.map((id) => [id, { id, name: THEME.clubs[id].name, color: THEME.clubs[id].color }]),

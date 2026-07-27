@@ -48,6 +48,8 @@ export function normalizeClub(raw) {
   if (s.includes('cubbie') || s.includes('cubby')) return 'cubbies';
   if (s.includes('spark')) return 'sparks';
   if (s === 'tt' || s.includes('tnt') || s.includes('truth')) return 'tnt';
+  if (s.includes('trek')) return 'trek';
+  if (s.includes('journey')) return 'journey';
   return null;
 }
 

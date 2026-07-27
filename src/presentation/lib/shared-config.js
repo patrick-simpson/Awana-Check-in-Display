@@ -12,7 +12,7 @@ import rawSlides from '../../../shared/slides.json';
 
 /* ── Validation helpers (hand-rolled; no runtime deps) ────────────── */
 
-const CLUB_IDS = ['puggles', 'cubbies', 'sparks', 'tnt'];
+const CLUB_IDS = ['puggles', 'cubbies', 'sparks', 'tnt', 'trek', 'journey'];
 const DECK_IDS = ['opening', 'closing'];
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
 const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;

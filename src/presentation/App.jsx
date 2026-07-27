@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppMode } from './types.js';
 import { FLAGS } from './lib/flags.js';
 import { stateKey } from './lib/schedule.js';
+import { advisoryTitle } from './lib/scheduleAdvisory.js';
 import { DUR, EASE } from './lib/motion-tokens.js';
 import { useClock } from './hooks/useClock.js';
 import { useSchedule } from './hooks/useSchedule.js';
@@ -15,13 +16,24 @@ import { CountdownView } from './views/CountdownView.jsx';
 import { GameTimeView } from './views/GameTimeView.jsx';
 import { SlideshowView } from './views/SlideshowView.jsx';
 import { ShutdownView } from './views/ShutdownView.jsx';
+import { ScoreboardView } from './views/ScoreboardView.jsx';
 import { QuickNav } from './views/QuickNav.jsx';
 
 const OPENING_WINDOW_INDEX = 0;
 
 export const App = () => {
   const now = useClock();
-  const { state, isOverride, resumeAt, select, resume, stay } = useSchedule(now);
+
+  // All realtime data (live tally + points race + birthday sync +
+  // schedule advisory + ?key= adoption) flows through the display's
+  // sanctioned sanitized socket — see hooks/useRealtime.js. This
+  // replaces the original repo's adoptPusherUrlFlags/useBirthdaySync
+  // startup chores. Read before useSchedule() so the `schedule`
+  // broadcast can be folded in as an advisory layer over
+  // shared/schedule.json (never a replacement — see
+  // lib/scheduleAdvisory.js).
+  const { tally, points, schedule: scheduleAdvisory } = useRealtime();
+  const { state, isOverride, resumeAt, select, resume, stay } = useSchedule(now, scheduleAdvisory);
 
   // ?vr=1 (visual-regression / screenshot mode): stamp the root so CSS
   // can kill every keyframe animation, and tell framer-motion to skip
@@ -48,12 +60,6 @@ export const App = () => {
     };
   }, []);
 
-  // All realtime data (live tally + birthday sync + ?key= adoption)
-  // flows through the display's sanctioned sanitized socket — see
-  // hooks/useRealtime.js. This replaces the original repo's
-  // adoptPusherUrlFlags/useBirthdaySync startup chores.
-  const { tally } = useRealtime();
-
   // The projector must never doze off mid-countdown (same shared hook
   // as the signage page — on the presentation import allowlist).
   useWakeLock(true);
@@ -73,7 +79,15 @@ export const App = () => {
           transition={{ duration: DUR.mode, ease: EASE.smooth }}
         >
           <ViewErrorBoundary label={labelFor(state)}>
-            <ActiveView state={state} now={now} tally={tally} onSelect={select} />
+            <ActiveView
+              state={state}
+              now={now}
+              tally={tally}
+              points={points}
+              meetingTheme={advisoryTitle(scheduleAdvisory, now)}
+              onSelect={select}
+              onResume={resume}
+            />
           </ViewErrorBoundary>
         </motion.div>
       </AnimatePresence>
@@ -92,6 +106,7 @@ const labelFor = (state) =>
     [AppMode.GAME_TIME]: 'game time',
     [AppMode.SLIDESHOW]: 'slideshow',
     [AppMode.SHUTDOWN]: 'shutdown',
+    [AppMode.SCOREBOARD]: 'scoreboard',
   })[state.mode];
 
 // Stable machine-readable id for the active view — the hook the e2e
@@ -102,15 +117,17 @@ const slugFor = (state) =>
     [AppMode.GAME_TIME]: 'game-time',
     [AppMode.SLIDESHOW]: 'slideshow',
     [AppMode.SHUTDOWN]: 'shutdown',
+    [AppMode.SCOREBOARD]: 'scoreboard',
   })[state.mode];
 
-const ActiveView = ({ state, now, tally, onSelect }) => {
+const ActiveView = ({ state, now, tally, points, meetingTheme, onSelect, onResume }) => {
   switch (state.mode) {
     case AppMode.COUNTDOWN:
       return (
         <CountdownView
           now={now}
           target={state.target}
+          theme={meetingTheme}
           onSkip={() => onSelect({ type: 'window', index: OPENING_WINDOW_INDEX })}
         />
       );
@@ -126,6 +143,8 @@ const ActiveView = ({ state, now, tally, onSelect }) => {
       );
     case AppMode.SHUTDOWN:
       return <ShutdownView onRestart={() => onSelect({ type: 'countdown' })} />;
+    case AppMode.SCOREBOARD:
+      return <ScoreboardView now={now} points={points} onExit={onResume} />;
   }
 };
 

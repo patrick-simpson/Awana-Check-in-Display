@@ -178,3 +178,93 @@ describe('useSchedule countdown override', () => {
     expect(result.current.state.mode).toBe(AppMode.COUNTDOWN);
   });
 });
+
+describe('useSchedule scoreboard override (points-race QuickNav pick)', () => {
+  it('has no schedule.json window of its own, and arms the watchdog like a window pin', () => {
+    const { result } = renderSchedule(at(18, 10));
+    act(() => result.current.select({ type: 'scoreboard' }));
+
+    expect(result.current.state.mode).toBe(AppMode.SCOREBOARD);
+    expect(result.current.isOverride).toBe(true);
+    expect(result.current.resumeAt.getTime()).toBe(at(18, 10).getTime() + TIMEOUT_MS);
+  });
+
+  it('resumes when a schedule boundary crosses underneath it', () => {
+    const { result, rerender } = renderSchedule(at(18, 10));
+    act(() => result.current.select({ type: 'scoreboard' }));
+    expect(result.current.state.mode).toBe(AppMode.SCOREBOARD);
+
+    rerender({ now: at(18, 31) });
+    expect(result.current.isOverride).toBe(false);
+    expect(result.current.state.mode).toBe(AppMode.GAME_TIME);
+    expect(result.current.state.window.title).toBe('Sparks Game Time');
+  });
+
+  it('times out after overrideTimeoutMin within the same natural window', () => {
+    const { result, rerender } = renderSchedule(at(18, 6));
+    act(() => result.current.select({ type: 'scoreboard' }));
+    expect(result.current.resumeAt.getTime()).toBe(at(18, 21).getTime());
+
+    rerender({ now: at(18, 20, 59) });
+    expect(result.current.isOverride).toBe(true);
+    expect(result.current.state.mode).toBe(AppMode.SCOREBOARD);
+
+    rerender({ now: at(18, 21) });
+    expect(result.current.isOverride).toBe(false);
+    expect(result.current.state.mode).toBe(AppMode.GAME_TIME);
+  });
+
+  it('resume() hands the screen straight back to the schedule', () => {
+    const { result } = renderSchedule(at(18, 10));
+    act(() => result.current.select({ type: 'scoreboard' }));
+    act(() => result.current.resume());
+    expect(result.current.isOverride).toBe(false);
+    expect(result.current.state.mode).toBe(AppMode.GAME_TIME);
+  });
+});
+
+describe('useSchedule schedule advisory (optional 2nd argument, from the `schedule` broadcast)', () => {
+  function renderWithAdvisory(initialNow, advisory) {
+    return renderHook(
+      ({ now, scheduleAdvisory }) => useSchedule(now, scheduleAdvisory),
+      { initialProps: { now: initialNow, scheduleAdvisory: advisory } },
+    );
+  }
+
+  it('is fully backward compatible: omitting it behaves exactly as before', () => {
+    const { result } = renderSchedule(at(17, 0));
+    expect(result.current.state.mode).toBe(AppMode.COUNTDOWN);
+    expect(result.current.state.target.getTime()).toBe(at(18, 0).getTime());
+  });
+
+  it('a stale advisory is a complete no-op', () => {
+    const stale = {
+      at: new Date(at(17, 0).getTime() - 2 * 60 * 60 * 1000), // 2h old
+      noClubThisWeek: true,
+    };
+    const { result } = renderWithAdvisory(at(17, 0), stale);
+    expect(result.current.state.mode).toBe(AppMode.COUNTDOWN);
+    expect(result.current.state.target.getTime()).toBe(at(18, 0).getTime());
+  });
+
+  it('a fresh noClubThisWeek advisory cancels tonight, same as the skip-weeks overlay', () => {
+    // Announced ahead of the meeting (5:00 PM, before the 6:00 PM start) —
+    // the same moment an operator would use "Skip Weeks" for tonight.
+    const advisory = { at: at(17, 0), noClubThisWeek: true, title: 'Snow Day' };
+    const { result } = renderWithAdvisory(at(17, 0), advisory);
+    expect(result.current.state.mode).toBe(AppMode.COUNTDOWN);
+    // Next meeting is pushed a full week out, same as a noClub specialDate.
+    expect(result.current.state.target.getTime()).toBe(at(18, 0).getTime() + 7 * 24 * 3600 * 1000);
+  });
+
+  it('a fresh nextMeetingDate retargets the COUNTDOWN date, keeping the configured time', () => {
+    const advisory = { at: at(17, 0), nextMeetingDate: '2026-09-16' };
+    const { result } = renderWithAdvisory(at(17, 0), advisory);
+    expect(result.current.state.mode).toBe(AppMode.COUNTDOWN);
+    const target = result.current.state.target;
+    expect(target.getFullYear()).toBe(2026);
+    expect(target.getMonth()).toBe(8);
+    expect(target.getDate()).toBe(16);
+    expect(target.getHours()).toBe(18);
+  });
+});

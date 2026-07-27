@@ -1,0 +1,100 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+
+// useRealtime's only socket-adjacent dependency — stub it so this test
+// drives the handlers directly instead of standing up real Pusher.
+const socketHandlers = { current: null };
+vi.mock('../../hooks/useSocket.js', () => ({
+  useSocket: vi.fn((handlers) => {
+    socketHandlers.current = handlers;
+    return { status: 'connected' };
+  }),
+}));
+
+import { useRealtime } from './useRealtime.js';
+
+afterEach(() => {
+  localStorage.clear();
+  socketHandlers.current = null;
+});
+
+beforeEach(() => {
+  // Clean querystring between tests (the ?key=/&cluster= adoption chore).
+  window.history.replaceState({}, '', '/');
+});
+
+describe('useRealtime — points broadcast', () => {
+  it('starts with no points data', () => {
+    const { result } = renderHook(() => useRealtime());
+    expect(result.current.points).toBeNull();
+  });
+
+  it('onPoints adapts the sanitized payload to { groups, at: Date }', () => {
+    const { result } = renderHook(() => useRealtime());
+    act(() => {
+      socketHandlers.current.onPoints({ groups: { Red: 100, Blue: 50 }, at: 1_800_000_000_000 });
+    });
+    expect(result.current.points.groups).toEqual({ Red: 100, Blue: 50 });
+    expect(result.current.points.at).toBeInstanceOf(Date);
+    expect(result.current.points.at.getTime()).toBe(1_800_000_000_000);
+  });
+
+  it('a later broadcast replaces the previous one', () => {
+    const { result } = renderHook(() => useRealtime());
+    act(() => socketHandlers.current.onPoints({ groups: { Red: 10 }, at: 1000 }));
+    act(() => socketHandlers.current.onPoints({ groups: { Red: 20 }, at: 2000 }));
+    expect(result.current.points.groups).toEqual({ Red: 20 });
+  });
+});
+
+describe('useRealtime — schedule broadcast', () => {
+  it('starts with no schedule advisory', () => {
+    const { result } = renderHook(() => useRealtime());
+    expect(result.current.schedule).toBeNull();
+  });
+
+  it('onSchedule adapts the sanitized payload, keeping only the advisory fields', () => {
+    const { result } = renderHook(() => useRealtime());
+    act(() => {
+      socketHandlers.current.onSchedule({
+        at: 1_800_000_000_000,
+        nextMeetingDate: '2026-09-16',
+        title: 'Family Fun Night',
+        noClubThisWeek: false,
+      });
+    });
+    expect(result.current.schedule).toEqual({
+      at: new Date(1_800_000_000_000),
+      nextMeetingDate: '2026-09-16',
+      title: 'Family Fun Night',
+      noClubThisWeek: false,
+    });
+  });
+
+  it('passes through a bare noClubThisWeek broadcast with no date/title', () => {
+    const { result } = renderHook(() => useRealtime());
+    act(() => {
+      socketHandlers.current.onSchedule({ at: 1000, noClubThisWeek: true });
+    });
+    expect(result.current.schedule.noClubThisWeek).toBe(true);
+    expect(result.current.schedule.nextMeetingDate).toBeUndefined();
+    expect(result.current.schedule.title).toBeUndefined();
+  });
+});
+
+describe('useRealtime — existing tally/birthdays wiring is unaffected', () => {
+  it('onTally still adapts to { counts, total, at: Date }', () => {
+    const { result } = renderHook(() => useRealtime());
+    act(() => {
+      socketHandlers.current.onTally({ counts: { Sparks: 4 }, total: 4, at: 1000 });
+    });
+    expect(result.current.tally).toEqual({ counts: { Sparks: 4 }, total: 4, at: new Date(1000) });
+  });
+
+  it('registers all four handlers with useSocket', () => {
+    renderHook(() => useRealtime());
+    expect(Object.keys(socketHandlers.current).sort()).toEqual(
+      ['onBirthdays', 'onPoints', 'onSchedule', 'onTally'].sort(),
+    );
+  });
+});

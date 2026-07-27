@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppMode } from '../types.js';
 import { CHURCH } from '../church.config.js';
 import { evaluateOverride } from '../lib/watchdog.js';
+import { advisedNextMeeting, applyScheduleAdvisory } from '../lib/scheduleAdvisory.js';
 import { useEffectiveSchedule } from './useEffectiveSchedule.js';
 import {
   getNextMeeting,
@@ -12,24 +13,45 @@ import {
 } from '../lib/schedule.js';
 
 /**
- * Quick-nav target: the live countdown (`{ type: 'countdown' }`), or one
- * schedule window by index (`{ type: 'window', index }`).
+ * Quick-nav target: the live countdown (`{ type: 'countdown' }`), one
+ * schedule window by index (`{ type: 'window', index }`), or the
+ * points-race scoreboard (`{ type: 'scoreboard' }` — there's no
+ * schedule.json window for it, so it behaves like a window pin: armed
+ * watchdog, resumes on a schedule boundary or timeout).
+ *
+ * `scheduleAdvisory` (optional — the sanitized `schedule` broadcast via
+ * hooks/useRealtime.js) is folded in as a read-only ADVISORY layer on
+ * top of shared/schedule.json + the device overlay: never a
+ * replacement, and a complete no-op when omitted, absent, or stale (see
+ * lib/scheduleAdvisory.js) — every existing caller and test that omits
+ * it keeps today's exact behavior.
  *
  * Returns { state, isOverride, resumeAt, select, resume, stay }:
- * - resumeAt: when the watchdog will hand a window override back to the
- *   schedule (null for countdown overrides — countdown is the safe
- *   default and never times out). Drives the "back to schedule in Ns" pill.
+ * - resumeAt: when the watchdog will hand a window/scoreboard override
+ *   back to the schedule (null for countdown overrides — countdown is
+ *   the safe default and never times out). Drives the "back to
+ *   schedule in Ns" pill.
  * - select: pin the app to a view, ignoring the clock until resume()/watchdog.
  * - resume: return control to the schedule.
  * - stay: operator "Stay" — re-arm the watchdog timeout for another full period.
  */
-export function useSchedule(now) {
+export function useSchedule(now, scheduleAdvisory = null) {
   const [override, setOverride] = useState(null);
 
-  // Shared schedule.json + this device's "skip week" overlay.
-  const cfg = useEffectiveSchedule();
+  // Shared schedule.json + this device's "skip week" overlay, plus the
+  // broadcast advisory (a no-op layer when there's nothing fresh to say).
+  const localCfg = useEffectiveSchedule();
+  const cfg = applyScheduleAdvisory(localCfg, scheduleAdvisory, now);
 
-  const natural = resolveState(now, cfg);
+  // A fresh broadcast `nextMeetingDate` can correct the COUNTDOWN
+  // target's calendar date (never its configured time) — applied to
+  // whatever countdown state is in play, natural or overridden.
+  const withAdvisedTarget = (state) =>
+    state.mode === AppMode.COUNTDOWN
+      ? { ...state, target: advisedNextMeeting(state.target, scheduleAdvisory, cfg, now) }
+      : state;
+
+  const natural = withAdvisedTarget(resolveState(now, cfg));
   const naturalKey = stateKey(natural);
 
   // The clock and natural key the callbacks should capture, without
@@ -50,11 +72,24 @@ export function useSchedule(now) {
 
   if (override !== null) {
     if (override.target.type === 'countdown') {
-      state = { mode: AppMode.COUNTDOWN, target: getNextMeeting(now, cfg) };
+      state = withAdvisedTarget({ mode: AppMode.COUNTDOWN, target: getNextMeeting(now, cfg) });
       // No timeout: countdown is the safe default (this is also the
       // post-shutdown restart path). Resume when the schedule catches up
       // or crosses a boundary underneath us.
       shouldResume = naturalKey === 'countdown' || naturalKey !== override.naturalKeyAtSet;
+    } else if (override.target.type === 'scoreboard') {
+      state = { mode: AppMode.SCOREBOARD };
+      const verdict = evaluateOverride({
+        overrideKey: stateKey(state),
+        naturalKey,
+        naturalKeyAtSet: override.naturalKeyAtSet,
+        setAt: override.setAt,
+        lastStayAt: override.lastStayAt,
+        now,
+        timeoutMin: CHURCH.watchdog.overrideTimeoutMin,
+      });
+      resumeAt = verdict.resumeAt;
+      shouldResume = verdict.action === 'resume';
     } else {
       const index = Math.min(override.target.index, effectiveWindows.length - 1);
       state = stateForWindow(effectiveWindows[index], now);

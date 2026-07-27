@@ -122,6 +122,9 @@ export function secondsUntil(target, now) {
 
 /**
  * Stable identity for a resolved state, for keying view transitions.
+ * (SCOREBOARD is never returned by resolveState/stateForWindow above —
+ * it only ever arrives as a QuickNav override state built directly in
+ * hooks/useSchedule.js — but every AppState needs a key.)
  * @param {AppState} state
  * @returns {string}
  */
@@ -135,5 +138,7 @@ export function stateKey(state) {
       return `game:${state.window.title}`;
     case AppMode.SHUTDOWN:
       return 'shutdown';
+    case AppMode.SCOREBOARD:
+      return 'scoreboard';
   }
 }

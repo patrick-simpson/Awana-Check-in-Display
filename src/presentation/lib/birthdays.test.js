@@ -46,6 +46,10 @@ describe('normalizeClub', () => {
     expect(normalizeClub('Cubbies')).toBe('cubbies');
     expect(normalizeClub('cubby')).toBe('cubbies');
     expect(normalizeClub('Puggles')).toBe('puggles');
+    expect(normalizeClub('Trek')).toBe('trek');
+    expect(normalizeClub('TREK!')).toBe('trek');
+    expect(normalizeClub('Journey')).toBe('journey');
+    expect(normalizeClub('  journey  ')).toBe('journey');
     expect(normalizeClub('youth group')).toBeNull();
   });
 });
@@ -65,6 +69,13 @@ describe('parseBirthdayCSV', () => {
       entry('Liam K.', 1, 8, 'tnt'),
       entry('Smith, Jr., Noah', 12, 30, 'puggles'),
     ]);
+  });
+
+  it('recognizes Trek and Journey clubs (never dropped as unknown)', () => {
+    const csv = ['Name,Birthday,Club', 'Owen R.,4/2,Trek', 'Grace T.,11/11,Journey'].join('\n');
+    const { entries, errors } = parseBirthdayCSV(csv);
+    expect(errors).toEqual([]);
+    expect(entries).toEqual([entry('Owen R.', 4, 2, 'trek'), entry('Grace T.', 11, 11, 'journey')]);
   });
 
   it('honors reordered header columns', () => {

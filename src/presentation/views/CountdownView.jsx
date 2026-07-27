@@ -30,9 +30,11 @@ const MILESTONES = [
  * The week-long countdown to Wednesday 6:00 PM. Time flows in via the
  * single app clock — this view owns no timers of its own.
  * `onSkip` is the operator skip (Space / click) — jumps to the opening
- * ceremony.
+ * ceremony. `theme` is the church-authored meeting theme from a fresh
+ * `schedule` broadcast (hooks/useRealtime.js, lib/scheduleAdvisory.js
+ * `advisoryTitle`) — purely informational, shown only while present.
  */
-export const CountdownView = ({ now, target, onSkip }) => {
+export const CountdownView = ({ now, target, theme, onSkip }) => {
   const seconds = secondsUntil(target, now);
   const weather = useWeather();
   const events = useCalendarEvents();
@@ -117,6 +119,12 @@ export const CountdownView = ({ now, target, onSkip }) => {
             see you there!
           </GlowText>
         </div>
+
+        {theme && (
+          <Badge color="#FFB627" size="sm" style={{ opacity: 0.9 }}>
+            {theme}
+          </Badge>
+        )}
 
         <EventChips events={events} />
 
