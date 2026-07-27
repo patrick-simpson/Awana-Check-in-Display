@@ -9,7 +9,7 @@ function pick(list) {
 }
 
 export default function DebugPanel({
-  onSimulate, onSimulateRecap, onSimulateOps, onClose,
+  onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice, onClose,
   status, lastEventAt, pending, phase, seenStats, opsFailures, wakeLockStatus,
 }) {
   const standard = () => onSimulate({
@@ -69,6 +69,21 @@ export default function DebugPanel({
     at: Date.now(),
   });
 
+  // The tonight ticker and announcement banner are driven by the check-in
+  // system's own reports, so before club there is nothing on the wire to look
+  // at. These let an operator confirm both render correctly on the actual TV.
+  const tonight = () => onSimulateTonight?.({
+    checkedIn: 63, booksCompleted: 4, awardsEarned: 11, friendsBrought: 2, at: Date.now(),
+  });
+
+  const noticeCritical = () => onSimulateNotice?.({
+    level: 'critical', message: 'CLUB CANCELLED TONIGHT — icy roads. See you next week!', at: Date.now(),
+  });
+
+  const noticeInfo = () => onSimulateNotice?.({
+    level: 'info', message: 'Bring your Bible next week for double shares!', at: Date.now(),
+  });
+
   const seen = seenStats?.() ?? { size: 0 };
 
   return (
@@ -95,6 +110,9 @@ export default function DebugPanel({
       <button onClick={everyClub}>Trigger every club</button>
       {onSimulateRecap && <button onClick={recap}>Simulate recap replay (quiet banners)</button>}
       {onSimulateOps && <button onClick={printFailure}>Simulate print failure (ops)</button>}
+      {onSimulateTonight && <button onClick={tonight}>Show tonight ticker</button>}
+      {onSimulateNotice && <button onClick={noticeCritical}>Show cancellation alert</button>}
+      {onSimulateNotice && <button onClick={noticeInfo}>Show info notice</button>}
       <button onClick={onClose}>Close</button>
       <span className="close-hint">Toggle with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></span>
     </div>

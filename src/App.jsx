@@ -575,6 +575,8 @@ export default function App() {
             onSimulate={handleCheckIn}
             onSimulateRecap={handleRecap}
             onSimulateOps={recordOps}
+            onSimulateTonight={handleTonight}
+            onSimulateNotice={handleNotice}
             onClose={() => setDebugOpen(false)}
             status={status}
             lastEventAt={lastEventAt}
