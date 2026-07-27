@@ -38,3 +38,14 @@ export const MIN_CLUB_EVENTS = 5;
 // put the display in a reload loop.
 export const WATCHDOG_DISCONNECT_MIN = 30;
 export const WATCHDOG_MAX_RELOADS_PER_HOUR = 2;
+
+// Lobby "tonight" ticker (onTonight): the printer broadcasts aggregate
+// counts periodically, so a gap this long means the print server has
+// gone quiet — hide the strip rather than freeze it on a stale number.
+// Mirrors the presentation tool's own TALLY_STALE_MS idiom.
+export const TONIGHT_STALE_MS = 10 * 60 * 1000;
+
+// Church-authored announcements (onNotice) expire after this long so a
+// forgotten "CLUB CANCELLED TONIGHT" can never haunt the screen into
+// next week's club night.
+export const NOTICE_MAX_AGE_MS = 4 * 60 * 60 * 1000;

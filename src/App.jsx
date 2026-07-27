@@ -3,6 +3,8 @@ import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import DataCycle from './components/DataCycle.jsx';
+import TonightTicker from './components/TonightTicker.jsx';
+import NoticeBanner from './components/NoticeBanner.jsx';
 import WallClock from './components/WallClock.jsx';
 import WeatherChip from './components/WeatherChip.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
@@ -120,6 +122,18 @@ export default function App() {
     setOpsFailures((prev) => [ops, ...prev].slice(0, OPS_FAILURES_MAX));
   }, []);
 
+  // Lobby "tonight" ticker (#onTonight): aggregate counts across every
+  // club, straight from the printer's broadcast. Just the latest
+  // snapshot — TonightTicker itself judges staleness against `at`.
+  const [tonight, setTonight] = useState(null);
+  const handleTonight = useCallback((payload) => setTonight(payload), []);
+
+  // Church-authored announcements (#onNotice): latest one wins, same as
+  // the tally/ops widgets above. NoticeBanner judges staleness and picks
+  // its own presentation from `level`.
+  const [notice, setNotice] = useState(null);
+  const handleNotice = useCallback((payload) => setNotice(payload), []);
+
   // Every live check-in — real or simulated — plays a banner and bumps
   // tonight's tally. Once the ceremony starts, live banners switch to
   // the calm 'late' treatment (no confetti cannon, ducked chime).
@@ -151,7 +165,9 @@ export default function App() {
     onRecap: handleRecap,
     onOps: recordOps,
     onTally: handleTally,
-  }), [handleCheckIn, handleRecap, recordOps, handleTally]);
+    onTonight: handleTonight,
+    onNotice: handleNotice,
+  }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice]);
 
   const { status, lastEventAt, retry } = useSocket(socketHandlers);
 
@@ -340,6 +356,14 @@ export default function App() {
         <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} clubPhrases={config.clubPhrases} />
       </ErrorBoundary>
 
+      {/* Church-authored announcements. Rendered regardless of overlay
+          mode — like the check-in banner above, a genuine cancellation
+          notice must reach an OBS/ProPresenter feed too, not just the
+          lobby TV. */}
+      <ErrorBoundary label="notice-banner">
+        <NoticeBanner notice={notice} />
+      </ErrorBoundary>
+
       {!overlay && !stickerMode && (
         <ErrorBoundary label="data-cycle">
           <DataCycle
@@ -350,6 +374,17 @@ export default function App() {
             showWeather={showWeatherChip}
             intervalSec={config.cycleIntervalSec}
           />
+        </ErrorBoundary>
+      )}
+
+      {/* Lobby "tonight" stat strip. Independent of widgetDisplayMode
+          (it's realtime print-server data, not an operator-configured
+          corner widget) — only overlay mode (transparent OBS/ProPresenter
+          source, banners + confetti only) hides it. Yields to an active
+          check-in banner via `active`; see TonightTicker.jsx. */}
+      {!overlay && (
+        <ErrorBoundary label="tonight-ticker">
+          <TonightTicker tonight={tonight} active={!currentEvent} />
         </ErrorBoundary>
       )}
 
