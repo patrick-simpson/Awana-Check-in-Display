@@ -32,6 +32,10 @@ Channel `awana-channel`. Each event is reduced to exactly these fields
 | `birthdays` | `entries[]` of `firstName`, `club`, `month` (1–12), `day` (1–31) — **never a year** | this-week birthday celebration |
 | `ops` | `type` (`print-failure`\|`canary`\|`selector-fail`), optional `club` | operator status widgets only — never a public banner |
 | `canary` | `at`, optional `nonce` | "is the pipe alive" end-to-end test |
+| `tonight` | `checkedIn`, `booksCompleted`, `awardsEarned`, `friendsBrought` | the lobby ticker (D-1). Structurally numbers-only. |
+| `points` | `groups` (team name → whole points), optional `club` | the projector scoreboard (D-2) |
+| `schedule` | optional `nextMeetingDate` (strict `YYYY-MM-DD`), `title`, `noClubThisWeek` | next-meeting advisory (D-3). A malformed date is dropped, never rendered; iCal attendee/organizer data can never ride along. |
+| `notice` | `level` (`info`/`warn`/`critical`), `message` | announcement/cancellation alert (D-5). **The only free-text field on the channel** — church-authored copy written for public display, bounded to 200 chars and forced to plain text at BOTH producer and consumer. Never derived from roster data. |
 
 Club names arrive **exactly as the check-in system reports them** — e.g.
 `"Sparks "` (trailing space), `"T&T"` (the extension decodes `&amp;`). Each
@@ -45,47 +49,55 @@ consumer normalizes on its own:
 
 ---
 
-## 2. Deliberate design decision: the presentation tool is 4-club scoped
+## 2. Club scope: all six clubs (changed in v5.2.0)
 
-**Do not "fix" this by adding Trek/Journey — it is intentional and tested.**
+**History worth knowing:** the presentation tool used to be scoped to four clubs
+(`puggles, cubbies, sparks, tnt`). That looked deliberate — it was consistent
+across several files and asserted by tests — but it had a real consequence: a
+Trek or Journey child's birthday was **silently dropped and never celebrated**,
+because `normalizeClub()` returned `null` for them and `useBirthdays.js` gates on
+`e.club in CLUBS`. `shared/theme.json` had defined all six clubs with colors and
+art the whole time; only the code was behind.
 
-The presentation/countdown tool's **game-time scoreboard** and **birthday
-celebration** cover only the four younger clubs that are in the room during
-game time: `puggles, cubbies, sparks, tnt`. This scope is baked in coherently
-across several places — changing one without the others breaks the app:
+All six clubs are now recognised. The pieces that must stay in agreement:
 
 - `src/presentation/config.js` and `src/presentation/lib/shared-config.js`:
-  `CLUB_IDS = ['puggles', 'cubbies', 'sparks', 'tnt']`.
-- `normalizeClub()` returns `null` for Trek/Journey (asserted by
-  `birthdays.test.js`); `useBirthdays.js` gates on `e.club in CLUBS`;
-  `GameTimeView.jsx` filters birthdays/counts by `gameWindow.clubs`.
+  `CLUB_IDS` lists all six.
+- `normalizeClub()` in `lib/birthdays.js` matches trek and journey (an
+  *unknown* club still returns `null` — that case is still asserted).
+- `useBirthdays.js` gates on `e.club in CLUBS`, which now includes both.
 
-`shared/theme.json` **does** define all six clubs (Trek/Journey included) so the
-signage banner can theme them — the palette is shared, the *celebration scope*
-is not. Trek and Journey (grades 6–8 and 9–10, TwoTimTwo `club_id` 6 and 7) are
-teen clubs that typically meet outside the main-room game time.
+**The one thing that is still deliberately data-driven, not code-driven:** which
+clubs appear in the **game-time scoreboard** comes from `gameWindow.clubs` in
+`shared/schedule.json`. Teen clubs are not forced into a game window the church
+has not configured — Trek and Journey (grades 6–8 and 9–10, TwoTimTwo `club_id`
+6 and 7) often meet outside main-room game time. So: a Trek child is no longer
+dropped by the code, while the on-screen game-time roster stays whatever the
+schedule says. If a church wants teens on the game-time board, that is a
+`shared/schedule.json` edit, not a code change.
 
-If the church ever wants teens in the game-time scoreboard or birthday reel,
-that's a **product decision**, not a bug — see roadmap item D-4 below. It must
-be made in all of: `CLUB_IDS` (both files), `normalizeClub` (+ its tests),
-`useBirthdays` gate, and the relevant `gameWindow.clubs` in `shared/schedule.json`.
+Note the signage app (`src/lib/clubs.js`) always covered all six with full art.
 
 ---
 
-## 3. Display-side future possibilities
+## 3. Display-side roadmap — all shipped in v5.2.0
 
-Grounded in real TwoTimTwo endpoints discovered in the site map (see the
-printer repo's `docs/TWOTIMTWO.md` §5–6). All flow through the print server as
-the sole Pusher producer, keeping the privacy invariant intact.
+Each was grounded in a real TwoTimTwo endpoint from the site map (see the
+printer repo's `docs/TWOTIMTWO.md` §5–6). All data flows through the print
+server as the sole Pusher producer, so the privacy invariant is intact.
 
-| # | Idea | Source | Notes |
+| # | Feature | Source | Where it lives |
 |---|---|---|---|
-| D-1 | **Lobby "tonight" ticker** | `/meeting/report?output=csv` | totals of kids in, books completed, awards earned, bring-a-friend count. New event type (`tonight`?) or fold into `tally`. First-name-only if any names appear. |
-| D-2 | **Color-group points scoreboard** | `/meeting/colorGroup` | team points race — a rotating game-time board. Pure numbers, zero PII. |
-| D-3 | **iCal-driven "next meeting" banner** | `/calendar/iCal` | the countdown/schedule engine could learn the real next meeting date (and "No Awana this week") from the authoritative feed instead of only `shared/schedule.json`. Highest-risk area — gate behind the schedule engine's test suite. |
-| D-4 | **Extend celebration to Trek/Journey** | n/a (config) | if desired; see §2 for every place that must change together. |
-| D-5 | **Cancellation alert** | `/msg/admin` | mirror a church cancellation notice as a full-screen "CLUB CANCELLED TONIGHT" slide. |
+| D-1 | **Lobby "tonight" ticker** — counts of kids in, books finished, awards earned, friends brought | `/clubber/checkin_report` + `/meeting/report?output=csv` → `tonight` event | `src/components/TonightTicker.jsx`. Bottom strip; unmounts while a celebration banner is up; hides when stale or all-zero. |
+| D-2 | **Color-team points scoreboard** | `/meeting/colorGroup` → `points` event | `src/presentation/views/ScoreboardView.jsx` + `lib/points.js`. QuickNav-reachable (a points race is a program a church may not run), ranked bars, competition ranking for ties. |
+| D-3 | **Calendar-driven next-meeting awareness** | `/calendar/iCal` → `schedule` event | `src/presentation/lib/scheduleAdvisory.js`. Deliberately an **advisory layer**, not a replacement: pure, in-memory, never persisted, never overwrites canonical or device-local data, and an absent/stale broadcast is a complete no-op. `lib/schedule.js` — the highest-risk file here — gained only a `stateKey` case; no time-boundary logic was touched, and the Playwright boundary suite still passes 10/10. |
+| D-4 | **Trek & Journey included** | n/a (code) | See §2 — this was fixing a silent drop, not a preference. |
+| D-5 | **Cancellation / announcement alert** | `/msg/admin` → `notice` event | `src/components/NoticeBanner.jsx`. A `critical` notice is a full-width top bar above every other layer and renders unconditionally so it also reaches an OBS/ProPresenter feed. Message is rendered as a text child, never `dangerouslySetInnerHTML`, and expires after a few hours so a stale cancellation can't haunt the screen. |
 
-Any feature that would surface a child's photo must gate on the roster's
+Shared helper: `src/lib/freshness.js` — the repo's recurring "is this realtime
+data still worth showing" check, extracted so every consumer ages data out
+identically.
+
+Any future feature that would surface a child's photo must gate on the roster's
 `Photo Release?` value (see the printer repo) — but note nothing photo-related
-can cross the current sanitized channel, and it must stay that way.
+can cross the sanitized channel today, and it must stay that way.
