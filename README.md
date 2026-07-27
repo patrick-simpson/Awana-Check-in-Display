@@ -72,17 +72,45 @@ Pusher runs the realtime pipe between your check-in system and this display. The
    - `key` (a short hex string) — this is the **App Key**.
    - `cluster` (e.g. `us2`) — this is the **Cluster**.
 
+> **Only ever use the `key` and `cluster` here.** The same page shows an
+> `app_id` and a `secret` — those belong on the *publisher* (the print server),
+> never in this repo. The secret allows publishing to your screens, so anyone
+> who obtains it can put text on your projector.
+>
+> Note also that the App Key is **public by design**: this is a browser app, so
+> the key ships to every visitor and anyone can subscribe to the channel with
+> it. That is safe only because the payload contract is PII-free — see
+> [SECURITY.md](SECURITY.md) for exactly what a subscriber can see.
+
 ## 4. Configure your app
 
 Pick whichever is easier — most people use the Settings panel.
 
-### Option A — the Settings panel (no code, per-device)
+### Option A — the Settings panel (recommended)
+
+Keeps the key in the browser's local storage on that device, so it never enters
+your repository and is not inherited by anyone who forks it.
 
 1. Open your deployed app (see step 6).
 2. Move the mouse to wake the gear icon in the bottom-left corner, and click it. (Keyboard shortcut: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.)
 3. Paste the **Pusher App Key** and **Cluster**, fill in the PowerPoint link and start time, click **Save**.
 
+Repeat once per screen. For a single projector — the usual case — that is one
+device, and it is the least error-prone route.
+
 ### Option B — edit `src/config.js` (applies to every visitor)
+
+Convenient if you run several screens and don't want to configure each one.
+Understand the trade-off first:
+
+- The key is **committed to your repository** and built into the deployed
+  bundle, so it is readable by anyone who visits the site or views the repo, and
+  it is **inherited by anyone who forks it**. For the App Key that is a
+  disclosure you have already accepted by deploying a browser app (see the note
+  in step 3) — but it does mean a fork of your repo starts out publishing to
+  *your* Pusher app until its owner changes it.
+- Never put the Pusher **secret** or **app_id** here. They are not needed by the
+  display and must stay on the print server.
 
 Open `src/config.js` on GitHub (pencil icon to edit in-browser) and fill in:
 
@@ -94,6 +122,11 @@ countdownTargetTime: '18:30',
 ```
 
 Commit the change. A new build deploys in about a minute.
+
+> **Forking someone else's deployment?** Clear `pusherAppKey` in `src/config.js`
+> and put your own church's key in, or you will be subscribed to their channel
+> and showing their children's names on your screen. See
+> [SECURITY.md](SECURITY.md).
 
 #### Getting the OneDrive embed URL
 
