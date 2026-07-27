@@ -62,14 +62,65 @@
  * @property {string} [nonce]
  */
 
+/**
+ * `tonight` (contract v3) — aggregate counters for the lobby ticker.
+ * Structurally numbers-only: no field here can carry a name.
+ * @typedef {Object} TonightEvent
+ * @property {number} checkedIn
+ * @property {number} booksCompleted
+ * @property {number} awardsEarned
+ * @property {number} friendsBrought
+ * @property {number} at Epoch ms.
+ */
+
+/**
+ * `points` (contract v3) — color-team points race. Keys are team names
+ * ("Red", "Blue"), never child names.
+ * @typedef {Object} PointsEvent
+ * @property {Record<string, number>} groups
+ * @property {number} at Epoch ms.
+ * @property {string} [club]
+ */
+
+/**
+ * `schedule` (contract v3) — next-meeting facts from the check-in
+ * system's calendar feed. Bare calendar date only; no attendee data.
+ * @typedef {Object} ScheduleEvent
+ * @property {number} at Epoch ms.
+ * @property {string} [nextMeetingDate] Strict YYYY-MM-DD.
+ * @property {string} [title] Church-authored public meeting theme.
+ * @property {boolean} [noClubThisWeek]
+ */
+
+/**
+ * `notice` (contract v3) — a church-authored announcement mirrored to
+ * the screens (e.g. "CLUB CANCELLED TONIGHT").
+ *
+ * PRIVACY NOTE: `message` is the ONLY free-text field on the channel. It
+ * is copy written BY church staff FOR public display, so it is shown
+ * verbatim by design — but it is bounded and forced to plain text here
+ * so it can neither inject markup nor break a fixed-height banner. It is
+ * never derived from roster data.
+ * @typedef {Object} NoticeEvent
+ * @property {'info'|'warn'|'critical'} level
+ * @property {string} message
+ * @property {number} at Epoch ms.
+ */
+
 const NAME_MAX = 40;
 const ID_MAX = 64;
 const RECAP_MAX = 30;
 const BIRTHDAYS_MAX = 40;
 const TALLY_CLUBS_MAX = 30;
+const POINTS_GROUPS_MAX = 20;
+const NOTICE_MAX = 200;
+const TITLE_MAX = 60;
 
 /** @type {ReadonlyArray<OpsEvent['type']>} */
 const OPS_TYPES = ['print-failure', 'canary', 'selector-fail'];
+/** @type {ReadonlyArray<NoticeEvent['level']>} */
+const NOTICE_LEVELS = ['info', 'warn', 'critical'];
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * @param {unknown} v
@@ -78,6 +129,34 @@ const OPS_TYPES = ['print-failure', 'canary', 'selector-fail'];
  */
 function cleanString(v, max) {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
+}
+
+/**
+ * Bounded plain text for the one free-text display field (`notice`):
+ * strips anything markup-shaped and collapses whitespace/newlines.
+ * @param {unknown} v
+ * @param {number} max
+ * @returns {string}
+ */
+function plainText(v, max) {
+  if (typeof v !== 'string') return '';
+  return v
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[<>]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+/**
+ * Whole non-negative count, or null when the value isn't a usable number
+ * (so a name smuggled into a counter is refused, never coerced).
+ * @param {unknown} v
+ * @returns {number | null}
+ */
+function wholeCount(v) {
+  if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) return null;
+  return Math.floor(v);
 }
 
 // ISO string or epoch → epoch ms, or null when unparseable.
@@ -228,4 +307,94 @@ export function sanitizeCanary(payload) {
   const nonce = cleanString(raw.nonce, ID_MAX);
   if (nonce) safe.nonce = nonce;
   return safe;
+}
+
+/**
+ * `tonight` — aggregate counters for the lobby ticker. Every field is a
+ * whole count; a non-numeric counter is refused rather than coerced, and
+ * no other key (e.g. a list of kids) can survive the rebuild.
+ * @param {unknown} payload
+ * @returns {TonightEvent | null}
+ */
+export function sanitizeTonight(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const raw = /** @type {Record<string, unknown>} */ (payload);
+  const at = toEpochMs(raw.at);
+  if (at === null) return null;
+  return {
+    checkedIn: wholeCount(raw.checkedIn) ?? 0,
+    booksCompleted: wholeCount(raw.booksCompleted) ?? 0,
+    awardsEarned: wholeCount(raw.awardsEarned) ?? 0,
+    friendsBrought: wholeCount(raw.friendsBrought) ?? 0,
+    at,
+  };
+}
+
+/**
+ * `points` — color-team points race. Numbers only: a name smuggled in as
+ * a point value is dropped, exactly like `tally`.
+ * @param {unknown} payload
+ * @returns {PointsEvent | null}
+ */
+export function sanitizePoints(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const obj = /** @type {Record<string, unknown>} */ (payload);
+  const raw = obj.groups;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const at = toEpochMs(obj.at);
+  if (at === null) return null;
+  /** @type {Record<string, number>} */
+  const groups = {};
+  for (const [group, n] of Object.entries(raw).slice(0, POINTS_GROUPS_MAX)) {
+    const value = wholeCount(n);
+    if (value === null) continue;
+    const key = cleanString(group, NAME_MAX);
+    if (!key) continue;
+    groups[key] = value;
+  }
+  /** @type {PointsEvent} */
+  const safe = { groups, at };
+  const club = cleanString(obj.club, NAME_MAX);
+  if (club) safe.club = club;
+  return safe;
+}
+
+/**
+ * `schedule` — next-meeting facts. The date must be a strict calendar
+ * date or it is dropped (never rendered as free text), and nothing else
+ * from an iCal feed (attendees, organizer, location) can survive.
+ * @param {unknown} payload
+ * @returns {ScheduleEvent | null}
+ */
+export function sanitizeSchedule(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const raw = /** @type {Record<string, unknown>} */ (payload);
+  const at = toEpochMs(raw.at);
+  if (at === null) return null;
+  /** @type {ScheduleEvent} */
+  const safe = { at };
+  const date = cleanString(raw.nextMeetingDate, 10);
+  if (ISO_DATE_RE.test(date)) safe.nextMeetingDate = date;
+  const title = plainText(raw.title, TITLE_MAX);
+  if (title) safe.title = title;
+  if (typeof raw.noClubThisWeek === 'boolean') safe.noClubThisWeek = raw.noClubThisWeek;
+  return safe;
+}
+
+/**
+ * `notice` — church-authored public announcement. An unknown level falls
+ * back to 'info' rather than being trusted, and an empty message is
+ * refused so a blank notice can never blank the screen.
+ * @param {unknown} payload
+ * @returns {NoticeEvent | null}
+ */
+export function sanitizeNotice(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const raw = /** @type {Record<string, unknown>} */ (payload);
+  const at = toEpochMs(raw.at);
+  if (at === null) return null;
+  const message = plainText(raw.message, NOTICE_MAX);
+  if (!message) return null;
+  const level = NOTICE_LEVELS.find((l) => l === raw.level) || 'info';
+  return { level, message, at };
 }

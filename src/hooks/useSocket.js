@@ -5,9 +5,13 @@ import {
   sanitizeBirthdays,
   sanitizeCanary,
   sanitizeCheckin,
+  sanitizeNotice,
   sanitizeOps,
+  sanitizePoints,
   sanitizeRecap,
+  sanitizeSchedule,
   sanitizeTally,
+  sanitizeTonight,
 } from '../lib/eventSanitizers.js';
 
 // PRIVACY INVARIANT — DO NOT relax. Every event type on the channel is
@@ -23,6 +27,10 @@ const EVENT_SANITIZERS = {
   birthdays: sanitizeBirthdays,
   ops: sanitizeOps,
   canary: sanitizeCanary,
+  tonight: sanitizeTonight,
+  points: sanitizePoints,
+  schedule: sanitizeSchedule,
+  notice: sanitizeNotice,
 };
 
 // Handler-prop name for each wire event ('checkin' → onCheckin, …).
@@ -33,13 +41,18 @@ const HANDLER_NAMES = {
   birthdays: 'onBirthdays',
   ops: 'onOps',
   canary: 'onCanary',
+  tonight: 'onTonight',
+  points: 'onPoints',
+  schedule: 'onSchedule',
+  notice: 'onNotice',
 };
 
 /**
  * Subscribes to `awana-channel` and forwards each event type to its
  * handler after sanitizing:
  *
- *   useSocket({ onCheckin, onRecap, onTally, onBirthdays, onOps, onCanary })
+ *   useSocket({ onCheckin, onRecap, onTally, onBirthdays, onOps, onCanary,
+ *              onTonight, onPoints, onSchedule, onNotice })
  *
  * A bare function is accepted as shorthand for `{ onCheckin }`.
  * Returns { status, lastEventAt, lastCheckinAt, retry }.

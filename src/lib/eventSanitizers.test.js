@@ -4,9 +4,13 @@ import {
   sanitizeBirthdays,
   sanitizeCanary,
   sanitizeCheckin,
+  sanitizeNotice,
   sanitizeOps,
+  sanitizePoints,
   sanitizeRecap,
+  sanitizeSchedule,
   sanitizeTally,
+  sanitizeTonight,
 } from './eventSanitizers.js';
 
 // Data-driven over the mirrored contract vectors: every valid vector
@@ -19,6 +23,10 @@ const SANITIZERS = {
   birthdays: sanitizeBirthdays,
   ops: sanitizeOps,
   canary: sanitizeCanary,
+  tonight: sanitizeTonight,
+  points: sanitizePoints,
+  schedule: sanitizeSchedule,
+  notice: sanitizeNotice,
 };
 
 // The exact key set each sanitizer may emit (checkin `at` becomes epoch
@@ -30,11 +38,15 @@ const ALLOWED_KEYS = {
   birthdays: ['entries'],
   ops: ['type', 'club', 'at'],
   canary: ['at', 'nonce'],
+  tonight: ['checkedIn', 'booksCompleted', 'awardsEarned', 'friendsBrought', 'at'],
+  points: ['groups', 'at', 'club'],
+  schedule: ['at', 'nextMeetingDate', 'title', 'noClubThisWeek'],
+  notice: ['level', 'message', 'at'],
 };
 
-describe('contract vectors are the v2 contract', () => {
-  it('is contract version 2 on awana-channel', () => {
-    expect(vectors.contractVersion).toBe(2);
+describe('contract vectors are the v3 contract', () => {
+  it('is contract version 3 on awana-channel', () => {
+    expect(vectors.contractVersion).toBe(3);
     expect(vectors.channel).toBe('awana-channel');
   });
 
