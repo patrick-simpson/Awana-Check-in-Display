@@ -94,17 +94,15 @@ export function useSocket(handlers) {
       setSocketStatus('disconnected');
     });
 
-    for (const [event, sanitizeEvent] of Object.entries(EVENT_SANITIZERS)) {
+    // Bind every contract event. The sanitizing + handler lookup lives in
+    // dispatchEvent so the debug panel's simulated events use the identical
+    // path — see simulateEvent below.
+    for (const event of Object.keys(EVENT_SANITIZERS)) {
       channel.bind(event, (payload) => {
-        const safe = sanitizeEvent(payload);
+        const safe = dispatchEvent(event, payload, handlersRef.current);
         if (!safe) return;
         setLastEventAt(Date.now());
         if (event === 'checkin') setLastCheckinAt(Date.now());
-        const h = handlersRef.current;
-        const fn = typeof h === 'function'
-          ? (event === 'checkin' ? h : null)
-          : h?.[HANDLER_NAMES[event]];
-        fn?.(safe);
       });
     }
 
@@ -152,3 +150,67 @@ export function useSocket(handlers) {
 // privacy tests guard it under this name. It now lives with its five
 // siblings in src/lib/eventSanitizers.js.
 export { sanitizeCheckin as sanitize };
+
+/**
+ * Sanitize one wire payload and hand it to its bound handler.
+ *
+ * PRIVACY INVARIANT — this is the ONE dispatch path. The live Pusher binding
+ * above calls it, and so does `simulateEvent()` below, so a simulated event is
+ * filtered by exactly the same allowlist sanitizer as a real one. Before this
+ * was factored out, the debug panel called the render handlers directly and
+ * every simulated payload bypassed the privacy boundary entirely — the one
+ * thing this app's docs insist is inviolable.
+ *
+ * Returns the sanitized payload, or null when the sanitizer rejected it.
+ *
+ * @param {string} event Wire event name (a key of EVENT_SANITIZERS).
+ * @param {unknown} payload Raw payload.
+ * @param {*} handlers The handlers object (or bare checkin function).
+ * @returns {object|null}
+ */
+export function dispatchEvent(event, payload, handlers) {
+  const sanitizeEvent = EVENT_SANITIZERS[event];
+  if (!sanitizeEvent) {
+    console.warn(`[socket] Ignoring unknown event '${event}'`);
+    return null;
+  }
+  const safe = sanitizeEvent(payload);
+  if (!safe) return null;
+  const fn = typeof handlers === 'function'
+    ? (event === 'checkin' ? handlers : null)
+    : handlers?.[HANDLER_NAMES[event]];
+  fn?.(safe);
+  return safe;
+}
+
+/**
+ * Inject a simulated event — the debug panel's only route to the screen.
+ *
+ * Goes through `dispatchEvent`, so a malformed fake payload is dropped exactly
+ * as a malformed real one would be. That makes the debug panel double as a live
+ * contract check: if a simulator's shape drifts from the sanitizer's allowlist,
+ * pressing the button visibly does nothing instead of rendering something the
+ * wire could never actually deliver.
+ *
+ * Logs rejections, because "I pressed the button and nothing happened" is
+ * otherwise indistinguishable from a broken screen.
+ *
+ * @param {string} event
+ * @param {unknown} payload
+ * @param {*} handlers
+ * @returns {boolean} true when the event reached its handler.
+ */
+export function simulateEvent(event, payload, handlers) {
+  const safe = dispatchEvent(event, payload, handlers);
+  if (!safe) {
+    console.warn(
+      `[debug] Simulated '${event}' was REJECTED by its sanitizer — the fake payload does not match the contract`,
+      payload,
+    );
+    return false;
+  }
+  return true;
+}
+
+/** Event names the debug panel may simulate. */
+export const SIMULATABLE_EVENTS = Object.keys(EVENT_SANITIZERS);

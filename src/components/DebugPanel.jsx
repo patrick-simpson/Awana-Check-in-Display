@@ -1,15 +1,9 @@
 import { getAllClubs } from '../lib/clubs.js';
-
-// Obviously-fake names only: a simulated banner on the lobby TV must
-// never look like (or match) a real kid checking in.
-const SAMPLE_NAMES = ['Test Kid', 'Demo Kid', 'Sample Star', 'Pretend Pal', 'Practice Run'];
-
-function pick(list) {
-  return list[Math.floor(Math.random() * list.length)];
-}
+import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 
 export default function DebugPanel({
-  onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice, onClose,
+  onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice,
+  onSimulateTally, onClose,
   status, lastEventAt, pending, phase, seenStats, opsFailures, wakeLockStatus,
 }) {
   const standard = () => onSimulate({
@@ -84,6 +78,28 @@ export default function DebugPanel({
     level: 'info', message: 'Bring your Bible next week for double shares!', at: Date.now(),
   });
 
+  // A tally is what drives the per-club milestone path and the corner counter.
+  // Numbers only — this event structurally cannot carry a name.
+  const tally = () => {
+    const clubs = getAllClubs().slice(0, 4);
+    const counts = {};
+    let total = 0;
+    clubs.forEach((club, i) => {
+      const n = 9 + i * 7;
+      counts[club] = n;
+      total += n;
+    });
+    onSimulateTally?.({ counts, total, at: Date.now() });
+  };
+
+  // NOTE: there is deliberately no `birthdays` simulator here. That event is
+  // the weekly ROSTER broadcast, consumed only by the projector page
+  // (countdown.html); the signage banners' birthday mode comes from the
+  // `isBirthday` flag on a checkin event, which the birthday button above
+  // already covers. A button that provably renders nothing is worse than no
+  // button. The projector page still has no simulator UI at all — that belongs
+  // with the projector work, not here.
+
   const seen = seenStats?.() ?? { size: 0 };
 
   return (
@@ -110,6 +126,7 @@ export default function DebugPanel({
       <button onClick={everyClub}>Trigger every club</button>
       {onSimulateRecap && <button onClick={recap}>Simulate recap replay (quiet banners)</button>}
       {onSimulateOps && <button onClick={printFailure}>Simulate print failure (ops)</button>}
+      {onSimulateTally && <button onClick={tally}>Simulate club tally (counts)</button>}
       {onSimulateTonight && <button onClick={tonight}>Show tonight ticker</button>}
       {onSimulateNotice && <button onClick={noticeCritical}>Show cancellation alert</button>}
       {onSimulateNotice && <button onClick={noticeInfo}>Show info notice</button>}

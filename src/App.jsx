@@ -15,7 +15,7 @@ import { Mark } from './components/Doodles.jsx';
 import StickerChip from './components/StickerChip.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
-import { useSocket } from './hooks/useSocket.js';
+import { useSocket, simulateEvent } from './hooks/useSocket.js';
 import { useSeenEvents } from './hooks/useSeenEvents.js';
 import { useSchedule } from './hooks/useSchedule.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
@@ -170,6 +170,24 @@ export default function App() {
   }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice]);
 
   const { status, lastEventAt, retry } = useSocket(socketHandlers);
+
+  // ── Simulated events go through the SAME sanitizers as real ones ────────────
+  // The debug panel used to call these handlers directly, so every fake payload
+  // bypassed the privacy boundary — the one thing this app is built around.
+  // Routing them through `simulateEvent` means a malformed fake is dropped
+  // exactly as a malformed real event would be, which also turns the panel into
+  // a live contract check: if a simulator's shape drifts from the allowlist, the
+  // button visibly does nothing (and logs why) instead of rendering something
+  // the wire could never deliver.
+  //
+  // `demoActive` drives the on-screen badge. Once set it stays set for the rest
+  // of the session: a training run must never be mistakable for real check-ins,
+  // and "the badge quietly disappeared" is exactly how that mistake happens.
+  const [demoActive, setDemoActive] = useState(false);
+  const simulate = useCallback((event, payload) => {
+    setDemoActive(true);
+    return simulateEvent(event, payload, socketHandlers);
+  }, [socketHandlers]);
 
   const wakeLockStatus = useWakeLock(config.keepScreenAwake);
 
@@ -521,6 +539,17 @@ export default function App() {
         </div>
       )}
 
+      {/* Once a simulated event has been fired, say so for the rest of the
+          session. A volunteer walking past the lobby TV during training must
+          never mistake a fake banner for a real child arriving — and a badge
+          that timed out would defeat that at exactly the wrong moment. Cleared
+          only by reloading, which is also how you leave demo mode. */}
+      {demoActive && (
+        <div className="demo-pill" title="A simulated event has been fired on this screen. Reload to clear.">
+          demo mode — not real check-ins
+        </div>
+      )}
+
       {!overlay && (
         <button
           className={`settings-gear ${gearIdle ? 'idle' : ''}`}
@@ -548,7 +577,7 @@ export default function App() {
             onChange={updateConfig}
             onReset={resetConfig}
             onClose={() => setSettingsOpen(false)}
-            onTest={handleCheckIn}
+            onTest={(p) => simulate('checkin', p)}
             onResetTally={resetTally}
             onOpenSlideEditor={() => {
               setSettingsOpen(false);
@@ -572,11 +601,12 @@ export default function App() {
       {debugOpen && (
         <ErrorBoundary label="debug-panel" onError={() => setDebugOpen(false)}>
           <DebugPanel
-            onSimulate={handleCheckIn}
-            onSimulateRecap={handleRecap}
-            onSimulateOps={recordOps}
-            onSimulateTonight={handleTonight}
-            onSimulateNotice={handleNotice}
+            onSimulate={(p) => simulate('checkin', p)}
+            onSimulateRecap={(p) => simulate('recap', p)}
+            onSimulateOps={(p) => simulate('ops', p)}
+            onSimulateTally={(p) => simulate('tally', p)}
+            onSimulateTonight={(p) => simulate('tonight', p)}
+            onSimulateNotice={(p) => simulate('notice', p)}
             onClose={() => setDebugOpen(false)}
             status={status}
             lastEventAt={lastEventAt}

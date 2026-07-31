@@ -3,10 +3,7 @@ import { deleteDeck, getDeck, putDeck } from '../lib/pptxStore.js';
 import { parseAndCacheDeck } from '../lib/pptxModel.js';
 import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
-
-// Obviously-fake names only: a preview banner on the lobby TV must
-// never look like (or match) a real kid checking in.
-const TEST_NAMES = ['Test Kid', 'Demo Kid', 'Sample Star', 'Pretend Pal', 'Practice Run'];
+import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 
 const TABS = [
   { id: 'connection', label: 'Connection' },
@@ -138,7 +135,7 @@ export default function SettingsPanel({
 
   const sendTest = () => {
     onTest?.({
-      firstName: TEST_NAMES[Math.floor(Math.random() * TEST_NAMES.length)],
+      firstName: pick(SAMPLE_NAMES),
       club: 'Sparks',
     });
     onClose(); // get out of the way so the banner is visible

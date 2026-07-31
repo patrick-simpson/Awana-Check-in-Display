@@ -1747,6 +1747,29 @@ input:focus-visible {
   pointer-events: none;
 }
 
+/* Demo-mode badge. Sits TOP-centre rather than bottom so it can't be confused
+   with the simplified-mode pill, and is deliberately louder (red, no rotation):
+   its whole job is to stop someone reading a simulated banner as a real child
+   arriving. Above the banner z-index so a burst of fake check-ins can't cover
+   it. */
+.demo-pill {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(120, 20, 24, 0.9);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 120, 120, 0.55);
+  z-index: 60;
+  pointer-events: none;
+}
+
 /* ── Local .pptx renderer ──────────────────────────────────────────── */
 .pptx-stage {
   display: flex;
