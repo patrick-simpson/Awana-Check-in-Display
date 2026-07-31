@@ -1800,30 +1800,11 @@ input:focus-visible {
 /* Recolor the ambient stage decorations for special nights. Banners
    keep club colors — the skin dresses the room, not the kids. */
 .stage[data-skin] .placeholder-eyebrow { letter-spacing: 0.14em; }
-.stage[data-skin='autumn'] {
-  --skin-a: #d97706;
-  --skin-b: #7c2d12;
-}
-.stage[data-skin='christmas'] {
-  --skin-a: #dc2626;
-  --skin-b: #14532d;
-}
-.stage[data-skin='summer'] {
-  --skin-a: #0ea5e9;
-  --skin-b: #fbbf24;
-}
-.stage[data-skin='spring'] {
-  --skin-a: #22c55e;
-  --skin-b: #f472b6;
-}
-.stage[data-skin='harvest'] {
-  --skin-a: #b45309;
-  --skin-b: #4d7c0f;
-}
-.stage[data-skin='snowday'] {
-  --skin-a: #38bdf8;
-  --skin-b: #e0f2fe;
-}
+/* --skin-a / --skin-b are set INLINE by App.jsx from SKIN_TABLE
+   (src/lib/skins.js), not listed per-skin here. They used to be duplicated in
+   this file, which made adding a season a five-file edit and meant the CSS
+   could silently disagree with the JS. The table is now the only place the
+   colours live. */
 .stage[data-skin] .background-placeholder .placeholder-copy h1 {
   background: linear-gradient(120deg, var(--skin-a), var(--skin-b));
   -webkit-background-clip: text;
@@ -2022,4 +2003,24 @@ input:focus-visible {
 }
 .milestone-toast.night-milestone .milestone-count {
   font-size: 2.1rem;
+}
+
+/* ── Weather mood over the season's scene ──────────────────────────────
+   The season picks the scene (background, waves, doodles); the weather only
+   cools and dims it. Implemented as a filter on the scene container rather
+   than a palette swap so a chosen skin (VBS, Easter) is never replaced by the
+   weather — and so club banners, which live outside the scene, keep their
+   catalog colours untouched.
+
+   --scene-dim is set inline by CatalogScene and clamped to >= 0.6, so this can
+   never black out the room. A cozy night reads as dusk indoors, not a fault. */
+.catalog-scene {
+  --scene-dim: 1;
+}
+.catalog-scene--cozy {
+  filter: brightness(var(--scene-dim)) saturate(0.86);
+  transition: filter 1.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .catalog-scene--cozy { transition: none; }
 }

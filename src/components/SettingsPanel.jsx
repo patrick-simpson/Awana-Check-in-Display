@@ -4,6 +4,7 @@ import { parseAndCacheDeck } from '../lib/pptxModel.js';
 import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
 import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
+import { NIGHT_THEME_VALUES, skinOptions } from '../lib/skins.js';
 
 const TABS = [
   { id: 'connection', label: 'Connection' },
@@ -36,9 +37,11 @@ export default function SettingsPanel({
     panicMode: !!config.panicMode,
     showClock: !!config.showClock,
     widgetDisplayMode: config.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
-    nightTheme: ['auto', 'autumn', 'christmas', 'summer', 'spring', 'harvest', 'snowday'].includes(config.nightTheme)
-      ? config.nightTheme
-      : 'none',
+    // Reads the one skin table. When this repeated the ids by hand, a saved
+    // skin the list had never heard of (thanksgiving, easter, vbs) was silently
+    // reset to 'none' the moment Settings was opened.
+    nightTheme: NIGHT_THEME_VALUES.includes(config.nightTheme) ? config.nightTheme : 'none',
+    weatherTheme: config.weatherTheme === true,
     confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
     burstFloorMs: config.burstFloorMs ?? 2500,
     clubMilestoneEvery: config.clubMilestoneEvery ?? 10,
@@ -549,18 +552,24 @@ function DisplayTab({ form, set }) {
         <label htmlFor="nightTheme">Themed night skin</label>
         <select id="nightTheme" value={form.nightTheme} onChange={set('nightTheme')}>
           <option value="none">None (classic)</option>
-          <option value="auto">Auto (by season)</option>
-          <option value="spring">Spring</option>
-          <option value="summer">Summer</option>
-          <option value="autumn">Autumn</option>
-          <option value="harvest">Harvest</option>
-          <option value="christmas">Christmas</option>
-          <option value="snowday">Snow day</option>
+          {/* Generated from SKIN_TABLE so a new season needs one edit, not five. */}
+          {skinOptions().filter((o) => o.value !== 'none').map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
         <span className="hint">
-          Recolors the stage decorations for special nights. Banners keep their club colors.
+          Dresses the stage for the season. Banners always keep their club colors.
+          Auto reads tonight&apos;s calendar title (Easter, VBS, Thanksgiving&hellip;) and
+          falls back to the month.
         </span>
       </div>
+
+      <Toggle
+        checked={form.weatherTheme === true}
+        onChange={set('weatherTheme')}
+        title="Let the weather set the mood"
+        hint="A rainy or snowy night cools and dims the background scene. The season still picks the colors, so a chosen skin never disappears in bad weather. Needs a weather location set under Calendar & Weather."
+      />
 
       <div className="field">
         <label htmlFor="clubMilestone">Club milestone celebration (every N per club)</label>

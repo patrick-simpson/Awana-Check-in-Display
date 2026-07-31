@@ -70,11 +70,14 @@ The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
   remains canonical for anything structural.
 - **Isolation rule**: `src/presentation/` may import from the existing
   app ONLY `src/hooks/useSocket.js`, `src/hooks/useConfig.js`,
-  `src/hooks/useWakeLock.js`, and `src/lib/weather.js` (its realtime
-  data must flow through the sanitized socket — never a second Pusher
-  stack; the wake-lock and Open-Meteo fetchers are shared so the two
-  pages can't drift apart). Nothing in the signage app imports from
-  `src/presentation/`.
+  `src/hooks/useWakeLock.js`, `src/lib/weather.js`, and
+  `src/lib/skins.js`. Its realtime data must flow through the sanitized
+  socket — never a second Pusher stack; the wake-lock, Open-Meteo
+  fetcher and skin table are shared so the two pages can't drift apart.
+  (The skin table earned its place after the two screens disagreed about
+  the season: November read as `harvest` on signage and `winter` on the
+  projector, from two separate month tables.) Nothing in the signage app
+  imports from `src/presentation/`.
 - `shared/` at the repo root is served at `/shared/` (dev middleware +
   build copy in vite.config.js) for the whole Awana app family; this
   repo's copy is the canonical one (KVBC-Awana-Countdown is retired).

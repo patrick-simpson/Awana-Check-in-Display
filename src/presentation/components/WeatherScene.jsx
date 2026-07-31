@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLowPower } from '../hooks/useLowPower.js';
+import { autoSkin } from '../../lib/skins.js';
 
 // ── Rain ──
 const RAINDROPS = Array.from({ length: 60 }, (_, i) => ({
@@ -65,12 +66,28 @@ const SHOOTING_STARS = Array.from({ length: 3 }, (_, i) => ({
 }));
 
 // ── Seasonal elements ──
+// Derived from the shared skin table (src/lib/skins.js, on the presentation
+// import allowlist) rather than a second month table of its own. The two used
+// to disagree — November was 'harvest' on the signage side and 'winter' here —
+// so the same evening could be autumn on one screen and winter on the other.
+//
+// The ambient layer only needs a coarse bucket (which particles to drop), so
+// the fine-grained skins collapse onto four.
+const SKIN_SEASONS = {
+  spring: 'spring',
+  easter: 'spring',
+  summer: 'summer',
+  vbs: 'summer',
+  autumn: 'autumn',
+  harvest: 'autumn',
+  thanksgiving: 'autumn',
+  backtoschool: 'autumn',
+  christmas: 'winter',
+  snowday: 'winter',
+};
+
 function getSeason() {
-  const month = new Date().getMonth();
-  if (month >= 2 && month <= 4) return 'spring';
-  if (month >= 5 && month <= 7) return 'summer';
-  if (month >= 8 && month <= 10) return 'autumn';
-  return 'winter';
+  return SKIN_SEASONS[autoSkin(new Date())] ?? 'winter';
 }
 
 const AUTUMN_LEAVES = Array.from({ length: 15 }, (_, i) => ({

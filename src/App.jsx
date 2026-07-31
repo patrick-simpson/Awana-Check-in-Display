@@ -25,7 +25,8 @@ import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad } from './lib/confetti.js';
-import { resolveSkin } from './lib/skins.js';
+import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
+import { weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
 import { crossedMilestones, isBigMilestone, nightMilestoneCopy } from './lib/milestones.js';
 import { sanitizeOverrides } from './hooks/useConfig.js';
@@ -241,7 +242,11 @@ export default function App() {
   // The corner chip works over any background source — it's an overlay
   // widget like the clock, not part of the slide rotation.
   const showWeatherChip = config.showWeatherChip !== false;
-  const weather = useWeather(config, showWeatherChip && !FLAGS.overlay);
+  // Fetch when EITHER the chip or weather theming needs it. Gating solely on
+  // the chip meant hiding one small corner widget silently stopped the whole
+  // room responding to the weather — a coupling nobody would guess.
+  const weatherTheme = config.weatherTheme === true;
+  const weather = useWeather(config, (showWeatherChip || weatherTheme) && !FLAGS.overlay);
 
   const calendarSlides = config.calendarEnabled
     ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr), config)
@@ -300,7 +305,23 @@ export default function App() {
   // Themed skin — 'auto' resolves by season, and because it derives
   // from todayStr it rolls over at midnight without a reload, like
   // everything else date-derived. Noon avoids TZ edge cases.
-  const skin = resolveSkin(config.nightTheme, new Date(`${todayStr}T12:00:00`));
+  // Tonight's calendar title lets 'auto' pick Easter / VBS / Thanksgiving,
+  // none of which a month table can express (floating, lunar, or
+  // church-scheduled). Falls back to the month when nothing matches.
+  const tonightTitle = useMemo(
+    () => deriveClubInfo(calendar.events, todayStr)?.today?.title ?? null,
+    [calendar.events, todayStr],
+  );
+  const skin = resolveSkin(config.nightTheme, new Date(`${todayStr}T12:00:00`), tonightTitle);
+
+  // The season picks the scene; the weather only adds atmosphere over it, so a
+  // deliberately-chosen VBS skin doesn't vanish because it started raining.
+  const sceneTheme = sceneForSkin(skin);
+  const skinAccents = SKIN_TABLE[skin] ?? null;
+  const mood = useMemo(
+    () => (weatherTheme ? weatherMood(weather) : { cozy: false, dim: 1, reason: 'off' }),
+    [weatherTheme, weather],
+  );
 
   // Reveal the gear on any mouse movement, fade it after 3 seconds of stillness.
   useEffect(() => {
@@ -374,7 +395,11 @@ export default function App() {
     <div
       className={`stage ${overlay ? 'overlay' : ''}`}
       data-skin={skin !== 'none' ? skin : undefined}
-      style={chroma ? { background: chroma } : undefined}
+      style={{
+        ...(chroma ? { background: chroma } : null),
+        // Accent pair straight from SKIN_TABLE — see the note in app.css.
+        ...(skinAccents ? { '--skin-a': skinAccents.a, '--skin-b': skinAccents.b } : null),
+      }}
       ref={stageRef}
       onDoubleClick={toggleFullscreen}
     >
@@ -390,6 +415,9 @@ export default function App() {
             backgroundSource={config.backgroundSource}
             manualSlides={config.manualSlides}
             calendarSlides={calendarSlides}
+            sceneTheme={sceneTheme ?? 'sky'}
+            cozy={mood.cozy}
+            dim={mood.dim}
           />
         </ErrorBoundary>
       )}

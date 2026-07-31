@@ -57,6 +57,9 @@ function isOneDrivePptx(url) {
 export default function BackgroundIframe({
   url, slideshowDelaySec, useLocalSlideshow, backgroundSource, manualSlides,
   calendarSlides,
+  // The season's scene theme, and the weather's atmosphere modifier over it.
+  // Both default to today's behaviour so an unthemed install looks unchanged.
+  sceneTheme = 'sky', cozy = false, dim = 1,
 }) {
   // Uploaded .pptx deck rendered locally (Settings → Background →
   // "Uploaded PowerPoint"). Whole-deck failure falls back to the URL
@@ -73,7 +76,7 @@ export default function BackgroundIframe({
       />
     ) : (
       <div className="background-placeholder">
-        <CatalogScene theme="sky">
+        <CatalogScene theme={sceneTheme} cozy={cozy} dim={dim}>
           <div className="placeholder-copy">
             <span className="placeholder-eyebrow">Awana Clubs</span>
             <h1>Upload a PowerPoint<br />in Settings</h1>
@@ -102,7 +105,7 @@ export default function BackgroundIframe({
   if (backgroundSource === 'manual' || !url) {
     return (
       <div className="background-placeholder">
-        <CatalogScene theme="sky">
+        <CatalogScene theme={sceneTheme} cozy={cozy} dim={dim}>
           <div className="placeholder-copy">
             {/* Gentle shimmer + breath keep the welcome screen feeling
                 alive between check-ins; both loops are subtle enough to

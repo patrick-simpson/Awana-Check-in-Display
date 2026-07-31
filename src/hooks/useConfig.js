@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import defaults from '../config.js';
 import { sanitizeSlides } from '../lib/slides.js';
+import { NIGHT_THEME_VALUES } from '../lib/skins.js';
 
 const STORAGE_KEY = 'awanaConfig.v1';
 
@@ -40,7 +41,10 @@ const VALIDATORS = {
   recapMaxAgeMin: numberBetween(1, 240),
   panicMode: isBool,
   clubMilestoneEvery: numberBetween(0, 1000),
-  nightTheme: (v) => ['none', 'auto', 'autumn', 'christmas', 'summer', 'spring', 'harvest', 'snowday'].includes(v),
+  // Reads the one skin table rather than repeating its ids — adding a season
+  // used to mean editing this list, skins.js, the Settings dropdown and the CSS.
+  nightTheme: (v) => NIGHT_THEME_VALUES.includes(v),
+  weatherTheme: isBool,
   calendarWelcomeText: isString,
   calendarShowWelcome: isBool,
   calendarShowNextWeek: isBool,

@@ -170,11 +170,24 @@ const config = {
   // broadcasts) crosses a multiple of this. 0 disables.
   clubMilestoneEvery: 10,
 
-  // Themed night skin: 'none' | 'auto' | 'autumn' | 'christmas' |
-  // 'summer' | 'spring' | 'harvest' | 'snowday'. Recolors the stage
-  // decorations for special nights; 'auto' picks by calendar month so
-  // the display dresses itself for the season.
+  // Themed night skin: 'none' | 'auto' | a skin id. The ids live in ONE
+  // place — SKIN_TABLE in src/lib/skins.js — which also carries each
+  // skin's accent colors, its scene theme, and the calendar-title
+  // keywords that select it.
+  //
+  // 'auto' reads tonight's church calendar title first (so Easter, VBS,
+  // Thanksgiving and back-to-school work — none of which a month table
+  // can express, being lunar, floating or church-scheduled) and falls
+  // back to the month. The skin dresses the room; banners always keep
+  // their club colors.
   nightTheme: 'none',
+
+  // Let the weather add atmosphere over whatever the season chose: a
+  // rainy or snowy night cools and dims the background scene. The season
+  // still owns the palette, so a chosen VBS skin doesn't disappear when
+  // it rains. Needs a weather location (Calendar & Weather) but NOT the
+  // corner chip — either one being on is enough to fetch.
+  weatherTheme: false,
 
   // Per-club banner flavor text, shown under the kid's name on their
   // welcome banner. Keys match the club name the printer sends
