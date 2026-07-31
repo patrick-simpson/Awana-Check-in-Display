@@ -26,6 +26,8 @@ import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad } from './lib/confetti.js';
 import { resolveSkin } from './lib/skins.js';
+import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
+import { crossedMilestones, isBigMilestone, nightMilestoneCopy } from './lib/milestones.js';
 import { sanitizeOverrides } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
@@ -90,11 +92,26 @@ export default function App() {
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useTheme(config);
 
+  // One celebration at a time. Three milestone paths (night thresholds,
+  // per-club, every-Nth) can fire in the same instant — and cluster exactly
+  // when the room is busiest, because they're all driven by the same arriving
+  // children. Queueing them stops overlapping toasts and doubled confetti.
+  const {
+    current: celebration,
+    enqueue: enqueueCelebration,
+  } = useCelebrationQueue(MILESTONE_TOAST_MS);
+
+  // Confetti fires when a celebration reaches the SCREEN, not when it is
+  // queued — otherwise a burst would go off for a toast nobody can see yet.
+  useEffect(() => {
+    if (celebration == null) return;
+    fireMilestone(isBigMilestone(celebration.count) ? { big: true } : undefined);
+  }, [celebration]);
+
   // Club milestones (#36): the printer's live tally broadcasts carry
   // per-club counts; when one club crosses a multiple of
   // clubMilestoneEvery, the milestone toast celebrates that club.
   const clubCountsRef = useRef({});
-  const [clubMilestone, setClubMilestone] = useState(null);
   const handleTally = useCallback((tally) => {
     const every = config.clubMilestoneEvery;
     const prevCounts = clubCountsRef.current;
@@ -102,18 +119,12 @@ export default function App() {
       for (const [club, n] of Object.entries(tally.counts)) {
         const prev = prevCounts[club] ?? n; // first sight is baseline, not a crossing
         if (n > prev && Math.floor(n / every) > Math.floor(prev / every)) {
-          setClubMilestone({ club, count: Math.floor(n / every) * every });
-          fireMilestone();
+          enqueueCelebration({ kind: 'club', club, count: Math.floor(n / every) * every });
         }
       }
     }
     clubCountsRef.current = { ...prevCounts, ...tally.counts };
-  }, [config.clubMilestoneEvery]);
-  useEffect(() => {
-    if (clubMilestone == null) return undefined;
-    const timer = setTimeout(() => setClubMilestone(null), MILESTONE_TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [clubMilestone]);
+  }, [config.clubMilestoneEvery, enqueueCelebration]);
 
   // Operator telemetry from the printer (ops events): a red count on the
   // Signal sticker + details in the panels. NEVER a public banner.
@@ -126,7 +137,26 @@ export default function App() {
   // club, straight from the printer's broadcast. Just the latest
   // snapshot — TonightTicker itself judges staleness against `at`.
   const [tonight, setTonight] = useState(null);
-  const handleTonight = useCallback((payload) => setTonight(payload), []);
+  // Night milestones ride this broadcast because it is the authoritative
+  // church-wide count. `prev` starts unset so the FIRST payload is a baseline,
+  // never a crossing — a screen that boots at 120 kids must not replay every
+  // threshold it missed. `firedRef` makes each threshold once-per-night even if
+  // the count bounces (a reconnect re-delivering an older snapshot, say).
+  const prevCheckedInRef = useRef(null);
+  const firedNightMilestonesRef = useRef(new Set());
+  const handleTonight = useCallback((payload) => {
+    setTonight(payload);
+    const next = payload?.checkedIn;
+    if (typeof next !== 'number') return;
+    const prev = prevCheckedInRef.current;
+    prevCheckedInRef.current = next;
+    if (prev == null) return;                       // first sight = baseline
+    for (const threshold of crossedMilestones(prev, next)) {
+      if (firedNightMilestonesRef.current.has(threshold)) continue;
+      firedNightMilestonesRef.current.add(threshold);
+      enqueueCelebration({ kind: 'night', count: threshold, ...nightMilestoneCopy(threshold) });
+    }
+  }, [enqueueCelebration]);
 
   // Church-authored announcements (#onNotice): latest one wins, same as
   // the tally/ops widgets above. NoticeBanner judges staleness and picks
@@ -230,22 +260,16 @@ export default function App() {
 
   // Tally milestones: every Nth check-in gets a room-wide celebration.
   // Fires only on a genuine increment, so restoring a saved tally on
-  // page load can't re-celebrate.
-  const [milestone, setMilestone] = useState(null);
+  // page load can't re-celebrate. Goes through the same queue as the club and
+  // night milestones so it can't overlap them.
   const prevCountRef = useRef(count);
   useEffect(() => {
     const prev = prevCountRef.current;
     prevCountRef.current = count;
     const every = config.milestoneEvery;
     if (!every || count <= prev || count % every !== 0) return;
-    setMilestone(count);
-    fireMilestone();
-  }, [count, config.milestoneEvery]);
-  useEffect(() => {
-    if (milestone == null) return undefined;
-    const timer = setTimeout(() => setMilestone(null), MILESTONE_TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [milestone]);
+    enqueueCelebration({ kind: 'tally', count });
+  }, [count, config.milestoneEvery, enqueueCelebration]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [slideEditorOpen, setSlideEditorOpen] = useState(false);
@@ -465,12 +489,22 @@ export default function App() {
         </StickerChip>
       )}
 
+      {/* One toast, three sources — see useCelebrationQueue. `kind` picks the
+          copy and styling; the queue guarantees only one is ever on screen. */}
       <AnimatePresence>
-        {milestone != null && (
+        {celebration != null && (
           <motion.div
-            key="milestone"
-            className="milestone-toast"
-            style={{ rotate: -1.2 }}
+            key={`celebration-${celebration.kind}-${celebration.club ?? ''}-${celebration.count}`}
+            className={
+              celebration.kind === 'club'
+                ? 'milestone-toast club-milestone'
+                : celebration.kind === 'night'
+                  ? 'milestone-toast night-milestone'
+                  : 'milestone-toast'
+            }
+            style={celebration.kind === 'club'
+              ? { rotate: 1.1, '--club-primary': getClubPalette(celebration.club).primary }
+              : { rotate: -1.2 }}
             initial={{ opacity: 0, y: 40, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
             exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
@@ -485,8 +519,16 @@ export default function App() {
               <Mark kind="sparkle" size={30} />
             </motion.span>
             <div className="milestone-lines">
-              <span className="milestone-label">Checked in tonight</span>
-              <span className="milestone-count">{milestone} kids!</span>
+              <span className="milestone-label">
+                {celebration.kind === 'club' ? celebration.club
+                  : celebration.kind === 'night' ? celebration.label
+                    : 'Checked in tonight'}
+              </span>
+              <span className="milestone-count">
+                {celebration.kind === 'club' ? `${celebration.count} kids strong!`
+                  : celebration.kind === 'night' ? celebration.headline
+                    : `${celebration.count} kids!`}
+              </span>
             </div>
             <motion.span
               className="milestone-sparkle milestone-sparkle--right"
@@ -496,24 +538,6 @@ export default function App() {
             >
               <Mark kind="sparkle" size={36} />
             </motion.span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {clubMilestone != null && (
-          <motion.div
-            key={`club-milestone-${clubMilestone.club}-${clubMilestone.count}`}
-            className="milestone-toast club-milestone"
-            style={{ rotate: 1.1, '--club-primary': getClubPalette(clubMilestone.club).primary }}
-            initial={{ opacity: 0, y: 40, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
-            exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
-          >
-            <div className="milestone-lines">
-              <span className="milestone-label">{clubMilestone.club}</span>
-              <span className="milestone-count">{clubMilestone.count} kids strong!</span>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>

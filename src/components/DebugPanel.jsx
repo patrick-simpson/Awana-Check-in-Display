@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { getAllClubs } from '../lib/clubs.js';
 import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 
@@ -66,9 +67,19 @@ export default function DebugPanel({
   // The tonight ticker and announcement banner are driven by the check-in
   // system's own reports, so before club there is nothing on the wire to look
   // at. These let an operator confirm both render correctly on the actual TV.
-  const tonight = () => onSimulateTonight?.({
-    checkedIn: 63, booksCompleted: 4, awardsEarned: 11, friendsBrought: 2, at: Date.now(),
-  });
+  //
+  // The count RAMPS on each press (63 → 103 → 143 …) for two reasons: the first
+  // payload is only a baseline by design, so a fixed number could never
+  // demonstrate a night milestone; and walking it upward is the only way to
+  // watch the 100-kid celebration actually fire before club night.
+  const tonightCount = useRef(23);
+  const tonight = () => {
+    tonightCount.current += 40;
+    onSimulateTonight?.({
+      checkedIn: tonightCount.current,
+      booksCompleted: 4, awardsEarned: 11, friendsBrought: 2, at: Date.now(),
+    });
+  };
 
   const noticeCritical = () => onSimulateNotice?.({
     level: 'critical', message: 'CLUB CANCELLED TONIGHT — icy roads. See you next week!', at: Date.now(),
@@ -127,7 +138,7 @@ export default function DebugPanel({
       {onSimulateRecap && <button onClick={recap}>Simulate recap replay (quiet banners)</button>}
       {onSimulateOps && <button onClick={printFailure}>Simulate print failure (ops)</button>}
       {onSimulateTally && <button onClick={tally}>Simulate club tally (counts)</button>}
-      {onSimulateTonight && <button onClick={tonight}>Show tonight ticker</button>}
+      {onSimulateTonight && <button onClick={tonight}>Show tonight ticker (+40 each press)</button>}
       {onSimulateNotice && <button onClick={noticeCritical}>Show cancellation alert</button>}
       {onSimulateNotice && <button onClick={noticeInfo}>Show info notice</button>}
       <button onClick={onClose}>Close</button>

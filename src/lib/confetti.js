@@ -81,18 +81,45 @@ export function fireFirstTimer() {
 
 // Tally milestone (every Nth check-in): a big room-wide moment in Awana
 // gold and club colors, bigger than any single kid's banner burst.
-export function fireMilestone() {
+/**
+ * Room-wide milestone burst.
+ *
+ * `big` escalates it for a named night threshold (the 100th kid) so that reads
+ * as an occasion rather than another routine every-25 toast. It only scales the
+ * existing burst — it does NOT bypass `scaled()` or `off()`, so the rush
+ * throttle, the operator's confetti-level setting and reduced-motion all still
+ * win. A milestone is never a reason to override someone's accessibility
+ * preference.
+ *
+ * @param {{ big?: boolean }} [opts]
+ */
+export function fireMilestone(opts) {
   if (off()) return;
+  const big = !!(opts && opts.big);
   const colors = ['#F7A41C', '#FFD257', '#FFFFFF', '#4CAF50', '#2979FF', '#E53935'];
   confetti({
     ...BASE,
-    particleCount: scaled(160), spread: 120, startVelocity: 45, ticks: 280,
-    origin: { x: 0.5, y: 0.65 }, colors, scalar: 1.3,
+    particleCount: scaled(big ? 260 : 160),
+    spread: big ? 150 : 120,
+    startVelocity: big ? 52 : 45,
+    ticks: big ? 340 : 280,
+    origin: { x: 0.5, y: 0.65 }, colors, scalar: big ? 1.5 : 1.3,
     shapes: ['star', 'circle'],
   });
   setTimeout(() => {
     const cannons = { ...BASE, spread: 70, ticks: 220, colors, scalar: 1.15 };
-    confetti({ ...cannons, particleCount: scaled(70), angle: 60, origin: { x: 0, y: 0.85 } });
-    confetti({ ...cannons, particleCount: scaled(70), angle: 120, origin: { x: 1, y: 0.85 } });
+    const n = scaled(big ? 110 : 70);
+    confetti({ ...cannons, particleCount: n, angle: 60, origin: { x: 0, y: 0.85 } });
+    confetti({ ...cannons, particleCount: n, angle: 120, origin: { x: 1, y: 0.85 } });
   }, 250);
+  // A big milestone gets a second wave so it visibly outlasts a normal one.
+  if (big) {
+    setTimeout(() => {
+      confetti({
+        ...BASE,
+        particleCount: scaled(120), spread: 130, startVelocity: 40, ticks: 260,
+        origin: { x: 0.5, y: 0.5 }, colors, scalar: 1.4, shapes: ['star'],
+      });
+    }, 700);
+  }
 }

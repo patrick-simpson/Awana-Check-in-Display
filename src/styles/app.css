@@ -2008,3 +2008,18 @@ input:focus-visible {
   font-size: 0.92rem;
   color: var(--text-on-glass);
 }
+
+/* Night-milestone toast (the 100th kid). Warmer and slightly larger than the
+   routine every-Nth toast so a named threshold reads as an occasion — the
+   whole reason it isn't just another interval. */
+.milestone-toast.night-milestone {
+  border-color: var(--awana-gold, #f7a41c);
+  box-shadow: 0 10px 30px rgba(247, 164, 28, 0.28);
+}
+.milestone-toast.night-milestone .milestone-label {
+  color: var(--awana-gold, #f7a41c);
+  letter-spacing: 0.1em;
+}
+.milestone-toast.night-milestone .milestone-count {
+  font-size: 2.1rem;
+}
