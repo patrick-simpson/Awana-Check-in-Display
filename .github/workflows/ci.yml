@@ -46,6 +46,12 @@ jobs:
       - name: E2E smoke tests
         run: npm run e2e
 
+      - name: Event rendering (signage banners, ticker, milestones)
+        # ci.yml only, same reasoning as visual below: this drives the debug
+        # panel through several timed banner transitions, so it is exactly the
+        # kind of suite that must never block an urgent club-night redeploy.
+        run: npm run e2e:events
+
       - name: Visual regression
         # ci.yml only (never deploy.yml): pixel drift should flag a PR /
         # weekly run, not block a live redeploy.
