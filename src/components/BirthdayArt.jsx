@@ -93,3 +93,77 @@ export function StarArt({ color = '#ffd257' }) {
     </svg>
   );
 }
+
+/**
+ * A curled paper streamer. Falls alongside the gifts and balloons; the curl
+ * reads as motion even when a piece happens to land mid-rotation.
+ */
+export function StreamerArt({ color = '#f48fb1' }) {
+  return (
+    <svg viewBox="0 0 48 120" aria-hidden>
+      <path
+        d="M24 4 C 8 22, 40 34, 22 52 C 6 68, 38 80, 20 98 C 10 108, 28 112, 24 118"
+        fill="none" stroke={color} strokeWidth="7" strokeLinecap="round"
+      />
+      {/* Highlight along the inside of the curl, the same trick the balloon
+          shine uses to keep flat shapes from reading as dead. */}
+      <path
+        d="M24 8 C 12 22, 36 33, 22 50"
+        fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2.5" strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** A party hat, cone plus pompom and a band of dots. */
+export function PartyHatArt({ color = '#4fc3f7' }) {
+  return (
+    <svg viewBox="0 0 80 104" aria-hidden>
+      <path d="M40 6 L68 92 L12 92 Z" fill={color} />
+      {/* Stripe, offset so the cone doesn't read as a flat triangle. */}
+      <path d="M40 6 L52 92 L38 92 Z" fill="rgba(255,255,255,0.35)" />
+      <ellipse cx="40" cy="93" rx="29" ry="7" fill="#fff6e3" />
+      <circle cx="40" cy="8" r="9" fill="#ffd257" />
+      <circle cx="30" cy="66" r="3.5" fill="#fff6e3" />
+      <circle cx="48" cy="74" r="3.5" fill="#fff6e3" />
+      <circle cx="38" cy="50" r="3" fill="#fff6e3" />
+    </svg>
+  );
+}
+
+/**
+ * A strung bunting garland. Unlike the falling pieces this is meant to hang
+ * across the top of the band, so it is wide and shallow.
+ */
+export function GarlandArt({ color = '#ffd257' }) {
+  const flags = [
+    { x: 18, fill: color },
+    { x: 66, fill: '#4fc3f7' },
+    { x: 114, fill: '#f48fb1' },
+    { x: 162, fill: '#aed581' },
+    { x: 210, fill: color },
+    { x: 258, fill: '#4fc3f7' },
+  ];
+  return (
+    <svg viewBox="0 0 300 54" aria-hidden preserveAspectRatio="none">
+      {/* The string dips between posts — a straight line reads as a border. */}
+      <path
+        d="M0 8 Q 150 34 300 8"
+        fill="none" stroke="rgba(255,255,255,0.55)" strokeWidth="3" strokeLinecap="round"
+      />
+      {flags.map((f, i) => {
+        // Follow the string's sag so the flags hang from it rather than
+        // floating above it.
+        const t = (f.x + 15) / 300;
+        const y = 8 + 26 * (4 * t * (1 - t));
+        return (
+          <path
+            key={i}
+            d={`M${f.x} ${y} L${f.x + 30} ${y} L${f.x + 15} ${y + 30} Z`}
+            fill={f.fill}
+          />
+        );
+      })}
+    </svg>
+  );
+}

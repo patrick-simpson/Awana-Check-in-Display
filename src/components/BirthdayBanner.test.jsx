@@ -36,4 +36,35 @@ describe('BirthdayBanner', () => {
     const leftsB = [...b.container.querySelectorAll('.gift-rain .gift')].map((el) => el.style.left);
     expect(leftsA).toEqual(leftsB);
   });
+  it('hangs the garland and lights the candles on a live arrival', () => {
+    const { container } = render(<BirthdayBanner event={event} audioEnabled={false} />);
+    expect(container.querySelector('.birthday-garland svg')).not.toBeNull();
+    expect(container.querySelectorAll('.cake-flame').length).toBe(2);
+  });
+
+  it.each(['late', 'replay'])('stays calm for a %s arrival', (presentation) => {
+    // Calm mode is the invariant most at risk from richer animation. A late
+    // arrival must not trigger the full show mid-lesson, and a reconnect must
+    // not replay a room-filling celebration for each kid it missed — so the
+    // gift rain and the candle flicker both stay off.
+    const { container } = render(
+      <BirthdayBanner event={{ ...event, presentation }} audioEnabled={false} />,
+    );
+    expect(container.querySelector('.banner.birthday.calm')).not.toBeNull();
+    expect(container.querySelector('.gift-rain')).toBeNull();
+    expect(container.querySelectorAll('.cake-flame').length).toBe(0);
+    // The cake and garland remain: a quiet banner should still look like a
+    // birthday, just not like a party.
+    expect(container.querySelector('.cake svg')).not.toBeNull();
+    expect(container.querySelector('.birthday-garland svg')).not.toBeNull();
+  });
+
+  it('still shows a variety of falling pieces after the art expansion', () => {
+    const { container } = render(<BirthdayBanner event={event} audioEnabled={false} />);
+    const pieces = container.querySelectorAll('.gift-rain .gift svg');
+    expect(pieces.length).toBe(18);
+    // Distinct viewBoxes prove more than one kind of art is in the mix.
+    const shapes = new Set([...pieces].map((el) => el.getAttribute('viewBox')));
+    expect(shapes.size).toBeGreaterThan(2);
+  });
 });

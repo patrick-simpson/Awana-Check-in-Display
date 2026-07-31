@@ -694,6 +694,62 @@ html, body, #root {
   /* The candle flames poke above the viewBox top. */
   overflow: visible;
 }
+/* Inner wrapper so the entrance (rise + settle, on .cake) and the looping
+   wiggle can run on separate elements — framer-motion can't drive both a
+   one-shot and an infinite animation on the same transform. */
+.banner.birthday .cake-wiggle {
+  display: block;
+  position: relative;
+}
+/* Candle flames, positioned over the cake's two candles. Deliberately no
+   COUNT of candles: the event contract carries no birth year, so the display
+   cannot know an age and must never imply one. */
+.banner.birthday .cake-flames {
+  position: absolute;
+  top: 2%;
+  left: 0;
+  right: 0;
+  height: 12%;
+  pointer-events: none;
+}
+.banner.birthday .cake-flame {
+  position: absolute;
+  width: 7%;
+  height: 100%;
+  border-radius: 50% 50% 45% 45%;
+  background: radial-gradient(ellipse at 50% 70%, #fff6e3 0%, #ffd257 45%, #f7a41c 100%);
+  transform-origin: 50% 100%;
+  filter: blur(0.3px);
+}
+.banner.birthday .cake-flame--a { left: 41%; }
+.banner.birthday .cake-flame--b { left: 52%; }
+
+/* Bunting across the top of the band. Sits above the band's own decorations
+   but below the text, and is clipped by the band so it reads as strung
+   across it rather than floating. */
+.banner.birthday .birthday-garland {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: clamp(20px, 3.4vh, 38px);
+  pointer-events: none;
+  opacity: 0.75;
+  /* Behind the band text. At full height and opacity the flags overlapped the
+     "Happy Birthday" eyebrow — decoration must never compete with the child's
+     name, which is the only thing on this banner that matters. */
+  z-index: 0;
+}
+/* Guarantees the text paints above the garland regardless of source order. */
+.banner.birthday .banner-text {
+  position: relative;
+  z-index: 2;
+}
+.banner.birthday .birthday-garland svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 
 /* First-timer band: the big Awana-orange welcome, with a golden glow
    rising off the wave. */
