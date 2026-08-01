@@ -17,6 +17,14 @@
 // Network trouble (offline runner, raw.githubusercontent outage, moved file)
 // warns and exits 0: this check must never block a club-night redeploy of the
 // live signage site. A successful fetch that doesn't byte-match exits 1.
+//
+// ONE EXPECTED FAILURE WORTH RECOGNISING: it compares against the printer repo's
+// `main`, so during a coordinated two-repo change this fails until the PRINTER
+// side merges. That is the check working, not a false alarm — CONTRACT.md is
+// explicit that canonical changes land in the printer repo first. The fix is
+// merge order, never editing the mirror to match a `main` that is behind. The
+// message below says so, because "drifted" on its own sends people to the wrong
+// remedy.
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -86,8 +94,11 @@ for (const { name, consequence } of MIRRORS) {
       `  Consequence if shipped: ${consequence}.\n` +
       `  canonical: ${url}\n` +
       `  mirror:    src/lib/__fixtures__/${name}\n` +
-      '  Re-mirror byte-identically (see CONTRACT.md — canonical changes land\n' +
-      '  in the printer repo first):\n' +
+      '  If you are landing a coordinated change across both repos, this is\n' +
+      '  EXPECTED until the printer-side PR merges — the canonical copy lands\n' +
+      '  there first. Merge that PR, then re-run this job. Do NOT "fix" it by\n' +
+      '  editing the mirror to match a main branch that is behind.\n' +
+      '  Otherwise, re-mirror byte-identically (see CONTRACT.md):\n' +
       `    curl -fsSL ${url} \\\n` +
       `      -o src/lib/__fixtures__/${name}\n` +
       '  then re-run: npm test',
