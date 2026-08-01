@@ -2113,3 +2113,90 @@ input:focus-visible {
   font-size: 0.85em;
   opacity: 0.85;
 }
+
+/* ── Who's still here board ──────────────────────────────────────────────────
+   Bottom-centre, below the ticker. Deliberately quieter than a check-in banner:
+   this is a reference list a volunteer scans, not an announcement, and it must
+   never compete with a child arriving at the door. */
+.checkout-board {
+  position: absolute;
+  /* Clear of the bottom-right corner stack (clock / weather / signal) and of
+     the tonight ticker below it — the board is a reference list, so it may never
+     sit on top of either. */
+  bottom: 128px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(70vw, 980px);
+  padding: 14px 22px 12px;
+  border-radius: 18px;
+  background: rgba(20, 20, 24, 0.72);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  text-align: center;
+  z-index: 3;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+
+.checkout-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.checkout-clubs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkout-club {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.checkout-club-name {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  min-width: 7ch;
+  text-align: right;
+}
+
+.checkout-names {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* The footer carries the honest wording — "not checked out yet", the label
+   count, and the data's age. It is small but must never be omitted: without it
+   the list reads as a verified headcount, which it is not. */
+.checkout-foot {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  opacity: 0.62;
+}
+
+.checkout-line {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.checkout-line.good { color: #8ce99a; }
+.checkout-line.warn { color: #ffc046; }
+
+/* Stale and anonymous states are single lines, so they need less room. */
+.checkout-board.stale,
+.checkout-board.anonymous,
+.checkout-board.empty { padding: 12px 22px; }

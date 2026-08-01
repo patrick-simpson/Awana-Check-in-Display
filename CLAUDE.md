@@ -95,7 +95,7 @@ The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
 **One strict allowlist sanitizer per event type** — see
 `src/lib/eventSanitizers.js` (bound per-event in
 `src/hooks/useSocket.js`). Each incoming payload on the Pusher channel
-(`checkin`, `recap`, `tally`, `birthdays`, `ops`, `canary`) is reduced
+(`checkin`, `recap`, `checkout`, `tally`, `birthdays`, `ops`, `canary`) is reduced
 to exactly its allowlisted fields before anything else sees it: first
 names only, ever. Allergy info, contact info, last names, birth years,
 photos — none of it can ever reach the screen. Payload shapes are
@@ -104,10 +104,10 @@ mirror of the printer repo's canonical copy) and enforced by
 `src/lib/eventSanitizers.test.js`. Preserve this invariant on every
 change to the socket layer, the sanitizers, or banner components.
 
-**The three name-bearing events arrive ENCRYPTED**, because the Pusher
+**The four name-bearing events arrive ENCRYPTED**, because the Pusher
 channel is public and Pusher public channels have no server-side
-authorization primitive at all. `checkin`, `recap` and `birthdays` are
-sealed with AES-256-GCM (`src/lib/envelope.js`; publisher half is
+authorization primitive at all. `checkin`, `recap`, `birthdays` and
+`checkout` are sealed with AES-256-GCM (`src/lib/envelope.js`; publisher half is
 `print-server/events.js` in the printer repo, pinned to a shared
 `envelope-vectors.json` interop fixture). Rules that must survive any
 change:
@@ -116,13 +116,31 @@ change:
   sealed frame is authenticated, not trusted, so it still passes its own
   allowlist sanitizer. `eventSanitizers.js` is untouched by the transport.
 - **Anti-downgrade:** once a screen holds a key, a *plaintext* payload on
-  those three events is dropped. Without it the encryption is decorative.
+  those four events is dropped. Without it the encryption is decorative.
 - The key lives in its **own** localStorage entry (`src/lib/displayKey.js`)
   and must never be added to `VALIDATORS` in `useConfig.js` — that table
   also backs `?config=<url>` and the Settings export, so it would publish
   the key. `displayKey.test.js` guards all three paths.
 - Decrypts are serialized through one promise chain per event, or a burst
   of arrivals greets children out of order.
-- The other seven events stay plaintext **on purpose**: their readability
+- The other six events stay plaintext **on purpose**: their readability
   is what lets a screen distinguish "pipe down" from "cannot read names"
   from "quiet night". See SECURITY.md.
+
+**`checkout` (who is still here) needs more than a sanitizer.** It is the
+one payload that names children who are *not yet with a parent*, so the
+rendering rules are part of the privacy design, not styling:
+
+- It is **off by default** (`checkoutBoardMode: 'off'`). No default is
+  right for every church, so it takes a deliberate choice.
+- Below `checkoutBoardNamesAbove` children it **stops naming anyone**. A
+  long list is anonymising; two names late in the evening point at two
+  specific unattended children, and `checkin` already published those
+  names earlier.
+- A missing payload renders **nothing**, never an empty board — "I have
+  no data" and "everyone has been picked up" are opposite facts.
+- It is **not a headcount**. It reflects whether volunteers *recorded*
+  checkout, so it can be fresh and wrong; every string says "not checked
+  out yet", never "still in the building".
+- All of that judgement lives in the pure `decideBoard()` in
+  `src/lib/checkoutBoard.js` so it can be tested exhaustively.

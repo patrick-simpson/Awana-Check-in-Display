@@ -48,6 +48,9 @@ export default function SettingsPanel({
     confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
     burstFloorMs: config.burstFloorMs ?? 2500,
     clubMilestoneEvery: config.clubMilestoneEvery ?? 10,
+    checkoutBoardMode: ['pickup', 'always'].includes(config.checkoutBoardMode) ? config.checkoutBoardMode : 'off',
+    checkoutBoardNamesAbove: config.checkoutBoardNamesAbove ?? 3,
+    checkoutBoardStaleMin: config.checkoutBoardStaleMin ?? 8,
     cycleIntervalSec: config.cycleIntervalSec ?? 3,
     milestoneEvery: config.milestoneEvery ?? 25,
     calendarEnabled: config.calendarEnabled !== false,
@@ -87,6 +90,8 @@ export default function SettingsPanel({
       slideshowDelaySec: clamp(form.slideshowDelaySec, 0, 120),
       milestoneEvery: clamp(Math.round(form.milestoneEvery) || 0, 0, 10000),
       clubMilestoneEvery: clamp(Math.round(form.clubMilestoneEvery) || 0, 0, 1000),
+      checkoutBoardNamesAbove: clamp(Math.round(form.checkoutBoardNamesAbove) || 0, 0, 200),
+      checkoutBoardStaleMin: clamp(Math.round(form.checkoutBoardStaleMin) || 8, 1, 120),
       burstFloorMs: clamp(Math.round(form.burstFloorMs) || 2500, 1000, 10000),
       cycleIntervalSec: clamp(Math.round(form.cycleIntervalSec) || 3, 2, 120),
       calendarUrl: form.calendarUrl.trim(),
@@ -585,8 +590,61 @@ function BannersTab({ form, set, setForm }) {
 
 function DisplayTab({ form, set }) {
   const cycleMode = form.widgetDisplayMode !== 'stickers';
+  const boardOn = form.checkoutBoardMode !== 'off';
   return (
     <>
+      <div className="field">
+        <label htmlFor="cbmode">Who&apos;s still here board</label>
+        <select id="cbmode" value={form.checkoutBoardMode} onChange={set('checkoutBoardMode')}>
+          <option value="off">Off</option>
+          <option value="pickup">Only during pickup</option>
+          <option value="always">Whenever data is arriving</option>
+        </select>
+        <span className="hint">
+          Lists children who have <strong>not been checked out yet</strong> in the check-in system,
+          so a volunteer can see at a glance who is still waiting. Needs the print server and a
+          volunteer with the check-in page open — when that tab closes, the board shows its age
+          instead of freezing.
+          {' '}<strong>It is not a verified headcount:</strong> it reflects whether checkout was
+          actually recorded, which during a busy pickup often lags. Treat it as a prompt to go
+          look, never as proof the building is clear.
+        </span>
+      </div>
+
+      {boardOn && (
+        <>
+          <div className="field">
+            <label htmlFor="cbnames">Stop showing names at or below</label>
+            <input
+              id="cbnames" type="number" min="0" max="200"
+              value={form.checkoutBoardNamesAbove}
+              onChange={set('checkoutBoardNamesAbove')}
+            />
+            <span className="hint">
+              Below this many children, the board hides the names and shows
+              &ldquo;almost everyone has been picked up&rdquo; instead.
+              {' '}<strong>This is the setting that matters.</strong> A long list is anonymous —
+              one name among forty tells a passer-by nothing. A list of two names, late in the
+              evening, points at two specific children who are not yet with a parent. 0 turns the
+              guard off entirely, which is not recommended on a public screen.
+            </span>
+          </div>
+
+          <div className="field">
+            <label htmlFor="cbstale">Treat the list as stale after (minutes)</label>
+            <input
+              id="cbstale" type="number" min="1" max="120"
+              value={form.checkoutBoardStaleMin}
+              onChange={set('checkoutBoardStaleMin')}
+            />
+            <span className="hint">
+              After this long with no update the board says so, rather than showing a frozen list
+              that still looks live.
+            </span>
+          </div>
+        </>
+      )}
+
       <div className="field">
         <label>Corner widgets</label>
         <div className="radio-row">

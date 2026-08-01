@@ -4,6 +4,7 @@ import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import DataCycle from './components/DataCycle.jsx';
 import TonightTicker from './components/TonightTicker.jsx';
+import CheckoutBoard from './components/CheckoutBoard.jsx';
 import NoticeBanner from './components/NoticeBanner.jsx';
 import WallClock from './components/WallClock.jsx';
 import WeatherChip from './components/WeatherChip.jsx';
@@ -26,6 +27,7 @@ import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
+import { decideBoard } from './lib/checkoutBoard.js';
 import { weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
 import { crossedMilestones, isBigMilestone, nightMilestoneCopy } from './lib/milestones.js';
@@ -191,6 +193,11 @@ export default function App() {
     }
   }, [config.recapMaxAgeMin, hasSeen, markSeen, enqueue, bump]);
 
+  // Who is still waiting to be picked up. Just the latest snapshot — all of the
+  // "may this be on screen, and may it name anyone" judgement lives in the pure
+  // decideBoard() in src/lib/checkoutBoard.js.
+  const [checkout, setCheckout] = useState(null);
+
   const socketHandlers = useMemo(() => ({
     onCheckin: handleCheckIn,
     onRecap: handleRecap,
@@ -198,6 +205,7 @@ export default function App() {
     onTally: handleTally,
     onTonight: handleTonight,
     onNotice: handleNotice,
+    onCheckout: setCheckout,
   }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice]);
 
   const { status, lastEventAt, lastCheckinAt, retry, nameStatus } = useSocket(socketHandlers);
@@ -320,6 +328,29 @@ export default function App() {
     const timer = setTimeout(check, climbing && !nameFault ? COUNTS_WITHOUT_NAMES_MS : 0);
     return () => clearTimeout(timer);
   }, [tonight?.checkedIn, lastCheckinAt, nameFault]);
+
+  // Re-evaluated on a slow ticker as well as on new data, because the board's
+  // most important transition — going stale when the volunteer closes the
+  // TwoTimTwo tab — happens when NOTHING arrives. An effect keyed only on the
+  // payload would leave a frozen list looking live all night.
+  // `now` is held in state rather than read inside the memo, so the decision
+  // stays a pure function of its inputs and the clock is an explicit dependency.
+  const [boardNow, setBoardNow] = useState(0);
+  useEffect(() => {
+    const advance = () => setBoardNow(Date.now());
+    advance();
+    const t = setInterval(advance, 30000);
+    return () => clearInterval(t);
+  }, [checkout]);   // re-stamp on new data so a fresh board is never shown as aged
+  const boardDecision = useMemo(() => decideBoard({
+    checkout,
+    mode: config.checkoutBoardMode,
+    namesAbove: config.checkoutBoardNamesAbove,
+    staleMin: config.checkoutBoardStaleMin,
+    phase,
+    now: boardNow,
+  }), [checkout, config.checkoutBoardMode, config.checkoutBoardNamesAbove,
+    config.checkoutBoardStaleMin, phase, boardNow]);
 
   // Printer trouble also forces the sticker visible — a kid at the door
   // with no label is exactly when the operator needs the red count.
@@ -488,6 +519,16 @@ export default function App() {
       {!overlay && (
         <ErrorBoundary label="tonight-ticker">
           <TonightTicker tonight={tonight} active={!currentEvent} />
+        </ErrorBoundary>
+      )}
+
+      {/* Who is still waiting to be picked up. Off unless the operator turned it
+          on, and it yields to an active check-in banner — a child arriving at the
+          door outranks the pickup list. All the visibility judgement is in the
+          pure decideBoard(); see src/lib/checkoutBoard.js for why it is gated. */}
+      {!overlay && !currentEvent && (
+        <ErrorBoundary label="checkout-board">
+          <CheckoutBoard decision={boardDecision} checkout={checkout} calm={config.panicMode === true} />
         </ErrorBoundary>
       )}
 
@@ -703,6 +744,7 @@ export default function App() {
             onSimulateRecap={(p) => simulate('recap', p)}
             onSimulateOps={(p) => simulate('ops', p)}
             onSimulateTally={(p) => simulate('tally', p)}
+            onSimulateCheckout={(p) => simulate('checkout', p)}
             onSimulateTonight={(p) => simulate('tonight', p)}
             onSimulateNotice={(p) => simulate('notice', p)}
             onClose={() => setDebugOpen(false)}

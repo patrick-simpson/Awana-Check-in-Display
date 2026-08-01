@@ -14,6 +14,7 @@ import vectors from '../lib/__fixtures__/contract-vectors.json';
 const HANDLER_FOR = {
   checkin: 'onCheckin',
   recap: 'onRecap',
+  checkout: 'onCheckout',
   tally: 'onTally',
   birthdays: 'onBirthdays',
   ops: 'onOps',

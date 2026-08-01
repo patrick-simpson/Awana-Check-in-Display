@@ -12,6 +12,7 @@ import {
   sanitizeBirthdays,
   sanitizeCanary,
   sanitizeCheckin,
+  sanitizeCheckout,
   sanitizeNotice,
   sanitizeOps,
   sanitizePoints,
@@ -30,6 +31,7 @@ import {
 const EVENT_SANITIZERS = {
   checkin: sanitizeCheckin,
   recap: sanitizeRecap,
+  checkout: sanitizeCheckout,
   tally: sanitizeTally,
   birthdays: sanitizeBirthdays,
   ops: sanitizeOps,
@@ -57,6 +59,7 @@ const UNREADABLE_AFTER = 2;
 const HANDLER_NAMES = {
   checkin: 'onCheckin',
   recap: 'onRecap',
+  checkout: 'onCheckout',
   tally: 'onTally',
   birthdays: 'onBirthdays',
   ops: 'onOps',

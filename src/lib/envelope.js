@@ -13,8 +13,8 @@
 // is still true and still the primary defence, but "a stranger can read every
 // child's first name and club, live, from anywhere" was never acceptable.
 //
-// So the three events that carry a child's name — `checkin`, `recap`,
-// `birthdays` — are sealed with AES-256-GCM under a key that only the print
+// So the events that carry a child's name — `checkin`, `recap`, `birthdays` and
+// `checkout` — are sealed with AES-256-GCM under a key that only the print
 // server and the church's own screens hold. The other seven events stay in
 // the clear ON PURPOSE: they are counts and church-authored copy, and their
 // readability is what lets a screen tell "the pipe is down" apart from "I
@@ -54,7 +54,7 @@
 export const ENVELOPE_VERSION = 1;
 
 /** Events whose payloads carry a child's name and must be sealed. */
-export const ENCRYPTED_EVENTS = ['checkin', 'recap', 'birthdays'];
+export const ENCRYPTED_EVENTS = ['checkin', 'recap', 'birthdays', 'checkout'];
 
 /**
  * Fixed padded plaintext size for `checkin` — every frame is exactly this big.

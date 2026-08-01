@@ -4,7 +4,7 @@ import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 
 export default function DebugPanel({
   onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice,
-  onSimulateTally, onClose,
+  onSimulateTally, onSimulateCheckout, onClose,
   status, lastEventAt, pending, phase, seenStats, opsFailures, wakeLockStatus,
 }) {
   const standard = () => onSimulate({
@@ -56,6 +56,25 @@ export default function DebugPanel({
       isFirstTimer: false,
     })),
     at: Date.now(),
+  });
+
+  // Who's-still-here board. Two buttons on purpose: the interesting behaviour is
+  // the SHORT list, where the board must stop naming individuals — that is the
+  // safeguard, and it should be easy for an operator to see it working rather
+  // than take it on trust.
+  const checkoutBoard = (n) => () => {
+    const clubs = getAllClubs();
+    onSimulateCheckout?.({
+      entries: Array.from({ length: n }, (_, i) => ({
+        firstName: SAMPLE_NAMES[i % SAMPLE_NAMES.length],
+        club: clubs[i % clubs.length],
+      })),
+      printed: 43,
+      at: new Date().toISOString(),
+    });
+  };
+  const checkoutEmpty = () => onSimulateCheckout?.({
+    entries: [], printed: 43, at: new Date().toISOString(),
   });
 
   const printFailure = () => onSimulateOps?.({
@@ -138,6 +157,13 @@ export default function DebugPanel({
       {onSimulateRecap && <button onClick={recap}>Simulate recap replay (quiet banners)</button>}
       {onSimulateOps && <button onClick={printFailure}>Simulate print failure (ops)</button>}
       {onSimulateTally && <button onClick={tally}>Simulate club tally (counts)</button>}
+      {onSimulateCheckout && (
+        <>
+          <button onClick={checkoutBoard(9)}>Still-here board: 9 children (names)</button>
+          <button onClick={checkoutBoard(2)}>Still-here board: 2 children (names hidden)</button>
+          <button onClick={checkoutEmpty}>Still-here board: everyone picked up</button>
+        </>
+      )}
       {onSimulateTonight && <button onClick={tonight}>Show tonight ticker (+40 each press)</button>}
       {onSimulateNotice && <button onClick={noticeCritical}>Show cancellation alert</button>}
       {onSimulateNotice && <button onClick={noticeInfo}>Show info notice</button>}

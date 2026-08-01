@@ -46,8 +46,8 @@ world, and watch every child's first name arrive live — and that closing it wo
 require a backend this repo does not have. That was true, and it was not
 acceptable. It is now fixed, and the fix did not need a backend.
 
-**The three events that carry a child's name are encrypted end to end.**
-`checkin`, `recap` and `birthdays` are sealed with AES-256-GCM under a key that
+**The four events that carry a child's name are encrypted end to end.**
+`checkin`, `recap`, `birthdays` and `checkout` are sealed with AES-256-GCM under a key that
 only the print server and the church's own screens hold. Pusher relays
 ciphertext it cannot read. See [`src/lib/envelope.js`](src/lib/envelope.js) for
 the framing and the reasoning; the publisher half is `print-server/events.js` in
@@ -60,7 +60,28 @@ primitive** — subscription is granted by possession of the key, and there is n
 setting that changes it. So rather than trying to control who may subscribe, we
 made subscribing useless for reading names.
 
-### Why the other seven events stay in the clear
+### The who's-still-here board carries an extra obligation
+
+`checkout` lists children who have not been checked out yet. Encryption keeps it
+off the open internet, but it is still on a **public wall**, so the rendering
+rules are part of the privacy design:
+
+- **Off by default.** It appears only when an operator turns it on.
+- **Names disappear when the list gets short.** Forty names is anonymising; two
+  names at 8:15pm is a statement about two specific unattended children — and
+  their first names were already on this same screen earlier in the evening. The
+  threshold is `checkoutBoardNamesAbove` (default 3).
+- **Time-windowed.** In `pickup` mode it is only on screen from closing onwards.
+- **No data renders nothing**, never an empty board.
+- **It is not a headcount** and never claims to be. It reflects whether checkout
+  was *recorded* in the check-in system, which during a pickup rush often lags,
+  so it can be freshly and confidently wrong. Every string on it says "not
+  checked out yet".
+
+The decision logic is a pure function (`src/lib/checkoutBoard.js`) precisely so
+it can be tested exhaustively rather than eyeballed.
+
+### Why the other six events stay in the clear
 
 `tally`, `tonight`, `points`, `schedule`, `notice`, `ops` and `canary` are
 **deliberately** unencrypted. They are counts and church-authored copy, none of

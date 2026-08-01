@@ -41,6 +41,12 @@ const VALIDATORS = {
   recapMaxAgeMin: numberBetween(1, 240),
   panicMode: isBool,
   clubMilestoneEvery: numberBetween(0, 1000),
+  // Who's-still-here board. OFF by default and deliberately so — see
+  // CheckoutBoard.jsx for why this one needs an operator decision rather than a
+  // sensible default.
+  checkoutBoardMode: (v) => ['off', 'pickup', 'always'].includes(v),
+  checkoutBoardNamesAbove: numberBetween(0, 200),
+  checkoutBoardStaleMin: numberBetween(1, 120),
   // Reads the one skin table rather than repeating its ids — adding a season
   // used to mean editing this list, skins.js, the Settings dropdown and the CSS.
   nightTheme: (v) => NIGHT_THEME_VALUES.includes(v),
