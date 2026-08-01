@@ -170,11 +170,52 @@ const config = {
   // broadcasts) crosses a multiple of this. 0 disables.
   clubMilestoneEvery: 10,
 
-  // Themed night skin: 'none' | 'auto' | 'autumn' | 'christmas' |
-  // 'summer' | 'spring' | 'harvest' | 'snowday'. Recolors the stage
-  // decorations for special nights; 'auto' picks by calendar month so
-  // the display dresses itself for the season.
+  // ── Who's still here board ────────────────────────────────────────────
+  // Shows which children have not been checked out yet, from the printer's
+  // `checkout` broadcast.
+  //
+  // 'off' (default) | 'pickup' (only in the last stretch of club and just
+  // after) | 'always' (whenever fresh data is arriving).
+  //
+  // OFF BY DEFAULT ON PURPOSE. This is the only widget whose data is a list
+  // of children who are NOT yet with a parent, and no default is right for
+  // every church — so it takes a deliberate choice rather than appearing
+  // because someone updated the app.
+  checkoutBoardMode: 'off',
+
+  // Stop naming individuals at or below this many children still here, and
+  // show a neutral "almost everyone has been picked up" line instead.
+  //
+  // This is the real safeguard. A long list is anonymising — one name among
+  // forty tells a stranger nothing useful. A list of two names is a
+  // statement about two specific unattended children, at the exact moment
+  // the room is emptying out and a stranger is most conspicuous. 0 disables
+  // the guard entirely (not recommended).
+  checkoutBoardNamesAbove: 3,
+
+  // Minutes before the board is treated as stale. The scraper only runs
+  // while a volunteer has the TwoTimTwo tab open, so going quiet is normal
+  // and must show as an AGE rather than as a silently frozen list.
+  checkoutBoardStaleMin: 8,
+
+  // Themed night skin: 'none' | 'auto' | a skin id. The ids live in ONE
+  // place — SKIN_TABLE in src/lib/skins.js — which also carries each
+  // skin's accent colors, its scene theme, and the calendar-title
+  // keywords that select it.
+  //
+  // 'auto' reads tonight's church calendar title first (so Easter, VBS,
+  // Thanksgiving and back-to-school work — none of which a month table
+  // can express, being lunar, floating or church-scheduled) and falls
+  // back to the month. The skin dresses the room; banners always keep
+  // their club colors.
   nightTheme: 'none',
+
+  // Let the weather add atmosphere over whatever the season chose: a
+  // rainy or snowy night cools and dims the background scene. The season
+  // still owns the palette, so a chosen VBS skin doesn't disappear when
+  // it rains. Needs a weather location (Calendar & Weather) but NOT the
+  // corner chip — either one being on is enough to fetch.
+  weatherTheme: false,
 
   // Per-club banner flavor text, shown under the kid's name on their
   // welcome banner. Keys match the club name the printer sends

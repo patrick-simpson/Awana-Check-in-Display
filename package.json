@@ -15,6 +15,7 @@
     "typecheck": "tsc -p jsconfig.json",
     "e2e": "playwright test --project=smoke",
     "e2e:visual": "playwright test --project=visual",
+    "e2e:events": "playwright test --project=events",
     "e2e:update": "playwright test --project=visual --update-snapshots",
     "e2e:build": "npm run build && playwright test"
   },

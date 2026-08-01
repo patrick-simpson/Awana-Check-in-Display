@@ -4,6 +4,7 @@ import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import DataCycle from './components/DataCycle.jsx';
 import TonightTicker from './components/TonightTicker.jsx';
+import CheckoutBoard from './components/CheckoutBoard.jsx';
 import NoticeBanner from './components/NoticeBanner.jsx';
 import WallClock from './components/WallClock.jsx';
 import WeatherChip from './components/WeatherChip.jsx';
@@ -15,7 +16,7 @@ import { Mark } from './components/Doodles.jsx';
 import StickerChip from './components/StickerChip.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
-import { useSocket } from './hooks/useSocket.js';
+import { useSocket, simulateEvent } from './hooks/useSocket.js';
 import { useSeenEvents } from './hooks/useSeenEvents.js';
 import { useSchedule } from './hooks/useSchedule.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
@@ -25,14 +26,18 @@ import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad } from './lib/confetti.js';
-import { resolveSkin } from './lib/skins.js';
+import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
+import { decideBoard } from './lib/checkoutBoard.js';
+import { weatherMood } from './lib/weather.js';
+import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
+import { crossedMilestones, isBigMilestone, nightMilestoneCopy } from './lib/milestones.js';
 import { sanitizeOverrides } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
-import { DROPPED_GRACE_MS, GEAR_IDLE_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
+import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -90,11 +95,26 @@ export default function App() {
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useTheme(config);
 
+  // One celebration at a time. Three milestone paths (night thresholds,
+  // per-club, every-Nth) can fire in the same instant — and cluster exactly
+  // when the room is busiest, because they're all driven by the same arriving
+  // children. Queueing them stops overlapping toasts and doubled confetti.
+  const {
+    current: celebration,
+    enqueue: enqueueCelebration,
+  } = useCelebrationQueue(MILESTONE_TOAST_MS);
+
+  // Confetti fires when a celebration reaches the SCREEN, not when it is
+  // queued — otherwise a burst would go off for a toast nobody can see yet.
+  useEffect(() => {
+    if (celebration == null) return;
+    fireMilestone(isBigMilestone(celebration.count) ? { big: true } : undefined);
+  }, [celebration]);
+
   // Club milestones (#36): the printer's live tally broadcasts carry
   // per-club counts; when one club crosses a multiple of
   // clubMilestoneEvery, the milestone toast celebrates that club.
   const clubCountsRef = useRef({});
-  const [clubMilestone, setClubMilestone] = useState(null);
   const handleTally = useCallback((tally) => {
     const every = config.clubMilestoneEvery;
     const prevCounts = clubCountsRef.current;
@@ -102,18 +122,12 @@ export default function App() {
       for (const [club, n] of Object.entries(tally.counts)) {
         const prev = prevCounts[club] ?? n; // first sight is baseline, not a crossing
         if (n > prev && Math.floor(n / every) > Math.floor(prev / every)) {
-          setClubMilestone({ club, count: Math.floor(n / every) * every });
-          fireMilestone();
+          enqueueCelebration({ kind: 'club', club, count: Math.floor(n / every) * every });
         }
       }
     }
     clubCountsRef.current = { ...prevCounts, ...tally.counts };
-  }, [config.clubMilestoneEvery]);
-  useEffect(() => {
-    if (clubMilestone == null) return undefined;
-    const timer = setTimeout(() => setClubMilestone(null), MILESTONE_TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [clubMilestone]);
+  }, [config.clubMilestoneEvery, enqueueCelebration]);
 
   // Operator telemetry from the printer (ops events): a red count on the
   // Signal sticker + details in the panels. NEVER a public banner.
@@ -126,7 +140,26 @@ export default function App() {
   // club, straight from the printer's broadcast. Just the latest
   // snapshot — TonightTicker itself judges staleness against `at`.
   const [tonight, setTonight] = useState(null);
-  const handleTonight = useCallback((payload) => setTonight(payload), []);
+  // Night milestones ride this broadcast because it is the authoritative
+  // church-wide count. `prev` starts unset so the FIRST payload is a baseline,
+  // never a crossing — a screen that boots at 120 kids must not replay every
+  // threshold it missed. `firedRef` makes each threshold once-per-night even if
+  // the count bounces (a reconnect re-delivering an older snapshot, say).
+  const prevCheckedInRef = useRef(null);
+  const firedNightMilestonesRef = useRef(new Set());
+  const handleTonight = useCallback((payload) => {
+    setTonight(payload);
+    const next = payload?.checkedIn;
+    if (typeof next !== 'number') return;
+    const prev = prevCheckedInRef.current;
+    prevCheckedInRef.current = next;
+    if (prev == null) return;                       // first sight = baseline
+    for (const threshold of crossedMilestones(prev, next)) {
+      if (firedNightMilestonesRef.current.has(threshold)) continue;
+      firedNightMilestonesRef.current.add(threshold);
+      enqueueCelebration({ kind: 'night', count: threshold, ...nightMilestoneCopy(threshold) });
+    }
+  }, [enqueueCelebration]);
 
   // Church-authored announcements (#onNotice): latest one wins, same as
   // the tally/ops widgets above. NoticeBanner judges staleness and picks
@@ -160,6 +193,11 @@ export default function App() {
     }
   }, [config.recapMaxAgeMin, hasSeen, markSeen, enqueue, bump]);
 
+  // Who is still waiting to be picked up. Just the latest snapshot — all of the
+  // "may this be on screen, and may it name anyone" judgement lives in the pure
+  // decideBoard() in src/lib/checkoutBoard.js.
+  const [checkout, setCheckout] = useState(null);
+
   const socketHandlers = useMemo(() => ({
     onCheckin: handleCheckIn,
     onRecap: handleRecap,
@@ -167,9 +205,28 @@ export default function App() {
     onTally: handleTally,
     onTonight: handleTonight,
     onNotice: handleNotice,
+    onCheckout: setCheckout,
   }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice]);
 
-  const { status, lastEventAt, retry } = useSocket(socketHandlers);
+  const { status, lastEventAt, lastCheckinAt, retry, nameStatus } = useSocket(socketHandlers);
+
+  // ── Simulated events go through the SAME sanitizers as real ones ────────────
+  // The debug panel used to call these handlers directly, so every fake payload
+  // bypassed the privacy boundary — the one thing this app is built around.
+  // Routing them through `simulateEvent` means a malformed fake is dropped
+  // exactly as a malformed real event would be, which also turns the panel into
+  // a live contract check: if a simulator's shape drifts from the allowlist, the
+  // button visibly does nothing (and logs why) instead of rendering something
+  // the wire could never deliver.
+  //
+  // `demoActive` drives the on-screen badge. Once set it stays set for the rest
+  // of the session: a training run must never be mistakable for real check-ins,
+  // and "the badge quietly disappeared" is exactly how that mistake happens.
+  const [demoActive, setDemoActive] = useState(false);
+  const simulate = useCallback((event, payload) => {
+    setDemoActive(true);
+    return simulateEvent(event, payload, socketHandlers);
+  }, [socketHandlers]);
 
   const wakeLockStatus = useWakeLock(config.keepScreenAwake);
 
@@ -193,7 +250,11 @@ export default function App() {
   // The corner chip works over any background source — it's an overlay
   // widget like the clock, not part of the slide rotation.
   const showWeatherChip = config.showWeatherChip !== false;
-  const weather = useWeather(config, showWeatherChip && !FLAGS.overlay);
+  // Fetch when EITHER the chip or weather theming needs it. Gating solely on
+  // the chip meant hiding one small corner widget silently stopped the whole
+  // room responding to the weather — a coupling nobody would guess.
+  const weatherTheme = config.weatherTheme === true;
+  const weather = useWeather(config, (showWeatherChip || weatherTheme) && !FLAGS.overlay);
 
   const calendarSlides = config.calendarEnabled
     ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr), config)
@@ -212,22 +273,16 @@ export default function App() {
 
   // Tally milestones: every Nth check-in gets a room-wide celebration.
   // Fires only on a genuine increment, so restoring a saved tally on
-  // page load can't re-celebrate.
-  const [milestone, setMilestone] = useState(null);
+  // page load can't re-celebrate. Goes through the same queue as the club and
+  // night milestones so it can't overlap them.
   const prevCountRef = useRef(count);
   useEffect(() => {
     const prev = prevCountRef.current;
     prevCountRef.current = count;
     const every = config.milestoneEvery;
     if (!every || count <= prev || count % every !== 0) return;
-    setMilestone(count);
-    fireMilestone();
-  }, [count, config.milestoneEvery]);
-  useEffect(() => {
-    if (milestone == null) return undefined;
-    const timer = setTimeout(() => setMilestone(null), MILESTONE_TOAST_MS);
-    return () => clearTimeout(timer);
-  }, [milestone]);
+    enqueueCelebration({ kind: 'tally', count });
+  }, [count, config.milestoneEvery, enqueueCelebration]);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [slideEditorOpen, setSlideEditorOpen] = useState(false);
@@ -243,11 +298,67 @@ export default function App() {
     const timer = setTimeout(() => setDroppedLong(disconnected), disconnected ? DROPPED_GRACE_MS : 0);
     return () => clearTimeout(timer);
   }, [status]);
+  // The names arrive encrypted (see src/lib/envelope.js). A screen that can't
+  // read them looks EXACTLY like a quiet night — connected, clock ticking,
+  // weather fine, counts even climbing — which is the worst failure available:
+  // nobody investigates a quiet night. So a name fault forces the sticker up
+  // regardless of the setting, and says which half is broken, because the fixes
+  // differ (paste the key on this screen vs. set one on the print server).
+  const nameFault = nameStatus && nameStatus !== 'ok';
+  const nameFaultText = {
+    'no-key': 'DISPLAY KEY NOT SET',
+    'bad-key': 'NAMES UNREADABLE — CHECK DISPLAY KEY',
+    downgraded: 'NAMES REFUSED — SENT UNENCRYPTED',
+  }[nameStatus] || null;
+
+  // Cross-check for the other direction: if the PRINT SERVER is the side
+  // missing its key, it publishes nothing on the name events, so this screen
+  // sees a climbing tally and no banners. Without this, that is indistinguishable
+  // from a quiet night, and the one-pager would send nobody anywhere.
+  const [countsWithoutNames, setCountsWithoutNames] = useState(false);
+  useEffect(() => {
+    // `lastCheckinAt` only advances when a checkin actually OPENED and passed
+    // its sanitizer, so it is the honest "names are reaching this screen" signal.
+    const climbing = (tonight?.checkedIn || 0) > 0;
+    // Always resolve through a timer, never synchronously: the clear case is
+    // just a zero-delay check, which keeps this out of the render path.
+    const check = () => setCountsWithoutNames(
+      climbing && !nameFault
+      && (!lastCheckinAt || Date.now() - lastCheckinAt > COUNTS_WITHOUT_NAMES_MS));
+    const timer = setTimeout(check, climbing && !nameFault ? COUNTS_WITHOUT_NAMES_MS : 0);
+    return () => clearTimeout(timer);
+  }, [tonight?.checkedIn, lastCheckinAt, nameFault]);
+
+  // Re-evaluated on a slow ticker as well as on new data, because the board's
+  // most important transition — going stale when the volunteer closes the
+  // TwoTimTwo tab — happens when NOTHING arrives. An effect keyed only on the
+  // payload would leave a frozen list looking live all night.
+  // `now` is held in state rather than read inside the memo, so the decision
+  // stays a pure function of its inputs and the clock is an explicit dependency.
+  const [boardNow, setBoardNow] = useState(0);
+  useEffect(() => {
+    const advance = () => setBoardNow(Date.now());
+    advance();
+    const t = setInterval(advance, 30000);
+    return () => clearInterval(t);
+  }, [checkout]);   // re-stamp on new data so a fresh board is never shown as aged
+  const boardDecision = useMemo(() => decideBoard({
+    checkout,
+    mode: config.checkoutBoardMode,
+    namesAbove: config.checkoutBoardNamesAbove,
+    staleMin: config.checkoutBoardStaleMin,
+    phase,
+    now: boardNow,
+  }), [checkout, config.checkoutBoardMode, config.checkoutBoardNamesAbove,
+    config.checkoutBoardStaleMin, phase, boardNow]);
+
   // Printer trouble also forces the sticker visible — a kid at the door
   // with no label is exactly when the operator needs the red count.
   const showStatus = config.showConnectionStatus
     || (droppedLong && status === 'disconnected')
-    || opsFailures.length > 0;
+    || opsFailures.length > 0
+    || Boolean(nameFault)
+    || countsWithoutNames;
 
   // 'cycle' (default): one big animated data point at a time, bottom
   // right. 'stickers': the classic corner-chip layout. The connection
@@ -258,7 +369,23 @@ export default function App() {
   // Themed skin — 'auto' resolves by season, and because it derives
   // from todayStr it rolls over at midnight without a reload, like
   // everything else date-derived. Noon avoids TZ edge cases.
-  const skin = resolveSkin(config.nightTheme, new Date(`${todayStr}T12:00:00`));
+  // Tonight's calendar title lets 'auto' pick Easter / VBS / Thanksgiving,
+  // none of which a month table can express (floating, lunar, or
+  // church-scheduled). Falls back to the month when nothing matches.
+  const tonightTitle = useMemo(
+    () => deriveClubInfo(calendar.events, todayStr)?.today?.title ?? null,
+    [calendar.events, todayStr],
+  );
+  const skin = resolveSkin(config.nightTheme, new Date(`${todayStr}T12:00:00`), tonightTitle);
+
+  // The season picks the scene; the weather only adds atmosphere over it, so a
+  // deliberately-chosen VBS skin doesn't vanish because it started raining.
+  const sceneTheme = sceneForSkin(skin);
+  const skinAccents = SKIN_TABLE[skin] ?? null;
+  const mood = useMemo(
+    () => (weatherTheme ? weatherMood(weather) : { cozy: false, dim: 1, reason: 'off' }),
+    [weatherTheme, weather],
+  );
 
   // Reveal the gear on any mouse movement, fade it after 3 seconds of stillness.
   useEffect(() => {
@@ -332,7 +459,11 @@ export default function App() {
     <div
       className={`stage ${overlay ? 'overlay' : ''}`}
       data-skin={skin !== 'none' ? skin : undefined}
-      style={chroma ? { background: chroma } : undefined}
+      style={{
+        ...(chroma ? { background: chroma } : null),
+        // Accent pair straight from SKIN_TABLE — see the note in app.css.
+        ...(skinAccents ? { '--skin-a': skinAccents.a, '--skin-b': skinAccents.b } : null),
+      }}
       ref={stageRef}
       onDoubleClick={toggleFullscreen}
     >
@@ -348,6 +479,9 @@ export default function App() {
             backgroundSource={config.backgroundSource}
             manualSlides={config.manualSlides}
             calendarSlides={calendarSlides}
+            sceneTheme={sceneTheme ?? 'sky'}
+            cozy={mood.cozy}
+            dim={mood.dim}
           />
         </ErrorBoundary>
       )}
@@ -388,6 +522,16 @@ export default function App() {
         </ErrorBoundary>
       )}
 
+      {/* Who is still waiting to be picked up. Off unless the operator turned it
+          on, and it yields to an active check-in banner — a child arriving at the
+          door outranks the pickup list. All the visibility judgement is in the
+          pure decideBoard(); see src/lib/checkoutBoard.js for why it is gated. */}
+      {!overlay && !currentEvent && (
+        <ErrorBoundary label="checkout-board">
+          <CheckoutBoard decision={boardDecision} checkout={checkout} calm={config.panicMode === true} />
+        </ErrorBoundary>
+      )}
+
       {/* Top-right corner stack: clock, weather chip, status dot flow
           under one another so nothing ever overlaps. In cycle mode the
           clock and weather live in the rotation instead, so only the
@@ -416,6 +560,19 @@ export default function App() {
               {opsFailures.length > 0 && (
                 <span className="ops-count" title="Printer problems tonight — see Settings">
                   ⚠ {opsFailures.length}
+                </span>
+              )}
+              {/* Name faults get WORDS, not a colour. "disconnected" at least
+                  tells an operator to look at the network; a silent absence of
+                  banners tells them nothing, so this says which side to fix. */}
+              {nameFaultText && (
+                <span className="name-fault" title="Children's names arrive encrypted — see Settings → Display key">
+                  {nameFaultText}
+                </span>
+              )}
+              {!nameFaultText && countsWithoutNames && (
+                <span className="name-fault" title="The print server may be missing its display key">
+                  COUNTS RISING, NO NAMES — CHECK THE PRINTER
                 </span>
               )}
             </StickerChip>
@@ -447,12 +604,22 @@ export default function App() {
         </StickerChip>
       )}
 
+      {/* One toast, three sources — see useCelebrationQueue. `kind` picks the
+          copy and styling; the queue guarantees only one is ever on screen. */}
       <AnimatePresence>
-        {milestone != null && (
+        {celebration != null && (
           <motion.div
-            key="milestone"
-            className="milestone-toast"
-            style={{ rotate: -1.2 }}
+            key={`celebration-${celebration.kind}-${celebration.club ?? ''}-${celebration.count}`}
+            className={
+              celebration.kind === 'club'
+                ? 'milestone-toast club-milestone'
+                : celebration.kind === 'night'
+                  ? 'milestone-toast night-milestone'
+                  : 'milestone-toast'
+            }
+            style={celebration.kind === 'club'
+              ? { rotate: 1.1, '--club-primary': getClubPalette(celebration.club).primary }
+              : { rotate: -1.2 }}
             initial={{ opacity: 0, y: 40, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
             exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
@@ -467,8 +634,16 @@ export default function App() {
               <Mark kind="sparkle" size={30} />
             </motion.span>
             <div className="milestone-lines">
-              <span className="milestone-label">Checked in tonight</span>
-              <span className="milestone-count">{milestone} kids!</span>
+              <span className="milestone-label">
+                {celebration.kind === 'club' ? celebration.club
+                  : celebration.kind === 'night' ? celebration.label
+                    : 'Checked in tonight'}
+              </span>
+              <span className="milestone-count">
+                {celebration.kind === 'club' ? `${celebration.count} kids strong!`
+                  : celebration.kind === 'night' ? celebration.headline
+                    : `${celebration.count} kids!`}
+              </span>
             </div>
             <motion.span
               className="milestone-sparkle milestone-sparkle--right"
@@ -478,24 +653,6 @@ export default function App() {
             >
               <Mark kind="sparkle" size={36} />
             </motion.span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {clubMilestone != null && (
-          <motion.div
-            key={`club-milestone-${clubMilestone.club}-${clubMilestone.count}`}
-            className="milestone-toast club-milestone"
-            style={{ rotate: 1.1, '--club-primary': getClubPalette(clubMilestone.club).primary }}
-            initial={{ opacity: 0, y: 40, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
-            exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
-          >
-            <div className="milestone-lines">
-              <span className="milestone-label">{clubMilestone.club}</span>
-              <span className="milestone-count">{clubMilestone.count} kids strong!</span>
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -518,6 +675,17 @@ export default function App() {
       {!overlay && config.panicMode && (
         <div className="panic-pill" title="Simplified mode is on — toggle with Ctrl+Shift+X or in Settings → Display">
           simplified mode
+        </div>
+      )}
+
+      {/* Once a simulated event has been fired, say so for the rest of the
+          session. A volunteer walking past the lobby TV during training must
+          never mistake a fake banner for a real child arriving — and a badge
+          that timed out would defeat that at exactly the wrong moment. Cleared
+          only by reloading, which is also how you leave demo mode. */}
+      {demoActive && (
+        <div className="demo-pill" title="A simulated event has been fired on this screen. Reload to clear.">
+          demo mode — not real check-ins
         </div>
       )}
 
@@ -548,7 +716,7 @@ export default function App() {
             onChange={updateConfig}
             onReset={resetConfig}
             onClose={() => setSettingsOpen(false)}
-            onTest={handleCheckIn}
+            onTest={(p) => simulate('checkin', p)}
             onResetTally={resetTally}
             onOpenSlideEditor={() => {
               setSettingsOpen(false);
@@ -572,11 +740,13 @@ export default function App() {
       {debugOpen && (
         <ErrorBoundary label="debug-panel" onError={() => setDebugOpen(false)}>
           <DebugPanel
-            onSimulate={handleCheckIn}
-            onSimulateRecap={handleRecap}
-            onSimulateOps={recordOps}
-            onSimulateTonight={handleTonight}
-            onSimulateNotice={handleNotice}
+            onSimulate={(p) => simulate('checkin', p)}
+            onSimulateRecap={(p) => simulate('recap', p)}
+            onSimulateOps={(p) => simulate('ops', p)}
+            onSimulateTally={(p) => simulate('tally', p)}
+            onSimulateCheckout={(p) => simulate('checkout', p)}
+            onSimulateTonight={(p) => simulate('tonight', p)}
+            onSimulateNotice={(p) => simulate('notice', p)}
             onClose={() => setDebugOpen(false)}
             status={status}
             lastEventAt={lastEventAt}

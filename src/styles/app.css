@@ -694,6 +694,62 @@ html, body, #root {
   /* The candle flames poke above the viewBox top. */
   overflow: visible;
 }
+/* Inner wrapper so the entrance (rise + settle, on .cake) and the looping
+   wiggle can run on separate elements — framer-motion can't drive both a
+   one-shot and an infinite animation on the same transform. */
+.banner.birthday .cake-wiggle {
+  display: block;
+  position: relative;
+}
+/* Candle flames, positioned over the cake's two candles. Deliberately no
+   COUNT of candles: the event contract carries no birth year, so the display
+   cannot know an age and must never imply one. */
+.banner.birthday .cake-flames {
+  position: absolute;
+  top: 2%;
+  left: 0;
+  right: 0;
+  height: 12%;
+  pointer-events: none;
+}
+.banner.birthday .cake-flame {
+  position: absolute;
+  width: 7%;
+  height: 100%;
+  border-radius: 50% 50% 45% 45%;
+  background: radial-gradient(ellipse at 50% 70%, #fff6e3 0%, #ffd257 45%, #f7a41c 100%);
+  transform-origin: 50% 100%;
+  filter: blur(0.3px);
+}
+.banner.birthday .cake-flame--a { left: 41%; }
+.banner.birthday .cake-flame--b { left: 52%; }
+
+/* Bunting across the top of the band. Sits above the band's own decorations
+   but below the text, and is clipped by the band so it reads as strung
+   across it rather than floating. */
+.banner.birthday .birthday-garland {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: clamp(20px, 3.4vh, 38px);
+  pointer-events: none;
+  opacity: 0.75;
+  /* Behind the band text. At full height and opacity the flags overlapped the
+     "Happy Birthday" eyebrow — decoration must never compete with the child's
+     name, which is the only thing on this banner that matters. */
+  z-index: 0;
+}
+/* Guarantees the text paints above the garland regardless of source order. */
+.banner.birthday .banner-text {
+  position: relative;
+  z-index: 2;
+}
+.banner.birthday .birthday-garland svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
 
 /* First-timer band: the big Awana-orange welcome, with a golden glow
    rising off the wave. */
@@ -1728,6 +1784,22 @@ input:focus-visible {
   font-weight: 800;
 }
 
+/* Names arrive encrypted; when a screen can't read them it must SAY so, not
+   just quietly stop showing banners — that is indistinguishable from a quiet
+   night. Amber rather than red: no child is missing a label, the wall is just
+   less welcoming until someone pastes the key. Wraps onto its own line because
+   the messages are sentences, not a status word. */
+.status-dot .name-fault {
+  display: block;
+  margin-top: 0.25em;
+  color: #ffc046;
+  font-weight: 800;
+  font-size: 0.72em;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  max-width: 22ch;
+}
+
 /* "simplified mode" pill — quiet confirmation that panic mode is on. */
 .panic-pill {
   position: absolute;
@@ -1744,6 +1816,29 @@ input:focus-visible {
   border-radius: 999px;
   border: 1px solid rgba(255, 210, 87, 0.4);
   z-index: 40;
+  pointer-events: none;
+}
+
+/* Demo-mode badge. Sits TOP-centre rather than bottom so it can't be confused
+   with the simplified-mode pill, and is deliberately louder (red, no rotation):
+   its whole job is to stop someone reading a simulated banner as a real child
+   arriving. Above the banner z-index so a burst of fake check-ins can't cover
+   it. */
+.demo-pill {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(120, 20, 24, 0.9);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 120, 120, 0.55);
+  z-index: 60;
   pointer-events: none;
 }
 
@@ -1777,30 +1872,11 @@ input:focus-visible {
 /* Recolor the ambient stage decorations for special nights. Banners
    keep club colors — the skin dresses the room, not the kids. */
 .stage[data-skin] .placeholder-eyebrow { letter-spacing: 0.14em; }
-.stage[data-skin='autumn'] {
-  --skin-a: #d97706;
-  --skin-b: #7c2d12;
-}
-.stage[data-skin='christmas'] {
-  --skin-a: #dc2626;
-  --skin-b: #14532d;
-}
-.stage[data-skin='summer'] {
-  --skin-a: #0ea5e9;
-  --skin-b: #fbbf24;
-}
-.stage[data-skin='spring'] {
-  --skin-a: #22c55e;
-  --skin-b: #f472b6;
-}
-.stage[data-skin='harvest'] {
-  --skin-a: #b45309;
-  --skin-b: #4d7c0f;
-}
-.stage[data-skin='snowday'] {
-  --skin-a: #38bdf8;
-  --skin-b: #e0f2fe;
-}
+/* --skin-a / --skin-b are set INLINE by App.jsx from SKIN_TABLE
+   (src/lib/skins.js), not listed per-skin here. They used to be duplicated in
+   this file, which made adding a season a five-file edit and meant the CSS
+   could silently disagree with the JS. The table is now the only place the
+   colours live. */
 .stage[data-skin] .background-placeholder .placeholder-copy h1 {
   background: linear-gradient(120deg, var(--skin-a), var(--skin-b));
   -webkit-background-clip: text;
@@ -1985,3 +2061,142 @@ input:focus-visible {
   font-size: 0.92rem;
   color: var(--text-on-glass);
 }
+
+/* Night-milestone toast (the 100th kid). Warmer and slightly larger than the
+   routine every-Nth toast so a named threshold reads as an occasion — the
+   whole reason it isn't just another interval. */
+.milestone-toast.night-milestone {
+  border-color: var(--awana-gold, #f7a41c);
+  box-shadow: 0 10px 30px rgba(247, 164, 28, 0.28);
+}
+.milestone-toast.night-milestone .milestone-label {
+  color: var(--awana-gold, #f7a41c);
+  letter-spacing: 0.1em;
+}
+.milestone-toast.night-milestone .milestone-count {
+  font-size: 2.1rem;
+}
+
+/* ── Weather mood over the season's scene ──────────────────────────────
+   The season picks the scene (background, waves, doodles); the weather only
+   cools and dims it. Implemented as a filter on the scene container rather
+   than a palette swap so a chosen skin (VBS, Easter) is never replaced by the
+   weather — and so club banners, which live outside the scene, keep their
+   catalog colours untouched.
+
+   --scene-dim is set inline by CatalogScene and clamped to >= 0.6, so this can
+   never black out the room. A cozy night reads as dusk indoors, not a fault. */
+.catalog-scene {
+  --scene-dim: 1;
+}
+.catalog-scene--cozy {
+  filter: brightness(var(--scene-dim)) saturate(0.86);
+  transition: filter 1.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .catalog-scene--cozy { transition: none; }
+}
+
+/* Display key field — the key is masked and the buttons sit inline, because a
+   TV screenshot during setup must not hand over the one secret that matters. */
+.display-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.display-key-row input { flex: 1 1 16ch; min-width: 0; }
+.display-key-value {
+  flex: 1 1 16ch;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.85em;
+  opacity: 0.85;
+}
+
+/* ── Who's still here board ──────────────────────────────────────────────────
+   Bottom-centre, below the ticker. Deliberately quieter than a check-in banner:
+   this is a reference list a volunteer scans, not an announcement, and it must
+   never compete with a child arriving at the door. */
+.checkout-board {
+  position: absolute;
+  /* Clear of the bottom-right corner stack (clock / weather / signal) and of
+     the tonight ticker below it — the board is a reference list, so it may never
+     sit on top of either. */
+  bottom: 128px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(70vw, 980px);
+  padding: 14px 22px 12px;
+  border-radius: 18px;
+  background: rgba(20, 20, 24, 0.72);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  text-align: center;
+  z-index: 3;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+
+.checkout-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.checkout-clubs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checkout-club {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.checkout-club-name {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  min-width: 7ch;
+  text-align: right;
+}
+
+.checkout-names {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* The footer carries the honest wording — "not checked out yet", the label
+   count, and the data's age. It is small but must never be omitted: without it
+   the list reads as a verified headcount, which it is not. */
+.checkout-foot {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  opacity: 0.62;
+}
+
+.checkout-line {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+.checkout-line.good { color: #8ce99a; }
+.checkout-line.warn { color: #ffc046; }
+
+/* Stale and anonymous states are single lines, so they need less room. */
+.checkout-board.stale,
+.checkout-board.anonymous,
+.checkout-board.empty { padding: 12px 22px; }

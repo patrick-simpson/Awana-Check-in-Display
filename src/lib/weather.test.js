@@ -3,6 +3,7 @@ import {
   buildForecastUrl,
   fetchCurrentWeather,
   geocodeLocation,
+  weatherMood,
   weatherPresentation,
 } from './weather.js';
 
@@ -108,5 +109,54 @@ describe('geocodeLocation', () => {
     expect(await geocodeLocation('nowheresville')).toBeNull();
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
     expect(await geocodeLocation('waterville')).toBeNull();
+  });
+});
+
+describe('weatherMood', () => {
+  // The season owns the palette; weather only adds atmosphere over it. These
+  // guard that the modifier is a MODIFIER — it never picks a theme, and a
+  // failed weather fetch must change nothing.
+  it('is neutral with no reading, so a failed fetch changes nothing', () => {
+    expect(weatherMood(null)).toEqual({ cozy: false, dim: 1, reason: 'none' });
+    expect(weatherMood(undefined).cozy).toBe(false);
+    expect(weatherMood({}).cozy).toBe(false);
+    expect(weatherMood({ code: 'x' }).cozy).toBe(false);
+  });
+
+  it('goes cozy for rain, snow, fog and thunder', () => {
+    expect(weatherMood({ code: 63, isDay: true }).cozy).toBe(true);   // rain
+    expect(weatherMood({ code: 73, isDay: true }).cozy).toBe(true);   // snow
+    expect(weatherMood({ code: 45, isDay: true }).cozy).toBe(true);   // fog
+    expect(weatherMood({ code: 95, isDay: true }).cozy).toBe(true);   // thunder
+  });
+
+  it('stays bright for clear and merely cloudy skies', () => {
+    // Dimming for ordinary dusk would leave most club nights muted.
+    expect(weatherMood({ code: 0, isDay: true }).cozy).toBe(false);
+    expect(weatherMood({ code: 2, isDay: false }).cozy).toBe(false);
+    expect(weatherMood({ code: 3, isDay: false }).cozy).toBe(false);
+  });
+
+  it('dims a rainy night more than a rainy day', () => {
+    const night = weatherMood({ code: 63, isDay: false }).dim;
+    const day = weatherMood({ code: 63, isDay: true }).dim;
+    expect(night).toBeLessThan(day);
+  });
+
+  it('never dims below the floor the CSS clamps to', () => {
+    for (const code of [0, 2, 3, 45, 51, 63, 71, 73, 80, 95, 99]) {
+      for (const isDay of [true, false]) {
+        const { dim } = weatherMood({ code, isDay });
+        expect(dim, `code ${code} isDay ${isDay}`).toBeGreaterThanOrEqual(0.6);
+        expect(dim).toBeLessThanOrEqual(1);
+      }
+    }
+  });
+
+  it('thunder is the strongest mood', () => {
+    const thunder = weatherMood({ code: 95, isDay: true }).dim;
+    for (const code of [45, 63, 73]) {
+      expect(thunder).toBeLessThanOrEqual(weatherMood({ code, isDay: true }).dim);
+    }
   });
 });

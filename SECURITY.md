@@ -38,48 +38,161 @@ Two supporting rules:
 If you change the socket layer, the sanitizers, or a banner component, preserve
 this invariant. It is the only thing standing between a roster and a projector.
 
-## The Pusher channel is public — know what that means
+## The channel is public, so the names are encrypted
 
-This is the one exposure that is inherent to the design rather than a bug, and
-it is worth understanding before you deploy.
+This section used to explain, at length, that anyone who viewed the page source
+could take the Pusher App Key, subscribe to `awana-channel` from anywhere in the
+world, and watch every child's first name arrive live — and that closing it would
+require a backend this repo does not have. That was true, and it was not
+acceptable. It is now fixed, and the fix did not need a backend.
 
-The app calls `pusher.subscribe('awana-channel')` — a **public** channel (no
-`private-`/`presence-` prefix, no auth endpoint). Because this is a browser app,
-the Pusher **App Key** must ship to the client, and the site is deployed to
-GitHub Pages. So:
+**The four events that carry a child's name are encrypted end to end.**
+`checkin`, `recap`, `birthdays` and `checkout` are sealed with AES-256-GCM under a key that
+only the print server and the church's own screens hold. Pusher relays
+ciphertext it cannot read. See [`src/lib/envelope.js`](src/lib/envelope.js) for
+the framing and the reasoning; the publisher half is `print-server/events.js` in
+the printer repo, and the two are pinned to a shared interop fixture
+(`envelope-vectors.json`) so they cannot drift.
 
-> Anyone who views the page source can take the App Key and subscribe to the
-> channel from anywhere in the world.
+The channel is still a public channel and the App Key still ships in the bundle.
+That is deliberate: Pusher public channels have **no server-side authorization
+primitive** — subscription is granted by possession of the key, and there is no
+setting that changes it. So rather than trying to control who may subscribe, we
+made subscribing useless for reading names.
 
-What such a subscriber can see is exactly what the contract allows:
+### The who's-still-here board carries an extra obligation
 
-- each check-in as it happens: **child's first name, club, birthday flag,
-  first-timer flag**
-- the monthly birthday roster: **first name, club, birthday month and day**
-- aggregate counters, club tallies, team points, next-meeting date, and any
-  church-authored notice
+`checkout` lists children who have not been checked out yet. Encryption keeps it
+off the open internet, but it is still on a **public wall**, so the rendering
+rules are part of the privacy design:
 
-What they cannot see: last names, allergies, medical or photo-consent flags,
-contact details, addresses, birth *years*, or anything else — none of it is on
-the channel at all, and the sanitizers would drop it if it were.
+- **Off by default.** It appears only when an operator turns it on.
+- **Names disappear when the list gets short.** Forty names is anonymising; two
+  names at 8:15pm is a statement about two specific unattended children — and
+  their first names were already on this same screen earlier in the evening. The
+  threshold is `checkoutBoardNamesAbove` (default 3).
+- **Time-windowed.** In `pickup` mode it is only on screen from closing onwards.
+- **No data renders nothing**, never an empty board.
+- **It is not a headcount** and never claims to be. It reflects whether checkout
+  was *recorded* in the check-in system, which during a pickup rush often lags,
+  so it can be freshly and confidently wrong. Every string on it says "not
+  checked out yet".
 
-For most churches that is an acceptable trade: a stranger learns that a child
-named "Ava" attends Sparks on Wednesdays. **Decide consciously whether it is
-acceptable for yours**, particularly if any family in your club has a custody or
-safeguarding reason to avoid their child's attendance being observable.
+The decision logic is a pure function (`src/lib/checkoutBoard.js`) precisely so
+it can be tested exhaustively rather than eyeballed.
 
-### Closing it, if you need to
+### Why the other six events stay in the clear
 
-Making the channel private requires a server-side auth endpoint that signs
-subscription requests with the Pusher **secret**, which means introducing a
-backend this repo intentionally does not have (`pusher-js` would then be
-configured with `authEndpoint`, and the channel renamed to `private-…`). If your
-situation requires it, that is the change — a static GitHub Pages deployment
-cannot do it alone.
+`tally`, `tonight`, `points`, `schedule`, `notice`, `ops` and `canary` are
+**deliberately** unencrypted. They are counts and church-authored copy, none of
+it PII and all of it already visible to anyone standing in the lobby.
 
-An access-control layer in front of the page (a private network, or Pages behind
-SSO on a paid plan) reduces who can *read the screen*, but does not stop someone
-who already has the key from subscribing to the channel directly.
+Their readability is load-bearing, not laziness. It is what lets a screen tell
+three different faults apart:
+
+| What the screen sees | What it means |
+|---|---|
+| Nothing at all | the pipe is down — check the network |
+| Counts and clock fine, no names | this screen cannot read names — check its display key |
+| Counts rising, no names, key OK | the **print server** has no key — check the printer |
+| Counts flat, no names | quiet night, nothing wrong |
+
+If everything were encrypted, all four would look identical, and the last one is
+the dangerous case: nobody investigates a quiet night. The display forces a
+worded sticker onto the screen for each fault regardless of the
+`showConnectionStatus` setting, because a screen that silently stops welcoming
+children is the worst outcome this change could produce.
+
+### Setting it up
+
+1. On the print-server dashboard: **Realtime → Generate display key**. Copy it.
+2. On each screen: gear → Settings → Connection → **Display key** → paste, Save.
+3. Back on the dashboard, press **Night Test**. Each screen confirms it can read
+   names.
+4. Write the key on a card and keep it where the church keeps the WiFi password.
+   It needs to be somewhere the *next* volunteer can find it.
+
+Without a key a screen still shows the clock, weather, counts, countdown, slides
+and any CLUB CANCELLED notice — **only the welcome banners stop**. So a missed
+step is never an emergency. Fix it Thursday.
+
+**Never** email the key, put it in a URL, paste it into a GitHub issue, or
+include it in a settings export. The code makes the last three structurally
+impossible (see below), but the first one is on you.
+
+### What is still exposed — be plain with yourself about this
+
+This is pseudonymisation of the feed, not an invisible pipe.
+
+- **Timing and volume leak completely, and always will.** Channel and event names
+  must stay plaintext for Pusher to route them, so a stranger with the App Key
+  still learns to the millisecond when doors opened, the shape of the arrival
+  curve, exactly how many children were checked in (count the frames), and
+  whether club happened at all on a given date. They cannot learn *who*. This is
+  true of every hosted message bus, including Pusher's own end-to-end product.
+- **Payload lengths are padded, and that is not cosmetic.** GCM adds no padding
+  of its own, so an unpadded envelope would reveal `len(firstName) + len(club)`
+  exactly — and club is inferable by correlating the plaintext `tally`. Against a
+  known roster over a season that is a real re-identification channel. Every
+  sealed `checkin` is therefore padded to an identical size, and a CI test fails
+  the build if that ever stops being true.
+- **No revocation.** A leaked key is compromised until you generate a new one and
+  re-paste it on every screen. At three screens that is a two-minute walk.
+- **No forward secrecy.** Someone who logged ciphertext every Wednesday for
+  months can decrypt all of it the day the key leaks. **Rotate in the summer, not
+  mid-season** — that bounds the window to one program year.
+- **Anyone who can read a screen's browser storage gets the key**: filesystem
+  access, devtools, a malicious extension. One case deserves naming: if the
+  display and the printer repo's marketing site are both served from
+  `*.github.io` under the same account, they **share one web origin**, so an XSS
+  or a single compromised build dependency on that unrelated site could read this
+  key out of the display's `localStorage`. Serving the display from a custom
+  domain gives it its own origin and closes that. It is a DNS change, not a code
+  change.
+- **`crypto.subtle` requires a secure context.** Fine on GitHub Pages HTTPS, but
+  it permanently forecloses serving the display from the print server over plain
+  HTTP.
+- **URL-provisioned embeds lose banners.** `?key=`/`?cluster=` exist so an OBS or
+  ProPresenter page with no localStorage can still connect. The display key
+  deliberately gets no such flag, so such an embed shows counts and slides but no
+  names. That is the right trade and it is a real capability loss.
+- **It does nothing about the lobby.** Children's first names are on a wall, by
+  design. This closes the remote, anonymous, worldwide, scriptable hole — the
+  real one — and nothing else.
+
+One gain worth stating: **Pusher itself can no longer read the names.** Every
+hosted-database alternative, Firebase included, necessarily holds the plaintext.
+
+### Where this stops being the right design
+
+At roughly three screens, "regenerate and re-paste" is fine. If the church ever
+runs many screens, or if instantly revoking one lost device becomes a
+requirement, a symmetric key is the wrong tool and the answer becomes an
+identity-based system where revocation is a dashboard click — look at **Ably**
+(subscribe-only revocable capability keys, and connections cannot be opened
+without a key, so there is no anonymous-connection surface) before Firebase,
+whose free tier caps simultaneous connections at 100 and cannot raise it, which
+would let a stranger with the public database URL black out the lobby TV.
+
+### Why the key is not in `awanaConfig.v1`
+
+The display key lives in its **own** `localStorage` entry
+([`src/lib/displayKey.js`](src/lib/displayKey.js)) and is deliberately absent
+from the `VALIDATORS` table in `useConfig.js`. That is not tidiness — it closes
+three leak paths at once, each of which is a documented, encouraged workflow:
+
+1. `?config=<url>` merges a remote JSON through the same `sanitizeOverrides`
+   table, so anything in `VALIDATORS` is settable from a file at a public URL.
+2. Settings → Export serialises the overrides to a JSON file that gets emailed
+   and dropped in shared drives.
+3. `?key=` already carries the Pusher App Key on the query string, so a URL is an
+   established place for credentials here — and URLs land in browser history,
+   screenshots, and the kiosk shortcut taped to the wall.
+
+Three deny-lists would each have been one forgotten line away from publishing the
+key. A separate storage entry means there is no list to forget.
+`src/lib/displayKey.test.js` asserts all three paths stay closed, and those
+assertions were verified to fail when the key is added to `VALIDATORS`.
 
 ## What lives on the device
 
@@ -107,8 +220,13 @@ own OIDC token.
 4. **Keep `contract-vectors.json` byte-identical** with the printer repo's
    canonical copy. It is the shared definition of what may ride the channel; if
    the two drift, the sanitizers stop matching what the publisher sends.
-5. **Run `npm test`.** The sanitizer suite is what proves the privacy invariant
-   still holds.
+5. **Generate your own display key** — never reuse another church's. If you fork
+   a deployed instance, clear the key from every screen and generate a fresh one
+   on your own print server. A shared key means a shared ability to read names.
+6. **Run `npm test`.** The sanitizer suite proves the privacy invariant still
+   holds; `envelope.test.js` proves this repo can still open what the printer
+   seals, and `displayKey.test.js` proves the key cannot leak through a remote
+   config, a settings export, or a URL.
 
 ## Reporting a vulnerability
 

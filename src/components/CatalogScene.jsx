@@ -202,7 +202,18 @@ function SceneWinks({ color }) {
   );
 }
 
-export default function CatalogScene({ theme = 'sky', still = false, children }) {
+/**
+ * The catalog scene behind everything.
+ *
+ * `theme` is chosen by the SEASON (see lib/skins.js sceneForSkin). `cozy`/`dim`
+ * are the WEATHER's contribution: rather than swapping the theme — which would
+ * make a deliberately-chosen VBS or Easter skin silently vanish on a wet night
+ * — the weather only cools and dims whatever the season painted. Same treatment
+ * the projector's AmbientOrbs has applied to cool weather all along.
+ */
+export default function CatalogScene({
+  theme = 'sky', still = false, cozy = false, dim = 1, children,
+}) {
   // Editor thumbnails and the fullscreen slideshow render many scenes at
   // once; SVG gradient ids are document-global, so a shared id would
   // silently paint every wave with the first theme's colors.
@@ -210,7 +221,15 @@ export default function CatalogScene({ theme = 'sky', still = false, children })
   const t = THEMES[theme] || THEMES.sky;
 
   return (
-    <div className={`catalog-scene catalog-scene--${THEMES[theme] ? theme : 'sky'}`} style={{ background: t.background }}>
+    <div
+      className={`catalog-scene catalog-scene--${THEMES[theme] ? theme : 'sky'}${cozy ? ' catalog-scene--cozy' : ''}`}
+      style={{
+        background: t.background,
+        // Clamped so a bad value can never black out the room; 1 is a no-op, so
+        // an unthemed install renders exactly as before.
+        '--scene-dim': String(Math.max(0.6, Math.min(1, Number(dim) || 1))),
+      }}
+    >
       {/* Tone-on-tone blobs behind everything — the catalog dividers float
           a darker organic shape behind the subject. Transform-only
           breathing (drift/rotate/scale), never repainted. */}

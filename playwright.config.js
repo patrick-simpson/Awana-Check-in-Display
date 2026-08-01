@@ -37,8 +37,17 @@ export default defineConfig({
     launchOptions: executablePath ? { executablePath } : {},
   },
   projects: [
-    { name: 'smoke', testMatch: /.*\.spec\.js/, testIgnore: /.*\.visual\.spec\.js/ },
+    // `smoke` gates the live deploy (deploy.yml), so it holds only fast,
+    // stable, load-bearing checks. `visual` and `events` run in ci.yml only —
+    // pixel drift and multi-step event choreography should flag a PR or the
+    // weekly run, never stand between someone and a 5:55pm club-night fix.
+    {
+      name: 'smoke',
+      testMatch: /.*\.spec\.js/,
+      testIgnore: [/.*\.visual\.spec\.js/, /.*\.events\.spec\.js/],
+    },
     { name: 'visual', testMatch: /.*\.visual\.spec\.js/ },
+    { name: 'events', testMatch: /.*\.events\.spec\.js/ },
   ],
   webServer: {
     command: 'npm run preview -- --port 4173 --strictPort',

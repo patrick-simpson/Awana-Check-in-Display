@@ -70,11 +70,15 @@ The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
   remains canonical for anything structural.
 - **Isolation rule**: `src/presentation/` may import from the existing
   app ONLY `src/hooks/useSocket.js`, `src/hooks/useConfig.js`,
-  `src/hooks/useWakeLock.js`, and `src/lib/weather.js` (its realtime
-  data must flow through the sanitized socket — never a second Pusher
-  stack; the wake-lock and Open-Meteo fetchers are shared so the two
-  pages can't drift apart). Nothing in the signage app imports from
-  `src/presentation/`.
+  `src/hooks/useWakeLock.js`, `src/lib/weather.js`, `src/lib/skins.js`,
+  and `src/components/BirthdayArt.jsx`. Its realtime data must flow
+  through the sanitized socket — never a second Pusher stack; the
+  wake-lock, Open-Meteo fetcher, skin table and birthday art are shared
+  so the two pages can't drift apart.
+  (The skin table earned its place after the two screens disagreed about
+  the season: November read as `harvest` on signage and `winter` on the
+  projector, from two separate month tables.) Nothing in the signage app
+  imports from `src/presentation/`.
 - `shared/` at the repo root is served at `/shared/` (dev middleware +
   build copy in vite.config.js) for the whole Awana app family; this
   repo's copy is the canonical one (KVBC-Awana-Countdown is retired).
@@ -91,7 +95,7 @@ The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
 **One strict allowlist sanitizer per event type** — see
 `src/lib/eventSanitizers.js` (bound per-event in
 `src/hooks/useSocket.js`). Each incoming payload on the Pusher channel
-(`checkin`, `recap`, `tally`, `birthdays`, `ops`, `canary`) is reduced
+(`checkin`, `recap`, `checkout`, `tally`, `birthdays`, `ops`, `canary`) is reduced
 to exactly its allowlisted fields before anything else sees it: first
 names only, ever. Allergy info, contact info, last names, birth years,
 photos — none of it can ever reach the screen. Payload shapes are
@@ -99,3 +103,44 @@ pinned by `src/lib/__fixtures__/contract-vectors.json` (a byte-identical
 mirror of the printer repo's canonical copy) and enforced by
 `src/lib/eventSanitizers.test.js`. Preserve this invariant on every
 change to the socket layer, the sanitizers, or banner components.
+
+**The four name-bearing events arrive ENCRYPTED**, because the Pusher
+channel is public and Pusher public channels have no server-side
+authorization primitive at all. `checkin`, `recap`, `birthdays` and
+`checkout` are sealed with AES-256-GCM (`src/lib/envelope.js`; publisher half is
+`print-server/events.js` in the printer repo, pinned to a shared
+`envelope-vectors.json` interop fixture). Rules that must survive any
+change:
+
+- Decryption sits **in front of** `dispatchEvent`, never beside it — a
+  sealed frame is authenticated, not trusted, so it still passes its own
+  allowlist sanitizer. `eventSanitizers.js` is untouched by the transport.
+- **Anti-downgrade:** once a screen holds a key, a *plaintext* payload on
+  those four events is dropped. Without it the encryption is decorative.
+- The key lives in its **own** localStorage entry (`src/lib/displayKey.js`)
+  and must never be added to `VALIDATORS` in `useConfig.js` — that table
+  also backs `?config=<url>` and the Settings export, so it would publish
+  the key. `displayKey.test.js` guards all three paths.
+- Decrypts are serialized through one promise chain per event, or a burst
+  of arrivals greets children out of order.
+- The other six events stay plaintext **on purpose**: their readability
+  is what lets a screen distinguish "pipe down" from "cannot read names"
+  from "quiet night". See SECURITY.md.
+
+**`checkout` (who is still here) needs more than a sanitizer.** It is the
+one payload that names children who are *not yet with a parent*, so the
+rendering rules are part of the privacy design, not styling:
+
+- It is **off by default** (`checkoutBoardMode: 'off'`). No default is
+  right for every church, so it takes a deliberate choice.
+- Below `checkoutBoardNamesAbove` children it **stops naming anyone**. A
+  long list is anonymising; two names late in the evening point at two
+  specific unattended children, and `checkin` already published those
+  names earlier.
+- A missing payload renders **nothing**, never an empty board — "I have
+  no data" and "everyone has been picked up" are opposite facts.
+- It is **not a headcount**. It reflects whether volunteers *recorded*
+  checkout, so it can be fresh and wrong; every string says "not checked
+  out yet", never "still in the building".
+- All of that judgement lives in the pure `decideBoard()` in
+  `src/lib/checkoutBoard.js` so it can be tested exhaustively.

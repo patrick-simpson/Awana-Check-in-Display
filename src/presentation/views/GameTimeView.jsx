@@ -12,6 +12,8 @@ import { Logo } from '../components/Logo.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { BigTimer } from '../components/BigTimer.jsx';
 import { GlowText } from '../components/GlowText.jsx';
+import { useLowPower } from '../hooks/useLowPower.js';
+import { CakeArt } from '../../components/BirthdayArt.jsx';
 import { secondsUntil } from '../lib/schedule.js';
 import { birthdaysThisWeek, listNames } from '../lib/birthdays.js';
 import { countForClub } from '../lib/tally.js';
@@ -35,6 +37,8 @@ const TALLY_STALE_MS = 10 * 60 * 1000;
  * useTally hook — the view itself is unchanged.
  */
 export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
+  // Held still under ?vr=1 / OS reduced-motion, where every ambient layer stops.
+  const lowPower = useLowPower();
   const clubs = gameWindow.clubs.map((id) => CLUBS[id]);
   const primary = clubs[0];
   const secondary = clubs[1];
@@ -157,6 +161,26 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: DUR.base, ease: EASE.pop, delay: 0.25 }}
           >
+            {/* A cake above the greeting. This side of the app knows each
+                birthday's month and day but still NOT a year, so there is no
+                candle count and no age — same constraint as the signage banner.
+                Held still under low power (?vr=1 / reduced motion), where the
+                whole ambient layer is expected to stop. */}
+            <motion.span
+              className="block w-16 sm:w-20 mb-1"
+              aria-hidden
+              initial={{ y: 18, scale: 0.85, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              transition={{ duration: DUR.base, ease: EASE.pop, delay: 0.15 }}
+            >
+              <motion.span
+                className="block"
+                animate={lowPower ? undefined : { rotate: [0, -5, 5, 0], scale: [1, 1.06, 1] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: 0.9 }}
+              >
+                <CakeArt />
+              </motion.span>
+            </motion.span>
             <GlowText
               as="p"
               size="script"

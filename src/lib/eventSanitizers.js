@@ -111,6 +111,7 @@ const NAME_MAX = 40;
 const ID_MAX = 64;
 const RECAP_MAX = 30;
 const BIRTHDAYS_MAX = 40;
+const CHECKOUT_MAX = 60;
 const TALLY_CLUBS_MAX = 30;
 const POINTS_GROUPS_MAX = 20;
 const NOTICE_MAX = 200;
@@ -219,6 +220,69 @@ export function sanitizeRecap(payload) {
   }
   const at = toEpochMs(raw.at);
   return { entries, at: at !== null ? at : Date.now() };
+}
+
+/**
+ * @typedef {object} CheckoutEntry
+ * @property {string} firstName
+ * @property {string} club
+ */
+
+/**
+ * @typedef {object} CheckoutEvent
+ * @property {CheckoutEntry[]} entries Children still in the building.
+ * @property {number} at Epoch ms.
+ * @property {number} [printed] Labels this print server printed tonight.
+ */
+
+/**
+ * `checkout` (contract v4) — who is still in the building.
+ *
+ * FIRST NAME AND CLUB ONLY, like every other name-bearing event. The producer's
+ * row on TwoTimTwo's checkout page also holds the child's full name, guardian
+ * names, an authorized-pickup name and a pickup security code; none of that is
+ * on the allowlist, so none of it can reach the screen even if a future scraper
+ * regression started sending it.
+ *
+ * Two consumer obligations that this sanitizer CANNOT enforce, and which the
+ * rendering component must honour instead:
+ *
+ *  1. It is not a verified headcount. It reflects whether volunteers PERFORMED
+ *     checkout, which during a pickup rush they often do not, so it can be
+ *     freshly and confidently wrong. `printed` travels with it so the UI can say
+ *     "labels printed tonight: 43" rather than implying the list is complete.
+ *  2. Once the list is short it identifies which children are still UNATTENDED —
+ *     and `checkin` has already published their names. So the board must be off
+ *     by default, and must stop naming individuals below an operator threshold.
+ *
+ * @param {unknown} payload
+ * @returns {CheckoutEvent|null}
+ */
+export function sanitizeCheckout(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const raw = /** @type {Record<string, unknown>} */ (payload);
+  // A MISSING array is not an empty board. "I could not read the page" and
+  // "everyone has been picked up" are opposite facts, and collapsing them would
+  // tell a lobby the building was clear.
+  if (!Array.isArray(raw.entries)) return null;
+  const at = toEpochMs(raw.at);
+  if (at === null) return null;   // required: the board must be ageable
+
+  /** @type {CheckoutEntry[]} */
+  const entries = [];
+  for (const item of raw.entries.slice(0, CHECKOUT_MAX)) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const e = /** @type {Record<string, unknown>} */ (item);
+    const firstName = cleanString(e.firstName, NAME_MAX);
+    if (!firstName) continue;
+    entries.push({ firstName, club: cleanString(e.club, NAME_MAX) });
+  }
+
+  /** @type {CheckoutEvent} */
+  const out = { entries, at };
+  const printed = Number(raw.printed);
+  if (Number.isFinite(printed) && printed >= 0) out.printed = Math.floor(printed);
+  return out;
 }
 
 /**

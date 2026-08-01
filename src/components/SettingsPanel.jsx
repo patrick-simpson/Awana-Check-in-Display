@@ -3,10 +3,11 @@ import { deleteDeck, getDeck, putDeck } from '../lib/pptxStore.js';
 import { parseAndCacheDeck } from '../lib/pptxModel.js';
 import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
-
-// Obviously-fake names only: a preview banner on the lobby TV must
-// never look like (or match) a real kid checking in.
-const TEST_NAMES = ['Test Kid', 'Demo Kid', 'Sample Star', 'Pretend Pal', 'Practice Run'];
+import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
+import { NIGHT_THEME_VALUES, skinOptions } from '../lib/skins.js';
+import { useDisplayKey } from '../hooks/useDisplayKey.js';
+import { maskDisplayKey } from '../lib/displayKey.js';
+import { isPlausibleKey } from '../lib/envelope.js';
 
 const TABS = [
   { id: 'connection', label: 'Connection' },
@@ -39,12 +40,17 @@ export default function SettingsPanel({
     panicMode: !!config.panicMode,
     showClock: !!config.showClock,
     widgetDisplayMode: config.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
-    nightTheme: ['auto', 'autumn', 'christmas', 'summer', 'spring', 'harvest', 'snowday'].includes(config.nightTheme)
-      ? config.nightTheme
-      : 'none',
+    // Reads the one skin table. When this repeated the ids by hand, a saved
+    // skin the list had never heard of (thanksgiving, easter, vbs) was silently
+    // reset to 'none' the moment Settings was opened.
+    nightTheme: NIGHT_THEME_VALUES.includes(config.nightTheme) ? config.nightTheme : 'none',
+    weatherTheme: config.weatherTheme === true,
     confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
     burstFloorMs: config.burstFloorMs ?? 2500,
     clubMilestoneEvery: config.clubMilestoneEvery ?? 10,
+    checkoutBoardMode: ['pickup', 'always'].includes(config.checkoutBoardMode) ? config.checkoutBoardMode : 'off',
+    checkoutBoardNamesAbove: config.checkoutBoardNamesAbove ?? 3,
+    checkoutBoardStaleMin: config.checkoutBoardStaleMin ?? 8,
     cycleIntervalSec: config.cycleIntervalSec ?? 3,
     milestoneEvery: config.milestoneEvery ?? 25,
     calendarEnabled: config.calendarEnabled !== false,
@@ -84,6 +90,8 @@ export default function SettingsPanel({
       slideshowDelaySec: clamp(form.slideshowDelaySec, 0, 120),
       milestoneEvery: clamp(Math.round(form.milestoneEvery) || 0, 0, 10000),
       clubMilestoneEvery: clamp(Math.round(form.clubMilestoneEvery) || 0, 0, 1000),
+      checkoutBoardNamesAbove: clamp(Math.round(form.checkoutBoardNamesAbove) || 0, 0, 200),
+      checkoutBoardStaleMin: clamp(Math.round(form.checkoutBoardStaleMin) || 8, 1, 120),
       burstFloorMs: clamp(Math.round(form.burstFloorMs) || 2500, 1000, 10000),
       cycleIntervalSec: clamp(Math.round(form.cycleIntervalSec) || 3, 2, 120),
       calendarUrl: form.calendarUrl.trim(),
@@ -138,7 +146,7 @@ export default function SettingsPanel({
 
   const sendTest = () => {
     onTest?.({
-      firstName: TEST_NAMES[Math.floor(Math.random() * TEST_NAMES.length)],
+      firstName: pick(SAMPLE_NAMES),
       club: 'Sparks',
     });
     onClose(); // get out of the way so the banner is visible
@@ -345,7 +353,95 @@ function ConnectionTab({ form, set, lastEventAt }) {
           From the same page (e.g. <code>us2</code>, <code>eu</code>, <code>ap1</code>) — must also match the print server.
         </span>
       </div>
+
+      <DisplayKeyField />
     </>
+  );
+}
+
+/**
+ * The display key — the secret that lets this screen read children's names.
+ *
+ * Deliberately NOT part of `form`/`set` like every other field on this panel.
+ * `form` is the config overrides object, and that object is what
+ * `exportSettings()` writes to a downloadable JSON file and what a
+ * `?config=<url>` file can populate. Routing the key through it would publish
+ * it through two workflows the docs actively recommend. See the long comment in
+ * src/lib/displayKey.js; src/lib/displayKey.test.js asserts both stay closed.
+ */
+function DisplayKeyField() {
+  const { displayKey, setDisplayKey } = useDisplayKey();
+  const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const configured = Boolean(displayKey);
+  const valid = isPlausibleKey(draft.trim());
+
+  const commit = () => {
+    const next = draft.trim();
+    if (next && !isPlausibleKey(next)) return;
+    const ok = setDisplayKey(next);
+    setSaved(ok);
+    setEditing(false);
+    setDraft('');
+    if (!ok) window.alert('This screen cannot save the key — browser storage is blocked, so names will not appear.');
+  };
+
+  return (
+    <div className="field">
+      <label htmlFor="dkey">Display key</label>
+      {!editing ? (
+        <div className="display-key-row">
+          <code className="display-key-value">
+            {configured ? maskDisplayKey(displayKey) : 'not set — names will not appear'}
+          </code>
+          <button type="button" className="ghost" onClick={() => { setEditing(true); setSaved(false); }}>
+            {configured ? 'Replace' : 'Paste key'}
+          </button>
+          {configured && (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                if (window.confirm('Remove the display key from THIS screen? Names will stop appearing here until you paste it again.')) {
+                  setDisplayKey('');
+                }
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="display-key-row">
+          <input
+            id="dkey"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && (valid || !draft.trim())) commit(); }}
+            placeholder="paste the 44-character key"
+          />
+          <button type="button" className="ghost" disabled={!valid} onClick={commit}>Save</button>
+          <button type="button" className="ghost" onClick={() => { setEditing(false); setDraft(''); }}>Cancel</button>
+        </div>
+      )}
+      <span className="hint">
+        {editing && draft.trim() && !valid && (
+          <><strong>That does not look like a display key.</strong> It should be 44 characters ending in <code>=</code>. </>
+        )}
+        {saved && <><strong>Saved.</strong> Press <em>Night Test</em> on the print-server dashboard to confirm. </>}
+        Children&apos;s names travel <strong>encrypted</strong>, because the realtime channel itself is public.
+        Generate this key once on the print-server dashboard (<code>Realtime → Generate display key</code>) and paste
+        the same value into every screen. Without it the clock, weather, counts, countdown and slides all still
+        work — only the welcome banners stop.
+        {' '}<strong>Never</strong> email it, put it in a URL, or include it in a settings export — it is the one
+        secret here that is worth something.
+      </span>
+    </div>
   );
 }
 
@@ -494,8 +590,61 @@ function BannersTab({ form, set, setForm }) {
 
 function DisplayTab({ form, set }) {
   const cycleMode = form.widgetDisplayMode !== 'stickers';
+  const boardOn = form.checkoutBoardMode !== 'off';
   return (
     <>
+      <div className="field">
+        <label htmlFor="cbmode">Who&apos;s still here board</label>
+        <select id="cbmode" value={form.checkoutBoardMode} onChange={set('checkoutBoardMode')}>
+          <option value="off">Off</option>
+          <option value="pickup">Only during pickup</option>
+          <option value="always">Whenever data is arriving</option>
+        </select>
+        <span className="hint">
+          Lists children who have <strong>not been checked out yet</strong> in the check-in system,
+          so a volunteer can see at a glance who is still waiting. Needs the print server and a
+          volunteer with the check-in page open — when that tab closes, the board shows its age
+          instead of freezing.
+          {' '}<strong>It is not a verified headcount:</strong> it reflects whether checkout was
+          actually recorded, which during a busy pickup often lags. Treat it as a prompt to go
+          look, never as proof the building is clear.
+        </span>
+      </div>
+
+      {boardOn && (
+        <>
+          <div className="field">
+            <label htmlFor="cbnames">Stop showing names at or below</label>
+            <input
+              id="cbnames" type="number" min="0" max="200"
+              value={form.checkoutBoardNamesAbove}
+              onChange={set('checkoutBoardNamesAbove')}
+            />
+            <span className="hint">
+              Below this many children, the board hides the names and shows
+              &ldquo;almost everyone has been picked up&rdquo; instead.
+              {' '}<strong>This is the setting that matters.</strong> A long list is anonymous —
+              one name among forty tells a passer-by nothing. A list of two names, late in the
+              evening, points at two specific children who are not yet with a parent. 0 turns the
+              guard off entirely, which is not recommended on a public screen.
+            </span>
+          </div>
+
+          <div className="field">
+            <label htmlFor="cbstale">Treat the list as stale after (minutes)</label>
+            <input
+              id="cbstale" type="number" min="1" max="120"
+              value={form.checkoutBoardStaleMin}
+              onChange={set('checkoutBoardStaleMin')}
+            />
+            <span className="hint">
+              After this long with no update the board says so, rather than showing a frozen list
+              that still looks live.
+            </span>
+          </div>
+        </>
+      )}
+
       <div className="field">
         <label>Corner widgets</label>
         <div className="radio-row">
@@ -552,18 +701,24 @@ function DisplayTab({ form, set }) {
         <label htmlFor="nightTheme">Themed night skin</label>
         <select id="nightTheme" value={form.nightTheme} onChange={set('nightTheme')}>
           <option value="none">None (classic)</option>
-          <option value="auto">Auto (by season)</option>
-          <option value="spring">Spring</option>
-          <option value="summer">Summer</option>
-          <option value="autumn">Autumn</option>
-          <option value="harvest">Harvest</option>
-          <option value="christmas">Christmas</option>
-          <option value="snowday">Snow day</option>
+          {/* Generated from SKIN_TABLE so a new season needs one edit, not five. */}
+          {skinOptions().filter((o) => o.value !== 'none').map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
         <span className="hint">
-          Recolors the stage decorations for special nights. Banners keep their club colors.
+          Dresses the stage for the season. Banners always keep their club colors.
+          Auto reads tonight&apos;s calendar title (Easter, VBS, Thanksgiving&hellip;) and
+          falls back to the month.
         </span>
       </div>
+
+      <Toggle
+        checked={form.weatherTheme === true}
+        onChange={set('weatherTheme')}
+        title="Let the weather set the mood"
+        hint="A rainy or snowy night cools and dims the background scene. The season still picks the colors, so a chosen skin never disappears in bad weather. Needs a weather location set under Calendar & Weather."
+      />
 
       <div className="field">
         <label htmlFor="clubMilestone">Club milestone celebration (every N per club)</label>

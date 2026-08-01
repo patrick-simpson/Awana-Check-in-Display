@@ -4,6 +4,7 @@ import {
   sanitizeBirthdays,
   sanitizeCanary,
   sanitizeCheckin,
+  sanitizeCheckout,
   sanitizeNotice,
   sanitizeOps,
   sanitizePoints,
@@ -19,6 +20,7 @@ import {
 const SANITIZERS = {
   checkin: sanitizeCheckin,
   recap: sanitizeRecap,
+  checkout: sanitizeCheckout,
   tally: sanitizeTally,
   birthdays: sanitizeBirthdays,
   ops: sanitizeOps,
@@ -34,6 +36,7 @@ const SANITIZERS = {
 const ALLOWED_KEYS = {
   checkin: ['id', 'at', 'firstName', 'club', 'isBirthday', 'isFirstTimer'],
   recap: ['entries', 'at'],
+  checkout: ['entries', 'at', 'printed'],
   tally: ['counts', 'total', 'at'],
   birthdays: ['entries'],
   ops: ['type', 'club', 'at'],
@@ -44,9 +47,9 @@ const ALLOWED_KEYS = {
   notice: ['level', 'message', 'at'],
 };
 
-describe('contract vectors are the v3 contract', () => {
-  it('is contract version 3 on awana-channel', () => {
-    expect(vectors.contractVersion).toBe(3);
+describe('contract vectors are the v4 contract', () => {
+  it('is contract version 4 on awana-channel', () => {
+    expect(vectors.contractVersion).toBe(4);
     expect(vectors.channel).toBe('awana-channel');
   });
 

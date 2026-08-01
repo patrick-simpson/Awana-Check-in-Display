@@ -66,6 +66,38 @@ export function weatherPresentation(code, isDay = true) {
   return { label, icon: finalIcon, theme: isDay ? themePair.day : themePair.night };
 }
 
+/**
+ * How much "cozy" the weather should add on top of the season's scene.
+ *
+ * Deliberately a MODIFIER, not a theme choice. The `theme` field returned above
+ * would replace the scene outright, which would make a chosen VBS or Easter skin
+ * silently vanish on a wet night — so the season keeps the palette and weather
+ * only changes the mood over it. Same shape as the projector's existing
+ * `AmbientOrbs dim` treatment, which has done exactly this for cool weather all
+ * along.
+ *
+ * `cozy` is the flag a component acts on; `dim` scales opacity. Returns a
+ * neutral result for null/unknown weather so a failed fetch changes nothing.
+ *
+ * @param {{ code?: number, isDay?: boolean }|null|undefined} weather
+ * @returns {{ cozy: boolean, dim: number, reason: string }}
+ */
+export function weatherMood(weather) {
+  if (!weather || typeof weather.code !== 'number') {
+    return { cozy: false, dim: 1, reason: 'none' };
+  }
+  const type = getWeatherType(weather.code);
+  const isNight = weather.isDay === false;
+
+  if (type === 'thunder') return { cozy: true, dim: 0.72, reason: 'thunder' };
+  if (type === 'snow') return { cozy: true, dim: 0.86, reason: 'snow' };
+  if (type === 'rain') return { cozy: true, dim: isNight ? 0.76 : 0.84, reason: 'rain' };
+  if (type === 'fog') return { cozy: true, dim: 0.82, reason: 'fog' };
+  // A clear or merely cloudy night is still darker outside, but not "cozy" —
+  // dimming the room for ordinary dusk would make most club nights muted.
+  return { cozy: false, dim: 1, reason: type };
+}
+
 export function buildForecastUrl({ lat, lon, units = 'fahrenheit' }) {
   const params = new URLSearchParams({
     latitude: String(lat),

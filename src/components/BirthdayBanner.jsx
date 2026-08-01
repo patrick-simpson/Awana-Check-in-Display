@@ -5,15 +5,20 @@ import { playBirthdayChime } from '../lib/audio.js';
 import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import BannerShell, { Eyebrow, bannerItem, bannerNameStagger } from './BannerShell.jsx';
 import AnimatedName from './AnimatedName.jsx';
-import { CakeArt, GiftArt, BalloonArt, StarArt } from './BirthdayArt.jsx';
+import {
+  CakeArt, GiftArt, BalloonArt, StarArt, StreamerArt, PartyHatArt, GarlandArt,
+} from './BirthdayArt.jsx';
 
 // The falling pieces cycle chunky SVG art in a bright kid palette —
 // identical on every TV, unlike the OS emoji this replaced.
 const PIECES = [
   (key) => <GiftArt key={key} color="#ffd257" />,
   (key) => <BalloonArt key={key} color="#4fc3f7" />,
+  (key) => <StreamerArt key={key} color="#f48fb1" />,
   (key) => <StarArt key={key} color="#fff6e3" />,
+  (key) => <PartyHatArt key={key} color="#4fc3f7" />,
   (key) => <GiftArt key={key} color="#aed581" />,
+  (key) => <StreamerArt key={key} color="#ffd257" />,
   (key) => <BalloonArt key={key} color="#f48fb1" />,
 ];
 
@@ -77,13 +82,56 @@ export default function BirthdayBanner({ event, audioEnabled }) {
       </div>}
 
       <BannerShell className={calm ? 'birthday calm' : 'birthday'}>
+        {/* Bunting strung across the top of the band. Hung even in calm mode —
+            it is static decoration, not a celebration effect, and a late
+            arrival's banner should still look like a birthday. */}
+        <span className="birthday-garland" aria-hidden>
+          <GarlandArt />
+        </span>
+
         <motion.span
           className="cake"
           aria-hidden
-          animate={{ scale: [1, 1.18, 1], rotate: [0, -6, 6, 0] }}
-          transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+          /* Rise and settle on entry, THEN the wiggle — a spring landing reads
+             as the cake being set down, where the old loop-only version just
+             started shaking. Kept still in calm mode. */
+          initial={{ y: 26, scale: 0.86, rotate: -4 }}
+          animate={calm
+            ? { y: 0, scale: 1, rotate: 0 }
+            : {
+                y: [26, 0, 0],
+                scale: [0.86, 1.06, 1],
+                rotate: [-4, 2, 0],
+              }}
+          transition={calm
+            ? { duration: 0.5, ease: 'easeOut' }
+            : { duration: 0.75, times: [0, 0.65, 1], ease: 'easeOut' }}
         >
-          <CakeArt />
+          <motion.span
+            className="cake-wiggle"
+            animate={calm ? undefined : { scale: [1, 1.14, 1], rotate: [0, -5, 5, 0] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut', delay: 0.75 }}
+          >
+            <CakeArt />
+            {/* Candle flames. Two small flickers, offset so they don't pulse in
+                lockstep. There is deliberately no candle COUNT: the privacy
+                contract carries no birth year, so the display cannot know an
+                age and must never imply one. */}
+            {!calm && (
+              <span className="cake-flames" aria-hidden>
+                <motion.span
+                  className="cake-flame cake-flame--a"
+                  animate={{ scaleY: [1, 1.35, 0.9, 1.2, 1], opacity: [0.85, 1, 0.8, 1, 0.85] }}
+                  transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                <motion.span
+                  className="cake-flame cake-flame--b"
+                  animate={{ scaleY: [1, 0.9, 1.3, 0.95, 1], opacity: [0.9, 0.8, 1, 0.85, 0.9] }}
+                  transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
+                />
+              </span>
+            )}
+          </motion.span>
         </motion.span>
         <div className="banner-text">
           <Eyebrow>Happy Birthday</Eyebrow>

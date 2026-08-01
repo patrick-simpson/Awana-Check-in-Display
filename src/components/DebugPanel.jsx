@@ -1,15 +1,10 @@
+import { useRef } from 'react';
 import { getAllClubs } from '../lib/clubs.js';
-
-// Obviously-fake names only: a simulated banner on the lobby TV must
-// never look like (or match) a real kid checking in.
-const SAMPLE_NAMES = ['Test Kid', 'Demo Kid', 'Sample Star', 'Pretend Pal', 'Practice Run'];
-
-function pick(list) {
-  return list[Math.floor(Math.random() * list.length)];
-}
+import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 
 export default function DebugPanel({
-  onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice, onClose,
+  onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice,
+  onSimulateTally, onSimulateCheckout, onClose,
   status, lastEventAt, pending, phase, seenStats, opsFailures, wakeLockStatus,
 }) {
   const standard = () => onSimulate({
@@ -63,6 +58,25 @@ export default function DebugPanel({
     at: Date.now(),
   });
 
+  // Who's-still-here board. Two buttons on purpose: the interesting behaviour is
+  // the SHORT list, where the board must stop naming individuals — that is the
+  // safeguard, and it should be easy for an operator to see it working rather
+  // than take it on trust.
+  const checkoutBoard = (n) => () => {
+    const clubs = getAllClubs();
+    onSimulateCheckout?.({
+      entries: Array.from({ length: n }, (_, i) => ({
+        firstName: SAMPLE_NAMES[i % SAMPLE_NAMES.length],
+        club: clubs[i % clubs.length],
+      })),
+      printed: 43,
+      at: new Date().toISOString(),
+    });
+  };
+  const checkoutEmpty = () => onSimulateCheckout?.({
+    entries: [], printed: 43, at: new Date().toISOString(),
+  });
+
   const printFailure = () => onSimulateOps?.({
     type: 'print-failure',
     club: pick(getAllClubs()),
@@ -72,9 +86,19 @@ export default function DebugPanel({
   // The tonight ticker and announcement banner are driven by the check-in
   // system's own reports, so before club there is nothing on the wire to look
   // at. These let an operator confirm both render correctly on the actual TV.
-  const tonight = () => onSimulateTonight?.({
-    checkedIn: 63, booksCompleted: 4, awardsEarned: 11, friendsBrought: 2, at: Date.now(),
-  });
+  //
+  // The count RAMPS on each press (63 → 103 → 143 …) for two reasons: the first
+  // payload is only a baseline by design, so a fixed number could never
+  // demonstrate a night milestone; and walking it upward is the only way to
+  // watch the 100-kid celebration actually fire before club night.
+  const tonightCount = useRef(23);
+  const tonight = () => {
+    tonightCount.current += 40;
+    onSimulateTonight?.({
+      checkedIn: tonightCount.current,
+      booksCompleted: 4, awardsEarned: 11, friendsBrought: 2, at: Date.now(),
+    });
+  };
 
   const noticeCritical = () => onSimulateNotice?.({
     level: 'critical', message: 'CLUB CANCELLED TONIGHT — icy roads. See you next week!', at: Date.now(),
@@ -83,6 +107,28 @@ export default function DebugPanel({
   const noticeInfo = () => onSimulateNotice?.({
     level: 'info', message: 'Bring your Bible next week for double shares!', at: Date.now(),
   });
+
+  // A tally is what drives the per-club milestone path and the corner counter.
+  // Numbers only — this event structurally cannot carry a name.
+  const tally = () => {
+    const clubs = getAllClubs().slice(0, 4);
+    const counts = {};
+    let total = 0;
+    clubs.forEach((club, i) => {
+      const n = 9 + i * 7;
+      counts[club] = n;
+      total += n;
+    });
+    onSimulateTally?.({ counts, total, at: Date.now() });
+  };
+
+  // NOTE: there is deliberately no `birthdays` simulator here. That event is
+  // the weekly ROSTER broadcast, consumed only by the projector page
+  // (countdown.html); the signage banners' birthday mode comes from the
+  // `isBirthday` flag on a checkin event, which the birthday button above
+  // already covers. A button that provably renders nothing is worse than no
+  // button. The projector page still has no simulator UI at all — that belongs
+  // with the projector work, not here.
 
   const seen = seenStats?.() ?? { size: 0 };
 
@@ -110,7 +156,15 @@ export default function DebugPanel({
       <button onClick={everyClub}>Trigger every club</button>
       {onSimulateRecap && <button onClick={recap}>Simulate recap replay (quiet banners)</button>}
       {onSimulateOps && <button onClick={printFailure}>Simulate print failure (ops)</button>}
-      {onSimulateTonight && <button onClick={tonight}>Show tonight ticker</button>}
+      {onSimulateTally && <button onClick={tally}>Simulate club tally (counts)</button>}
+      {onSimulateCheckout && (
+        <>
+          <button onClick={checkoutBoard(9)}>Still-here board: 9 children (names)</button>
+          <button onClick={checkoutBoard(2)}>Still-here board: 2 children (names hidden)</button>
+          <button onClick={checkoutEmpty}>Still-here board: everyone picked up</button>
+        </>
+      )}
+      {onSimulateTonight && <button onClick={tonight}>Show tonight ticker (+40 each press)</button>}
       {onSimulateNotice && <button onClick={noticeCritical}>Show cancellation alert</button>}
       {onSimulateNotice && <button onClick={noticeInfo}>Show info notice</button>}
       <button onClick={onClose}>Close</button>
