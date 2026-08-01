@@ -435,7 +435,8 @@ function DisplayKeyField() {
         )}
         {saved && <><strong>Saved.</strong> Press <em>Night Test</em> on the print-server dashboard to confirm. </>}
         Children&apos;s names travel <strong>encrypted</strong>, because the realtime channel itself is public.
-        Generate this key once on the print-server dashboard (<code>Realtime → Generate display key</code>) and paste
+        Generate this key once on the print-server dashboard (its front page says whether names are
+        encrypted; the button there opens <code>Settings → Realtime privacy</code>) and paste
         the same value into every screen. Without it the clock, weather, counts, countdown and slides all still
         work — only the welcome banners stop.
         {' '}<strong>Never</strong> email it, put it in a URL, or include it in a settings export — it is the one

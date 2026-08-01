@@ -105,7 +105,11 @@ children is the worst outcome this change could produce.
 
 ### Setting it up
 
-1. On the print-server dashboard: **Realtime → Generate display key**. Copy it.
+1. On the print-server dashboard (`http://localhost:3456`): the front page
+   card **Names on the Welcome Screen** says whether names are encrypted;
+   its button opens **Settings → Realtime privacy — display key**. Press
+   **Generate display key** and copy it.
+   (Direct link: `http://localhost:3456/#display-key`.)
 2. On each screen: gear → Settings → Connection → **Display key** → paste, Save.
 3. Back on the dashboard, press **Night Test**. Each screen confirms it can read
    names.
