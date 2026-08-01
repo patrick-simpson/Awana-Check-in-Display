@@ -5,6 +5,9 @@ import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
 import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 import { NIGHT_THEME_VALUES, skinOptions } from '../lib/skins.js';
+import { useDisplayKey } from '../hooks/useDisplayKey.js';
+import { maskDisplayKey } from '../lib/displayKey.js';
+import { isPlausibleKey } from '../lib/envelope.js';
 
 const TABS = [
   { id: 'connection', label: 'Connection' },
@@ -345,7 +348,95 @@ function ConnectionTab({ form, set, lastEventAt }) {
           From the same page (e.g. <code>us2</code>, <code>eu</code>, <code>ap1</code>) — must also match the print server.
         </span>
       </div>
+
+      <DisplayKeyField />
     </>
+  );
+}
+
+/**
+ * The display key — the secret that lets this screen read children's names.
+ *
+ * Deliberately NOT part of `form`/`set` like every other field on this panel.
+ * `form` is the config overrides object, and that object is what
+ * `exportSettings()` writes to a downloadable JSON file and what a
+ * `?config=<url>` file can populate. Routing the key through it would publish
+ * it through two workflows the docs actively recommend. See the long comment in
+ * src/lib/displayKey.js; src/lib/displayKey.test.js asserts both stay closed.
+ */
+function DisplayKeyField() {
+  const { displayKey, setDisplayKey } = useDisplayKey();
+  const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const configured = Boolean(displayKey);
+  const valid = isPlausibleKey(draft.trim());
+
+  const commit = () => {
+    const next = draft.trim();
+    if (next && !isPlausibleKey(next)) return;
+    const ok = setDisplayKey(next);
+    setSaved(ok);
+    setEditing(false);
+    setDraft('');
+    if (!ok) window.alert('This screen cannot save the key — browser storage is blocked, so names will not appear.');
+  };
+
+  return (
+    <div className="field">
+      <label htmlFor="dkey">Display key</label>
+      {!editing ? (
+        <div className="display-key-row">
+          <code className="display-key-value">
+            {configured ? maskDisplayKey(displayKey) : 'not set — names will not appear'}
+          </code>
+          <button type="button" className="ghost" onClick={() => { setEditing(true); setSaved(false); }}>
+            {configured ? 'Replace' : 'Paste key'}
+          </button>
+          {configured && (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                if (window.confirm('Remove the display key from THIS screen? Names will stop appearing here until you paste it again.')) {
+                  setDisplayKey('');
+                }
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="display-key-row">
+          <input
+            id="dkey"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && (valid || !draft.trim())) commit(); }}
+            placeholder="paste the 44-character key"
+          />
+          <button type="button" className="ghost" disabled={!valid} onClick={commit}>Save</button>
+          <button type="button" className="ghost" onClick={() => { setEditing(false); setDraft(''); }}>Cancel</button>
+        </div>
+      )}
+      <span className="hint">
+        {editing && draft.trim() && !valid && (
+          <><strong>That does not look like a display key.</strong> It should be 44 characters ending in <code>=</code>. </>
+        )}
+        {saved && <><strong>Saved.</strong> Press <em>Night Test</em> on the print-server dashboard to confirm. </>}
+        Children&apos;s names travel <strong>encrypted</strong>, because the realtime channel itself is public.
+        Generate this key once on the print-server dashboard (<code>Realtime → Generate display key</code>) and paste
+        the same value into every screen. Without it the clock, weather, counts, countdown and slides all still
+        work — only the welcome banners stop.
+        {' '}<strong>Never</strong> email it, put it in a URL, or include it in a settings export — it is the one
+        secret here that is worth something.
+      </span>
+    </div>
   );
 }
 

@@ -35,7 +35,7 @@ import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
-import { DROPPED_GRACE_MS, GEAR_IDLE_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
+import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -200,7 +200,7 @@ export default function App() {
     onNotice: handleNotice,
   }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice]);
 
-  const { status, lastEventAt, retry } = useSocket(socketHandlers);
+  const { status, lastEventAt, lastCheckinAt, retry, nameStatus } = useSocket(socketHandlers);
 
   // ── Simulated events go through the SAME sanitizers as real ones ────────────
   // The debug panel used to call these handlers directly, so every fake payload
@@ -290,11 +290,44 @@ export default function App() {
     const timer = setTimeout(() => setDroppedLong(disconnected), disconnected ? DROPPED_GRACE_MS : 0);
     return () => clearTimeout(timer);
   }, [status]);
+  // The names arrive encrypted (see src/lib/envelope.js). A screen that can't
+  // read them looks EXACTLY like a quiet night — connected, clock ticking,
+  // weather fine, counts even climbing — which is the worst failure available:
+  // nobody investigates a quiet night. So a name fault forces the sticker up
+  // regardless of the setting, and says which half is broken, because the fixes
+  // differ (paste the key on this screen vs. set one on the print server).
+  const nameFault = nameStatus && nameStatus !== 'ok';
+  const nameFaultText = {
+    'no-key': 'DISPLAY KEY NOT SET',
+    'bad-key': 'NAMES UNREADABLE — CHECK DISPLAY KEY',
+    downgraded: 'NAMES REFUSED — SENT UNENCRYPTED',
+  }[nameStatus] || null;
+
+  // Cross-check for the other direction: if the PRINT SERVER is the side
+  // missing its key, it publishes nothing on the name events, so this screen
+  // sees a climbing tally and no banners. Without this, that is indistinguishable
+  // from a quiet night, and the one-pager would send nobody anywhere.
+  const [countsWithoutNames, setCountsWithoutNames] = useState(false);
+  useEffect(() => {
+    // `lastCheckinAt` only advances when a checkin actually OPENED and passed
+    // its sanitizer, so it is the honest "names are reaching this screen" signal.
+    const climbing = (tonight?.checkedIn || 0) > 0;
+    // Always resolve through a timer, never synchronously: the clear case is
+    // just a zero-delay check, which keeps this out of the render path.
+    const check = () => setCountsWithoutNames(
+      climbing && !nameFault
+      && (!lastCheckinAt || Date.now() - lastCheckinAt > COUNTS_WITHOUT_NAMES_MS));
+    const timer = setTimeout(check, climbing && !nameFault ? COUNTS_WITHOUT_NAMES_MS : 0);
+    return () => clearTimeout(timer);
+  }, [tonight?.checkedIn, lastCheckinAt, nameFault]);
+
   // Printer trouble also forces the sticker visible — a kid at the door
   // with no label is exactly when the operator needs the red count.
   const showStatus = config.showConnectionStatus
     || (droppedLong && status === 'disconnected')
-    || opsFailures.length > 0;
+    || opsFailures.length > 0
+    || Boolean(nameFault)
+    || countsWithoutNames;
 
   // 'cycle' (default): one big animated data point at a time, bottom
   // right. 'stickers': the classic corner-chip layout. The connection
@@ -486,6 +519,19 @@ export default function App() {
               {opsFailures.length > 0 && (
                 <span className="ops-count" title="Printer problems tonight — see Settings">
                   ⚠ {opsFailures.length}
+                </span>
+              )}
+              {/* Name faults get WORDS, not a colour. "disconnected" at least
+                  tells an operator to look at the network; a silent absence of
+                  banners tells them nothing, so this says which side to fix. */}
+              {nameFaultText && (
+                <span className="name-fault" title="Children's names arrive encrypted — see Settings → Display key">
+                  {nameFaultText}
+                </span>
+              )}
+              {!nameFaultText && countsWithoutNames && (
+                <span className="name-fault" title="The print server may be missing its display key">
+                  COUNTS RISING, NO NAMES — CHECK THE PRINTER
                 </span>
               )}
             </StickerChip>

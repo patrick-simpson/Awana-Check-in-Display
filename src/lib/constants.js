@@ -16,6 +16,14 @@ export const GEAR_IDLE_MS = 3000;
 // visible — ordinary reconnect blips stay silent.
 export const DROPPED_GRACE_MS = 8000;
 
+// How long a climbing tally may run with no check-in NAMES arriving before the
+// screen says so. This catches the case where the PRINT SERVER is the side
+// missing its display key: it keeps publishing plaintext counts but nothing on
+// the sealed name events, so the screen would otherwise look like a quiet night
+// and nobody would investigate. Generous on purpose — a real lull between
+// arrivals is normal, and a false alarm on the lobby wall costs trust.
+export const COUNTS_WITHOUT_NAMES_MS = 6 * 60 * 1000;
+
 // Check-in queue: burst mode starts shrinking holds past this many
 // waiting events, never below the floor; the queue is capped against a
 // runaway/duplicated feed.

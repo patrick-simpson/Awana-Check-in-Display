@@ -103,3 +103,26 @@ pinned by `src/lib/__fixtures__/contract-vectors.json` (a byte-identical
 mirror of the printer repo's canonical copy) and enforced by
 `src/lib/eventSanitizers.test.js`. Preserve this invariant on every
 change to the socket layer, the sanitizers, or banner components.
+
+**The three name-bearing events arrive ENCRYPTED**, because the Pusher
+channel is public and Pusher public channels have no server-side
+authorization primitive at all. `checkin`, `recap` and `birthdays` are
+sealed with AES-256-GCM (`src/lib/envelope.js`; publisher half is
+`print-server/events.js` in the printer repo, pinned to a shared
+`envelope-vectors.json` interop fixture). Rules that must survive any
+change:
+
+- Decryption sits **in front of** `dispatchEvent`, never beside it — a
+  sealed frame is authenticated, not trusted, so it still passes its own
+  allowlist sanitizer. `eventSanitizers.js` is untouched by the transport.
+- **Anti-downgrade:** once a screen holds a key, a *plaintext* payload on
+  those three events is dropped. Without it the encryption is decorative.
+- The key lives in its **own** localStorage entry (`src/lib/displayKey.js`)
+  and must never be added to `VALIDATORS` in `useConfig.js` — that table
+  also backs `?config=<url>` and the Settings export, so it would publish
+  the key. `displayKey.test.js` guards all three paths.
+- Decrypts are serialized through one promise chain per event, or a burst
+  of arrivals greets children out of order.
+- The other seven events stay plaintext **on purpose**: their readability
+  is what lets a screen distinguish "pipe down" from "cannot read names"
+  from "quiet night". See SECURITY.md.

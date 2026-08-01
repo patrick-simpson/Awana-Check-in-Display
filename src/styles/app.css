@@ -1784,6 +1784,22 @@ input:focus-visible {
   font-weight: 800;
 }
 
+/* Names arrive encrypted; when a screen can't read them it must SAY so, not
+   just quietly stop showing banners — that is indistinguishable from a quiet
+   night. Amber rather than red: no child is missing a label, the wall is just
+   less welcoming until someone pastes the key. Wraps onto its own line because
+   the messages are sentences, not a status word. */
+.status-dot .name-fault {
+  display: block;
+  margin-top: 0.25em;
+  color: #ffc046;
+  font-weight: 800;
+  font-size: 0.72em;
+  letter-spacing: 0.04em;
+  line-height: 1.25;
+  max-width: 22ch;
+}
+
 /* "simplified mode" pill — quiet confirmation that panic mode is on. */
 .panic-pill {
   position: absolute;
@@ -2079,4 +2095,21 @@ input:focus-visible {
 }
 @media (prefers-reduced-motion: reduce) {
   .catalog-scene--cozy { transition: none; }
+}
+
+/* Display key field — the key is masked and the buttons sit inline, because a
+   TV screenshot during setup must not hand over the one secret that matters. */
+.display-key-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.display-key-row input { flex: 1 1 16ch; min-width: 0; }
+.display-key-value {
+  flex: 1 1 16ch;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.85em;
+  opacity: 0.85;
 }
