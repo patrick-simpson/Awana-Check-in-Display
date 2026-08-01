@@ -1,52 +1,100 @@
-// Guards the event-bus contract mirror. The canonical contract-vectors.json
-// lives in the printer repo (Print-TwoTimTwo-Labels — the sole publisher);
-// this repo carries a byte-identical mirror that the sanitizer tests run
-// against. Drift is created by a *printer-repo* push, which this repo's
-// push-triggered CI never sees — hence the weekly cron in ci.yml.
+// Guards the mirrored fixtures. Their canonical copies live in the printer repo
+// (Print-TwoTimTwo-Labels — the sole publisher); this repo carries byte-identical
+// mirrors that its tests run against. Drift is created by a *printer-repo* push,
+// which this repo's push-triggered CI never sees — hence the weekly cron in
+// ci.yml.
 //
-// Network trouble (offline runner, raw.githubusercontent outage, moved
-// file) warns and exits 0: this check must never block a club-night
-// redeploy of the live signage site. A successful fetch that doesn't
-// byte-match the mirror exits 1.
+// Two files are mirrored, and they fail differently if they drift:
+//
+//   contract-vectors.json  — the payload shapes. Drift means the sanitizers stop
+//                            matching what the publisher actually sends.
+//   envelope-vectors.json  — the sealed-envelope framing plus interop test
+//                            vectors. Drift means this repo can no longer OPEN
+//                            what the printer seals, so every welcome banner
+//                            silently stops. There is no partial failure here:
+//                            either the framing agrees or no name ever renders.
+//
+// Network trouble (offline runner, raw.githubusercontent outage, moved file)
+// warns and exits 0: this check must never block a club-night redeploy of the
+// live signage site. A successful fetch that doesn't byte-match exits 1.
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-const CANONICAL_URL =
-  'https://raw.githubusercontent.com/patrick-simpson/Print-TwoTimTwo-Labels/main/contract-vectors.json';
-const MIRROR_PATH = fileURLToPath(
-  new URL('../src/lib/__fixtures__/contract-vectors.json', import.meta.url),
-);
+const RAW_BASE =
+  'https://raw.githubusercontent.com/patrick-simpson/Print-TwoTimTwo-Labels/main';
 
-let canonical;
-try {
-  const res = await fetch(CANONICAL_URL);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  canonical = Buffer.from(await res.arrayBuffer());
-} catch (err) {
-  console.warn(
-    `⚠ Could not fetch the canonical contract-vectors.json (${err.message}).\n` +
-      `  ${CANONICAL_URL}\n` +
-      '  Skipping the drift check — if the canonical file moved, update\n' +
-      '  CANONICAL_URL in scripts/check-contract-drift.mjs.',
+const MIRRORS = [
+  {
+    name: 'contract-vectors.json',
+    consequence:
+      'the sanitizers would stop matching what the publisher sends',
+  },
+  {
+    name: 'envelope-vectors.json',
+    consequence:
+      'this repo could no longer decrypt check-ins, so every welcome banner would silently stop',
+  },
+];
+
+let drifted = 0;
+let skipped = 0;
+
+for (const { name, consequence } of MIRRORS) {
+  const url = `${RAW_BASE}/${name}`;
+  const mirrorPath = fileURLToPath(
+    new URL(`../src/lib/__fixtures__/${name}`, import.meta.url),
   );
-  process.exit(0);
+
+  let canonical;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    canonical = Buffer.from(await res.arrayBuffer());
+  } catch (err) {
+    console.warn(
+      `⚠ Could not fetch the canonical ${name} (${err.message}).\n` +
+        `  ${url}\n` +
+        '  Skipping this one — if the canonical file moved, update RAW_BASE in\n' +
+        '  scripts/check-contract-drift.mjs.',
+    );
+    skipped++;
+    continue;
+  }
+
+  let mirror;
+  try {
+    mirror = await readFile(mirrorPath);
+  } catch {
+    // A MISSING mirror is drift, not a skip: the canonical copy exists, so this
+    // repo is simply not carrying a file its tests need.
+    console.error(
+      `✗ ${name} is missing from src/lib/__fixtures__/ but exists upstream.\n` +
+        `  Without it, ${consequence}.\n` +
+        `    curl -fsSL ${url} -o src/lib/__fixtures__/${name}`,
+    );
+    drifted++;
+    continue;
+  }
+
+  if (canonical.equals(mirror)) {
+    console.log(`✓ ${name} matches the canonical copy byte-for-byte.`);
+    continue;
+  }
+
+  console.error(
+    `✗ ${name} has drifted from the canonical copy.\n` +
+      `  Consequence if shipped: ${consequence}.\n` +
+      `  canonical: ${url}\n` +
+      `  mirror:    src/lib/__fixtures__/${name}\n` +
+      '  Re-mirror byte-identically (see CONTRACT.md — canonical changes land\n' +
+      '  in the printer repo first):\n' +
+      `    curl -fsSL ${url} \\\n` +
+      `      -o src/lib/__fixtures__/${name}\n` +
+      '  then re-run: npm test',
+  );
+  drifted++;
 }
 
-const mirror = await readFile(MIRROR_PATH);
-
-if (canonical.equals(mirror)) {
-  console.log('✓ contract-vectors.json matches the canonical copy byte-for-byte.');
-  process.exit(0);
-}
-
-console.error(
-  '✗ contract-vectors.json has drifted from the canonical copy.\n' +
-    `  canonical: ${CANONICAL_URL}\n` +
-    '  mirror:    src/lib/__fixtures__/contract-vectors.json\n' +
-    '  Re-mirror byte-identically (see CONTRACT.md — canonical changes land\n' +
-    '  in the printer repo first):\n' +
-    `    curl -fsSL ${CANONICAL_URL} \\\n` +
-    '      -o src/lib/__fixtures__/contract-vectors.json\n' +
-    '  then re-run: npm test',
-);
-process.exit(1);
+if (drifted) process.exit(1);
+if (skipped === MIRRORS.length) process.exit(0);
+process.exit(0);
