@@ -5,7 +5,6 @@ export const AppMode = Object.freeze({
   SLIDESHOW: 'SLIDESHOW',
   GAME_TIME: 'GAME_TIME',
   SHUTDOWN: 'SHUTDOWN',
-  SCOREBOARD: 'SCOREBOARD',
 });
 
 /**
@@ -34,17 +33,10 @@ export const AppMode = Object.freeze({
 
 /**
  * The resolved display state — a discriminated union on `mode`.
- *
- * SCOREBOARD is never produced by the pure schedule engine (there is
- * no schedule.json window kind for it — the points race is a program
- * the church may or may not run tonight); it only exists as a QuickNav
- * manual override, exactly like the `{ type: 'countdown' }` escape
- * hatch in hooks/useSchedule.js.
  * @typedef {(
  *   { mode: 'COUNTDOWN', target: Date } |
  *   { mode: 'SLIDESHOW', deck: string|undefined, window: ScheduleWindow } |
  *   { mode: 'GAME_TIME', window: ScheduleWindow, endsAt: Date } |
- *   { mode: 'SHUTDOWN', window: ScheduleWindow } |
- *   { mode: 'SCOREBOARD' }
+ *   { mode: 'SHUTDOWN', window: ScheduleWindow }
  * )} AppState
  */

@@ -23,30 +23,6 @@ beforeEach(() => {
   window.history.replaceState({}, '', '/');
 });
 
-describe('useRealtime — points broadcast', () => {
-  it('starts with no points data', () => {
-    const { result } = renderHook(() => useRealtime());
-    expect(result.current.points).toBeNull();
-  });
-
-  it('onPoints adapts the sanitized payload to { groups, at: Date }', () => {
-    const { result } = renderHook(() => useRealtime());
-    act(() => {
-      socketHandlers.current.onPoints({ groups: { Red: 100, Blue: 50 }, at: 1_800_000_000_000 });
-    });
-    expect(result.current.points.groups).toEqual({ Red: 100, Blue: 50 });
-    expect(result.current.points.at).toBeInstanceOf(Date);
-    expect(result.current.points.at.getTime()).toBe(1_800_000_000_000);
-  });
-
-  it('a later broadcast replaces the previous one', () => {
-    const { result } = renderHook(() => useRealtime());
-    act(() => socketHandlers.current.onPoints({ groups: { Red: 10 }, at: 1000 }));
-    act(() => socketHandlers.current.onPoints({ groups: { Red: 20 }, at: 2000 }));
-    expect(result.current.points.groups).toEqual({ Red: 20 });
-  });
-});
-
 describe('useRealtime — schedule broadcast', () => {
   it('starts with no schedule advisory', () => {
     const { result } = renderHook(() => useRealtime());
@@ -91,10 +67,10 @@ describe('useRealtime — existing tally/birthdays wiring is unaffected', () => 
     expect(result.current.tally).toEqual({ counts: { Sparks: 4 }, total: 4, at: new Date(1000) });
   });
 
-  it('registers all four handlers with useSocket', () => {
+  it('registers all three handlers with useSocket', () => {
     renderHook(() => useRealtime());
     expect(Object.keys(socketHandlers.current).sort()).toEqual(
-      ['onBirthdays', 'onPoints', 'onSchedule', 'onTally'].sort(),
+      ['onBirthdays', 'onSchedule', 'onTally'].sort(),
     );
   });
 });

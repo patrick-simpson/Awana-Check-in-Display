@@ -13,11 +13,8 @@ import {
 } from '../lib/schedule.js';
 
 /**
- * Quick-nav target: the live countdown (`{ type: 'countdown' }`), one
- * schedule window by index (`{ type: 'window', index }`), or the
- * points-race scoreboard (`{ type: 'scoreboard' }` — there's no
- * schedule.json window for it, so it behaves like a window pin: armed
- * watchdog, resumes on a schedule boundary or timeout).
+ * Quick-nav target: the live countdown (`{ type: 'countdown' }`) or one
+ * schedule window by index (`{ type: 'window', index }`).
  *
  * `scheduleAdvisory` (optional — the sanitized `schedule` broadcast via
  * hooks/useRealtime.js) is folded in as a read-only ADVISORY layer on
@@ -27,9 +24,9 @@ import {
  * it keeps today's exact behavior.
  *
  * Returns { state, isOverride, resumeAt, select, resume, stay }:
- * - resumeAt: when the watchdog will hand a window/scoreboard override
- *   back to the schedule (null for countdown overrides — countdown is
- *   the safe default and never times out). Drives the "back to
+ * - resumeAt: when the watchdog will hand a window override back to
+ *   the schedule (null for countdown overrides — countdown is the
+ *   safe default and never times out). Drives the "back to
  *   schedule in Ns" pill.
  * - select: pin the app to a view, ignoring the clock until resume()/watchdog.
  * - resume: return control to the schedule.
@@ -77,19 +74,6 @@ export function useSchedule(now, scheduleAdvisory = null) {
       // post-shutdown restart path). Resume when the schedule catches up
       // or crosses a boundary underneath us.
       shouldResume = naturalKey === 'countdown' || naturalKey !== override.naturalKeyAtSet;
-    } else if (override.target.type === 'scoreboard') {
-      state = { mode: AppMode.SCOREBOARD };
-      const verdict = evaluateOverride({
-        overrideKey: stateKey(state),
-        naturalKey,
-        naturalKeyAtSet: override.naturalKeyAtSet,
-        setAt: override.setAt,
-        lastStayAt: override.lastStayAt,
-        now,
-        timeoutMin: CHURCH.watchdog.overrideTimeoutMin,
-      });
-      resumeAt = verdict.resumeAt;
-      shouldResume = verdict.action === 'resume';
     } else {
       const index = Math.min(override.target.index, effectiveWindows.length - 1);
       state = stateForWindow(effectiveWindows[index], now);

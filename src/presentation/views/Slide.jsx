@@ -17,6 +17,11 @@ import { rgbTriple } from '../lib/color.js';
  * guessed from slide id and body length).
  */
 export const Slide = ({ slide, now, events, onNext }) => {
+  // The ceremony ends on a deliberate blackout: no logo, no clock, no
+  // divider, no ambient layers — checked before anything below reads
+  // slide.title (the doodle seed) so a black slide truly renders nothing else.
+  if (slide.layout === 'black') return <div className="w-full h-full" style={{ background: '#000000' }} />;
+
   const timeString = now.toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
@@ -100,9 +105,6 @@ const SlideBody = ({ slide, events }) => {
     case 'pledge':
       return (
         <>
-          <Badge color={slide.accentColor ?? '#FFC107'} size="md" sparkle className="mb-12">
-            {slide.title}
-          </Badge>
           <p
             className="text-white text-center max-w-[90rem] leading-snug"
             style={{

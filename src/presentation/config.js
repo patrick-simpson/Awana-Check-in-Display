@@ -22,19 +22,9 @@ export const CLUBS = Object.fromEntries(
 export const US_PLEDGE_TEXT = `I pledge allegiance to the Flag of the United States of America, and to the Republic for which it stands, one Nation under God, indivisible, with liberty and justice for all.`;
 export const AWANA_PLEDGE_TEXT = `I pledge allegiance to the Awana flag, which stands for the Awana clubs, whose goal is to reach boys and girls with the gospel of Christ, and train them to serve Him.`;
 
-// shared/slides.json can add a verse-of-the-month slide and reword the
-// goodnight slide without touching code (validated in shared-config.js
-// — a malformed file fails the build, never the projector).
-const VERSE_SLIDE = SLIDES_CONFIG.verseOfTheMonth
-  ? [{
-      id: 'verse-of-the-month',
-      layout: 'pledge',
-      title: `Verse of the Month · ${SLIDES_CONFIG.verseOfTheMonth.reference}`,
-      body: SLIDES_CONFIG.verseOfTheMonth.text,
-      accentColor: CLUBS.tnt.color,
-      showClock: true,
-    }]
-  : [];
+// shared/slides.json can reword the goodnight slide without touching
+// code (validated in shared-config.js — a malformed file fails the
+// build, never the projector).
 
 export const DECKS = {
   opening: [
@@ -60,7 +50,10 @@ export const DECKS = {
       accentColor: CLUBS.cubbies.color,
       showClock: true,
     },
-    ...VERSE_SLIDE,
+    // The ceremony ends on a deliberate blackout, not a slide — it just
+    // holds (no `duration`, and the opening deck never loops) until the
+    // schedule flips to T&T game time at 18:05.
+    { id: 'black-slide', layout: 'black', title: '' },
   ],
   closing: [
     {

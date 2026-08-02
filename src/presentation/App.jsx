@@ -16,7 +16,6 @@ import { CountdownView } from './views/CountdownView.jsx';
 import { GameTimeView } from './views/GameTimeView.jsx';
 import { SlideshowView } from './views/SlideshowView.jsx';
 import { ShutdownView } from './views/ShutdownView.jsx';
-import { ScoreboardView } from './views/ScoreboardView.jsx';
 import { QuickNav } from './views/QuickNav.jsx';
 
 const OPENING_WINDOW_INDEX = 0;
@@ -24,15 +23,14 @@ const OPENING_WINDOW_INDEX = 0;
 export const App = () => {
   const now = useClock();
 
-  // All realtime data (live tally + points race + birthday sync +
-  // schedule advisory + ?key= adoption) flows through the display's
-  // sanctioned sanitized socket — see hooks/useRealtime.js. This
-  // replaces the original repo's adoptPusherUrlFlags/useBirthdaySync
-  // startup chores. Read before useSchedule() so the `schedule`
-  // broadcast can be folded in as an advisory layer over
-  // shared/schedule.json (never a replacement — see
-  // lib/scheduleAdvisory.js).
-  const { tally, points, schedule: scheduleAdvisory } = useRealtime();
+  // All realtime data (live tally + birthday sync + schedule advisory +
+  // ?key= adoption) flows through the display's sanctioned sanitized
+  // socket — see hooks/useRealtime.js. This replaces the original
+  // repo's adoptPusherUrlFlags/useBirthdaySync startup chores. Read
+  // before useSchedule() so the `schedule` broadcast can be folded in
+  // as an advisory layer over shared/schedule.json (never a
+  // replacement — see lib/scheduleAdvisory.js).
+  const { tally, schedule: scheduleAdvisory } = useRealtime();
   const { state, isOverride, resumeAt, select, resume, stay } = useSchedule(now, scheduleAdvisory);
 
   // ?vr=1 (visual-regression / screenshot mode): stamp the root so CSS
@@ -83,10 +81,8 @@ export const App = () => {
               state={state}
               now={now}
               tally={tally}
-              points={points}
               meetingTheme={advisoryTitle(scheduleAdvisory, now)}
               onSelect={select}
-              onResume={resume}
             />
           </ViewErrorBoundary>
         </motion.div>
@@ -106,7 +102,6 @@ const labelFor = (state) =>
     [AppMode.GAME_TIME]: 'game time',
     [AppMode.SLIDESHOW]: 'slideshow',
     [AppMode.SHUTDOWN]: 'shutdown',
-    [AppMode.SCOREBOARD]: 'scoreboard',
   })[state.mode];
 
 // Stable machine-readable id for the active view — the hook the e2e
@@ -117,10 +112,9 @@ const slugFor = (state) =>
     [AppMode.GAME_TIME]: 'game-time',
     [AppMode.SLIDESHOW]: 'slideshow',
     [AppMode.SHUTDOWN]: 'shutdown',
-    [AppMode.SCOREBOARD]: 'scoreboard',
   })[state.mode];
 
-const ActiveView = ({ state, now, tally, points, meetingTheme, onSelect, onResume }) => {
+const ActiveView = ({ state, now, tally, meetingTheme, onSelect }) => {
   switch (state.mode) {
     case AppMode.COUNTDOWN:
       return (
@@ -143,8 +137,6 @@ const ActiveView = ({ state, now, tally, points, meetingTheme, onSelect, onResum
       );
     case AppMode.SHUTDOWN:
       return <ShutdownView onRestart={() => onSelect({ type: 'countdown' })} />;
-    case AppMode.SCOREBOARD:
-      return <ScoreboardView now={now} points={points} onExit={onResume} />;
   }
 };
 

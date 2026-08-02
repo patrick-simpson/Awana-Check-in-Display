@@ -179,50 +179,6 @@ describe('useSchedule countdown override', () => {
   });
 });
 
-describe('useSchedule scoreboard override (points-race QuickNav pick)', () => {
-  it('has no schedule.json window of its own, and arms the watchdog like a window pin', () => {
-    const { result } = renderSchedule(at(18, 10));
-    act(() => result.current.select({ type: 'scoreboard' }));
-
-    expect(result.current.state.mode).toBe(AppMode.SCOREBOARD);
-    expect(result.current.isOverride).toBe(true);
-    expect(result.current.resumeAt.getTime()).toBe(at(18, 10).getTime() + TIMEOUT_MS);
-  });
-
-  it('resumes when a schedule boundary crosses underneath it', () => {
-    const { result, rerender } = renderSchedule(at(18, 10));
-    act(() => result.current.select({ type: 'scoreboard' }));
-    expect(result.current.state.mode).toBe(AppMode.SCOREBOARD);
-
-    rerender({ now: at(18, 31) });
-    expect(result.current.isOverride).toBe(false);
-    expect(result.current.state.mode).toBe(AppMode.GAME_TIME);
-    expect(result.current.state.window.title).toBe('Sparks Game Time');
-  });
-
-  it('times out after overrideTimeoutMin within the same natural window', () => {
-    const { result, rerender } = renderSchedule(at(18, 6));
-    act(() => result.current.select({ type: 'scoreboard' }));
-    expect(result.current.resumeAt.getTime()).toBe(at(18, 21).getTime());
-
-    rerender({ now: at(18, 20, 59) });
-    expect(result.current.isOverride).toBe(true);
-    expect(result.current.state.mode).toBe(AppMode.SCOREBOARD);
-
-    rerender({ now: at(18, 21) });
-    expect(result.current.isOverride).toBe(false);
-    expect(result.current.state.mode).toBe(AppMode.GAME_TIME);
-  });
-
-  it('resume() hands the screen straight back to the schedule', () => {
-    const { result } = renderSchedule(at(18, 10));
-    act(() => result.current.select({ type: 'scoreboard' }));
-    act(() => result.current.resume());
-    expect(result.current.isOverride).toBe(false);
-    expect(result.current.state.mode).toBe(AppMode.GAME_TIME);
-  });
-});
-
 describe('useSchedule schedule advisory (optional 2nd argument, from the `schedule` broadcast)', () => {
   function renderWithAdvisory(initialNow, advisory) {
     return renderHook(

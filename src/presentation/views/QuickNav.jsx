@@ -45,11 +45,6 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume }) => {
             active={activeKey === 'countdown'}
             onClick={() => onSelect({ type: 'countdown' })}
           />
-          <NavButton
-            label="Points Race"
-            active={activeKey === 'scoreboard'}
-            onClick={() => onSelect({ type: 'scoreboard' })}
-          />
           {windows.map((window, index) => (
             <NavButton
               key={window.title}

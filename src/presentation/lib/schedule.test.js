@@ -5,7 +5,6 @@ import {
   getNextMeeting,
   resolveState,
   secondsUntil,
-  stateKey,
   windowEnd,
   windowsForDate,
 } from './schedule.js';
@@ -79,12 +78,6 @@ describe('findWindow / resolveState — Wednesday windows', () => {
     const thuMidnight = wedAt(0, 0, 0);
     thuMidnight.setDate(thuMidnight.getDate() + 1);
     expect(resolveState(thuMidnight).mode).toBe(AppMode.COUNTDOWN);
-  });
-});
-
-describe('stateKey — SCOREBOARD (QuickNav-only override state)', () => {
-  it('has a stable key even though resolveState never produces it', () => {
-    expect(stateKey({ mode: AppMode.SCOREBOARD })).toBe('scoreboard');
   });
 });
 

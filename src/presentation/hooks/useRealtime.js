@@ -19,9 +19,6 @@ import { saveLiveBirthdays } from './useBirthdays.js';
  *   saveLiveBirthdays (first name / club / month / day only — exactly
  *   the sanitizer's allowlist). Each broadcast carries the full current
  *   list, so storage is replaced, not accumulated.
- * - `points` broadcasts → { groups, at: Date } for ScoreboardView's
- *   color-team points race (sanitizePoints is numbers-only, same
- *   policy as `tally`).
  * - `schedule` broadcasts → { at: Date, nextMeetingDate?, title?,
  *   noClubThisWeek? } — passed straight through to useSchedule() as an
  *   ADVISORY layer (lib/scheduleAdvisory.js), never a replacement for
@@ -36,7 +33,6 @@ import { saveLiveBirthdays } from './useBirthdays.js';
 export function useRealtime() {
   const { config, updateConfig } = useConfig();
   const [tally, setTally] = useState(null);
-  const [points, setPoints] = useState(null);
   const [schedule, setSchedule] = useState(null);
 
   // One-time startup chore: persist ?key=/&cluster= provisioning.
@@ -56,10 +52,6 @@ export function useRealtime() {
     saveLiveBirthdays(toLiveBirthdays(safe.entries));
   }, []);
 
-  const onPoints = useCallback((safe) => {
-    setPoints({ groups: safe.groups, at: new Date(safe.at) });
-  }, []);
-
   const onSchedule = useCallback((safe) => {
     setSchedule({
       at: new Date(safe.at),
@@ -69,10 +61,9 @@ export function useRealtime() {
     });
   }, []);
 
-  const { status } = useSocket({ onTally, onBirthdays, onPoints, onSchedule });
+  const { status } = useSocket({ onTally, onBirthdays, onSchedule });
   return {
     tally,
-    points,
     schedule,
     socketStatus: status,
     pusherConfigured: Boolean(config.pusherAppKey),
