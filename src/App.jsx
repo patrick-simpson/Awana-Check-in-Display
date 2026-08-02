@@ -74,17 +74,25 @@ export default function App() {
 
   // ?key=/&cluster= let an embedded browser (OBS source, ProPresenter web
   // page) connect without localStorage access; they win over saved config.
+  // ?lowPower=1 forces confetti/motion down for a specific weak-hardware
+  // embed (e.g. the Journey Display kiosk's Raspberry Pi Zero) the same
+  // way — winning over this device's saved Settings — WITHOUT touching
+  // confettiLevel/reduceMotion's own defaults, which stay full-strength
+  // for every other, more powerful device that loads this page directly.
   // Panic mode last, so it can strip whatever the flags/overrides built.
   // Memoized so `config` keeps a stable identity between renders —
   // effects and children that depend on it don't re-fire spuriously.
   const config = useMemo(() => {
-    const merged = FLAGS.pusherAppKey
+    let merged = FLAGS.pusherAppKey
       ? {
           ...storedConfig,
           pusherAppKey: FLAGS.pusherAppKey,
           pusherCluster: FLAGS.pusherCluster || storedConfig.pusherCluster,
         }
       : storedConfig;
+    if (FLAGS.lowPower) {
+      merged = { ...merged, confettiLevel: 'off', reduceMotion: true };
+    }
     return applyPanicMode(merged);
   }, [storedConfig]);
   const { currentEvent, enqueue, skipCurrent, pending } = useCheckInQueue(config);

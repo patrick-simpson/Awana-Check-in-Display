@@ -23,6 +23,21 @@ If the working branch is not already `main` (e.g. you started on a
 > happened), configure a Stop hook in `.claude/settings.json`. Ask the
 > user before adding hooks.
 
+## Embedding on weaker hardware — `?lowPower=1`
+
+The sibling **Journey Display** repo embeds this app via iframe on a
+Raspberry Pi Zero — hardware far weaker than the other, standalone
+devices running this same signage app elsewhere. `src/lib/urlFlags.js`'s
+`?lowPower=1` flag forces `confettiLevel: 'off'` and `reduceMotion: true`
+(skipping confetti bursts and framer-motion's transform animations) for
+that one embed's URL only, winning over even this device's saved
+Settings — the same way `?key=`/`?cluster=` already do for OBS/
+ProPresenter embeds. `confettiLevel`/`reduceMotion` in `src/config.js`
+default to full effects (`'full'` / `false`) for everyone else — **do
+not** change those defaults to accommodate one weak embed again; that's
+exactly the mistake this flag exists to avoid repeating. Journey
+Display's `public/index.html` passes the flag on its iframe's `src`.
+
 ## Tech stack snapshot
 
 - React 18 + Vite (plain JavaScript)

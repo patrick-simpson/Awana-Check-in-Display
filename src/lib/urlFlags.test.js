@@ -4,7 +4,7 @@ import { parseUrlFlags } from './urlFlags.js';
 describe('parseUrlFlags', () => {
   it('defaults to normal signage mode', () => {
     expect(parseUrlFlags('')).toEqual({
-      overlay: false, chroma: null, pusherAppKey: null, pusherCluster: null, configUrl: null,
+      overlay: false, chroma: null, pusherAppKey: null, pusherCluster: null, configUrl: null, lowPower: false,
     });
     expect(parseUrlFlags('?foo=bar').overlay).toBe(false);
   });
@@ -33,5 +33,13 @@ describe('parseUrlFlags', () => {
     const flags = parseUrlFlags('?overlay=1&key=abc123&cluster=eu');
     expect(flags.pusherAppKey).toBe('abc123');
     expect(flags.pusherCluster).toBe('eu');
+  });
+
+  it('enables low-power mode via ?lowPower=1/true/yes, off by default', () => {
+    expect(parseUrlFlags('').lowPower).toBe(false);
+    expect(parseUrlFlags('?lowPower=1').lowPower).toBe(true);
+    expect(parseUrlFlags('?lowPower=true').lowPower).toBe(true);
+    expect(parseUrlFlags('?lowPower=yes').lowPower).toBe(true);
+    expect(parseUrlFlags('?lowPower=0').lowPower).toBe(false);
   });
 });

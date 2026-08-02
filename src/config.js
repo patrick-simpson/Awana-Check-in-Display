@@ -226,18 +226,17 @@ const config = {
   // Room-wide confetti intensity: 'full' | 'reduced' | 'off'.
   // 'reduced' halves the particle counts (weak hardware / busy nights);
   // 'off' keeps banners and chimes but never fires the cannons.
-  // Defaulted 'off' for this deployment's kiosk hardware (a Raspberry Pi
-  // Zero embedding this via iframe) — still available in Settings for any
-  // fork running on stronger hardware.
-  confettiLevel: 'off',
+  // Full by default — every device gets full effects unless it opts out,
+  // either here in Settings or via ?lowPower=1 for a specific weak-hardware
+  // embed (see src/lib/urlFlags.js) without changing anyone else's default.
+  confettiLevel: 'full',
 
   // Forces framer-motion's `reducedMotion="always"` mode regardless of the
-  // OS-level `prefers-reduced-motion` setting, which a Raspberry Pi OS
-  // Chromium kiosk essentially never has set (no accessibility toggle
-  // exposes it there by default) even though the hardware needs it just as
-  // much as if it did. Defaulted true for this deployment; toggle off in
-  // Settings on stronger hardware to restore full transform animations.
-  reduceMotion: true,
+  // OS-level `prefers-reduced-motion` setting. Off by default (motion
+  // follows the OS setting, same as always); turn on here for a specific
+  // device, or see ?lowPower=1 in src/lib/urlFlags.js for embedding on
+  // hardware too weak to animate smoothly without changing this default.
+  reduceMotion: false,
 
   // Panic mode strips the screen to its reliable core (placeholder
   // background, clock only) while banners keep working. Toggle it live
