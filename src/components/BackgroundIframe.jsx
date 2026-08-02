@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import PptxSlideshow from './PptxSlideshow.jsx';
 import ManualSlideshow from './ManualSlideshow.jsx';
 import CatalogScene from './CatalogScene.jsx';
@@ -115,19 +115,19 @@ export default function BackgroundIframe({
             {/* Gentle shimmer + breath keep the welcome screen feeling
                 alive between check-ins; both loops are subtle enough to
                 read as "glow", not "blink". */}
-            <motion.span
+            <M.span
               className="placeholder-eyebrow"
               animate={{ opacity: [0.75, 1, 0.75] }}
               transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             >
               Awana Clubs
-            </motion.span>
-            <motion.h1
+            </M.span>
+            <M.h1
               animate={{ scale: [1, 1.02, 1] }}
               transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
             >
               Welcome<br />to Club Night!
-            </motion.h1>
+            </M.h1>
           </div>
         </CatalogScene>
       </div>

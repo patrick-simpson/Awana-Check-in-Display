@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 
 /**
  * The wavy crest along the top of the lower-third banner band — the
@@ -16,7 +16,7 @@ const CREST = 'M-60 86 C240 24 520 22 820 62 C1120 102 1380 96 1660 44 L1660 130
 export default function BannerWave() {
   return (
     <svg className="banner-wave" viewBox="0 0 1600 130" preserveAspectRatio="none" aria-hidden>
-      <motion.path
+      <M.path
         d={CREST}
         fill="rgba(255, 255, 255, 0.35)"
         initial={{ y: -16 }}
@@ -26,7 +26,7 @@ export default function BannerWave() {
           y: { duration: 6, repeat: Infinity, ease: 'easeInOut' },
         }}
       />
-      <motion.path
+      <M.path
         d={CREST}
         fill="var(--band-top)"
         animate={{ x: [-18, 18] }}

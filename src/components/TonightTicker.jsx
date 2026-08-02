@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import { isFresh } from '../lib/freshness.js';
 import { TONIGHT_STALE_MS } from '../lib/constants.js';
 
@@ -64,7 +65,7 @@ export default function TonightTicker({ tonight, active }) {
   return (
     <AnimatePresence>
       {show && (
-        <motion.div
+        <M.div
           key="tonight-ticker"
           className="tonight-ticker"
           aria-live="off"
@@ -76,7 +77,7 @@ export default function TonightTicker({ tonight, active }) {
             <span key={row.key} className="tonight-ticker-stat">
               {/* Remounting on every value change gives each count the
                   same joyful little pop the corner tally uses. */}
-              <motion.span
+              <M.span
                 key={row.value}
                 className="tonight-ticker-value"
                 initial={{ scale: 1.35, opacity: 0.6 }}
@@ -84,11 +85,11 @@ export default function TonightTicker({ tonight, active }) {
                 transition={{ type: 'spring', stiffness: 380, damping: 16 }}
               >
                 {row.value}
-              </motion.span>
+              </M.span>
               <span className="tonight-ticker-label">{row.label}</span>
             </span>
           ))}
-        </motion.div>
+        </M.div>
       )}
     </AnimatePresence>
   );

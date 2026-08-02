@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 
 // The catalog visual language — sky, drifting sparkle doodles, tone-on-tone
 // blobs, and the big wave along the bottom — shared by the setup
@@ -11,7 +12,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 // often a little sparkle burst "winks" somewhere in the sky. All of it is
 // transform/opacity only so cheap signage sticks hold 60fps, and
 // <MotionConfig reducedMotion="user"> stills the transforms for viewers
-// who prefer less motion. `still` renders a frozen frame — the slide
+// who prefer less M. `still` renders a frozen frame — the slide
 // editor shows many scenes at once in 0.15-scale thumbnails, where a
 // dozen animation loops each would burn CPU for no visible payoff.
 // Exported so sibling slide content (e.g. the weather glyph) can pick
@@ -112,7 +113,7 @@ function SceneWave({ gradientId, colors, still }) {
   return (
     <>
       {/* Back swell: drifts the opposite way, slightly higher — parallax. */}
-      <motion.div
+      <M.div
         className="scene-wave-layer scene-wave-layer--back"
         animate={{ x: ['1.4%', '-1.4%'], y: ['-1.2%', '0.6%'] }}
         transition={{
@@ -121,8 +122,8 @@ function SceneWave({ gradientId, colors, still }) {
         }}
       >
         {svg(true)}
-      </motion.div>
-      <motion.div
+      </M.div>
+      <M.div
         className="scene-wave-layer"
         animate={{ x: ['-1.4%', '1.4%'], y: ['0.8%', '-0.6%'] }}
         transition={{
@@ -131,7 +132,7 @@ function SceneWave({ gradientId, colors, still }) {
         }}
       >
         {svg(false)}
-      </motion.div>
+      </M.div>
     </>
   );
 }
@@ -168,7 +169,7 @@ function SceneWinks({ color }) {
     <div className="scene-winks" aria-hidden>
       <AnimatePresence>
         {wink && (
-          <motion.div
+          <M.div
             key={wink.id}
             className="scene-wink"
             style={{ left: `${wink.x}%`, top: `${wink.y}%` }}
@@ -177,7 +178,7 @@ function SceneWinks({ color }) {
             {[0, 1, 2, 3, 4].map((i) => {
               const angle = (i / 5) * Math.PI * 2;
               return (
-                <motion.svg
+                <M.svg
                   key={i}
                   width="18"
                   height="18"
@@ -192,10 +193,10 @@ function SceneWinks({ color }) {
                   transition={{ duration: 1.2, ease: 'easeOut' }}
                 >
                   <path d={WINK_SPARKLE} fill={color} />
-                </motion.svg>
+                </M.svg>
               );
             })}
-          </motion.div>
+          </M.div>
         )}
       </AnimatePresence>
     </div>
@@ -234,13 +235,13 @@ export default function CatalogScene({
           a darker organic shape behind the subject. Transform-only
           breathing (drift/rotate/scale), never repainted. */}
       <div className="scene-blobs" aria-hidden>
-        <motion.div
+        <M.div
           className="scene-blob scene-blob--a"
           style={{ background: t.blob }}
           animate={still ? undefined : { x: [0, 26, 0], y: [0, -18, 0], rotate: [0, 6, 0], scale: [1, 1.05, 1] }}
           transition={{ duration: 24, repeat: Infinity, ease: 'easeInOut' }}
         />
-        <motion.div
+        <M.div
           className="scene-blob scene-blob--b"
           style={{ background: t.blob }}
           animate={still ? undefined : { x: [0, -30, 0], y: [0, 14, 0], rotate: [0, -5, 0], scale: [1, 1.06, 1] }}
@@ -255,22 +256,22 @@ export default function CatalogScene({
             still ? (
               <path key={i} d={s.d} strokeWidth={s.w} />
             ) : (
-              <motion.g key={i} {...twinkle(i)}>
-                <motion.path
+              <M.g key={i} {...twinkle(i)}>
+                <M.path
                   d={s.d}
                   strokeWidth={s.w}
                   initial={{ pathLength: 0 }}
                   animate={{ pathLength: 1 }}
                   transition={{ duration: 1.4, delay: 0.3 + i * 0.25, ease: 'easeOut' }}
                 />
-              </motion.g>
+              </M.g>
             ),
           )}
           {RING_DOODLES.map((r, i) =>
             still ? (
               <circle key={i} cx={r.cx} cy={r.cy} r={r.r} strokeWidth="3.5" />
             ) : (
-              <motion.circle key={i} cx={r.cx} cy={r.cy} r={r.r} strokeWidth="3.5" {...twinkle(i + 7)} />
+              <M.circle key={i} cx={r.cx} cy={r.cy} r={r.r} strokeWidth="3.5" {...twinkle(i + 7)} />
             ),
           )}
         </g>
@@ -279,7 +280,7 @@ export default function CatalogScene({
             still ? (
               <circle key={i} cx={d.cx} cy={d.cy} r={d.r} />
             ) : (
-              <motion.circle key={i} cx={d.cx} cy={d.cy} r={d.r} {...twinkle(i + 9)} />
+              <M.circle key={i} cx={d.cx} cy={d.cy} r={d.r} {...twinkle(i + 9)} />
             ),
           )}
         </g>
@@ -288,7 +289,7 @@ export default function CatalogScene({
             still ? (
               <path key={i} d={s.d} />
             ) : (
-              <motion.path key={i} d={s.d} {...twinkle(i + 12, { rotate: [0, 14, 0] })} />
+              <M.path key={i} d={s.d} {...twinkle(i + 12, { rotate: [0, 14, 0] })} />
             ),
           )}
         </g>

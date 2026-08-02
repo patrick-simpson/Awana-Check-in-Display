@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import { downloadPptx, parsePptxToModel } from '../lib/pptxHandler.js';
 import { getStoredDeckModel } from '../lib/pptxModel.js';
 import CatalogScene from './CatalogScene.jsx';
@@ -95,7 +96,7 @@ function DeckView({ model, slideshowDelaySec }) {
   return (
     <div className="background-iframe pptx-stage" style={{ background: '#000' }}>
       <AnimatePresence mode="wait">
-        <motion.div
+        <M.div
           key={index}
           className="pptx-slide-wrap"
           initial={{ opacity: 0 }}
@@ -111,7 +112,7 @@ function DeckView({ model, slideshowDelaySec }) {
               ? <CatalogScene theme="sky" />
               : <SlideView slide={slide} widthEmu={widthEmu} heightEmu={heightEmu} imageUrls={imageUrls} />}
           </ErrorBoundary>
-        </motion.div>
+        </M.div>
       </AnimatePresence>
     </div>
   );

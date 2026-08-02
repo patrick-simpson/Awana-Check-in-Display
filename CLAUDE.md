@@ -29,14 +29,55 @@ The sibling **Journey Display** repo embeds this app via iframe on a
 Raspberry Pi Zero — hardware far weaker than the other, standalone
 devices running this same signage app elsewhere. `src/lib/urlFlags.js`'s
 `?lowPower=1` flag forces `confettiLevel: 'off'` and `reduceMotion: true`
-(skipping confetti bursts and framer-motion's transform animations) for
-that one embed's URL only, winning over even this device's saved
+for that one embed's URL only, winning over even this device's saved
 Settings — the same way `?key=`/`?cluster=` already do for OBS/
 ProPresenter embeds. `confettiLevel`/`reduceMotion` in `src/config.js`
 default to full effects (`'full'` / `false`) for everyone else — **do
 not** change those defaults to accommodate one weak embed again; that's
 exactly the mistake this flag exists to avoid repeating. Journey
 Display's `public/index.html` passes the flag on its iframe's `src`.
+
+**`reduceMotion: true` means ZERO animation, not just reduced** — this
+was tightened after an initial pass only suppressed transforms. Two
+mechanisms, because framer-motion and CSS need different enforcement:
+
+- **Framer-motion:** `src/lib/motion.jsx` exports `M` — a drop-in
+  replacement for `motion` (`M.div`, `M.span`, `M.path`, …, proxied so
+  any tag works) that reads `ZeroAnimationContext` (provided in
+  `App.jsx`, driven by `config.reduceMotion`) and forces
+  `transition={{ type: false }}` — an instant jump to the target value,
+  no fade, no repeat loop — **regardless of what transition the caller
+  passed**, including a hardcoded `repeat: Infinity`. This is why it's
+  stronger than `MotionConfig`'s `reducedMotion="always"` prop (also
+  still set): that only ever gates transform/positional values (x, y,
+  scale, rotate, width/height, top/left/right/bottom — framer-motion's
+  own `positionalKeys` set), never opacity or anything else — verified
+  directly against framer-motion's source, not just its docs.
+  **Every component in this app (signage side, not `src/presentation/`)
+  must import `M` from `src/lib/motion.jsx` instead of `motion` from
+  `'framer-motion'` directly.** This is the actual guarantee behind
+  "future updates get the animation exemption automatically" — a new
+  animated component built with `M.*` is covered with zero extra code;
+  one that imports `motion` directly is invisible to this system and
+  will animate even under `?lowPower=1`, silently reintroducing the bug
+  this exists to prevent. `AnimatePresence`/`MotionConfig` are unaffected
+  and still come straight from `'framer-motion'`.
+- **Plain CSS** `@keyframes`/`transition` rules (the doodle-scene drift,
+  the connecting-status pulse, the cozy-filter fade, and any future one)
+  don't go through React, so they need a separate kill switch: `App.jsx`
+  toggles a `zero-animation-mode` class on `<html>` from the same
+  `config.reduceMotion` flag, and `app.css` has one blanket rule —
+  `.zero-animation-mode, .zero-animation-mode * { animation: none
+  !important; transition: none !important; }` — that disables every CSS
+  animation/transition on the page at once. Deliberately a blanket rule
+  rather than listing selectors one at a time, for the same reason as
+  `M.*`: a future CSS animation is covered automatically, with nothing
+  to remember.
+- Verified live (not just unit-tested): a real animated element sampled
+  every 250ms genuinely oscillates opacity standalone but is perfectly
+  flat under `?lowPower=1`; a CSS `@keyframes` animation's computed
+  `animation-name` is its real name standalone and `none` under
+  `?lowPower=1`.
 
 ## Tech stack snapshot
 

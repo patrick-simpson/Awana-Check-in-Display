@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import { fireBirthday } from '../lib/confetti.js';
 import { playBirthdayChime } from '../lib/audio.js';
 import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
@@ -64,7 +64,7 @@ export default function BirthdayBanner({ event, audioEnabled }) {
     <>
       {!calm && <div className="gift-rain" aria-hidden>
         {gifts.map((g, i) => (
-          <motion.span
+          <M.span
             key={i}
             className="gift"
             style={{ left: `${g.left}%`, scale: g.scale }}
@@ -77,7 +77,7 @@ export default function BirthdayBanner({ event, audioEnabled }) {
             }}
           >
             {g.piece(i)}
-          </motion.span>
+          </M.span>
         ))}
       </div>}
 
@@ -89,7 +89,7 @@ export default function BirthdayBanner({ event, audioEnabled }) {
           <GarlandArt />
         </span>
 
-        <motion.span
+        <M.span
           className="cake"
           aria-hidden
           /* Rise and settle on entry, THEN the wiggle — a spring landing reads
@@ -107,7 +107,7 @@ export default function BirthdayBanner({ event, audioEnabled }) {
             ? { duration: 0.5, ease: 'easeOut' }
             : { duration: 0.75, times: [0, 0.65, 1], ease: 'easeOut' }}
         >
-          <motion.span
+          <M.span
             className="cake-wiggle"
             animate={calm ? undefined : { scale: [1, 1.14, 1], rotate: [0, -5, 5, 0] }}
             transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut', delay: 0.75 }}
@@ -119,28 +119,28 @@ export default function BirthdayBanner({ event, audioEnabled }) {
                 age and must never imply one. */}
             {!calm && (
               <span className="cake-flames" aria-hidden>
-                <motion.span
+                <M.span
                   className="cake-flame cake-flame--a"
                   animate={{ scaleY: [1, 1.35, 0.9, 1.2, 1], opacity: [0.85, 1, 0.8, 1, 0.85] }}
                   transition={{ duration: 0.9, repeat: Infinity, ease: 'easeInOut' }}
                 />
-                <motion.span
+                <M.span
                   className="cake-flame cake-flame--b"
                   animate={{ scaleY: [1, 0.9, 1.3, 0.95, 1], opacity: [0.9, 0.8, 1, 0.85, 0.9] }}
                   transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
                 />
               </span>
             )}
-          </motion.span>
-        </motion.span>
+          </M.span>
+        </M.span>
         <div className="banner-text">
           <Eyebrow>Happy Birthday</Eyebrow>
-          <motion.h1 variants={bannerNameStagger}>
+          <M.h1 variants={bannerNameStagger}>
             <AnimatedName name={`${event.firstName}!`} />
-          </motion.h1>
-          <motion.span variants={bannerItem} className="tagline">
+          </M.h1>
+          <M.span variants={bannerItem} className="tagline">
             Hip hip hooray &mdash; it&rsquo;s your special day!
-          </motion.span>
+          </M.span>
         </div>
       </BannerShell>
     </>

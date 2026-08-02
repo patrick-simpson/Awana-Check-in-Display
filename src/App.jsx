@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
+import { AnimatePresence, MotionConfig } from 'framer-motion';
+import { M, ZeroAnimationContext } from './lib/motion.jsx';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import DataCycle from './components/DataCycle.jsx';
@@ -459,6 +460,23 @@ export default function App() {
     return () => document.documentElement.classList.remove('overlay-mode');
   }, [overlay]);
 
+  // Zero-animation mode (config.reduceMotion — see ?lowPower=1 in
+  // urlFlags.js): ZeroAnimationContext above only reaches framer-motion
+  // components built with M.* from src/lib/motion.jsx. Plain CSS
+  // @keyframes/transition rules elsewhere in app.css (the doodle-scene
+  // drift, the connecting-status pulse, the cozy-filter fade, and any
+  // future one added the same way) don't go through React at all, so
+  // they need their own, equally durable kill switch: this class plus
+  // the blanket `.zero-animation-mode, .zero-animation-mode * { animation:
+  // none !important; transition: none !important; }` rule in app.css
+  // together disable EVERY CSS animation/transition on the page, current
+  // or future, without needing each one individually exempted.
+  useEffect(() => {
+    if (!config.reduceMotion) return undefined;
+    document.documentElement.classList.add('zero-animation-mode');
+    return () => document.documentElement.classList.remove('zero-animation-mode');
+  }, [config.reduceMotion]);
+
   return (
     // "user" makes framer-motion honor the OS-level prefers-reduced-motion
     // setting for every transform animation (the CSS media query and
@@ -466,6 +484,13 @@ export default function App() {
     // appear either way. config.reduceMotion forces "always" regardless of
     // the OS setting — needed because a kiosk Chromium rarely has that OS
     // setting exposed/set even on hardware that badly needs it reduced.
+    // ZeroAnimationContext goes further still: MotionConfig's
+    // reducedMotion only ever gates transform/positional values, never
+    // opacity — see src/lib/motion.jsx. Every M.* component in the tree
+    // below (and any future one built the same way) reads this directly,
+    // so config.reduceMotion === true means truly zero animation, not
+    // just reduced transforms.
+    <ZeroAnimationContext.Provider value={config.reduceMotion}>
     <MotionConfig reducedMotion={config.reduceMotion ? 'always' : 'user'}>
     <div
       className={`stage ${overlay ? 'overlay' : ''}`}
@@ -603,7 +628,7 @@ export default function App() {
         >
           {/* Remounting on every increment gives the number a joyful
               little pop-and-twist as each kid checks in. */}
-          <motion.span
+          <M.span
             key={count}
             className="tally-count"
             initial={{ scale: 1.5, rotate: -8 }}
@@ -611,7 +636,7 @@ export default function App() {
             transition={{ type: 'spring', stiffness: 420, damping: 15 }}
           >
             {count}
-          </motion.span>
+          </M.span>
           <span className="tally-label">checked in</span>
         </StickerChip>
       )}
@@ -620,7 +645,7 @@ export default function App() {
           copy and styling; the queue guarantees only one is ever on screen. */}
       <AnimatePresence>
         {celebration != null && (
-          <motion.div
+          <M.div
             key={`celebration-${celebration.kind}-${celebration.club ?? ''}-${celebration.count}`}
             className={
               celebration.kind === 'club'
@@ -637,14 +662,14 @@ export default function App() {
             exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
           >
             {/* Corner sparkles twinkle for the whole time the toast is up. */}
-            <motion.span
+            <M.span
               className="milestone-sparkle milestone-sparkle--left"
               aria-hidden
               animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8], rotate: [0, 16, 0] }}
               transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
             >
               <Mark kind="sparkle" size={30} />
-            </motion.span>
+            </M.span>
             <div className="milestone-lines">
               <span className="milestone-label">
                 {celebration.kind === 'club' ? celebration.club
@@ -657,21 +682,21 @@ export default function App() {
                     : `${celebration.count} kids!`}
               </span>
             </div>
-            <motion.span
+            <M.span
               className="milestone-sparkle milestone-sparkle--right"
               aria-hidden
               animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8], rotate: [0, -16, 0] }}
               transition={{ duration: 2.2, delay: 0.9, repeat: Infinity, ease: 'easeInOut' }}
             >
               <Mark kind="sparkle" size={36} />
-            </motion.span>
-          </motion.div>
+            </M.span>
+          </M.div>
         )}
       </AnimatePresence>
 
       <AnimatePresence>
         {!overlay && pending >= BURST_THRESHOLD && (
-          <motion.div
+          <M.div
             key="up-next"
             className="up-next"
             style={{ rotate: 0.6 }}
@@ -680,7 +705,7 @@ export default function App() {
             exit={{ opacity: 0, y: 16, transition: { duration: 0.3 } }}
           >
             +{pending} more coming
-          </motion.div>
+          </M.div>
         )}
       </AnimatePresence>
 
@@ -772,6 +797,7 @@ export default function App() {
       )}
     </div>
     </MotionConfig>
+    </ZeroAnimationContext.Provider>
   );
 }
 

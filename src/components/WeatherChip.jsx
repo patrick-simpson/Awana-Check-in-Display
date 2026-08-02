@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import StickerChip from './StickerChip.jsx';
 import { WeatherGlyph } from './WeatherGlyphs.jsx';
 import { weatherPresentation } from '../lib/weather.js';
@@ -29,7 +29,7 @@ export default function WeatherChip({ weather }) {
       aria-label={`${weather.temp} degrees, ${label}`}
     >
       {/* The glyph bobs and sways like it's happy to be here. */}
-      <motion.span
+      <M.span
         className="weather-chip-glyph"
         animate={{ y: [0, -3, 0], rotate: [-3, 3, -3] }}
         transition={{
@@ -38,14 +38,14 @@ export default function WeatherChip({ weather }) {
         }}
       >
         <WeatherGlyph icon={icon} stroke="#ffffff" fill="#ffe6a3" />
-      </motion.span>
-      <motion.span
+      </M.span>
+      <M.span
         className="weather-chip-temp"
         animate={{ scale: [1, 1.06, 1] }}
         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
       >
         {weather.temp}°<span className="weather-chip-unit">{unit}</span>
-      </motion.span>
+      </M.span>
     </StickerChip>
   );
 }

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import { getClubPalette } from '../lib/clubs.js';
 import { fireStandard } from '../lib/confetti.js';
 import { playChime } from '../lib/audio.js';
@@ -42,23 +42,23 @@ export default function WelcomeBanner({ event, audioEnabled, clubPhrases }) {
     >
       <div className="banner-text">
         <Eyebrow>{event.presentation === 'replay' ? 'Also joined us tonight' : 'Welcome'}</Eyebrow>
-        <motion.h1 variants={bannerNameStagger} style={{ rotate: accent.tilt }}>
+        <M.h1 variants={bannerNameStagger} style={{ rotate: accent.tilt }}>
           <AnimatedName name={`${event.firstName}!`} />
           {accent.sparkle && (
-            <motion.span
+            <M.span
               className="name-sparkle"
               aria-hidden
               animate={{ opacity: [0.3, 1, 0.3], scale: [0.7, 1.2, 0.7], rotate: [0, 20, 0] }}
               transition={{ duration: 2.4, delay: accent.doodlePhase, repeat: Infinity, ease: 'easeInOut' }}
             >
               <Mark kind="sparkle" size={28} />
-            </motion.span>
+            </M.span>
           )}
-        </motion.h1>
+        </M.h1>
         {phrase && (
-          <motion.span className="club-phrase" variants={bannerItem}>
+          <M.span className="club-phrase" variants={bannerItem}>
             {phrase}
-          </motion.span>
+          </M.span>
         )}
       </div>
       <ClubBadge club={club} rawName={event.club} />

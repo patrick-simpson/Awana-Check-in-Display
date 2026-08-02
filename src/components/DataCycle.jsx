@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, useReducedMotion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import { formatClock } from './WallClock.jsx';
 import { WeatherGlyph } from './WeatherGlyphs.jsx';
 import { weatherPresentation } from '../lib/weather.js';
@@ -126,7 +127,7 @@ export default function DataCycle({
   return (
     <div className="data-cycle" aria-live="off">
       <AnimatePresence mode="wait">
-        <motion.div
+        <M.div
           key={active}
           className={`data-cycle-item data-cycle-${active}`}
           variants={VARIANTS[active]}
@@ -138,7 +139,7 @@ export default function DataCycle({
           {active === 'tally' && <TallyFace count={count} reduced={reduced} />}
           {active === 'weather' && <WeatherFace weather={weather} reduced={reduced} />}
           {/* One sparkle winks just after each item lands. */}
-          <motion.span
+          <M.span
             className="data-cycle-spark"
             aria-hidden
             initial={{ opacity: 0, scale: 0.4, rotate: 0 }}
@@ -146,8 +147,8 @@ export default function DataCycle({
             transition={{ delay: 0.45, duration: 1.1, ease: 'easeInOut' }}
           >
             <Mark kind="sparkle" size={26} />
-          </motion.span>
-        </motion.div>
+          </M.span>
+        </M.div>
       </AnimatePresence>
     </div>
   );
@@ -163,7 +164,7 @@ function ClockFace({ now, reduced }) {
   return (
     <>
       <span className="data-cycle-eyebrow">Right now</span>
-      <motion.span
+      <M.span
         className="data-cycle-value"
         role="timer"
         aria-label={`Current time ${time} ${meridiem}`}
@@ -171,17 +172,17 @@ function ClockFace({ now, reduced }) {
         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
       >
         {hours}
-        <motion.span
+        <M.span
           className="data-cycle-colon"
           aria-hidden
           animate={reduced ? undefined : { opacity: [1, 0.25, 1] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
         >
           :
-        </motion.span>
+        </M.span>
         {minutes}
         <span className="data-cycle-unit">{meridiem}</span>
-      </motion.span>
+      </M.span>
     </>
   );
 }
@@ -190,14 +191,14 @@ function TallyFace({ count, reduced }) {
   return (
     <>
       <span className="data-cycle-eyebrow">Tonight</span>
-      <motion.span
+      <M.span
         className="data-cycle-value"
         animate={reduced ? undefined : { scale: [1, 1.045, 1] }}
         transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
       >
         {/* Remounting on every increment gives the number a joyful
             little pop-and-twist as each kid checks in. */}
-        <motion.span
+        <M.span
           key={count}
           className="data-cycle-pop"
           initial={{ scale: 1.5, rotate: -8 }}
@@ -205,8 +206,8 @@ function TallyFace({ count, reduced }) {
           transition={{ type: 'spring', stiffness: 420, damping: 15 }}
         >
           {count}
-        </motion.span>
-      </motion.span>
+        </M.span>
+      </M.span>
       <span className="data-cycle-sub">checked in</span>
     </>
   );
@@ -224,7 +225,7 @@ function WeatherFace({ weather, reduced }) {
         aria-label={`${weather.temp} degrees, ${label}`}
       >
         {/* The glyph bobs and sways like it's happy to be here. */}
-        <motion.span
+        <M.span
           className="data-cycle-glyph"
           aria-hidden
           animate={reduced ? undefined : { y: [0, -3, 0], rotate: [-3, 3, -3] }}
@@ -234,7 +235,7 @@ function WeatherFace({ weather, reduced }) {
           }}
         >
           <WeatherGlyph icon={icon} stroke="#ffffff" fill="#ffe6a3" />
-        </motion.span>
+        </M.span>
         <span className="data-cycle-value">
           {weather.temp}°<span className="data-cycle-unit">{unit}</span>
         </span>

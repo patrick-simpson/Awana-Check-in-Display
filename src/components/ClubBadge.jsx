@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 
 /**
  * The club identity on a banner: the club's mascot sticker (for the
@@ -8,7 +9,7 @@ import { motion, useReducedMotion } from 'framer-motion';
  * a typo in the check-in system still looks intentional. Everything
  * pops in like stickers being slapped on (low damping for a visible
  * wobble), then floats gently for as long as the banner is up — unless
- * the viewer prefers reduced motion.
+ * the viewer prefers reduced M.
  */
 const logoPop = {
   hidden: { opacity: 0, scale: 0.3, rotate: -12 },
@@ -33,19 +34,19 @@ export default function ClubBadge({ club, rawName }) {
   if (!club.logo && !title) return null;
 
   return (
-    <motion.span className="club-logo-slot" variants={logoPop}>
+    <M.span className="club-logo-slot" variants={logoPop}>
       {club.mascot && (
-        <motion.span className="club-mascot" variants={mascotPop}>
-          <motion.img
+        <M.span className="club-mascot" variants={mascotPop}>
+          <M.img
             src={club.mascot}
             alt=""
             animate={reduced ? undefined : { y: [0, -6, 0], rotate: [0, 4, 0] }}
             transition={{ duration: 3.8, delay: 0.6, repeat: Infinity, ease: 'easeInOut' }}
           />
-        </motion.span>
+        </M.span>
       )}
       {club.logo ? (
-        <motion.img
+        <M.img
           className="club-logo"
           src={club.logo}
           alt={`${title || 'Club'} logo`}
@@ -55,6 +56,6 @@ export default function ClubBadge({ club, rawName }) {
       ) : (
         <span className="club-title-fallback">{title}</span>
       )}
-    </motion.span>
+    </M.span>
   );
 }

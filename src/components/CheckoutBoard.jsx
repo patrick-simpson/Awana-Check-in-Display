@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import {
   BOARD_ANONYMOUS,
   BOARD_EMPTY,
@@ -47,7 +47,7 @@ export default function CheckoutBoard({ decision, checkout, calm }) {
     : { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4 } };
 
   return (
-    <motion.section className={`checkout-board ${state}`} aria-live="polite" {...anim}>
+    <M.section className={`checkout-board ${state}`} aria-live="polite" {...anim}>
       <h2 className="checkout-title">Still to be picked up</h2>
 
       {state === BOARD_EMPTY && (
@@ -93,6 +93,6 @@ export default function CheckoutBoard({ decision, checkout, calm }) {
           </p>
         </>
       )}
-    </motion.section>
+    </M.section>
   );
 }

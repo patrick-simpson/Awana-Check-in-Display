@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 
 // Hand-doodle weather glyphs in the catalog's visual language: rotating
 // sun rays, drifting clouds, falling rain dashes, flashing lightning…
@@ -13,7 +13,7 @@ function Sun({ stroke }) {
   return (
     <g stroke={stroke} fill="none" strokeWidth="7" strokeLinecap="round">
       {/* Rays spin as one slow wheel; the core breathes. */}
-      <motion.g
+      <M.g
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
         animate={{ rotate: 360 }}
         transition={{ duration: 46, repeat: Infinity, ease: 'linear' }}
@@ -28,8 +28,8 @@ function Sun({ stroke }) {
             />
           );
         })}
-      </motion.g>
-      <motion.circle
+      </M.g>
+      <M.circle
         cx="100" cy="100" r="40"
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
         animate={{ scale: [1, 1.06, 1] }}
@@ -42,7 +42,7 @@ function Sun({ stroke }) {
 function Moon({ stroke, fill }) {
   return (
     <g>
-      <motion.path
+      <M.path
         d="M138 62 A58 58 0 1 0 138 138 A46 46 0 0 1 138 62 Z"
         stroke={stroke} fill="none" strokeWidth="7" strokeLinejoin="round"
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
@@ -50,7 +50,7 @@ function Moon({ stroke, fill }) {
         transition={loop(7)}
       />
       {[[158, 60, 0], [172, 96, 1.4], [152, 128, 2.6]].map(([x, y, delay], i) => (
-        <motion.path
+        <M.path
           key={i}
           d={`M${x} ${y - 8} c1.2 5.5 4.3 8.6 9.8 9.8 c-5.5 1.2 -8.6 4.3 -9.8 9.8 c-1.2 -5.5 -4.3 -8.6 -9.8 -9.8 c5.5 -1.2 8.6 -4.3 9.8 -9.8z`}
           fill={fill}
@@ -76,16 +76,16 @@ function CloudShape({ stroke, x = 0, y = 0, scale = 1 }) {
 
 function DriftingCloud({ stroke, x, y, scale, duration, delay = 0 }) {
   return (
-    <motion.g animate={{ x: [0, 14, 0] }} transition={loop(duration, { delay })}>
+    <M.g animate={{ x: [0, 14, 0] }} transition={loop(duration, { delay })}>
       <CloudShape stroke={stroke} x={x} y={y} scale={scale} />
-    </motion.g>
+    </M.g>
   );
 }
 
 function Partly({ stroke }) {
   return (
     <g>
-      <motion.g
+      <M.g
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
         animate={{ rotate: 360 }}
         transition={{ duration: 46, repeat: Infinity, ease: 'linear' }}
@@ -101,7 +101,7 @@ function Partly({ stroke }) {
             />
           );
         })}
-      </motion.g>
+      </M.g>
       <circle cx="120" cy="72" r="26" stroke={stroke} fill="none" strokeWidth="6" />
       <DriftingCloud stroke={stroke} x={28} y={52} scale={1.05} duration={9} />
     </g>
@@ -122,7 +122,7 @@ function Fog({ stroke }) {
     <g>
       <CloudShape stroke={stroke} x={34} y={18} scale={0.95} />
       {[132, 152, 172].map((y, i) => (
-        <motion.line
+        <M.line
           key={y}
           x1="46" y1={y} x2="154" y2={y}
           stroke={stroke} strokeWidth="7" strokeLinecap="round"
@@ -141,7 +141,7 @@ function Drops({ stroke, kind }) {
   return (
     <g>
       {xs.map((x, i) => (
-        <motion.g
+        <M.g
           key={x}
           initial={{ y: 0, opacity: 0 }}
           animate={{ y: [0, 44], opacity: [0, 1, 0] }}
@@ -152,7 +152,7 @@ function Drops({ stroke, kind }) {
           ) : (
             <line x1={x} y1={122} x2={x - 6} y2={140} stroke={stroke} strokeWidth="7" strokeLinecap="round" />
           )}
-        </motion.g>
+        </M.g>
       ))}
     </g>
   );
@@ -180,7 +180,7 @@ function Storm({ stroke, fill }) {
   return (
     <g>
       <CloudShape stroke={stroke} x={34} y={6} scale={1} />
-      <motion.path
+      <M.path
         d="M104 116 L84 152 L102 152 L92 184 L124 142 L104 142 L118 116 Z"
         fill={fill} stroke={stroke} strokeWidth="4" strokeLinejoin="round"
         style={{ transformBox: 'fill-box', transformOrigin: 'center' }}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import StickerChip from './StickerChip.jsx';
 
 /**
@@ -29,14 +29,14 @@ export default function WallClock() {
     >
       <span className="time">
         {hours}
-        <motion.span
+        <M.span
           className="time-colon"
           aria-hidden
           animate={{ opacity: [1, 0.25, 1] }}
           transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
         >
           :
-        </motion.span>
+        </M.span>
         {minutes}
       </span>
       <span className="meridiem">{meridiem}</span>

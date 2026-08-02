@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 
 // The 2026–27 Awana catalog scatters little hand-drawn marks around every
 // page: four-point sparkles, tiny ×'s, dots, rings, squiggles — and on the
@@ -81,7 +81,7 @@ export function BandSparkles() {
   return (
     <div className="band-sparkles" aria-hidden>
       {BAND_SPOTS.map((s, i) => (
-        <motion.span
+        <M.span
           key={i}
           className="doodle"
           style={{ top: s.top, left: s.left }}
@@ -89,7 +89,7 @@ export function BandSparkles() {
           transition={{ duration: 2.8, delay: s.delay, repeat: Infinity, ease: 'easeInOut' }}
         >
           <Mark kind="sparkle" size={s.size} />
-        </motion.span>
+        </M.span>
       ))}
     </div>
   );
@@ -101,7 +101,7 @@ export default function Doodles({ phase = 0 }) {
   return (
     <div className="doodle-field" aria-hidden>
       {LAYOUT.map((d, i) => (
-        <motion.span
+        <M.span
           key={i}
           className="doodle"
           style={{ top: d.top, left: d.left }}
@@ -109,7 +109,7 @@ export default function Doodles({ phase = 0 }) {
           transition={{ duration: 3.2, delay: d.delay + phase, repeat: Infinity, ease: 'easeInOut' }}
         >
           <Mark kind={d.kind} size={d.size} />
-        </motion.span>
+        </M.span>
       ))}
     </div>
   );

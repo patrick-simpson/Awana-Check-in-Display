@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import { localDateStr } from '../lib/calendarLogic.js';
 
 /**
@@ -26,7 +27,7 @@ export default function CountdownTimer({ targetTime, clubDates = null }) {
   return (
     <AnimatePresence>
       {visible && (
-        <motion.div
+        <M.div
           key="countdown"
           className="countdown"
           // Sticker tilt rides framer-motion's transform (a CSS rotate
@@ -39,7 +40,7 @@ export default function CountdownTimer({ targetTime, clubDates = null }) {
           <span className="label">Club starts in</span>
           <span className="time">{formatRemaining(remaining)}</span>
           {result.isTomorrow && <span className="tomorrow-label">Tomorrow</span>}
-        </motion.div>
+        </M.div>
       )}
     </AnimatePresence>
   );

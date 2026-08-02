@@ -1601,6 +1601,22 @@ input:focus-visible {
   }
 }
 
+/* Zero-animation mode (App.jsx toggles this on <html> from
+   config.reduceMotion — see ?lowPower=1 in urlFlags.js, for embedding on
+   hardware too weak to animate at all, like the Journey Display kiosk).
+   Deliberately a blanket rule rather than listing selectors one by one:
+   every CSS animation/transition on the page — the ones named above,
+   AND any future one added anywhere in this stylesheet — is covered
+   automatically, with no per-rule opt-in to remember. Framer-motion's
+   own JS-driven animations (opacity fades, etc.) are handled separately
+   by ZeroAnimationContext in src/lib/motion.jsx, since CSS can't reach
+   those. */
+.zero-animation-mode,
+.zero-animation-mode * {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* ────────────────────────────────────────────────────────────
    Responsive: phones & small screens.
    The design targets a TV, but leaders open the display (and

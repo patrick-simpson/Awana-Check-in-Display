@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import Doodles, { BandSparkles } from './Doodles.jsx';
 import BannerWave from './BannerWave.jsx';
 
@@ -45,20 +45,20 @@ export const bannerNameStagger = {
 /** The pulsing condensed line above the name ("Welcome", "Happy Birthday"…). */
 export function Eyebrow({ children }) {
   return (
-    <motion.span variants={bannerItem} className="eyebrow">
-      <motion.span
+    <M.span variants={bannerItem} className="eyebrow">
+      <M.span
         animate={{ opacity: [0.82, 1, 0.82] }}
         transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
       >
         {children}
-      </motion.span>
-    </motion.span>
+      </M.span>
+    </M.span>
   );
 }
 
 export default function BannerShell({ className = '', style, decorations, doodlePhase = 0, children }) {
   return (
-    <motion.div
+    <M.div
       className={`banner ${className}`.trim()}
       style={style}
       variants={bannerContainer}
@@ -70,7 +70,7 @@ export default function BannerShell({ className = '', style, decorations, doodle
       {/* A soft accent blob drifting inside the band — the catalog's
           tone-on-tone depth — plus sparkles glittering in the color. */}
       <div className="band-blob-clip" aria-hidden>
-        <motion.div
+        <M.div
           className="band-blob"
           animate={{ x: [0, 28, 0], rotate: [0, 5, 0], scale: [1, 1.05, 1] }}
           transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
@@ -80,6 +80,6 @@ export default function BannerShell({ className = '', style, decorations, doodle
       <Doodles phase={doodlePhase} />
       {decorations}
       <div className="banner-content">{children}</div>
-    </motion.div>
+    </M.div>
   );
 }

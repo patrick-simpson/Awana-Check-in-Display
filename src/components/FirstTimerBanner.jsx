@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import { getClubPalette } from '../lib/clubs.js';
 import { fireFirstTimer } from '../lib/confetti.js';
 import { playFirstTimerChime } from '../lib/audio.js';
@@ -21,14 +21,14 @@ function FirstTimeBurst() {
   return (
     // Pops in like a sticker after the text lands, then keeps slowly
     // seesawing so it never goes still.
-    <motion.div
+    <M.div
       className="first-time-burst"
       aria-hidden
       initial={{ scale: 0, rotate: -24 }}
       animate={{ scale: 1, rotate: -8 }}
       transition={{ type: 'spring', stiffness: 260, damping: 13, delay: 0.55 }}
     >
-      <motion.div
+      <M.div
         className="first-time-burst-inner"
         animate={{ rotate: [-4, 4, -4] }}
         transition={{ duration: 3.6, repeat: Infinity, ease: 'easeInOut' }}
@@ -37,8 +37,8 @@ function FirstTimeBurst() {
           <polygon points={BURST_POINTS} fill="var(--awana-red)" />
         </svg>
         <span>First<br />time!</span>
-      </motion.div>
-    </motion.div>
+      </M.div>
+    </M.div>
   );
 }
 
@@ -59,12 +59,12 @@ export default function FirstTimerBanner({ event, audioEnabled }) {
     <BannerShell className={calm ? 'first-timer calm' : 'first-timer'} decorations={<FirstTimeBurst />}>
       <div className="banner-text">
         <Eyebrow>Welcome to Awana Clubs</Eyebrow>
-        <motion.h1 variants={bannerNameStagger}>
+        <M.h1 variants={bannerNameStagger}>
           <AnimatedName name={`${event.firstName}!`} />
-        </motion.h1>
-        <motion.span variants={bannerItem} className="tagline">
+        </M.h1>
+        <M.span variants={bannerItem} className="tagline">
           We&rsquo;re so glad you&rsquo;re here for the very first time!
-        </motion.span>
+        </M.span>
       </div>
       <ClubBadge club={club} rawName={event.club} />
     </BannerShell>

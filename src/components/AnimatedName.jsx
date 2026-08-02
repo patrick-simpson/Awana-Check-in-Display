@@ -1,10 +1,10 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 
 /**
  * The kid's name with a joyful staggered bounce — each letter springs in
  * with a little overshoot, then settles into a gentle rolling bob (a
  * staggered ±3px wave across the letters) so the name keeps dancing for
- * the whole time the banner is up. Rendered inside a banner's motion.h1,
+ * the whole time the banner is up. Rendered inside a banner's M.h1,
  * so the outer spans pick up the container's variant orchestration
  * automatically; the bob runs on an inner span so the two transforms
  * never fight over the same element.
@@ -35,7 +35,7 @@ const wordVariant = {
 
 function Bob({ index, amount, children }) {
   return (
-    <motion.span
+    <M.span
       style={{ display: 'inline-block' }}
       animate={{ y: [0, -amount, 0] }}
       transition={{
@@ -47,7 +47,7 @@ function Bob({ index, amount, children }) {
       }}
     >
       {children}
-    </motion.span>
+    </M.span>
   );
 }
 
@@ -66,14 +66,14 @@ export default function AnimatedName({ name }) {
     <span key={w} className="name-word">
       {perLetter
         ? Array.from(word).map((ch, i) => (
-            <motion.span key={i} className="name-letter" variants={letterVariant}>
+            <M.span key={i} className="name-letter" variants={letterVariant}>
               <Bob index={letterIndex++} amount={4}>{ch}</Bob>
-            </motion.span>
+            </M.span>
           ))
         : (
-            <motion.span className="name-letter" variants={wordVariant}>
+            <M.span className="name-letter" variants={wordVariant}>
               <Bob index={w * 2} amount={3}>{word}</Bob>
-            </motion.span>
+            </M.span>
           )}
       {w < words.length - 1 ? ' ' : ''}
     </span>

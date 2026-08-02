@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import { isFresh } from '../lib/freshness.js';
 import { NOTICE_MAX_AGE_MS } from '../lib/constants.js';
 
@@ -45,7 +46,7 @@ export default function NoticeBanner({ notice }) {
   return (
     <AnimatePresence>
       {show && (
-        <motion.div
+        <M.div
           key={`${notice.at}-${notice.level}`}
           className={`notice-banner notice-banner--${level}`}
           role={level === 'critical' ? 'alert' : 'status'}
@@ -56,7 +57,7 @@ export default function NoticeBanner({ notice }) {
         >
           <span className="notice-banner-eyebrow">{EYEBROW[level]}</span>
           <span className="notice-banner-message">{notice.message}</span>
-        </motion.div>
+        </M.div>
       )}
     </AnimatePresence>
   );

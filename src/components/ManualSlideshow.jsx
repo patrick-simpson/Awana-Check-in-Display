@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import CatalogScene from './CatalogScene.jsx';
 import {
   isVideoSlide,
@@ -56,7 +57,7 @@ export default function ManualSlideshow({ slides, slideshowDelaySec }) {
       {/* mode="sync" crossfades: the outgoing slide fades while the next
           fades in. Opacity-only, so it survives reducedMotion="user". */}
       <AnimatePresence mode="sync" initial={false}>
-        <motion.div
+        <M.div
           key={slide.id}
           className="manual-slide"
           initial={{ opacity: 0 }}
@@ -81,7 +82,7 @@ export default function ManualSlideshow({ slides, slideshowDelaySec }) {
               </div>
             </CatalogScene>
           )}
-        </motion.div>
+        </M.div>
       </AnimatePresence>
     </div>
   );

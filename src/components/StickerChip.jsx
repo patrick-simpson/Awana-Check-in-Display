@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
 import { Mark } from './Doodles.jsx';
 
 /**
@@ -9,7 +9,7 @@ import { Mark } from './Doodles.jsx';
  * weather, status, tally) renders inside one so the chrome reads as a
  * set of hand-placed stickers instead of generic glass pills.
  *
- * The root is a motion.div so the tilt rides framer-motion's transform
+ * The root is a M.div so the tilt rides framer-motion's transform
  * (never CSS transform — the two would fight), letting each sticker pop
  * on with a springy little slap. `...rest` forwards role/aria-* straight
  * to the root, so consumers keep their accessibility contracts.
@@ -33,7 +33,7 @@ export default function StickerChip({
   ...rest
 }) {
   return (
-    <motion.div
+    <M.div
       className={`sticker-chip ${className}`.trim()}
       style={{ rotate: tilt }}
       variants={pop}
@@ -48,7 +48,7 @@ export default function StickerChip({
       )}
       {children}
       {sparkle && (
-        <motion.span
+        <M.span
           className="sticker-chip-spark"
           aria-hidden
           initial={{ opacity: 0 }}
@@ -62,8 +62,8 @@ export default function StickerChip({
           }}
         >
           <Mark kind="sparkle" size={18} />
-        </motion.span>
+        </M.span>
       )}
-    </motion.div>
+    </M.div>
   );
 }
