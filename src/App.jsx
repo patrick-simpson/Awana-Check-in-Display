@@ -452,10 +452,13 @@ export default function App() {
   }, [overlay]);
 
   return (
-    // reducedMotion="user" makes framer-motion honor the OS setting for
-    // every transform animation (the CSS media query and canvas-confetti
-    // already do); opacity fades remain so banners still appear.
-    <MotionConfig reducedMotion="user">
+    // "user" makes framer-motion honor the OS-level prefers-reduced-motion
+    // setting for every transform animation (the CSS media query and
+    // canvas-confetti already do); opacity fades remain so banners still
+    // appear either way. config.reduceMotion forces "always" regardless of
+    // the OS setting — needed because a kiosk Chromium rarely has that OS
+    // setting exposed/set even on hardware that badly needs it reduced.
+    <MotionConfig reducedMotion={config.reduceMotion ? 'always' : 'user'}>
     <div
       className={`stage ${overlay ? 'overlay' : ''}`}
       data-skin={skin !== 'none' ? skin : undefined}
@@ -482,6 +485,7 @@ export default function App() {
             sceneTheme={sceneTheme ?? 'sky'}
             cozy={mood.cozy}
             dim={mood.dim}
+            reduceMotion={config.reduceMotion}
           />
         </ErrorBoundary>
       )}

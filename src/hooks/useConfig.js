@@ -63,6 +63,7 @@ const VALIDATORS = {
   burstFloorMs: numberBetween(1000, 10000),
   clubPhrases: (v) => !!v && typeof v === 'object' && !Array.isArray(v),
   confettiLevel: (v) => ['full', 'reduced', 'off'].includes(v),
+  reduceMotion: isBool,
 };
 
 // Banner flavor text per club: keep only short strings, keyed
