@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CLUBS } from '../config.js';
 import { THEME, artUrl } from '../lib/shared-config.js';
 import { ScreenFrame } from '../components/ScreenFrame.jsx';
-import { AmbientOrbs } from '../components/AmbientOrbs.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ClubWave } from '../components/ClubWave.jsx';
@@ -63,10 +62,8 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
 
   return (
     <ScreenFrame
-      vignette="deep"
       layers={
         <>
-          <AmbientOrbs tint={primary.color} />
           <ClubWave color={primary.color} position="bottom" variant={0} height={36} />
           <ClubWave
             color={(secondary ?? primary).color}
@@ -103,7 +100,6 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
           size="h1"
           font="display"
           color={primary.color}
-          glow="lg"
           className="leading-none text-center select-none"
           style={{ transform: 'rotate(-2deg)' }}
         >
@@ -186,7 +182,6 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
               size="script"
               font="script"
               color="#FFC107"
-              glow="sm"
               style={{ fontWeight: 600, transform: 'rotate(-2deg)' }}
             >
               happy birthday
@@ -196,7 +191,6 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
               size="script"
               font="display"
               color="#FFFFFF"
-              glow="md"
               className="text-center max-w-6xl leading-tight"
             >
               {listNames(celebrants.map((b) => b.name))}
@@ -211,9 +205,10 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
 };
 
 /**
- * The club's official logo art (from shared/theme.json), glowing in the
- * club color; a failed load falls back to the typographic badge so a
- * missing PNG can never blank the screen.
+ * The club's official logo art (from shared/theme.json); a failed load
+ * falls back to the typographic badge so a missing PNG can never blank
+ * the screen. A crisp thin white halo (die-cut edge) plus a plain soft
+ * ground shadow keep it grounded without any glow.
  */
 const ClubEmblem = ({ club }) => {
   const [failed, setFailed] = useState(false);
@@ -236,7 +231,7 @@ const ClubEmblem = ({ club }) => {
       style={{
         height: 'clamp(4rem, 11vh, 9rem)',
         width: 'auto',
-        filter: `drop-shadow(0 0 1px rgba(255,255,255,0.9)) drop-shadow(0 0 14px rgba(255,255,255,0.35)) drop-shadow(0 0 26px ${club.color}90)`,
+        filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.9)) drop-shadow(0 4px 12px rgba(0,0,0,0.4))',
       }}
       initial={{ opacity: 0, scale: 0.9, rotate: -2 }}
       animate={{ opacity: 1, scale: 1, rotate: 0 }}

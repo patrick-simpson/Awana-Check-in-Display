@@ -1,5 +1,4 @@
 import React from 'react';
-import { rgbTriple } from '../lib/color.js';
 
 /** The one condensed-caps label style (single tracking token app-wide). */
 export const Eyebrow = ({
@@ -9,7 +8,7 @@ export const Eyebrow = ({
   children,
 }) => (
   <p
-    className={`uppercase font-bold ${tone === 'shimmer' ? 'text-shimmer' : ''} ${className}`}
+    className={`uppercase font-bold ${className}`}
     style={{
       fontFamily: 'var(--font-condensed)',
       fontWeight: 700,
@@ -17,13 +16,7 @@ export const Eyebrow = ({
       letterSpacing: 'var(--tracking-eyebrow)',
       // letter-spacing adds a trailing gap; nudge back to optical center
       marginRight: 'calc(var(--tracking-eyebrow) * -1)',
-      ...(tone === 'color'
-        ? {
-            color,
-            ['--glow-color']: rgbTriple(color),
-            textShadow: 'var(--glow-sm)',
-          }
-        : {}),
+      color: tone === 'shimmer' ? '#FFC107' : tone === 'color' ? color : undefined,
     }}
   >
     {children}

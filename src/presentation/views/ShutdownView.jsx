@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { RotateCcw } from '../components/icons.jsx';
 import { ScreenFrame } from '../components/ScreenFrame.jsx';
-import { AmbientOrbs } from '../components/AmbientOrbs.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ClubWave } from '../components/ClubWave.jsx';
@@ -24,7 +23,6 @@ export const ShutdownView = ({ onRestart }) => {
     <ScreenFrame
       layers={
         <>
-          <AmbientOrbs variant="quiet" />
           <ClubWave color="#F7941D" intensity={0.4} height={26} animate={false} />
           <ParticleField />
           <SparkleDoodles seed={9} count={8} />
@@ -47,7 +45,6 @@ export const ShutdownView = ({ onRestart }) => {
             size="h1"
             font="display"
             color="#FFFFFF"
-            glow="md"
             className="text-center leading-tight"
           >
             SEE YOU NEXT WEEK!
@@ -64,7 +61,6 @@ export const ShutdownView = ({ onRestart }) => {
             size="script"
             font="script"
             color="#FFB627"
-            glow="sm"
             style={{ fontWeight: 600 }}
           >
             have a safe drive home!

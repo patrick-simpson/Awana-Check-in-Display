@@ -2,7 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { DUR, EASE } from '../lib/motion-tokens.js';
 import { ScreenFrame } from '../components/ScreenFrame.jsx';
-import { AmbientOrbs } from '../components/AmbientOrbs.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ConfettiBurst } from '../components/ConfettiBurst.jsx';
@@ -10,7 +9,6 @@ import { Logo } from '../components/Logo.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { Eyebrow } from '../components/Eyebrow.jsx';
 import { GlowText } from '../components/GlowText.jsx';
-import { rgbTriple } from '../lib/color.js';
 
 /**
  * One slide, laid out by its explicit `layout` field (the old version
@@ -33,7 +31,6 @@ export const Slide = ({ slide, now, events, onNext }) => {
     <ScreenFrame
       layers={
         <>
-          <AmbientOrbs variant="quiet" />
           <ParticleField />
           <SparkleDoodles seed={slide.id.length + slide.title.length} count={slide.layout === 'celebration' ? 22 : 10} />
         </>
@@ -50,7 +47,6 @@ export const Slide = ({ slide, now, events, onNext }) => {
               fontWeight: 700,
               fontSize: 'clamp(1.25rem, 1.8vw, 2.25rem)',
               letterSpacing: '0.08em',
-              textShadow: '0 0 20px rgba(255,255,255,0.3)',
             }}
           >
             {timeString}
@@ -88,7 +84,7 @@ const SlideBody = ({ slide, events }) => {
     case 'celebration':
       return (
         <>
-          <GlowHeadline text={slide.title} gradient="rainbow" size="display" />
+          <CrayonHeadline text={slide.title} gradient="rainbow" size="display" />
           {slide.subtitle && <ScriptLine text={slide.subtitle} color="#FFC107" />}
         </>
       );
@@ -97,7 +93,7 @@ const SlideBody = ({ slide, events }) => {
       return (
         <>
           <Eyebrow className="mb-6">{slide.title}</Eyebrow>
-          <GlowHeadline text={slide.title} gradient="rainbow" size="display" />
+          <CrayonHeadline text={slide.title} gradient="rainbow" size="display" />
           {slide.subtitle && <ScriptLine text={slide.subtitle} color="#FFFFFF" />}
         </>
       );
@@ -111,8 +107,6 @@ const SlideBody = ({ slide, events }) => {
               fontFamily: 'var(--font-condensed)',
               fontWeight: 700,
               fontSize: 'var(--text-pledge)',
-              '--glow-color': '255 255 255',
-              textShadow: 'var(--glow-sm)',
             }}
           >
             {slide.body}
@@ -123,7 +117,7 @@ const SlideBody = ({ slide, events }) => {
     case 'closing':
       return (
         <>
-          <GlowHeadline text={slide.title} gradient="amber" size="h1" />
+          <CrayonHeadline text={slide.title} gradient="amber" size="h1" />
           {slide.body && <ScriptLine text={slide.body} color="#FFC107" />}
         </>
       );
@@ -131,7 +125,7 @@ const SlideBody = ({ slide, events }) => {
     case 'coming-up':
       return (
         <>
-          <GlowHeadline text={slide.title} gradient="amber" size="h1" />
+          <CrayonHeadline text={slide.title} gradient="amber" size="h1" />
           <ComingUpList events={events ?? []} />
         </>
       );
@@ -168,32 +162,61 @@ const ComingUpList = ({ events }) => {
   );
 };
 
-/** Display headline with the blurred glow layer behind gradient text. */
-const GlowHeadline = ({ text, gradient, size }) => (
-  <div className="relative">
+/** Hand-placed crayon letters (rainbow) — cycling brand colors, per-letter cycling. */
+const CRAYON_COLORS = ['#E8192C', '#FFC107', '#0072CE', '#00A651'];
+
+/**
+ * Display headline styled like construction-paper cutout letters: for
+ * `gradient="rainbow"`, each character cycles through the brand palette
+ * with a tiny alternating tilt and vertical nudge, as if hand-placed one
+ * letter at a time. `gradient="amber"` stays a single flat catalog gold.
+ * No blur, no gradient-clip animation — solid crisp color only.
+ */
+const CrayonHeadline = ({ text, gradient, size }) => {
+  if (gradient !== 'rainbow') {
+    return (
+      <h1
+        className="leading-none text-center"
+        style={{ fontFamily: 'var(--font-display)', fontSize: `var(--text-${size})`, color: '#FFC107' }}
+      >
+        {text}
+      </h1>
+    );
+  }
+
+  // Letters are individual inline-blocks, so wrapping must happen at the
+  // word level — otherwise the browser can break mid-word ("A|WANA").
+  let letterIndex = 0;
+  return (
     <h1
-      className="leading-none text-center absolute inset-0"
-      aria-hidden="true"
-      style={{
-        fontFamily: 'var(--font-display)',
-        fontSize: `var(--text-${size})`,
-        color: '#ffffff',
-        filter: 'blur(35px)',
-        opacity: 0.4,
-      }}
-    >
-      {text}
-    </h1>
-    <h1
-      className={`leading-none text-center relative ${
-        gradient === 'rainbow' ? 'gradient-text-animated' : 'gradient-text-amber'
-      }`}
+      className="leading-none text-center"
       style={{ fontFamily: 'var(--font-display)', fontSize: `var(--text-${size})` }}
     >
-      {text}
+      {text.split(' ').map((word, w) => (
+        <React.Fragment key={w}>
+          {w > 0 && ' '}
+          <span className="inline-block whitespace-nowrap">
+            {word.split('').map((char, i) => {
+              const n = letterIndex++;
+              return (
+                <span
+                  key={i}
+                  style={{
+                    display: 'inline-block',
+                    color: CRAYON_COLORS[n % CRAYON_COLORS.length],
+                    transform: `rotate(${n % 2 === 0 ? -2 : 2}deg) translateY(${n % 2 === 0 ? 0 : '0.05em'})`,
+                  }}
+                >
+                  {char}
+                </span>
+              );
+            })}
+          </span>
+        </React.Fragment>
+      ))}
     </h1>
-  </div>
-);
+  );
+};
 
 /** Casual handwritten accent line (catalog script labels). */
 const ScriptLine = ({ text, color }) => (
@@ -202,9 +225,8 @@ const ScriptLine = ({ text, color }) => (
     size="script"
     font="script"
     color={color}
-    glow="sm"
     className="mt-8 text-center"
-    style={{ '--glow-color': rgbTriple(color), fontWeight: 600 }}
+    style={{ fontWeight: 600 }}
   >
     {text}
   </GlowText>

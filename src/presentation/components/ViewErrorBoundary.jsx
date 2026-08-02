@@ -24,11 +24,11 @@ export class ViewErrorBoundary extends React.Component {
           style={{ background: '#000000' }}
         >
           <h1
-            className="gradient-text-amber"
             style={{
               fontFamily: 'var(--font-display)',
               fontSize: 'var(--text-h1)',
               lineHeight: 1,
+              color: '#FFC107',
             }}
           >
             OOPS!
@@ -47,8 +47,7 @@ export class ViewErrorBoundary extends React.Component {
               fontWeight: 800,
               letterSpacing: '0.15em',
               borderColor: '#FFC107',
-              boxShadow: '0 0 18px rgba(255,193,7,0.45)',
-              background: 'rgba(10,10,10,0.72)',
+              background: '#1a1a1a',
             }}
           >
             Reload

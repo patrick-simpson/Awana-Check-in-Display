@@ -1,15 +1,14 @@
 import React from 'react';
 import { BrandBar } from './BrandBar.jsx';
-import { Vignette, Scanlines } from './Vignette.jsx';
 
 /**
  * The shared pure-black shell: brand bars top AND bottom (the old
- * Slide was missing its bottom bar), ambient layer stack, scanlines
- * and vignette applied identically on every view.
+ * Slide was missing its bottom bar) and the ambient layer stack,
+ * applied identically on every view. Flat and crisp — no scanlines,
+ * no edge-darkening vignette; this is a projector on a white wall.
  */
 export const ScreenFrame = ({
   layers,
-  vignette = 'soft',
   brandBars = true,
   shake = false,
   className = '',
@@ -20,8 +19,6 @@ export const ScreenFrame = ({
     style={{ background: '#000000' }}
   >
     {layers}
-    <Scanlines />
-    <Vignette strength={vignette} />
 
     {brandBars && (
       <div className="relative z-10 flex-shrink-0">

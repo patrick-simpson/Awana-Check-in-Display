@@ -25,10 +25,8 @@ export const ResumePill = ({ now, resumeAt, onStay }) => {
             letterSpacing: '0.1em',
             padding: '0.5rem 1.1rem',
             borderRadius: 'var(--radius-chip)',
-            background: 'rgba(10,10,10,0.78)',
-            border: '2px solid #FFC107',
-            boxShadow: '0 0 18px rgba(255,193,7,0.4)',
-            backdropFilter: 'blur(8px)',
+            background: '#1a1a1a',
+            border: '3px solid #FFC107',
           }}
           initial={{ opacity: 0, y: 16, x: '-50%' }}
           animate={{ opacity: 1, y: 0, x: '-50%' }}

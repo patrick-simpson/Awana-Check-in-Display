@@ -199,7 +199,6 @@ const ToggleButton = ({ label, hint, on, onToggle }) => (
     {label}
     <span
       className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${on ? 'bg-emerald-400' : 'bg-gray-600'}`}
-      style={on ? { boxShadow: '0 0 8px rgba(52,211,153,0.8)' } : undefined}
     />
   </button>
 );
@@ -370,7 +369,7 @@ const NavButton = ({ label, active, dotColor, onClick }) => (
     {dotColor && (
       <span
         className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-        style={{ backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}` }}
+        style={{ backgroundColor: dotColor }}
       />
     )}
   </button>

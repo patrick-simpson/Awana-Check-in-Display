@@ -17,7 +17,7 @@ export const Logo = ({ size = 'md' }) => {
 
   return (
     <div
-      className="bg-white shadow-lg animate-logo-glow inline-flex items-center select-none"
+      className="bg-white shadow-lg inline-flex items-center select-none"
       style={{
         borderRadius: 'var(--radius-card)',
         padding: `${0.35 * scale}rem ${1.1 * scale}rem ${0.45 * scale}rem`,
@@ -42,7 +42,7 @@ export const Logo = ({ size = 'md' }) => {
 /** The original type-drawn lockup — used only if the PNG fails to load. */
 const TypographicLogo = ({ scale }) => (
   <div
-    className="bg-white shadow-lg animate-logo-glow inline-flex items-baseline gap-2 select-none"
+    className="bg-white shadow-lg inline-flex items-baseline gap-2 select-none"
     style={{
       borderRadius: 'var(--radius-card)',
       padding: `${0.35 * scale}rem ${1.1 * scale}rem ${0.45 * scale}rem`,

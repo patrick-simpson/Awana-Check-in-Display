@@ -62,7 +62,6 @@ export const SparkleDoodles = ({
             animationDelay: `${d.delay}s`,
             ['--star-min']: d.min,
             ['--star-max']: d.max,
-            filter: `drop-shadow(0 0 6px ${d.color})`,
           }}
         >
           <DoodleShape kind={d.kind} color={d.color} />

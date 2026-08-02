@@ -71,7 +71,6 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
   return (
     <ScreenFrame
       shake={isShaking}
-      vignette="none"
       brandBars={false}
       layers={
         <>
@@ -98,7 +97,7 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
           Awana begins in
         </GlowText>
 
-        <BigTimer seconds={seconds} urgencyEnabled glow={false} onClick={onSkip} />
+        <BigTimer seconds={seconds} urgencyEnabled onClick={onSkip} />
 
         {seconds >= 24 * 3600 && (
           <div className="flex flex-col items-center gap-1">

@@ -1,17 +1,15 @@
 import React from 'react';
-import { rgbTriple } from '../lib/color.js';
 
 /**
- * Typography + glow in one place: size and font come from the token
- * scale, the glow color is derived from the text color. Replaces the
- * per-view one-off text-shadow literals.
+ * Typography helper: size and font come from the token scale. Flat
+ * solid color, no glow — kept for the shared size/font API so call
+ * sites don't need to hand-roll font-family + clamp() sizing.
  */
 export const GlowText = ({
   as: Tag = 'div',
   size,
   font = 'display',
   color = '#FFFFFF',
-  glow,
   className = '',
   style,
   children,
@@ -22,12 +20,6 @@ export const GlowText = ({
       fontSize: `var(--text-${size})`,
       fontFamily: `var(--font-${font})`,
       color,
-      ...(glow
-        ? {
-            ['--glow-color']: rgbTriple(color),
-            textShadow: `var(--glow-${glow})`,
-          }
-        : {}),
       ...style,
     }}
   >

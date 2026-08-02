@@ -46,12 +46,5 @@ export const ClubWave = ({
         <path key={i} d={d} fill={color} opacity={LAYER_OPACITY[i] * intensity} />
       ))}
     </svg>
-    {/* soft glow bleeding up from the wave crest */}
-    <div
-      className="absolute inset-x-0 bottom-0 h-full"
-      style={{
-        background: `linear-gradient(to top, ${color}26 0%, transparent 65%)`,
-      }}
-    />
   </div>
 );

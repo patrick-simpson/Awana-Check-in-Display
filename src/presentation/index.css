@@ -48,17 +48,6 @@
   --color-ink-low: rgb(255 255 255 / 0.42);
 
   /* ── Ambient keyframes (infinite loops stay in CSS) ─────────── */
-  @keyframes gradientShift {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-  }
-  @keyframes orbitDrift {
-    0%   { transform: translate(0px, 0px) scale(1); }
-    25%  { transform: translate(22px, -38px) scale(1.04); }
-    50%  { transform: translate(-18px, 28px) scale(0.97); }
-    75%  { transform: translate(28px, 12px) scale(1.02); }
-    100% { transform: translate(0px, 0px) scale(1); }
-  }
   @keyframes waveDrift {
     0%, 100% { transform: translateY(0) scale(1); }
     50%      { transform: translateY(-1.5%) scale(1.03); }
@@ -72,10 +61,6 @@
   @keyframes pulseRing {
     0%   { transform: scale(0.75); opacity: 0.85; }
     100% { transform: scale(2.6);  opacity: 0; }
-  }
-  @keyframes shimmerText {
-    0%   { background-position: -200% center; }
-    100% { background-position: 200% center; }
   }
   @keyframes breathe {
     0%, 100% { opacity: 0.7; transform: scale(1); }
@@ -165,16 +150,6 @@
     80%  { transform: translate(-1px, -1px); }
     90%  { transform: translate(1px, 1px); }
   }
-  @keyframes gradientTextShift {
-    0%   { background-position: 0% center; }
-    100% { background-position: 200% center; }
-  }
-  @keyframes logoGlow {
-    0%, 100% { box-shadow: 0 0 20px rgba(232,25,44,0.4), 0 0 40px rgba(232,25,44,0.1); }
-    25%  { box-shadow: 0 0 20px rgba(255,193,7,0.4), 0 0 40px rgba(255,193,7,0.1); }
-    50%  { box-shadow: 0 0 20px rgba(0,114,206,0.4), 0 0 40px rgba(0,114,206,0.1); }
-    75%  { box-shadow: 0 0 20px rgba(0,166,81,0.4), 0 0 40px rgba(0,166,81,0.1); }
-  }
   @keyframes sparkleSpin {
     0%, 100% { transform: rotate(0deg) scale(1); opacity: var(--star-min, 0.3); }
     50%      { transform: rotate(20deg) scale(1.15); opacity: var(--star-max, 0.9); }
@@ -182,15 +157,6 @@
 }
 
 :root {
-  /* ── Glow scale — set --glow-color (as "R G B") per element ──── */
-  --glow-color: 255 255 255;
-  --glow-sm: 0 0 12px rgb(var(--glow-color) / 0.55);
-  --glow-md: 0 0 20px rgb(var(--glow-color) / 0.9),
-             0 0 55px rgb(var(--glow-color) / 0.45);
-  --glow-lg: 0 0 20px rgb(var(--glow-color) / 1),
-             0 0 60px rgb(var(--glow-color) / 0.7),
-             0 0 140px rgb(var(--glow-color) / 0.35);
-
   /* ── Timing scale — mirrored in src/presentation/lib/motion-tokens.js ── */
   --dur-fast: 150ms;
   --dur-base: 300ms;
@@ -230,18 +196,13 @@
   }
 }
 
-/* ── Brand bar gradient ── */
-.brand-bar-animated {
-  background: linear-gradient(90deg,
-    var(--color-brand-red), var(--color-brand-yellow), var(--color-brand-blue),
-    var(--color-brand-green), var(--color-brand-red));
-  background-size: 300% 100%;
-  animation: gradientShift 12s ease infinite;
-}
-
-/* ── Orbit ── */
-.animate-orbit {
-  animation: orbitDrift ease-in-out infinite;
+/* ── Brand bar: static crayon stripes (hard color blocks, no blend) ── */
+.brand-bar-stripes {
+  background: repeating-linear-gradient(90deg,
+    var(--color-brand-red) 0, var(--color-brand-red) 60px,
+    var(--color-brand-yellow) 60px, var(--color-brand-yellow) 120px,
+    var(--color-brand-blue) 120px, var(--color-brand-blue) 180px,
+    var(--color-brand-green) 180px, var(--color-brand-green) 240px);
 }
 
 /* ── Club wave drift ── */
@@ -269,56 +230,10 @@
   animation: sparkleSpin ease-in-out infinite;
 }
 
-/* ── Shimmer text ── */
-.text-shimmer {
-  background: linear-gradient(90deg,
-    var(--color-brand-yellow) 0%, #fff 40%, var(--color-brand-yellow) 60%,
-    #fff 80%, var(--color-brand-yellow) 100%);
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: shimmerText 4s linear infinite;
-}
-
-/* ── Gradient text (brand rainbow) ── */
-.gradient-text-animated {
-  background: linear-gradient(90deg,
-    var(--color-brand-red), var(--color-brand-yellow), var(--color-brand-blue),
-    var(--color-brand-green), var(--color-brand-red));
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradientTextShift 6s linear infinite;
-}
-
-/* ── Warm amber gradient text (catalog flagship accent) ── */
-.gradient-text-amber {
-  background: linear-gradient(90deg,
-    var(--color-brand-orange), var(--color-brand-yellow), var(--color-amber-hot),
-    var(--color-brand-orange));
-  background-size: 200% auto;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  animation: gradientTextShift 8s linear infinite;
-}
-
-/* ── Logo glow ── */
-.animate-logo-glow {
-  animation: logoGlow 8s ease-in-out infinite;
-}
-
 /* ── Screen shake ── */
 .animate-screen-shake {
   animation: screenShake 0.3s ease-in-out infinite;
 }
-
-/* ── Glow text helper: pair with style={{'--glow-color': 'R G B'}} ── */
-.glow-sm { text-shadow: var(--glow-sm); }
-.glow-md { text-shadow: var(--glow-md); }
-.glow-lg { text-shadow: var(--glow-lg); }
 
 /* ── Test / kiosk determinism modes ─────────────────────────────
    [data-vr]          — ?vr=1 visual-regression mode: every animation

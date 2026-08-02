@@ -1,6 +1,5 @@
 import React from 'react';
 import { DigitReel } from './DigitReel.jsx';
-import { rgbTriple } from '../lib/color.js';
 
 const URGENT_COLOR = '#E8192C';
 
@@ -13,7 +12,6 @@ export const BigTimer = ({
   seconds,
   color = '#FFFFFF',
   urgencyEnabled = false,
-  glow = true,
   onClick,
 }) => {
   const days = Math.floor(seconds / 86400);
@@ -29,8 +27,6 @@ export const BigTimer = ({
     fontSize: sizeVar,
     fontFamily: 'var(--font-display)',
     color: activeColor,
-    ['--glow-color']: rgbTriple(activeColor),
-    ...(glow ? { textShadow: isUrgent ? 'var(--glow-lg)' : 'var(--glow-md)' } : {}),
   };
 
   const unit = (label) => (
