@@ -22,13 +22,13 @@
       "name": "Cubbies",
       "color": "#0072CE",
       "aliases": ["cubbie", "cubby"],
-      "art": {}
+      "art": { "logo": "art/cubbies-logo.png" }
     },
     "sparks": {
       "name": "Sparks",
       "color": "#E8192C",
       "aliases": ["spark"],
-      "art": {}
+      "art": { "logo": "art/sparks-logo.png" }
     },
     "tnt": {
       "name": "T&T",
