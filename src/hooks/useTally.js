@@ -1,4 +1,6 @@
 import { useCallback, useState } from 'react';
+import { isFresh } from '../lib/freshness.js';
+import { TALLY_STALE_MS } from '../lib/constants.js';
 
 const STORAGE_KEY = 'awanaTally.v1';
 
@@ -48,5 +50,25 @@ export function useTally() {
     setCount(0);
   }, []);
 
-  return { count, bump, reset };
+  // Reconcile the local counter to the print server's authoritative `tally`
+  // broadcast — the fix for both an operator UNDO (total drops) and any
+  // drift (missed events while offline, a doubled banner, …). Adopts
+  // `total` outright rather than nudging toward it: there is no "closer"
+  // value than the number the printer just reported.
+  //
+  // Returns whether the stored count actually changed, so a caller (namely
+  // App.jsx's every-Nth-kid milestone effect, which watches `count` rather
+  // than `bump()` calls) can tell a reconciliation jump apart from a real,
+  // one-at-a-time increment and skip celebrating it.
+  const sync = useCallback((total, at, now = Date.now()) => {
+    if (!Number.isInteger(total) || total < 0) return false;
+    if (!isFresh(at, TALLY_STALE_MS, now)) return false;
+    const current = load();
+    if (current === total) return false; // already in sync
+    save(total);
+    setCount(total);
+    return true;
+  }, []);
+
+  return { count, bump, reset, sync };
 }

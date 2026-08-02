@@ -97,7 +97,13 @@ export default function App() {
     return applyPanicMode(merged);
   }, [storedConfig]);
   const { currentEvent, enqueue, skipCurrent, pending } = useCheckInQueue(config);
-  const { count, bump, reset: resetTally } = useTally();
+  const { count, bump, reset: resetTally, sync: syncTally } = useTally();
+  // Set (synchronously, before the reconciled `count` even commits) whenever
+  // a tally broadcast jumps the counter, so the milestone effect below can
+  // tell a reconciliation apart from a real one-at-a-time bump() and skip
+  // celebrating it — an undo or an offline catch-up must never fire a
+  // "you just hit 50!" toast.
+  const tallySyncedRef = useRef(false);
   const { hasSeen, markSeen, stats: seenStats } = useSeenEvents();
   const { phase, source: scheduleSource } = useSchedule(config);
   const phaseRef = useRef(phase);
@@ -136,7 +142,13 @@ export default function App() {
       }
     }
     clubCountsRef.current = { ...prevCounts, ...tally.counts };
-  }, [config.clubMilestoneEvery, enqueueCelebration]);
+
+    // Reconcile the corner "Tonight" counter to this broadcast's total —
+    // the fix for both an operator UNDO on the print server (total drops)
+    // and ordinary drift (missed events while offline, a doubled banner).
+    // See useTally.js's sync() for the freshness/no-op rules.
+    if (syncTally(tally.total, tally.at)) tallySyncedRef.current = true;
+  }, [config.clubMilestoneEvery, enqueueCelebration, syncTally]);
 
   // Operator telemetry from the printer (ops events): a red count on the
   // Signal sticker + details in the panels. NEVER a public banner.
@@ -288,6 +300,10 @@ export default function App() {
   useEffect(() => {
     const prev = prevCountRef.current;
     prevCountRef.current = count;
+    // A tally reconciliation (see handleTally) jumps `count` directly,
+    // bypassing bump() — never a real one-at-a-time arrival, so it must
+    // never read as crossing a milestone.
+    if (tallySyncedRef.current) { tallySyncedRef.current = false; return; }
     const every = config.milestoneEvery;
     if (!every || count <= prev || count % every !== 0) return;
     enqueueCelebration({ kind: 'tally', count });

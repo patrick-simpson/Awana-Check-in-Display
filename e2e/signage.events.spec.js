@@ -114,6 +114,31 @@ test('a 20-kid rush queues rather than dropping banners', async ({ page }) => {
   await expect(page.locator('.debug-stats')).toContainText(/queued: [1-9]/);
 });
 
+test('a tally broadcast reconciles the corner counter, including counting DOWN', async ({ page }) => {
+  // Force sticker mode so the corner counter renders immediately instead of
+  // waiting its turn in DataCycle's rotation.
+  await page.addInitScript(() => {
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ widgetDisplayMode: 'stickers' }));
+  });
+  await goSignage(page);
+  await openDebug(page);
+
+  // Climb well past the tally simulator's fixed total (9+16+23+30 = 78, see
+  // DebugPanel.jsx) so the reconciliation below has to count DOWN — the
+  // undo case a real operator hits when they void a mis-scanned check-in.
+  const rush = page.getByRole('button', { name: /20-kid rush/ });
+  await rush.click();
+  await rush.click();
+  await rush.click();
+  await rush.click();
+
+  const tallyCount = page.locator('.tally .tally-count');
+  await expect(tallyCount).toHaveText('80');
+
+  await page.getByRole('button', { name: 'Simulate club tally (counts)' }).click();
+  await expect(tallyCount).toHaveText('78');
+});
+
 test('simulated events do not raise page errors', async ({ page }) => {
   const pageErrors = [];
   const consoleErrors = [];

@@ -53,6 +53,14 @@ export const WATCHDOG_MAX_RELOADS_PER_HOUR = 2;
 // Mirrors the presentation tool's own TALLY_STALE_MS idiom.
 export const TONIGHT_STALE_MS = 10 * 60 * 1000;
 
+// Corner "Tonight" counter reconciliation (the `tally` event, numbers-only
+// per-club counts + total): a broadcast older than this is ignored rather
+// than trusted to overwrite the locally-tracked count — an undo/catch-up
+// only makes sense against a FRESH snapshot. Same window as
+// TONIGHT_STALE_MS (same printer broadcast cadence) — kept as its own
+// name because it gates a different event.
+export const TALLY_STALE_MS = TONIGHT_STALE_MS;
+
 // Church-authored announcements (onNotice) expire after this long so a
 // forgotten "CLUB CANCELLED TONIGHT" can never haunt the screen into
 // next week's club night.

@@ -289,7 +289,7 @@ export default function SettingsPanel({
           {onResetTally && (
             <button
               className="ghost"
-              onClick={() => { if (window.confirm("Reset tonight's counter to zero?")) onResetTally(); }}
+              onClick={() => { if (window.confirm("Reset tonight's counter to zero? It will re-sync automatically from the print server's next count broadcast.")) onResetTally(); }}
             >
               Reset counter
             </button>
