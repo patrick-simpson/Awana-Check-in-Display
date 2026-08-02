@@ -10,6 +10,7 @@ import { Vignette, Scanlines } from './Vignette.jsx';
 export const ScreenFrame = ({
   layers,
   vignette = 'soft',
+  brandBars = true,
   shake = false,
   className = '',
   children,
@@ -22,12 +23,16 @@ export const ScreenFrame = ({
     <Scanlines />
     <Vignette strength={vignette} />
 
-    <div className="relative z-10 flex-shrink-0">
-      <BrandBar height={6} />
-    </div>
+    {brandBars && (
+      <div className="relative z-10 flex-shrink-0">
+        <BrandBar height={6} />
+      </div>
+    )}
     <div className="relative z-10 flex-1 flex flex-col min-h-0">{children}</div>
-    <div className="relative z-10 flex-shrink-0">
-      <BrandBar height={6} />
-    </div>
+    {brandBars && (
+      <div className="relative z-10 flex-shrink-0">
+        <BrandBar height={6} />
+      </div>
+    )}
   </div>
 );

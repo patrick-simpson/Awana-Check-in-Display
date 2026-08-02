@@ -2,10 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { WeatherScene } from '../components/WeatherScene.jsx';
-import { AmbientOrbs } from '../components/AmbientOrbs.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
-import { ClubWave } from '../components/ClubWave.jsx';
 import { Logo } from '../components/Logo.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { BigTimer } from '../components/BigTimer.jsx';
@@ -62,7 +60,6 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
     }
   });
 
-  const coolWeather = ['rain', 'snow', 'thunder', 'fog'].includes(weather);
   const isShaking = seconds > 0 && seconds <= 10;
 
   const targetTimeStr = target.toLocaleTimeString([], {
@@ -74,12 +71,11 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
   return (
     <ScreenFrame
       shake={isShaking}
-      vignette="deep"
+      vignette="none"
+      brandBars={false}
       layers={
         <>
           <WeatherScene weather={weather} />
-          <AmbientOrbs dim={coolWeather} />
-          <ClubWave color="#F7941D" intensity={0.55} height={30} />
           <ParticleField />
           <SparkleDoodles seed={3} count={14} />
         </>
@@ -92,33 +88,31 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
 
       {/* Center stack */}
       <div className="flex-1 flex flex-col items-center justify-center gap-6 relative">
-        <Badge color="#FFC107" size="md" sparkle>
+        <GlowText
+          as="p"
+          font="display"
+          color="#FFFFFF"
+          className="uppercase text-center leading-none"
+          style={{ fontSize: 'clamp(2.25rem, 4.5vw, 5.5rem)' }}
+        >
           Awana begins in
-        </Badge>
+        </GlowText>
 
-        <BigTimer seconds={seconds} urgencyEnabled onClick={onSkip} />
+        <BigTimer seconds={seconds} urgencyEnabled glow={false} onClick={onSkip} />
 
-        <div className="flex flex-col items-center gap-1">
-          <GlowText
-            as="p"
-            size="body-lg"
-            font="body"
-            color="rgba(255,255,255,0.72)"
-            className="tracking-wide"
-          >
-            Next meeting · Wednesday · {targetTimeStr}
-          </GlowText>
-          <GlowText
-            as="p"
-            size="script"
-            font="script"
-            color="#FFB627"
-            glow="sm"
-            style={{ fontWeight: 600 }}
-          >
-            see you there!
-          </GlowText>
-        </div>
+        {seconds >= 24 * 3600 && (
+          <div className="flex flex-col items-center gap-1">
+            <GlowText
+              as="p"
+              size="body-lg"
+              font="body"
+              color="rgba(255,255,255,0.72)"
+              className="tracking-wide"
+            >
+              Next meeting · Wednesday · {targetTimeStr}
+            </GlowText>
+          </div>
+        )}
 
         {theme && (
           <Badge color="#FFB627" size="sm" style={{ opacity: 0.9 }}>
