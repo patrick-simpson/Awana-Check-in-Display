@@ -298,6 +298,11 @@ export default function SettingsPanel({
           <button onClick={onClose}>Cancel</button>
           <jelly-button variant="mint" onClick={save}>Save</jelly-button>
         </div>
+        <div className="hint" style={{ marginTop: '0.6rem', opacity: 0.8 }}>
+          Awana® and the Awana club names are trademarks of Awana Clubs International.
+          This display is an independent church project — NOT AFFILIATED OR ENDORSED BY
+          AWANA CLUBS INTERNATIONAL.
+        </div>
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Joyful digital signage welcome screen for Awana club check-ins.",
+  "description": "Joyful digital signage welcome screen for Awana club check-ins. Not affiliated with or endorsed by Awana Clubs International.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

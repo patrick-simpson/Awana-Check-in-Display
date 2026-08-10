@@ -67,6 +67,14 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume }) => {
           <BirthdayUpload />
           <TogglesRow />
           <DisplaySettings />
+          <p
+            className="mt-2 pt-2 border-t border-white/10 px-3 pb-1 text-[0.55rem] uppercase text-gray-500 text-right leading-relaxed"
+            style={{ fontFamily: 'var(--font-condensed)', fontWeight: 700, letterSpacing: '0.1em' }}
+          >
+            Awana® is a trademark of Awana Clubs International.
+            <br />
+            Not affiliated or endorsed by Awana Clubs International.
+          </p>
         </GlassPanel>
       </div>
     </div>

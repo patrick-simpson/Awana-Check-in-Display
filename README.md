@@ -1,4 +1,11 @@
-# Awana Check-in Display
+# Awana® Check-in Display
+
+> **NOT AFFILIATED OR ENDORSED BY AWANA CLUBS INTERNATIONAL.**
+> This is an independent, non-commercial project built by a local church
+> for its own club nights. Awana and the Awana club names are trademarks
+> of [Awana Clubs International](https://www.awana.org) — see
+> [TRADEMARKS.md](TRADEMARKS.md) before reusing anything here, especially
+> the bundled club artwork.
 
 A joyful welcome screen for your Awana club, styled after the official Awana Clubs catalog — chunky rounded type, sparkle doodles, wavy shapes and warm orange gradients. Runs full-screen on a TV or projector, loops your PowerPoint in the background, and reacts to each child's check-in with a celebratory banner, confetti, and an optional chime.
 
@@ -328,4 +335,12 @@ npm test       # Vitest unit tests
 
 ## License
 
-MIT. Use, fork, modify, display on as many screens as you like.
+MIT — **for the code only**. Use, fork, modify, display on as many screens
+as you like.
+
+The Awana name, club/program names, logos, mascots, and clipart appearing
+in this repository are trademarks or copyrighted materials of Awana Clubs
+International and are **not** covered by the MIT license. If you fork this
+project for your own church, the bundled artwork requires your own written
+permission from Awana (<permission@awana.org>) — details and a ready-to-send
+request draft are in [TRADEMARKS.md](TRADEMARKS.md).
