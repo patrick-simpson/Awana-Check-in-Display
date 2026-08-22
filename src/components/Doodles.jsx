@@ -95,7 +95,57 @@ export function BandSparkles() {
   );
 }
 
-// `phase` shifts every twinkle delay (per-name accent #8) so each
+// Each mark kind moves with its own personality (matching the sky
+// doodles in CatalogScene) instead of one shared twinkle — spirals spin,
+// rings squash like jelly, x's twirl, zigzags bounce. Transform/opacity
+// only, so a banner full of them still holds 60fps on a signage stick.
+function markMotion(kind, delay) {
+  const base = { repeat: Infinity, ease: 'easeInOut', delay };
+  switch (kind) {
+    case 'spiral':
+      return {
+        animate: { rotate: [0, 360], opacity: [0.4, 0.95, 0.4] },
+        transition: { rotate: { ...base, duration: 14, ease: 'linear' }, opacity: { ...base, duration: 3.6 } },
+      };
+    case 'ring':
+      return {
+        animate: { scaleX: [1, 1.2, 0.9, 1], scaleY: [1, 0.82, 1.15, 1], opacity: [0.4, 0.95, 0.75, 0.4] },
+        transition: { ...base, duration: 3.8, times: [0, 0.35, 0.65, 1] },
+      };
+    case 'x':
+      return {
+        animate: { rotate: [0, 0, 90, 90], scale: [1, 1.25, 1, 1], opacity: [0.4, 1, 0.7, 0.4] },
+        transition: { ...base, duration: 6, times: [0, 0.12, 0.3, 1] },
+      };
+    case 'zigzag':
+      return {
+        animate: { y: [0, -9, 0, -3, 0], opacity: [0.45, 1, 0.75, 0.9, 0.45] },
+        transition: { ...base, duration: 4.2, times: [0, 0.3, 0.55, 0.75, 1] },
+      };
+    case 'stair':
+      return {
+        animate: { rotate: [-6, 6, -6], y: [0, -3, 0], opacity: [0.4, 0.9, 0.4] },
+        transition: { ...base, duration: 5 },
+      };
+    case 'squiggle':
+      return {
+        animate: { y: [0, -6, 0], rotate: [-5, 5, -5], opacity: [0.45, 0.95, 0.45] },
+        transition: { ...base, duration: 4.6 },
+      };
+    case 'dot':
+      return {
+        animate: { y: [0, -8, 0], scale: [0.85, 1.2, 0.85], opacity: [0.35, 0.95, 0.35] },
+        transition: { ...base, duration: 4.4 },
+      };
+    default: // sparkle
+      return {
+        animate: { opacity: [0.35, 1, 0.35], scale: [0.75, 1.2, 0.75], rotate: [0, 16, 0] },
+        transition: { ...base, duration: 3.2 },
+      };
+  }
+}
+
+// `phase` shifts every mark's delay (per-name accent #8) so each
 // kid's banner glitters on its own rhythm.
 export default function Doodles({ phase = 0 }) {
   return (
@@ -105,8 +155,7 @@ export default function Doodles({ phase = 0 }) {
           key={i}
           className="doodle"
           style={{ top: d.top, left: d.left }}
-          animate={{ opacity: [0.35, 1, 0.35], scale: [0.8, 1.1, 0.8], rotate: [0, 12, 0] }}
-          transition={{ duration: 3.2, delay: d.delay + phase, repeat: Infinity, ease: 'easeInOut' }}
+          {...markMotion(d.kind, d.delay + phase)}
         >
           <Mark kind={d.kind} size={d.size} />
         </M.span>

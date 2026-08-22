@@ -60,16 +60,16 @@ export const THEMES = {
 // squiggles, rings, dots, ×'s, sparkles, plus zigzag / stair-step /
 // loose-spiral marks. Stroked marks "draw themselves" on mount.
 const STROKE_DOODLES = [
-  { d: 'M120 180 C160 120 210 120 250 170', w: 4 },
-  { d: 'M1370 210 C1400 170 1450 170 1480 205', w: 4 },
-  { d: 'M1445 420 l26 26 M1471 420 l-26 26', w: 6 },
-  { d: 'M180 430 l22 22 M202 430 l-22 22', w: 5 },
+  { d: 'M120 180 C160 120 210 120 250 170', w: 4, kind: 'arc' },
+  { d: 'M1370 210 C1400 170 1450 170 1480 205', w: 4, kind: 'arc' },
+  { d: 'M1445 420 l26 26 M1471 420 l-26 26', w: 6, kind: 'x' },
+  { d: 'M180 430 l22 22 M202 430 l-22 22', w: 5, kind: 'x' },
   // zigzag (right-mid, like the Sparks divider)
-  { d: 'M1350 600 l22 -26 l22 22 l22 -24 l22 20 l16 -14', w: 5 },
+  { d: 'M1350 600 l22 -26 l22 22 l22 -24 l22 20 l16 -14', w: 5, kind: 'zigzag' },
   // stair-step outline (upper-left, like the Puggles divider)
-  { d: 'M90 320 v-44 h40 v-40 h40 v-30', w: 4 },
+  { d: 'M90 320 v-44 h40 v-40 h40 v-30', w: 4, kind: 'stair' },
   // loose spiral (upper area, like the Cubbies divider)
-  { d: 'M560 210 c-6 -26 18 -48 44 -42 c20 5 30 28 18 44 c-9 12 -28 12 -36 0 c-6 -9 0 -22 11 -23', w: 4 },
+  { d: 'M560 210 c-6 -26 18 -48 44 -42 c20 5 30 28 18 44 c-9 12 -28 12 -36 0 c-6 -9 0 -22 11 -23', w: 4, kind: 'spiral' },
 ];
 const RING_DOODLES = [{ cx: 1300, cy: 520, r: 14 }, { cx: 260, cy: 640, r: 10 }];
 const DOT_DOODLES = [{ cx: 340, cy: 120, r: 6 }, { cx: 1180, cy: 130, r: 7 }, { cx: 940, cy: 90, r: 5 }];
@@ -80,15 +80,74 @@ const SPARKLE_DOODLES = [
   { d: 'M1490 700 c3 18 13 28 31 31 c-18 3 -28 13 -31 31 c-3 -18 -13 -28 -31 -31 c18 -3 28 -13 31 -31z' },
 ];
 
-// One shared twinkle, phase-shifted per mark so the sky never pulses in
-// lockstep. transformBox: 'fill-box' makes scale/rotate pivot on each
-// mark's own center instead of the SVG origin.
-function twinkle(i, extra = {}) {
-  return {
-    style: { transformBox: 'fill-box', transformOrigin: 'center' },
-    animate: { opacity: [0.35, 0.95, 0.35], scale: [0.85, 1.12, 0.85], rotate: [0, 8, 0], ...extra },
-    transition: { duration: 3.4 + (i % 5) * 0.7, delay: (i * 1.3) % 4, repeat: Infinity, ease: 'easeInOut' },
-  };
+// Every mark gets a little personality of its own — the way a Bluey
+// background prop never just sits there. All transform/opacity only
+// (cheap signage sticks hold 60fps), phase-shifted per mark so the sky
+// never pulses in lockstep. transformBox: 'fill-box' makes scale/rotate
+// pivot on each mark's own center instead of the SVG origin.
+function doodleMotion(kind, i) {
+  const style = { transformBox: 'fill-box', transformOrigin: 'center' };
+  // Shared desync: slightly different tempo and start beat per mark.
+  const beat = (dur) => ({
+    duration: dur + (i % 5) * 0.6,
+    delay: (i * 1.3) % 4,
+    repeat: Infinity,
+    ease: 'easeInOut',
+  });
+  switch (kind) {
+    case 'arc': // little smile-arcs sway like they're treading water
+      return {
+        style,
+        animate: { y: [0, -9, 0], rotate: [-4, 4, -4], opacity: [0.5, 0.9, 0.5] },
+        transition: beat(5.2),
+      };
+    case 'x': // kisses do a quick quarter-twirl, then rest for the cycle
+      return {
+        style,
+        animate: { rotate: [0, 0, 90, 90], scale: [1, 1.22, 1, 1], opacity: [0.5, 1, 0.75, 0.5] },
+        transition: { ...beat(7), times: [0, 0.12, 0.3, 1] },
+      };
+    case 'zigzag': // bounces along its own points, squashing on landing
+      return {
+        style,
+        animate: { y: [0, -14, 0, -5, 0], scaleY: [1, 1.08, 0.92, 1.04, 1], opacity: [0.55, 1, 0.8, 0.9, 0.55] },
+        transition: { ...beat(4.6), times: [0, 0.3, 0.55, 0.75, 1] },
+      };
+    case 'stair': // seesaws like a wobbly block tower that never falls
+      return {
+        style,
+        animate: { rotate: [-5, 5, -5], y: [0, -4, 0], opacity: [0.5, 0.9, 0.5] },
+        transition: beat(5.8),
+      };
+    case 'spiral': // lazily spins right around — the showoff of the set
+      return {
+        style,
+        animate: { rotate: [0, 360], scale: [0.95, 1.08, 0.95], opacity: [0.55, 0.95, 0.55] },
+        transition: {
+          rotate: { duration: 16 + (i % 3) * 4, repeat: Infinity, ease: 'linear' },
+          scale: beat(4.8),
+          opacity: beat(4.8),
+        },
+      };
+    case 'ring': // squashes and stretches like a bounced jelly hoop
+      return {
+        style,
+        animate: { scaleX: [1, 1.18, 0.9, 1], scaleY: [1, 0.84, 1.14, 1], opacity: [0.45, 0.95, 0.75, 0.45] },
+        transition: { ...beat(4.2), times: [0, 0.35, 0.65, 1] },
+      };
+    case 'dot': // drifts up and settles, a bubble that never pops
+      return {
+        style,
+        animate: { y: [0, -12, 0], x: [0, i % 2 ? 5 : -5, 0], scale: [0.9, 1.15, 0.9], opacity: [0.4, 0.95, 0.4] },
+        transition: beat(5.4),
+      };
+    default: // sparkles wink with a proper little burst
+      return {
+        style,
+        animate: { opacity: [0.3, 1, 0.3], scale: [0.7, 1.22, 0.7], rotate: [0, 18, 0] },
+        transition: beat(3.4),
+      };
+  }
 }
 
 const WAVE_PATH = 'M0 190 C220 80 420 80 640 160 C880 250 1120 250 1330 150 C1430 105 1530 100 1600 130 L1600 420 L0 420 Z';
@@ -256,7 +315,7 @@ export default function CatalogScene({
             still ? (
               <path key={i} d={s.d} strokeWidth={s.w} />
             ) : (
-              <M.g key={i} {...twinkle(i)}>
+              <M.g key={i} {...doodleMotion(s.kind, i)}>
                 <M.path
                   d={s.d}
                   strokeWidth={s.w}
@@ -271,7 +330,7 @@ export default function CatalogScene({
             still ? (
               <circle key={i} cx={r.cx} cy={r.cy} r={r.r} strokeWidth="3.5" />
             ) : (
-              <M.circle key={i} cx={r.cx} cy={r.cy} r={r.r} strokeWidth="3.5" {...twinkle(i + 7)} />
+              <M.circle key={i} cx={r.cx} cy={r.cy} r={r.r} strokeWidth="3.5" {...doodleMotion('ring', i + 7)} />
             ),
           )}
         </g>
@@ -280,7 +339,7 @@ export default function CatalogScene({
             still ? (
               <circle key={i} cx={d.cx} cy={d.cy} r={d.r} />
             ) : (
-              <M.circle key={i} cx={d.cx} cy={d.cy} r={d.r} {...twinkle(i + 9)} />
+              <M.circle key={i} cx={d.cx} cy={d.cy} r={d.r} {...doodleMotion('dot', i + 9)} />
             ),
           )}
         </g>
@@ -289,7 +348,7 @@ export default function CatalogScene({
             still ? (
               <path key={i} d={s.d} />
             ) : (
-              <M.path key={i} d={s.d} {...twinkle(i + 12, { rotate: [0, 14, 0] })} />
+              <M.path key={i} d={s.d} {...doodleMotion('sparkle', i + 12)} />
             ),
           )}
         </g>
