@@ -126,7 +126,7 @@ export default function BackgroundIframe({
               animate={{ scale: [1, 1.02, 1] }}
               transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
             >
-              Welcome<br />to Club Night!
+              Welcome<br />to Awana!
             </M.h1>
             {/* The catalog's script sign-off, floating gently on its own
                 rhythm so the pair never moves in lockstep. */}

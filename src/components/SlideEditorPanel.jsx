@@ -234,7 +234,7 @@ export default function SlideEditorPanel({ config, onChange, onClose }) {
                       maxLength={MAX_TEXT}
                       value={slide.text}
                       onChange={(e) => patch(slide.id, { text: e.target.value })}
-                      placeholder={'Welcome to\nClub Night!'}
+                      placeholder={'Welcome to\nAwana!'}
                     />
                   </div>
                   <div className="slide-card-row">
