@@ -210,6 +210,13 @@ const config = {
   // their club colors.
   nightTheme: 'none',
 
+  // Unified theming (#18): when the print server broadcasts its season (an
+  // optional field on every tally), follow it — labels and screens switch
+  // together. Only consulted while nightTheme is 'auto'; a hand-pinned skin
+  // or 'none' always wins locally. Turn off to let this screen do its own
+  // calendar guessing even when the printer is broadcasting.
+  followPrinterTheme: true,
+
   // Let the weather add atmosphere over whatever the season chose: a
   // rainy or snowy night cools and dims the background scene. The season
   // still owns the palette, so a chosen VBS skin doesn't disappear when

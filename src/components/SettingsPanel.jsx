@@ -44,6 +44,7 @@ export default function SettingsPanel({
     // skin the list had never heard of (thanksgiving, easter, vbs) was silently
     // reset to 'none' the moment Settings was opened.
     nightTheme: NIGHT_THEME_VALUES.includes(config.nightTheme) ? config.nightTheme : 'none',
+    followPrinterTheme: config.followPrinterTheme !== false,
     weatherTheme: config.weatherTheme === true,
     confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
     burstFloorMs: config.burstFloorMs ?? 2500,
@@ -718,6 +719,13 @@ function DisplayTab({ form, set }) {
           falls back to the month.
         </span>
       </div>
+
+      <Toggle
+        checked={form.followPrinterTheme === true}
+        onChange={set('followPrinterTheme')}
+        title="Follow the printer's season"
+        hint="When the label printer broadcasts its season theme, this screen wears the matching skin so labels and screens switch together. Only applies while the skin above is set to Auto; picking a skin by hand always wins."
+      />
 
       <Toggle
         checked={form.weatherTheme === true}

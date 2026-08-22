@@ -37,7 +37,7 @@ const ALLOWED_KEYS = {
   checkin: ['id', 'at', 'firstName', 'club', 'isBirthday', 'isFirstTimer'],
   recap: ['entries', 'at'],
   checkout: ['entries', 'at', 'printed'],
-  tally: ['counts', 'total', 'at'],
+  tally: ['counts', 'total', 'at', 'season', 'rehearsal'],
   birthdays: ['entries'],
   ops: ['type', 'club', 'at'],
   canary: ['at', 'nonce'],

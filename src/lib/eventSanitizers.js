@@ -34,6 +34,8 @@
  * @property {Record<string, number>} counts Per-club whole counts.
  * @property {number} total
  * @property {number} at Epoch ms.
+ * @property {string} [season] Printer's unified-theming broadcast (#18).
+ * @property {true} [rehearsal] Present only while rehearsal mode is armed (#19).
  */
 
 /**
@@ -309,7 +311,17 @@ export function sanitizeTally(payload) {
   const total = typeof obj.total === 'number' && Number.isFinite(obj.total) && obj.total >= 0
     ? Math.floor(obj.total)
     : Object.values(counts).reduce((a, b) => a + b, 0);
-  return { counts, total, at };
+  /** @type {TallyEvent} */
+  const out = { counts, total, at };
+  // Optional contract extras (printer v5.20+): the unified-theming season
+  // broadcast (#18) and the rehearsal watermark flag (#19). Same validation
+  // the producer applies — a non-slug season or truthy-junk rehearsal is
+  // dropped, never a reason to reject the tally.
+  if (typeof obj.season === 'string' && /^[a-z][a-z-]{1,19}$/.test(obj.season)) {
+    out.season = obj.season;
+  }
+  if (obj.rehearsal === true) out.rehearsal = true;
+  return out;
 }
 
 /**

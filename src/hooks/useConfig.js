@@ -50,6 +50,7 @@ const VALIDATORS = {
   // Reads the one skin table rather than repeating its ids — adding a season
   // used to mean editing this list, skins.js, the Settings dropdown and the CSS.
   nightTheme: (v) => NIGHT_THEME_VALUES.includes(v),
+  followPrinterTheme: (v) => typeof v === 'boolean',
   weatherTheme: isBool,
   calendarWelcomeText: isString,
   calendarShowWelcome: isBool,

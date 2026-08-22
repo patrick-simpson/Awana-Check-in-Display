@@ -130,7 +130,15 @@ export default function App() {
   // per-club counts; when one club crosses a multiple of
   // clubMilestoneEvery, the milestone toast celebrates that club.
   const clubCountsRef = useRef({});
+  // The printer's season broadcast, null until (or unless) one arrives.
+  const [printerSeason, setPrinterSeason] = useState(/** @type {string|null} */ (null));
+
   const handleTally = useCallback((tally) => {
+    // Unified theming (#18): remember the printer's season broadcast. Kept
+    // for the whole session — tallies repeat every ~60s on club nights, so a
+    // live printer keeps this fresh, and a dead one leaves the last real
+    // choice standing rather than snapping the room back to a guess.
+    setPrinterSeason(tally.season ?? null);
     const every = config.clubMilestoneEvery;
     const prevCounts = clubCountsRef.current;
     if (every > 0) {
@@ -401,7 +409,12 @@ export default function App() {
     () => deriveClubInfo(calendar.events, todayStr)?.today?.title ?? null,
     [calendar.events, todayStr],
   );
-  const skin = resolveSkin(config.nightTheme, new Date(`${todayStr}T12:00:00`), tonightTitle);
+  const skin = resolveSkin(
+    config.nightTheme,
+    new Date(`${todayStr}T12:00:00`),
+    tonightTitle,
+    config.followPrinterTheme !== false ? printerSeason : null,
+  );
 
   // The season picks the scene; the weather only adds atmosphere over it, so a
   // deliberately-chosen VBS skin doesn't vanish because it started raining.
