@@ -33,6 +33,9 @@ const config = {
   //                  (Settings → Typed slides, or Ctrl+Shift+E)
   //   'pptx'       — a .pptx you upload in Settings, rendered locally
   //                  on this device (no OneDrive, no iframe)
+  //   'video'      — one video file you upload in Settings, playing
+  //                  full-screen on a loop (muted). Stored on this
+  //                  device only, never uploaded anywhere.
   backgroundSource: 'powerpoint',
 
   // Typed slides live here when you use the 'manual' source. Edit them

@@ -51,6 +51,11 @@ function withStore(mode, fn) {
   }));
 }
 
+// The full-screen video background (#25) lives in the same store under one
+// well-known id — a single slot, like pptxStore's deck. Slide decks never
+// reference this id, so collectGarbage() below shields it explicitly.
+export const BACKGROUND_VIDEO_ID = 'v_background';
+
 export function makeVideoId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return 'v_' + crypto.randomUUID();
@@ -96,9 +101,11 @@ export function listVideoIds() {
 // Removes blobs no longer referenced by any slide. Called when the
 // editor closes (against whichever deck is actually persisted), so a
 // cancelled session's abandoned uploads get reaped too. Never throws.
+// The background-video slot is always kept — it belongs to Settings,
+// not the slide deck, so no deck can ever "orphan" it.
 export async function collectGarbage(referencedIds) {
   try {
-    const keep = new Set(referencedIds);
+    const keep = new Set([...referencedIds, BACKGROUND_VIDEO_ID]);
     const ids = await listVideoIds();
     await Promise.all(ids.filter((id) => !keep.has(id)).map((id) => deleteVideo(id)));
   } catch { /* best-effort cleanup */ }

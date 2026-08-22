@@ -103,6 +103,19 @@ html, body, #root {
   z-index: 0;
 }
 
+/* Full-screen looping video background (#25). object-fit: cover — a
+   phone-shot vertical video or an off-ratio export fills the screen
+   instead of letterboxing black bars behind the banners. */
+.background-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  background: #000;
+}
+
 /* ── Idle / setup screen: catalog sky + orange wave ─────── */
 .background-placeholder {
   position: absolute;

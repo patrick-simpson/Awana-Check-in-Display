@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { deleteDeck, getDeck, putDeck } from '../lib/pptxStore.js';
+import { BACKGROUND_VIDEO_ID, deleteVideo, getVideo, putVideo } from '../lib/videoStore.js';
 import { parseAndCacheDeck } from '../lib/pptxModel.js';
 import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
@@ -27,7 +28,7 @@ export default function SettingsPanel({
   const [form, setForm] = useState({
     pusherAppKey: config.pusherAppKey || '',
     pusherCluster: config.pusherCluster || 'us2',
-    backgroundSource: ['manual', 'pptx'].includes(config.backgroundSource) ? config.backgroundSource : 'powerpoint',
+    backgroundSource: ['manual', 'pptx', 'video'].includes(config.backgroundSource) ? config.backgroundSource : 'powerpoint',
     powerpointEmbedUrl: config.powerpointEmbedUrl || '',
     slideshowDelaySec: config.slideshowDelaySec ?? 5,
     countdownTargetTime: config.countdownTargetTime || '',
@@ -490,6 +491,16 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
             />
             Uploaded PowerPoint
           </label>
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="backgroundSource"
+              value="video"
+              checked={form.backgroundSource === 'video'}
+              onChange={set('backgroundSource')}
+            />
+            Looping video
+          </label>
         </div>
         <span className="hint">
           Typed slides are free-typed right here in the app — no PowerPoint needed — and get
@@ -517,6 +528,8 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
       )}
 
       {form.backgroundSource === 'pptx' && <PptxUploadField />}
+
+      {form.backgroundSource === 'video' && <VideoUploadField />}
 
       <div className="field">
         <label htmlFor="iframe">OneDrive PowerPoint embed URL</label>
@@ -1051,6 +1064,75 @@ function PptxUploadField() {
       {stored && (
         <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={remove}>
           Remove uploaded deck
+        </button>
+      )}
+    </div>
+  );
+}
+
+// One background video, stored in this browser's IndexedDB under the single
+// well-known slot (#25) — mirrors PptxUploadField's one-deck model. The file
+// never leaves this device; exported settings carry only the source choice.
+function VideoUploadField() {
+  const [stored, setStored] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState(null);
+  useEffect(() => {
+    let live = true;
+    getVideo(BACKGROUND_VIDEO_ID).then((blob) => { if (live) setStored(blob); });
+    return () => { live = false; };
+  }, []);
+
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setStatus({ tone: 'info', text: 'Storing video…' });
+    try {
+      // A File survives IndexedDB structured clone with .name/.size intact,
+      // so the slot needs no side-channel metadata.
+      await putVideo(BACKGROUND_VIDEO_ID, file);
+      setStored(file);
+      setStatus({ tone: 'ok', text: `Saved: ${file.name} — it plays full-screen on a loop, muted.` });
+    } catch {
+      setStatus({ tone: 'warn', text: 'Could not save the video on this device (storage blocked or full).' });
+    }
+    setBusy(false);
+    e.target.value = '';
+  };
+
+  const remove = async () => {
+    await deleteVideo(BACKGROUND_VIDEO_ID);
+    setStored(null);
+    setStatus(null);
+  };
+
+  return (
+    <div className="field">
+      <label htmlFor="video-upload">Upload a video</label>
+      <input id="video-upload" type="file" accept="video/*" onChange={onFile} disabled={busy} />
+      {status && (
+        <span
+          className="hint"
+          role="status"
+          style={status.tone === 'warn' ? { color: '#ff8a80' } : undefined}
+        >
+          {status.text}
+        </span>
+      )}
+      <span className="hint">
+        {stored
+          ? `Saved on this device: ${stored.name || 'video'}`
+            + (stored.size > 0 ? ` · ${(stored.size / 1e6).toFixed(1)} MB` : '')
+            + '. '
+          : 'The video is stored on this device only (never uploaded). '}
+        It plays muted on an endless loop behind the banners — MP4 (H.264) is the safest
+        format for kiosk hardware. If the video is missing or cannot play, the friendly
+        welcome scene shows instead, so the screen is never black.
+      </span>
+      {stored && (
+        <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={remove}>
+          Remove video
         </button>
       )}
     </div>

@@ -16,7 +16,7 @@ const numberBetween = (min, max) => (v) => typeof v === 'number' && Number.isFin
 const VALIDATORS = {
   pusherAppKey: isString,
   pusherCluster: isString,
-  backgroundSource: (v) => ['powerpoint', 'manual', 'pptx'].includes(v),
+  backgroundSource: (v) => ['powerpoint', 'manual', 'pptx', 'video'].includes(v),
   manualSlides: Array.isArray,
   powerpointEmbedUrl: isString,
   slideshowDelaySec: numberBetween(0, 600),
