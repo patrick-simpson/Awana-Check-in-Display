@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from '../components/icons.jsx';
 import { DECKS } from '../config.js';
-import { CHURCH } from '../church.config.js';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
 import { useKeydown } from '../hooks/useKeydown.js';
@@ -21,10 +20,12 @@ const flipVariants = {
  * setTimeout state machine, and keypresses are never dropped
  * mid-transition.
  */
-export const SlideshowView = ({ deck, now, onExit }) => {
-  // "Coming up at KVBC": when the calendar knows about upcoming events,
-  // the closing deck gains a slide announcing them before "goodnight" —
-  // parents in the room at pickup are exactly the audience for it.
+export const SlideshowView = ({ deck, now, onExit, onFinish }) => {
+  // "Upcoming Awana Nights": when the calendar knows about upcoming
+  // events (same calendar-feed.json the lobby display reads), the
+  // closing deck ENDS on a slide announcing them — goodnight plays
+  // first, then the deck settles on the events and holds: parents in
+  // the room at pickup are exactly the audience for it.
   const events = useCalendarEvents();
   const slides = useMemo(() => {
     const base = DECKS[deck];
@@ -32,10 +33,12 @@ export const SlideshowView = ({ deck, now, onExit }) => {
     const comingUp = {
       id: 'coming-up',
       layout: 'coming-up',
-      title: `Coming up at ${CHURCH.name}`,
-      duration: 20,
+      title: 'Upcoming Awana Nights',
+      // No duration: the deck remains here for the rest of the window.
     };
-    return [comingUp, ...base];
+    // Goodnight gains a duration so the deck auto-settles on the events
+    // even when nobody touches the keyboard.
+    return [...base.map((s) => (s.duration ? s : { ...s, duration: 20 })), comingUp];
   }, [deck, events]);
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState(1);
@@ -44,7 +47,15 @@ export const SlideshowView = ({ deck, now, onExit }) => {
   const slide = slides[Math.min(index, slides.length - 1)];
 
   const goTo = (next, dir) => {
-    if (next < 0 || next >= slides.length) return;
+    if (next < 0) return;
+    if (next >= slides.length) {
+      // Past the end of the deck: the opening ceremony hands off to the
+      // first game window (onFinish, wired in App.jsx) — one more press
+      // of the same arrow key on the final blackout starts T&T games.
+      // Decks without a hand-off (closing) simply hold their last slide.
+      onFinish?.();
+      return;
+    }
     setDirection(dir);
     setIndex(next);
   };
@@ -93,7 +104,7 @@ export const SlideshowView = ({ deck, now, onExit }) => {
           transition={{ duration: DUR.slow, ease: EASE.smooth }}
           style={{ transformStyle: 'preserve-3d', backfaceVisibility: 'hidden' }}
         >
-          <Slide slide={slide} now={now} events={events} onNext={index < slides.length - 1 ? goNext : undefined} />
+          <Slide slide={slide} now={now} events={events} onNext={index < slides.length - 1 || onFinish ? goNext : undefined} />
         </motion.div>
       </AnimatePresence>
 
@@ -121,7 +132,7 @@ export const SlideshowView = ({ deck, now, onExit }) => {
             <ChevronLeft size={16} strokeWidth={2.5} />
             Prev
           </NavPill>
-          <NavPill disabled={index === slides.length - 1} onClick={goNext}>
+          <NavPill disabled={index === slides.length - 1 && !onFinish} onClick={goNext}>
             Next
             <ChevronRight size={16} strokeWidth={2.5} />
           </NavPill>

@@ -85,9 +85,10 @@ worker keeps art, slides, and the schedule cached on the device.
    clock / enable network time; nothing else will look right until
    you do.
 2. Hover the **top-right corner** for the hidden operator menu
-   (QuickNav): jump to any window, upload the birthday CSV, set the
-   Pusher key, toggle Low-power mode (weak hardware) or countdown
-   sounds (off by default).
+   (QuickNav): jump to any window, set the Pusher key, toggle
+   Low-power mode (weak hardware) or countdown sounds (off by
+   default). Birthdays sync themselves from the print server's
+   broadcast once the key is set — there is nothing to upload.
 
 ### During club
 
@@ -111,19 +112,21 @@ following week). This is per-device; for the change to apply everywhere
 and permanently, put it in `shared/schedule.json` instead (any edit
 there is validated by CI before it can deploy).
 
-### Verse of the month / closing text
+### Closing text
 
-Edit `shared/slides.json` in the repo — the opening deck's verse slide
-and the goodnight slide text come from there. A malformed edit fails
-the build rather than reaching the projector.
+Edit `shared/slides.json` in the repo — the goodnight slide's text
+comes from there. A malformed edit fails the build rather than
+reaching the projector. (The verse-of-the-month slide was retired: the
+opening ceremony ends on a blackout, and pressing → on the blackout
+jumps straight into the first game window.)
 
 ## Moving or replacing a display device
 
 Settings on a device live in that device's browser. To clone a lobby
 display: Settings → **Export**, then **Import** on the new machine.
-For the projector page: enter the Pusher key and re-upload the
-birthday CSV via QuickNav (a corner checklist appears on fresh devices
-until both are done).
+For the projector page: enter the Pusher key via QuickNav (a corner
+note appears on fresh devices until it is set); birthdays and live
+counts then sync themselves from the print server's broadcasts.
 
 ## Deploy facts worth knowing
 

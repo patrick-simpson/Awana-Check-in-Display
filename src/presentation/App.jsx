@@ -2,7 +2,8 @@ import React, { useEffect } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppMode } from './types.js';
 import { FLAGS } from './lib/flags.js';
-import { stateKey } from './lib/schedule.js';
+import { stateKey, windowsForDate } from './lib/schedule.js';
+import { useEffectiveSchedule } from './hooks/useEffectiveSchedule.js';
 import { advisoryTitle } from './lib/scheduleAdvisory.js';
 import { DUR, EASE } from './lib/motion-tokens.js';
 import { useClock } from './hooks/useClock.js';
@@ -32,6 +33,15 @@ export const App = () => {
   // replacement — see lib/scheduleAdvisory.js).
   const { tally, schedule: scheduleAdvisory } = useRealtime();
   const { state, isOverride, resumeAt, select, resume, stay } = useSchedule(now, scheduleAdvisory);
+
+  // Advancing past the opening deck's final blackout jumps straight into
+  // the first game window (T&T) — the leader ends the ceremony and starts
+  // games with one more press of the same arrow key. Resolved against
+  // tonight's EFFECTIVE window table (special dates can reshape it), the
+  // same table select() indexes into.
+  const scheduleCfg = useEffectiveSchedule();
+  const effectiveWindows = windowsForDate(now, scheduleCfg) ?? scheduleCfg.windows;
+  const firstGameIndex = effectiveWindows.findIndex((w) => w.kind === 'game');
 
   // ?vr=1 (visual-regression / screenshot mode): stamp the root so CSS
   // can kill every keyframe animation, and tell framer-motion to skip
@@ -83,6 +93,7 @@ export const App = () => {
               tally={tally}
               meetingTheme={advisoryTitle(scheduleAdvisory, now)}
               onSelect={select}
+              firstGameIndex={firstGameIndex}
             />
           </ViewErrorBoundary>
         </motion.div>
@@ -114,7 +125,7 @@ const slugFor = (state) =>
     [AppMode.SHUTDOWN]: 'shutdown',
   })[state.mode];
 
-const ActiveView = ({ state, now, tally, meetingTheme, onSelect }) => {
+const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex }) => {
   switch (state.mode) {
     case AppMode.COUNTDOWN:
       return (
@@ -133,6 +144,11 @@ const ActiveView = ({ state, now, tally, meetingTheme, onSelect }) => {
           deck={state.deck}
           now={now}
           onExit={() => onSelect({ type: 'countdown' })}
+          onFinish={
+            state.deck === 'opening' && firstGameIndex !== -1
+              ? () => onSelect({ type: 'window', index: firstGameIndex })
+              : undefined
+          }
         />
       );
     case AppMode.SHUTDOWN:

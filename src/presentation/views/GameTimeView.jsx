@@ -7,7 +7,6 @@ import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ClubWave } from '../components/ClubWave.jsx';
 import { ConfettiBurst } from '../components/ConfettiBurst.jsx';
-import { Logo } from '../components/Logo.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { BigTimer } from '../components/BigTimer.jsx';
 import { GlowText } from '../components/GlowText.jsx';
@@ -82,10 +81,6 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
         </>
       }
     >
-      <div className="absolute top-6 left-8 z-20">
-        <Logo />
-      </div>
-
       <div className="flex-1 flex flex-col items-center justify-center gap-7">
         {/* Club emblems — official art when we have it, badge otherwise */}
         <div className="flex gap-6 flex-wrap justify-center items-center">

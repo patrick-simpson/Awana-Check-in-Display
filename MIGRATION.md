@@ -30,13 +30,13 @@ two can run side by side for as long as needed.
 3. **Operator cutover:** switch the projector machine's kiosk
    bookmark/autostart from `…/KVBC-Awana-Countdown/` to
    `…/Awana-Check-in-Display/countdown.html`. localStorage does not
-   cross origins, so on the new page re-upload the birthday CSV and
-   re-enter the Pusher key once (QuickNav → Display Settings, or
-   `?key=…&cluster=…` on first load).
-   *Tooling shipped 2026-07-18:* the presentation page now detects a
-   fresh origin (no key / no roster) and shows a dismissible setup
-   checklist pointing at those two QuickNav actions — the cutover is
-   a self-guided two-step now.
+   cross origins, so on the new page re-enter the Pusher key once
+   (QuickNav → Display Settings, or `?key=…&cluster=…` on first
+   load); birthdays sync themselves from the print server's broadcast.
+   *Tooling shipped 2026-07-18:* the presentation page detects a
+   fresh origin (no key) and shows a dismissible setup note pointing
+   at that QuickNav action — the cutover is a self-guided one-step
+   now (the CSV roster was retired in favor of live sync).
 4. ~~**Flip canonical (this repo's half)**~~ — **done 2026-07-17**:
    `shared/README.md` here now declares this copy canonical. The old
    repo's README/transition note still needs the matching update (fold

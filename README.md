@@ -40,9 +40,9 @@ by a pure, tested schedule engine over `shared/schedule.json`.
 - **Time-travel QA:** append `?now=2026-09-16T18:04:00` (any ISO
   timestamp) to simulate a moment; the simulated clock still ticks.
 - **Operator controls:** hover the top-right corner for the QuickNav
-  menu (jump between views, upload the birthday CSV, set the Pusher
-  key); Space/→ advance or skip, ←/PageUp go back, Esc twice exits a
-  slideshow.
+  menu (jump between views, set the Pusher key — birthdays sync
+  themselves from the print server); Space/→ advance or skip, ←/PageUp
+  go back, Esc twice exits a slideshow.
 - **Shared data:** `shared/` at the repo root (schedule, club theme,
   art) is served at `/shared/` for the whole Awana app family. See
   `MIGRATION.md` for the plan to retire the old repo.

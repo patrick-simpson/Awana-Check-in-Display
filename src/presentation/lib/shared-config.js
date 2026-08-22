@@ -168,17 +168,8 @@ export function parseSlidesConfig(raw) {
   if (!isRecord(raw)) fail('slides.json must be an object');
   if (raw.version !== 1) fail(`slides.json: unsupported version ${String(raw.version)}`);
   const out = {};
-  if (raw.verseOfTheMonth !== undefined) {
-    const v = raw.verseOfTheMonth;
-    if (!isRecord(v)) fail('slides.json: verseOfTheMonth must be an object');
-    if (typeof v.reference !== 'string' || !v.reference.trim() || v.reference.length > 80) {
-      fail('slides.json: verseOfTheMonth.reference must be a short string');
-    }
-    if (typeof v.text !== 'string' || !v.text.trim() || v.text.length > 600) {
-      fail('slides.json: verseOfTheMonth.text must be a string (≤600 chars)');
-    }
-    out.verseOfTheMonth = { reference: v.reference.trim(), text: v.text.trim() };
-  }
+  // (verseOfTheMonth was retired with the verse slide: the opening
+  // ceremony now ends welcome → pledges → blackout, by operator request.)
   if (raw.closing !== undefined) {
     const c = raw.closing;
     if (!isRecord(c)) fail('slides.json: closing must be an object');

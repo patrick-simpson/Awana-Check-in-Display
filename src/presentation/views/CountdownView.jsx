@@ -4,7 +4,6 @@ import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { WeatherScene } from '../components/WeatherScene.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
-import { Logo } from '../components/Logo.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { BigTimer } from '../components/BigTimer.jsx';
 import { EventChips } from '../components/EventChips.jsx';
@@ -71,7 +70,6 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
   return (
     <ScreenFrame
       shake={isShaking}
-      brandBars={false}
       layers={
         <>
           <WeatherScene weather={weather} />
@@ -80,11 +78,6 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
         </>
       }
     >
-      {/* Logo */}
-      <div className="absolute top-6 left-8 z-20">
-        <Logo />
-      </div>
-
       {/* Center stack */}
       <div className="flex-1 flex flex-col items-center justify-center gap-6 relative">
         <GlowText

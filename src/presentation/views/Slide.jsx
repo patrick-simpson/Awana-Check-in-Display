@@ -5,7 +5,6 @@ import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ConfettiBurst } from '../components/ConfettiBurst.jsx';
-import { Logo } from '../components/Logo.jsx';
 import { Badge } from '../components/Badge.jsx';
 import { Eyebrow } from '../components/Eyebrow.jsx';
 import { GlowText } from '../components/GlowText.jsx';
@@ -36,29 +35,30 @@ export const Slide = ({ slide, now, events, onNext }) => {
         </>
       }
     >
-      {/* Header row */}
-      <div className="flex items-center justify-between px-10 py-5 flex-shrink-0">
-        <Logo size="sm" />
-        {slide.showClock && (
-          <div
-            className="text-slate-200 tabular-nums select-none"
-            style={{
-              fontFamily: 'var(--font-condensed)',
-              fontWeight: 700,
-              fontSize: 'clamp(1.25rem, 1.8vw, 2.25rem)',
-              letterSpacing: '0.08em',
-            }}
-          >
-            {timeString}
+      {/* Header row — clock only, and only on slides that ask for it
+          (the Awana wordmark was retired from every view by operator
+          request; a slide without a clock keeps the wall clean black). */}
+      {slide.showClock && (
+        <>
+          <div className="flex items-center justify-end px-10 py-5 flex-shrink-0">
+            <div
+              className="text-slate-200 tabular-nums select-none"
+              style={{
+                fontFamily: 'var(--font-condensed)',
+                fontWeight: 700,
+                fontSize: 'clamp(1.25rem, 1.8vw, 2.25rem)',
+                letterSpacing: '0.08em',
+              }}
+            >
+              {timeString}
+            </div>
           </div>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div className="relative mx-10 flex-shrink-0">
-        <div className="h-px bg-white/10" />
-        <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mt-px" />
-      </div>
+          <div className="relative mx-10 flex-shrink-0">
+            <div className="h-px bg-white/10" />
+            <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mt-px" />
+          </div>
+        </>
+      )}
 
       {/* Body */}
       <div className="flex-1 flex flex-col items-center justify-center px-16 pb-10 min-h-0">

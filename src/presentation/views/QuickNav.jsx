@@ -1,11 +1,10 @@
-import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import { CLUBS } from '../config.js';
 import { stateKey, stateForWindow, windowsForDate } from '../lib/schedule.js';
-import { parseBirthdayCSV } from '../lib/birthdays.js';
 import { localDateKey } from '../lib/shared-config.js';
 import { addSkipDate, overlayEntries, removeSkipDate, subscribeOverlay } from '../lib/scheduleOverlay.js';
 import { setStingersEnabled, stingersEnabled, subscribeStingers } from '../lib/stingers.js';
-import { clearBirthdays, saveBirthdays, useBirthdayRoster } from '../hooks/useBirthdays.js';
+import { clearBirthdays, useBirthdays } from '../hooks/useBirthdays.js';
 import { useEffectiveSchedule } from '../hooks/useEffectiveSchedule.js';
 import { lowPowerPreference, setLowPowerPreference, useLowPower } from '../hooks/useLowPower.js';
 import { useClockDrift } from '../hooks/useClockDrift.js';
@@ -64,7 +63,7 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume }) => {
             </button>
           )}
           <SkipWeeks now={now} cfg={cfg} />
-          <BirthdayUpload />
+          <BirthdayStatus />
           <TogglesRow />
           <DisplaySettings />
           <p
@@ -212,15 +211,15 @@ const ToggleButton = ({ label, hint, on, onToggle }) => (
 );
 
 /**
- * Operator control for the birthday roster: pick a CSV (name, birthday,
- * club per row), which is parsed and stored in localStorage. Birthdays
- * then appear on each club's game-time screen during their week. The
- * roster also self-populates from the print server's weekly broadcast
- * ("live" count); Clear wipes both sources.
+ * Birthday roster status. The roster fills itself from the print
+ * server's `birthdays` broadcast (through the sanitized socket — the
+ * exact source the check-in display uses), so the only operator
+ * control left is Clear; the list refills on the next broadcast. The
+ * CSV upload this replaced is gone on purpose: two sources meant a
+ * stale spreadsheet could contradict the live one.
  */
-const BirthdayUpload = () => {
-  const fileRef = useRef(null);
-  const { csvCount, liveCount } = useBirthdayRoster();
+const BirthdayStatus = () => {
+  const roster = useBirthdays();
   const [notice, setNotice] = useState(null);
 
   useEffect(() => {
@@ -229,49 +228,21 @@ const BirthdayUpload = () => {
     return () => clearTimeout(timer);
   }, [notice]);
 
-  const onFile = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // allow re-selecting the same file
-    if (!file) return;
-    try {
-      const { entries, errors } = parseBirthdayCSV(await file.text());
-      if (entries.length === 0) {
-        setNotice({ text: 'No valid rows (need name, birthday, club)', ok: false });
-        return;
-      }
-      saveBirthdays(entries);
-      setNotice({
-        text: `${entries.length} birthdays loaded${errors.length > 0 ? ` · ${errors.length} skipped` : ''}`,
-        ok: true,
-      });
-    } catch {
-      setNotice({ text: 'Could not read that file', ok: false });
-    }
-  };
-
   return (
     <div
       className="mt-2 pt-2 border-t border-white/10 flex flex-col gap-1"
       style={{ fontFamily: 'var(--font-condensed)', letterSpacing: '0.12em' }}
     >
-      <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={onFile} />
-      <button
-        onClick={() => fileRef.current?.click()}
-        className="px-3 py-1.5 text-xs uppercase text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all text-right flex items-center justify-end gap-2"
-        style={{ fontWeight: 700 }}
-      >
-        Upload Birthdays CSV
+      <div className="px-3 py-1.5 flex items-center justify-end gap-2 text-xs uppercase text-gray-400" style={{ fontWeight: 700 }}>
+        {roster.length > 0 ? `${roster.length} birthdays · synced live` : 'Birthdays sync from check-in'}
         <span style={{ letterSpacing: 0 }}>🎂</span>
-      </button>
-      {csvCount + liveCount > 0 && (
+      </div>
+      {roster.length > 0 && (
         <div className="px-3 flex items-center justify-end gap-2 text-[0.65rem] uppercase text-gray-500">
-          <span style={{ fontWeight: 700 }}>
-            {csvCount} loaded{liveCount > 0 ? ` · ${liveCount} live` : ''}
-          </span>
           <button
             onClick={() => {
               clearBirthdays();
-              setNotice({ text: 'Birthdays cleared', ok: true });
+              setNotice({ text: 'Cleared — refills on the next broadcast', ok: true });
             }}
             className="text-red-400/70 hover:text-red-400 transition-colors"
             style={{ fontWeight: 700 }}
