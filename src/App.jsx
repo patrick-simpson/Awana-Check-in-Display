@@ -31,7 +31,7 @@ import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { decideBoard } from './lib/checkoutBoard.js';
 import { weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
-import { crossedMilestones, isBigMilestone, nightMilestoneCopy } from './lib/milestones.js';
+import { crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight } from './lib/milestones.js';
 import { sanitizeOverrides } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
@@ -205,8 +205,19 @@ export default function App() {
       ...payload,
       presentation: isLatePhase(phaseRef.current) ? 'late' : 'live',
     });
+    // Milestone wall (#10): the sealed `milestone` flag marks the same nights
+    // the label's milestone line fires (5/10/25/50). Live check-ins only —
+    // a late-phase arrival gets a quiet banner, not a wall celebration.
+    if (payload.milestone && !isLatePhase(phaseRef.current)) {
+      enqueueCelebration({
+        kind: 'kid',
+        firstName: payload.firstName,
+        club: payload.club,
+        count: payload.milestone,
+      });
+    }
     bump();
-  }, [enqueue, bump, markSeen]);
+  }, [enqueue, bump, markSeen, enqueueCelebration]);
 
   // Recap replay: after a reconnect, celebrate the kids this display
   // missed — quiet variant, skipping ids already seen live and anything
@@ -675,15 +686,17 @@ export default function App() {
       <AnimatePresence>
         {celebration != null && (
           <M.div
-            key={`celebration-${celebration.kind}-${celebration.club ?? ''}-${celebration.count}`}
+            key={`celebration-${celebration.kind}-${celebration.club ?? ''}-${celebration.firstName ?? ''}-${celebration.count}`}
             className={
               celebration.kind === 'club'
                 ? 'milestone-toast club-milestone'
                 : celebration.kind === 'night'
                   ? 'milestone-toast night-milestone'
-                  : 'milestone-toast'
+                  : celebration.kind === 'kid'
+                    ? 'milestone-toast kid-milestone'
+                    : 'milestone-toast'
             }
-            style={celebration.kind === 'club'
+            style={celebration.kind === 'club' || celebration.kind === 'kid'
               ? { rotate: 1.1, '--club-primary': getClubPalette(celebration.club).primary }
               : { rotate: -1.2 }}
             initial={{ opacity: 0, y: 46, scale: 0.8 }}
@@ -703,12 +716,14 @@ export default function App() {
               <span className="milestone-label">
                 {celebration.kind === 'club' ? celebration.club
                   : celebration.kind === 'night' ? celebration.label
-                    : 'Checked in tonight'}
+                    : celebration.kind === 'kid' ? `${celebration.firstName}’s`
+                      : 'Checked in tonight'}
               </span>
               <span className="milestone-count">
                 {celebration.kind === 'club' ? `${celebration.count} kids strong!`
                   : celebration.kind === 'night' ? celebration.headline
-                    : `${celebration.count} kids!`}
+                    : celebration.kind === 'kid' ? `${ordinalNight(celebration.count)} club night!`
+                      : `${celebration.count} kids!`}
               </span>
             </div>
             <M.span
