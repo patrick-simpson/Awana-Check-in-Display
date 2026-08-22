@@ -25,7 +25,14 @@ export const bannerContainer = {
       delayChildren: 0.12, staggerChildren: 0.09,
     },
   },
-  exit: { y: '115%', transition: { duration: 0.4, ease: 'easeIn' } },
+  // A beat of anticipation — the band takes a tiny breath upward before
+  // dropping away (the squash-and-go of good character animation), which
+  // reads as "off to club!" instead of a UI dismissal. Total time stays
+  // under half a second so back-to-back banners in a rush never stack up.
+  exit: {
+    y: ['0%', '-3.5%', '115%'],
+    transition: { duration: 0.45, times: [0, 0.28, 1], ease: ['easeOut', 'easeIn'] },
+  },
 };
 
 export const bannerItem = {

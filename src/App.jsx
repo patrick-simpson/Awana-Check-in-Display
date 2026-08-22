@@ -673,9 +673,9 @@ export default function App() {
             style={celebration.kind === 'club'
               ? { rotate: 1.1, '--club-primary': getClubPalette(celebration.club).primary }
               : { rotate: -1.2 }}
-            initial={{ opacity: 0, y: 40, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 160, damping: 18 } }}
-            exit={{ opacity: 0, y: -20, transition: { duration: 0.4 } }}
+            initial={{ opacity: 0, y: 46, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 280, damping: 16 } }}
+            exit={{ opacity: 0, y: -20, scale: 0.94, transition: { duration: 0.35, ease: 'easeIn' } }}
           >
             {/* Corner sparkles twinkle for the whole time the toast is up. */}
             <M.span
@@ -716,8 +716,8 @@ export default function App() {
             key="up-next"
             className="up-next"
             style={{ rotate: 0.6 }}
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0, transition: { duration: 0.3 } }}
+            initial={{ opacity: 0, y: 16, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 320, damping: 20 } }}
             exit={{ opacity: 0, y: 16, transition: { duration: 0.3 } }}
           >
             +{pending} more coming

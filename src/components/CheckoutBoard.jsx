@@ -1,4 +1,5 @@
 import { M } from '../lib/motion.jsx';
+import { getClubPalette } from '../lib/clubs.js';
 import {
   BOARD_ANONYMOUS,
   BOARD_EMPTY,
@@ -44,7 +45,11 @@ export default function CheckoutBoard({ decision, checkout, calm }) {
 
   const anim = calm
     ? {}
-    : { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4 } };
+    : {
+        initial: { opacity: 0, y: 16, scale: 0.97 },
+        animate: { opacity: 1, y: 0, scale: 1 },
+        transition: { type: 'spring', stiffness: 260, damping: 24 },
+      };
 
   return (
     <M.section className={`checkout-board ${state}`} aria-live="polite" {...anim}>
@@ -76,11 +81,22 @@ export default function CheckoutBoard({ decision, checkout, calm }) {
       {state === BOARD_NAMES && (
         <>
           <ul className="checkout-clubs">
-            {groups.map((g) => (
-              <li key={g.club} className="checkout-club">
+            {/* Each club row eases in on a slight stagger — quiet, no
+                springs: this is a reference list a volunteer scans, not a
+                celebration. Club labels take the palette's pale accent so
+                the board speaks the same color-coding as the banners. */}
+            {groups.map((g, i) => (
+              <M.li
+                key={g.club}
+                className="checkout-club"
+                style={{ '--club-accent': getClubPalette(g.club).accent }}
+                initial={calm ? false : { opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: 0.1 + i * 0.07, ease: 'easeOut' }}
+              >
                 <span className="checkout-club-name">{g.club}</span>
                 <span className="checkout-names">{g.names.join(' · ')}</span>
-              </li>
+              </M.li>
             ))}
           </ul>
           <p className="checkout-foot">

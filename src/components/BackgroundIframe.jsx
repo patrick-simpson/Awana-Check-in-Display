@@ -128,6 +128,15 @@ export default function BackgroundIframe({
             >
               Welcome<br />to Club Night!
             </M.h1>
+            {/* The catalog's script sign-off, floating gently on its own
+                rhythm so the pair never moves in lockstep. */}
+            <M.span
+              className="placeholder-script"
+              animate={{ y: [0, -6, 0], rotate: [-1.2, 0.6, -1.2] }}
+              transition={{ duration: 6.5, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              We&rsquo;re so glad you&rsquo;re here!
+            </M.span>
           </div>
         </CatalogScene>
       </div>

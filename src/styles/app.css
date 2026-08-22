@@ -48,6 +48,10 @@
      callouts and chrome labels (subheads like "4 THINGS EVERY SPARKS
      KID NEEDS" pair a condensed face with the chunky display caps). */
   --font-condensed: 'Oswald Variable', 'Oswald', 'Arial Narrow', 'Segoe UI', system-ui, sans-serif;
+  /* The catalog's third voice: the friendly hand-script that carries
+     every "Join our Awana Club!" secondary line under the chunky caps.
+     Bundled via @fontsource-variable/caveat in src/main.jsx. */
+  --font-hand: 'Caveat Variable', 'Caveat', 'Segoe Script', 'Comic Sans MS', cursive;
 
   /* TV title-safe inset for all fixed chrome — older panels overscan. */
   --safe-inset: max(24px, 2.5vmin);
@@ -214,6 +218,23 @@ html, body, #root {
     0 6px 0 rgba(48, 84, 168, 0.22),
     0 18px 50px rgba(48, 84, 168, 0.35);
 }
+/* Script sign-off under the headline — the brand graphics' "Join our
+   Awana Club!" line, in the same hand as the banner taglines. */
+.placeholder-script {
+  display: inline-block;
+  margin-top: 1rem;
+  font-family: var(--font-hand);
+  font-weight: 600;
+  font-size: clamp(1.8rem, 3.6vw, 3.4rem);
+  letter-spacing: 0.015em;
+  color: var(--awana-cream);
+  text-shadow:
+    0 3px 0 rgba(48, 84, 168, 0.2),
+    0 10px 30px rgba(48, 84, 168, 0.3);
+}
+.catalog-scene--sunset .placeholder-script {
+  text-shadow: 0 3px 0 rgba(210, 96, 22, 0.28), 0 10px 30px rgba(160, 74, 5, 0.32);
+}
 /* ── Typed slides: full-screen slideshow ──────────────────
    Free-typed background slides (ManualSlideshow.jsx) — same catalog
    look as the placeholder, layered behind banners and confetti. */
@@ -289,11 +310,14 @@ html, body, #root {
    ("Poster Contest kicks off") and the book-progress nudge. */
 .manual-slide-subtext {
   margin: 1.2rem 0 0;
-  font-family: var(--font-body);
-  font-weight: 700;
-  font-size: clamp(1.3rem, 2.6vw, 2.3rem);
-  line-height: 1.3;
-  color: rgba(255, 255, 255, 0.92);
+  /* Same script voice as the banner taglines — the catalog's secondary
+     line under chunky caps. Sized up: script needs more body than the
+     bold sans it replaced to stay TV-legible. */
+  font-family: var(--font-hand);
+  font-weight: 600;
+  font-size: clamp(1.7rem, 3.4vw, 3rem);
+  line-height: 1.2;
+  color: var(--awana-cream);
   text-shadow: 0 3px 0 rgba(48, 84, 168, 0.18), 0 10px 30px rgba(48, 84, 168, 0.3);
   max-width: 28ch;
   text-wrap: balance;
@@ -665,15 +689,17 @@ html, body, #root {
   text-shadow: 0 3px 0 rgba(0, 0, 0, 0.16);
 }
 .banner .tagline {
+  /* The catalog's script voice — every brand graphic pairs the chunky
+     caps headline with a cream hand-script line ("Join our Awana
+     Club!"), so the banner's supporting line speaks the same way. */
   display: block;
-  margin-top: 0.5rem;
-  font-family: var(--font-condensed);
-  font-size: clamp(1.05rem, 1.8vw, 1.45rem);
-  font-weight: 500;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.92);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
+  margin-top: 0.35rem;
+  font-family: var(--font-hand);
+  font-size: clamp(1.5rem, 2.9vw, 2.4rem);
+  font-weight: 600;
+  letter-spacing: 0.015em;
+  color: var(--awana-cream);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
 }
 
 /* Birthday band: catalog coral → raspberry. */
@@ -1297,7 +1323,8 @@ html, body, #root {
   margin-top: 1.75rem;
   flex-wrap: wrap;
 }
-.panel button {
+.panel button,
+.panel .actions label {
   padding: 0.7rem 1.35rem;
   border-radius: 14px;
   border: 2px solid rgba(51, 66, 79, 0.2);
@@ -1308,8 +1335,26 @@ html, body, #root {
   cursor: pointer;
   transition: background 0.15s ease, transform 0.1s ease;
 }
-.panel button:hover { background: rgba(51, 66, 79, 0.06); }
-.panel button:active { transform: scale(0.97); }
+.panel button:hover,
+.panel .actions label:hover { background: rgba(51, 66, 79, 0.06); }
+.panel button:active,
+.panel .actions label:active { transform: scale(0.97); }
+/* The action-row "Import" control is a <label> wrapping a hidden file
+   input; without this it rendered as bare text between the buttons. */
+.panel .actions label.ghost { border-style: dashed; }
+
+/* The Save control is a <jelly-button> web component. Custom properties
+   pierce the shadow boundary — and outer-document rules on the host win
+   over its :host variant — so the vendored component takes the catalog
+   CTA palette and the same footprint as its sibling buttons. */
+.panel jelly-button {
+  --jelly-fill: var(--awana-orange-deep);
+  --jelly-label: #ffffff;
+  --jelly-button-height: 46px;
+  --jelly-button-min-width: 130px;
+  --jelly-button-font-size: 15px;
+  --jelly-button-radius: 14px;
+}
 .panel button.primary {
   background: linear-gradient(135deg, var(--awana-gold) 0%, var(--awana-orange-deep) 100%);
   color: #fff;
@@ -1493,9 +1538,12 @@ html, body, #root {
 .milestone-toast {
   position: absolute;
   top: 8%;
-  left: 50%;
-  /* framer-motion animates transform, so center with margin instead */
-  margin-left: max(-45vw, -320px);
+  /* framer-motion owns `transform` while animating, so horizontal
+     centering must never ride translateX — inset + auto margins keep
+     every centered overlay honest under animation. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   width: min(90vw, 640px);
   display: flex;
   align-items: center;
@@ -1543,10 +1591,12 @@ html, body, #root {
 /* ── "More coming" queue chip ──────────────────────────── */
 .up-next {
   position: absolute;
-  top: var(--safe-inset);
-  left: 50%;
-  /* framer-motion animates transform, so center with margin instead */
-  margin-left: -110px;
+  /* Below the demo-mode pill's row, so a training rush never stacks the
+     two on top of each other. */
+  top: calc(var(--safe-inset) + 26px);
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   width: 220px;
   text-align: center;
   padding: 0.5rem 0;
@@ -1660,7 +1710,7 @@ input:focus-visible {
   }
   .banner h1 { font-size: clamp(2.1rem, 11vw, 3.4rem); }
   .banner .eyebrow { font-size: clamp(0.95rem, 3.4vw, 1.15rem); }
-  .banner .tagline { font-size: clamp(0.85rem, 3vw, 1.05rem); }
+  .banner .tagline { font-size: clamp(1.15rem, 4.2vw, 1.55rem); }
   .banner .club-logo-slot { height: clamp(48px, 9vh, 84px); }
   .banner .club-title-fallback { font-size: clamp(1.1rem, 4.5vw, 1.7rem); padding: 0 1.1rem; }
   .first-time-burst { width: clamp(72px, 20vw, 110px); top: -22%; }
@@ -1668,7 +1718,6 @@ input:focus-visible {
 
   .milestone-toast {
     width: min(94vw, 640px);
-    margin-left: max(-47vw, -320px);
     gap: 0.5rem;
   }
   .milestone-toast .milestone-count { font-size: clamp(1.6rem, 7vw, 2.4rem); }
@@ -1727,11 +1776,18 @@ input:focus-visible {
     gap: 0.45rem;
     justify-content: center;
   }
-  .panel .actions button {
+  .panel .actions button,
+  .panel .actions label {
     flex: 1 1 auto;
     padding: 0.5rem 0.8rem;
     font-size: 0.82rem;
     border-radius: 11px;
+  }
+  .panel jelly-button {
+    --jelly-button-height: 40px;
+    --jelly-button-min-width: 90px;
+    --jelly-button-font-size: 14px;
+    --jelly-button-radius: 11px;
   }
 
   /* Bigger touch target for the gear on phones. */
@@ -1748,7 +1804,7 @@ input:focus-visible {
   .manual-slide-text.slide-size-lg { font-size: clamp(1.5rem, 12vh, 4rem); }
   .manual-slide-text.slide-size-md { font-size: clamp(1.3rem, 9vh, 3rem); }
   .manual-slide-text.slide-size-sm { font-size: clamp(1.1rem, 7vh, 2.4rem); }
-  .manual-slide-subtext { margin-top: 0.6rem; font-size: clamp(0.85rem, 6vh, 1.5rem); }
+  .manual-slide-subtext { margin-top: 0.6rem; font-size: clamp(1.1rem, 7.5vh, 1.9rem); }
 
   .placeholder-copy h1 { font-size: clamp(2rem, 16vh, 5.5rem); }
 
@@ -1778,7 +1834,7 @@ input:focus-visible {
   .banner .banner-wave { height: clamp(28px, 6vh, 48px); }
   .banner h1 { font-size: clamp(1.8rem, 16vh, 4rem); }
   .banner .eyebrow { font-size: clamp(0.8rem, 5vh, 1.2rem); margin-bottom: 0.1rem; }
-  .banner .tagline { font-size: clamp(0.75rem, 4vh, 1.05rem); margin-top: 0.25rem; }
+  .banner .tagline { font-size: clamp(1.05rem, 5.5vh, 1.55rem); margin-top: 0.2rem; }
   .banner .club-logo-slot { height: clamp(40px, 16vh, 84px); }
 }
 
@@ -1941,8 +1997,13 @@ input:focus-visible {
 .tonight-ticker {
   position: absolute;
   bottom: var(--safe-inset);
-  left: 50%;
-  transform: translateX(-50%);
+  /* Centered WITHOUT translateX: framer-motion drives this element's
+     transform (the y rise), which silently discarded a CSS translate and
+     let the strip drift right into the DataCycle corner. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
   z-index: 3;
   display: flex;
   align-items: baseline;
@@ -2033,8 +2094,10 @@ input:focus-visible {
    (banner:10, tonight-ticker:3) but quieter than the critical bar. */
 .notice-banner--warn {
   top: var(--safe-inset);
-  left: 50%;
-  transform: translateX(-50%);
+  /* No translateX — framer-motion owns this element's transform. */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
   z-index: 35;
   gap: 0.15rem;
   width: min(80vw, 760px);
@@ -2140,26 +2203,49 @@ input:focus-visible {
      the tonight ticker below it — the board is a reference list, so it may never
      sit on top of either. */
   bottom: 128px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* Centered without translateX — framer-motion owns this element's
+     transform (see .tonight-ticker). */
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
   max-width: min(70vw, 980px);
-  padding: 14px 22px 12px;
-  border-radius: 18px;
-  background: rgba(20, 20, 24, 0.72);
-  backdrop-filter: blur(6px);
+  padding: 18px 26px 14px;
+  /* The same die-cut sticker chrome as the corner widgets, so the board
+     reads as part of the set — still dark and deliberately quieter than
+     any banner: a reference list, not an announcement. */
+  background: var(--sticker-bg);
+  border: 3px solid var(--sticker-edge);
+  border-radius: calc(var(--sticker-radius) + 4px);
+  outline: 2px solid var(--sticker-edge-halo);
+  outline-offset: 3px;
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
   color: #fff;
   text-align: center;
   z-index: 3;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-soft);
 }
 
+/* The board's title rides its top edge as the catalog label tab —
+   same treatment as every sticker-chip label. */
 .checkout-title {
-  margin: 0 0 8px;
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+  position: absolute;
+  top: -0.85em;
+  left: 16px;
+  margin: 0;
+  padding: 0.14em 0.65em 0.18em;
+  font-family: var(--font-condensed);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  opacity: 0.85;
+  white-space: nowrap;
+  color: #fff;
+  background: linear-gradient(135deg, var(--awana-orange) 0%, var(--awana-orange-deep) 100%);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(20, 26, 40, 0.35);
+  transform: rotate(-2deg);
 }
 
 .checkout-clubs {
@@ -2180,17 +2266,21 @@ input:focus-visible {
 }
 
 .checkout-club-name {
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-family: var(--font-condensed);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  opacity: 0.7;
+  /* Tinted per club from the palette's pale accent (inline style) —
+     the same color-coding the banners speak, readable on the dark tab. */
+  color: var(--club-accent, rgba(255, 255, 255, 0.7));
   min-width: 7ch;
   text-align: right;
 }
 
 .checkout-names {
-  font-size: 1.35rem;
+  font-family: var(--font-display);
+  font-size: 1.4rem;
   font-weight: 700;
   line-height: 1.3;
 }

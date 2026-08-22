@@ -5,6 +5,9 @@ import ReactDOM from 'react-dom/client';
 import '@fontsource-variable/baloo-2';
 import '@fontsource-variable/nunito';
 import '@fontsource-variable/oswald';
+// The catalog's hand-script accent voice (--font-hand): banner taglines,
+// slide subtext, club phrases, the idle screen's sign-off line.
+import '@fontsource-variable/caveat';
 import App from './App.jsx';
 import './styles/app.css';
 
