@@ -31,7 +31,7 @@ import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calenda
 import { fireMilestone, setConfettiLevel, setConfettiLoad } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { decideBoard } from './lib/checkoutBoard.js';
-import { weatherMood } from './lib/weather.js';
+import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
 import { crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight } from './lib/milestones.js';
 import { sanitizeOverrides } from './hooks/useConfig.js';
@@ -312,11 +312,17 @@ export default function App() {
   // The corner chip works over any background source — it's an overlay
   // widget like the clock, not part of the slide rotation.
   const showWeatherChip = config.showWeatherChip !== false;
-  // Fetch when EITHER the chip or weather theming needs it. Gating solely on
-  // the chip meant hiding one small corner widget silently stopped the whole
-  // room responding to the weather — a coupling nobody would guess.
+  // Fetch when ANY consumer needs it — the chip, weather theming, or the
+  // auto particle effect. Gating solely on the chip meant hiding one small
+  // corner widget silently stopped the whole room responding to the
+  // weather — a coupling nobody would guess.
   const weatherTheme = config.weatherTheme === true;
-  const weather = useWeather(config, (showWeatherChip || weatherTheme) && !FLAGS.overlay);
+  const particleAuto = config.particleEffect === 'auto';
+  const weather = useWeather(config, (showWeatherChip || weatherTheme || particleAuto) && !FLAGS.overlay);
+  // 'auto' matches the particles to the sky outside: snowfall when it's
+  // snowing, rainfall when it's raining or storming, nothing otherwise
+  // (and nothing when the weather is unknown — no location, dead API).
+  const particleEffect = particleAuto ? autoParticleEffect(weather) : config.particleEffect;
 
   const calendarSlides = config.calendarEnabled
     ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr), config)
@@ -595,10 +601,10 @@ export default function App() {
       {/* Ambient particles (#26): snow / rain / sparkles just above the
           background, below every widget and banner. Signage only (never on
           OBS overlay feeds) and skipped under reduce-motion / panic. */}
-      {!overlay && config.particleEffect && config.particleEffect !== 'off'
+      {!overlay && particleEffect && particleEffect !== 'off'
         && config.reduceMotion !== true && config.panicMode !== true && (
         <ErrorBoundary label="particles">
-          <ParticleLayer effect={config.particleEffect} />
+          <ParticleLayer effect={particleEffect} />
         </ErrorBoundary>
       )}
 

@@ -98,6 +98,25 @@ export function weatherMood(weather) {
   return { cozy: false, dim: 1, reason: type };
 }
 
+/**
+ * Which ambient particle effect the CURRENT weather calls for — the
+ * resolver behind particleEffect: 'auto' (the default): snowfall when
+ * it's snowing outside, rainfall when it's raining or storming, and
+ * nothing otherwise (fog and clear skies add no particles; sparkles
+ * remain a deliberate operator choice for awards nights). Null/unknown
+ * weather returns null so a failed fetch simply means no particles.
+ *
+ * @param {{ code?: number }|null|undefined} weather
+ * @returns {'rain'|'snow'|null}
+ */
+export function autoParticleEffect(weather) {
+  if (!weather || typeof weather.code !== 'number') return null;
+  const type = getWeatherType(weather.code);
+  if (type === 'snow') return 'snow';
+  if (type === 'rain' || type === 'thunder') return 'rain';
+  return null;
+}
+
 export function buildForecastUrl({ lat, lon, units = 'fahrenheit' }) {
   const params = new URLSearchParams({
     latitude: String(lat),

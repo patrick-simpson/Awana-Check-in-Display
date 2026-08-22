@@ -49,7 +49,9 @@ export default function SettingsPanel({
     followPrinterTheme: config.followPrinterTheme !== false,
     mascotMoments: config.mascotMoments !== false,
     aprilFools: config.aprilFools === true,
-    particleEffect: ['snow', 'rain', 'sparkle'].includes(config.particleEffect) ? config.particleEffect : 'off',
+    particleEffect: ['auto', 'snow', 'rain', 'sparkle', 'off'].includes(config.particleEffect)
+      ? config.particleEffect
+      : 'auto',
     weatherTheme: config.weatherTheme === true,
     confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
     burstFloorMs: config.burstFloorMs ?? 2500,
@@ -754,15 +756,19 @@ function DisplayTab({ form, set }) {
       <div className="field">
         <label htmlFor="particleEffect">Ambient particles</label>
         <select id="particleEffect" value={form.particleEffect} onChange={set('particleEffect')}>
+          <option value="auto">Auto — match the weather</option>
           <option value="off">Off</option>
           <option value="snow">Snow</option>
           <option value="rain">Rain</option>
           <option value="sparkle">Sparkles</option>
         </select>
         <span className="hint">
-          A gentle full-screen effect behind the corner widgets — snowfall for a
-          Christmas party night, sparkles for awards night. Pauses automatically
-          under reduce-motion and panic mode.
+          A gentle full-screen effect behind the corner widgets. Auto (the
+          default) mirrors the sky outside — snowfall when it&rsquo;s snowing, rain
+          when it&rsquo;s raining — and needs a weather location (Calendar &amp;
+          Weather). Or force one: snowfall for a Christmas party night,
+          sparkles for awards night. Pauses automatically under reduce-motion
+          and panic mode.
         </span>
       </div>
 

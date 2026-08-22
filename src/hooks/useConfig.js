@@ -53,7 +53,7 @@ const VALIDATORS = {
   followPrinterTheme: (v) => typeof v === 'boolean',
   mascotMoments: (v) => typeof v === 'boolean',
   aprilFools: (v) => typeof v === 'boolean',
-  particleEffect: (v) => ['off', 'snow', 'rain', 'sparkle'].includes(v),
+  particleEffect: (v) => ['auto', 'off', 'snow', 'rain', 'sparkle'].includes(v),
   weatherTheme: isBool,
   calendarWelcomeText: isString,
   calendarShowWelcome: isBool,

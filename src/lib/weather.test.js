@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  autoParticleEffect,
   buildForecastUrl,
   fetchCurrentWeather,
   geocodeLocation,
@@ -158,5 +159,28 @@ describe('weatherMood', () => {
     for (const code of [45, 63, 73]) {
       expect(thunder).toBeLessThanOrEqual(weatherMood({ code, isDay: true }).dim);
     }
+  });
+});
+
+describe('autoParticleEffect', () => {
+  it('matches precipitation outside: snow codes → snow, rain/storm codes → rain', () => {
+    for (const code of [71, 73, 75, 77, 85, 86]) {
+      expect(autoParticleEffect({ code }), `code ${code}`).toBe('snow');
+    }
+    for (const code of [51, 55, 61, 63, 65, 66, 80, 82, 95, 99]) {
+      expect(autoParticleEffect({ code }), `code ${code}`).toBe('rain');
+    }
+  });
+
+  it('adds nothing for clear, cloudy or foggy skies', () => {
+    for (const code of [0, 1, 2, 3, 45, 48]) {
+      expect(autoParticleEffect({ code }), `code ${code}`).toBeNull();
+    }
+  });
+
+  it('returns null for unknown weather, so a dead fetch means no particles', () => {
+    expect(autoParticleEffect(null)).toBeNull();
+    expect(autoParticleEffect(undefined)).toBeNull();
+    expect(autoParticleEffect({})).toBeNull();
   });
 });

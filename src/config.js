@@ -233,17 +233,22 @@ const config = {
   aprilFools: false,
 
   // Ambient particles (#26): a gentle full-screen effect behind the corner
-  // widgets - 'snow', 'rain', 'sparkle', or 'off'. Pure CSS animation on a
-  // fixed particle set (no per-frame JS); skipped automatically under
-  // reduce-motion and panic mode.
-  particleEffect: 'off',
+  // widgets - 'auto', 'snow', 'rain', 'sparkle', or 'off'. 'auto' (the
+  // default) matches the real weather outside: snowfall when it's snowing,
+  // rainfall when it's raining or storming, nothing otherwise. The named
+  // effects force one on regardless (snowfall for a Christmas party,
+  // sparkles for awards night). Pure CSS animation on a fixed particle
+  // set (no per-frame JS); skipped automatically under reduce-motion and
+  // panic mode.
+  particleEffect: 'auto',
 
   // Let the weather add atmosphere over whatever the season chose: a
-  // rainy or snowy night cools and dims the background scene. The season
+  // rainy or snowy night cools and dims the background scene. On by
+  // default — the room should feel like the evening outside. The season
   // still owns the palette, so a chosen VBS skin doesn't disappear when
   // it rains. Needs a weather location (Calendar & Weather) but NOT the
   // corner chip — either one being on is enough to fetch.
-  weatherTheme: false,
+  weatherTheme: true,
 
   // Per-club banner flavor text, shown under the kid's name on their
   // welcome banner. Keys match the club name the printer sends
