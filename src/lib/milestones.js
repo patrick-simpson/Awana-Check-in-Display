@@ -67,3 +67,18 @@ export function nightMilestoneCopy(count) {
 export function isBigMilestone(count) {
   return count >= 100;
 }
+
+/**
+ * English ordinal for a kid-milestone night count: 5 → "5th", 25 → "25th".
+ * Handles the 11/12/13 exceptions for completeness even though the current
+ * milestone set (5/10/25/50) never hits them.
+ * @param {number} n
+ * @returns {string}
+ */
+export function ordinalNight(n) {
+  const v = Math.abs(Math.trunc(n));
+  const mod100 = v % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${v}th`;
+  const suffix = { 1: 'st', 2: 'nd', 3: 'rd' }[v % 10] ?? 'th';
+  return `${v}${suffix}`;
+}

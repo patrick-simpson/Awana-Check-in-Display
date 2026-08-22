@@ -46,17 +46,39 @@ describe('BirthdayBanner', () => {
     // Calm mode is the invariant most at risk from richer animation. A late
     // arrival must not trigger the full show mid-lesson, and a reconnect must
     // not replay a room-filling celebration for each kid it missed — so the
-    // gift rain and the candle flicker both stay off.
+    // gift rain, the balloons, the pop ring, the name glow and the candle
+    // flicker all stay off.
     const { container } = render(
       <BirthdayBanner event={{ ...event, presentation }} audioEnabled={false} />,
     );
     expect(container.querySelector('.banner.birthday.calm')).not.toBeNull();
     expect(container.querySelector('.gift-rain')).toBeNull();
+    expect(container.querySelector('.balloon-lift')).toBeNull();
+    expect(container.querySelector('.cake-pop-ring')).toBeNull();
+    expect(container.querySelector('h1.birthday-glow')).toBeNull();
     expect(container.querySelectorAll('.cake-flame').length).toBe(0);
     // The cake and garland remain: a quiet banner should still look like a
     // birthday, just not like a party.
     expect(container.querySelector('.cake svg')).not.toBeNull();
     expect(container.querySelector('.birthday-garland svg')).not.toBeNull();
+  });
+
+  it('lifts balloons against the gift rain on a live arrival (#29)', () => {
+    const { container } = render(<BirthdayBanner event={event} audioEnabled={false} />);
+    const balloons = container.querySelectorAll('.balloon-lift .balloon svg');
+    expect(balloons.length).toBe(7);
+    // Deterministic per event id, like the rain.
+    const leftsA = [...container.querySelectorAll('.balloon-lift .balloon')].map((el) => el.style.left);
+    cleanup();
+    const again = render(<BirthdayBanner event={{ ...event }} audioEnabled={false} />);
+    const leftsB = [...again.container.querySelectorAll('.balloon-lift .balloon')].map((el) => el.style.left);
+    expect(leftsA).toEqual(leftsB);
+  });
+
+  it('fires the cake landing ring and the name glow on a live arrival (#29)', () => {
+    const { container } = render(<BirthdayBanner event={event} audioEnabled={false} />);
+    expect(container.querySelector('.cake .cake-pop-ring')).not.toBeNull();
+    expect(container.querySelector('h1.birthday-glow')).not.toBeNull();
   });
 
   it('still shows a variety of falling pieces after the art expansion', () => {

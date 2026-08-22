@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { deleteDeck, getDeck, putDeck } from '../lib/pptxStore.js';
+import { BACKGROUND_VIDEO_ID, deleteVideo, getVideo, putVideo } from '../lib/videoStore.js';
+import { BACKGROUND_VIDEO_CHANGED_EVENT } from './VideoBackground.jsx';
 import { parseAndCacheDeck } from '../lib/pptxModel.js';
 import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
@@ -27,7 +29,7 @@ export default function SettingsPanel({
   const [form, setForm] = useState({
     pusherAppKey: config.pusherAppKey || '',
     pusherCluster: config.pusherCluster || 'us2',
-    backgroundSource: ['manual', 'pptx'].includes(config.backgroundSource) ? config.backgroundSource : 'powerpoint',
+    backgroundSource: ['manual', 'pptx', 'video'].includes(config.backgroundSource) ? config.backgroundSource : 'powerpoint',
     powerpointEmbedUrl: config.powerpointEmbedUrl || '',
     slideshowDelaySec: config.slideshowDelaySec ?? 5,
     countdownTargetTime: config.countdownTargetTime || '',
@@ -44,6 +46,10 @@ export default function SettingsPanel({
     // skin the list had never heard of (thanksgiving, easter, vbs) was silently
     // reset to 'none' the moment Settings was opened.
     nightTheme: NIGHT_THEME_VALUES.includes(config.nightTheme) ? config.nightTheme : 'none',
+    followPrinterTheme: config.followPrinterTheme !== false,
+    mascotMoments: config.mascotMoments !== false,
+    aprilFools: config.aprilFools === true,
+    particleEffect: ['snow', 'rain', 'sparkle'].includes(config.particleEffect) ? config.particleEffect : 'off',
     weatherTheme: config.weatherTheme === true,
     confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
     burstFloorMs: config.burstFloorMs ?? 2500,
@@ -487,6 +493,16 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
             />
             Uploaded PowerPoint
           </label>
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="backgroundSource"
+              value="video"
+              checked={form.backgroundSource === 'video'}
+              onChange={set('backgroundSource')}
+            />
+            Looping video
+          </label>
         </div>
         <span className="hint">
           Typed slides are free-typed right here in the app — no PowerPoint needed — and get
@@ -514,6 +530,8 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
       )}
 
       {form.backgroundSource === 'pptx' && <PptxUploadField />}
+
+      {form.backgroundSource === 'video' && <VideoUploadField />}
 
       <div className="field">
         <label htmlFor="iframe">OneDrive PowerPoint embed URL</label>
@@ -720,6 +738,35 @@ function DisplayTab({ form, set }) {
       </div>
 
       <Toggle
+        checked={form.followPrinterTheme === true}
+        onChange={set('followPrinterTheme')}
+        title="Follow the printer's season"
+        hint="When the label printer broadcasts its season theme, this screen wears the matching skin so labels and screens switch together. Only applies while the skin above is set to Auto; picking a skin by hand always wins."
+      />
+
+      <Toggle
+        checked={form.mascotMoments === true}
+        onChange={set('mascotMoments')}
+        title="Mascot moments between check-ins"
+        hint="Every few quiet minutes, an official club mascot peeks up from the bottom of the screen or scoots across it. Hidden instantly when a banner shows; off under reduce-motion and panic mode."
+      />
+
+      <div className="field">
+        <label htmlFor="particleEffect">Ambient particles</label>
+        <select id="particleEffect" value={form.particleEffect} onChange={set('particleEffect')}>
+          <option value="off">Off</option>
+          <option value="snow">Snow</option>
+          <option value="rain">Rain</option>
+          <option value="sparkle">Sparkles</option>
+        </select>
+        <span className="hint">
+          A gentle full-screen effect behind the corner widgets — snowfall for a
+          Christmas party night, sparkles for awards night. Pauses automatically
+          under reduce-motion and panic mode.
+        </span>
+      </div>
+
+      <Toggle
         checked={form.weatherTheme === true}
         onChange={set('weatherTheme')}
         title="Let the weather set the mood"
@@ -737,6 +784,13 @@ function DisplayTab({ form, set }) {
           Uses the printer's live per-club counts — "Sparks 20 kids strong!". 0 turns it off.
         </span>
       </div>
+
+      <Toggle
+        checked={form.aprilFools === true}
+        onChange={set('aprilFools')}
+        title="April Fools: flip this screen upside down"
+        hint="Only does anything on April 1st — every other day it's a plain, boring toggle. Labels and the printer stay serious, and this settings panel (plus its gear) stays right-side up so you can always turn it off."
+      />
 
       <Toggle
         checked={form.panicMode}
@@ -1027,6 +1081,78 @@ function PptxUploadField() {
       {stored && (
         <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={remove}>
           Remove uploaded deck
+        </button>
+      )}
+    </div>
+  );
+}
+
+// One background video, stored in this browser's IndexedDB under the single
+// well-known slot (#25) — mirrors PptxUploadField's one-deck model. The file
+// never leaves this device; exported settings carry only the source choice.
+function VideoUploadField() {
+  const [stored, setStored] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState(null);
+  useEffect(() => {
+    let live = true;
+    getVideo(BACKGROUND_VIDEO_ID).then((blob) => { if (live) setStored(blob); });
+    return () => { live = false; };
+  }, []);
+
+  const onFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBusy(true);
+    setStatus({ tone: 'info', text: 'Storing video…' });
+    try {
+      // A File survives IndexedDB structured clone with .name/.size intact,
+      // so the slot needs no side-channel metadata.
+      await putVideo(BACKGROUND_VIDEO_ID, file);
+      setStored(file);
+      setStatus({ tone: 'ok', text: `Saved: ${file.name} — it plays full-screen on a loop, muted.` });
+      // Tell a mounted background to re-read the slot — see VideoBackground.
+      window.dispatchEvent(new Event(BACKGROUND_VIDEO_CHANGED_EVENT));
+    } catch {
+      setStatus({ tone: 'warn', text: 'Could not save the video on this device (storage blocked or full).' });
+    }
+    setBusy(false);
+    e.target.value = '';
+  };
+
+  const remove = async () => {
+    await deleteVideo(BACKGROUND_VIDEO_ID);
+    setStored(null);
+    setStatus(null);
+    window.dispatchEvent(new Event(BACKGROUND_VIDEO_CHANGED_EVENT));
+  };
+
+  return (
+    <div className="field">
+      <label htmlFor="video-upload">Upload a video</label>
+      <input id="video-upload" type="file" accept="video/*" onChange={onFile} disabled={busy} />
+      {status && (
+        <span
+          className="hint"
+          role="status"
+          style={status.tone === 'warn' ? { color: '#ff8a80' } : undefined}
+        >
+          {status.text}
+        </span>
+      )}
+      <span className="hint">
+        {stored
+          ? `Saved on this device: ${stored.name || 'video'}`
+            + (stored.size > 0 ? ` · ${(stored.size / 1e6).toFixed(1)} MB` : '')
+            + '. '
+          : 'The video is stored on this device only (never uploaded). '}
+        It plays muted on an endless loop behind the banners — MP4 (H.264) is the safest
+        format for kiosk hardware. If the video is missing or cannot play, the friendly
+        welcome scene shows instead, so the screen is never black.
+      </span>
+      {stored && (
+        <button type="button" className="ghost" style={{ alignSelf: 'flex-start' }} onClick={remove}>
+          Remove video
         </button>
       )}
     </div>

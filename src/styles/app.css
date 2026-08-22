@@ -103,6 +103,19 @@ html, body, #root {
   z-index: 0;
 }
 
+/* Full-screen looping video background (#25). object-fit: cover — a
+   phone-shot vertical video or an off-ratio export fills the screen
+   instead of letterboxing black bars behind the banners. */
+.background-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  background: #000;
+}
+
 /* ── Idle / setup screen: catalog sky + orange wave ─────── */
 .background-placeholder {
   position: absolute;
@@ -709,6 +722,7 @@ html, body, #root {
 }
 .banner.birthday .cake {
   display: inline-block;
+  position: relative; /* anchors the landing ring (#29) */
   flex-shrink: 0;
   width: clamp(72px, 13vh, 132px);
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
@@ -787,6 +801,122 @@ html, body, #root {
     0 -10px 120px rgba(255, 184, 28, 0.45);
 }
 
+/* Welcome-back band (#9): a returning kid's first night of the season.
+   Cool blue band — familiar and warm where the first-timer band is loud
+   and new — with the round rosette seal where the starburst would sit. */
+.banner.welcome-back {
+  --band-top: #3b82f6;
+  --band-bottom: #1e3a8a;
+  box-shadow:
+    0 -18px 90px rgba(20, 26, 40, 0.35),
+    0 -10px 120px rgba(59, 130, 246, 0.4);
+}
+.welcome-back-seal {
+  position: absolute;
+  top: -34%;
+  left: 5.5%;
+  width: clamp(96px, 12vw, 170px);
+  z-index: 2;
+  pointer-events: none;
+}
+.welcome-back-seal-inner {
+  position: relative;
+  width: 100%;
+}
+.welcome-back-seal svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter:
+    drop-shadow(0 4px 0 rgba(0, 0, 0, 0.12))
+    drop-shadow(0 10px 24px rgba(0, 0, 0, 0.3));
+}
+.welcome-back-seal span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-condensed);
+  font-size: clamp(0.9rem, 1.4vw, 1.5rem);
+  font-weight: 600;
+  line-height: 1.05;
+  text-align: center;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+/* Ambient particle layer (#26): snow / rain / sparkles behind the widgets.
+   Pure CSS animation over a deterministic particle set — no JS per frame.
+   z-index 1: above the background scene, below everything that talks. */
+.particle-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+.particle { position: absolute; display: block; }
+.particle-snow .particle {
+  top: -3vh;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
+  animation: particle-snow-fall linear infinite;
+}
+@keyframes particle-snow-fall {
+  0%   { transform: translate3d(0, -4vh, 0); }
+  25%  { transform: translate3d(2.2vw, 24vh, 0); }
+  50%  { transform: translate3d(-1.6vw, 52vh, 0); }
+  75%  { transform: translate3d(1.8vw, 78vh, 0); }
+  100% { transform: translate3d(-0.8vw, 106vh, 0); }
+}
+.particle-rain .particle {
+  top: -12vh;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(210, 230, 255, 0.9) 100%);
+  animation: particle-rain-fall linear infinite;
+}
+@keyframes particle-rain-fall {
+  0%   { transform: translate3d(0, -12vh, 0) rotate(8deg); }
+  100% { transform: translate3d(-6vw, 112vh, 0) rotate(8deg); }
+}
+.particle-sparkle .particle {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 235, 160, 0.9);
+  opacity: 0;
+  animation: particle-sparkle-twinkle ease-in-out infinite;
+}
+@keyframes particle-sparkle-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  50%      { opacity: 0.85; transform: scale(1) rotate(45deg); }
+}
+
+/* Mascot moments (#17): idle-only club characters along the bottom edge.
+   Below the banner layer, above the background; never intercepts input. */
+.mascot-moments {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+.mascot-moment {
+  position: absolute;
+  bottom: 0;
+  width: clamp(90px, 11vw, 170px);
+}
+.mascot-moment img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.35));
+}
+.mascot-scoot {
+  left: 0;
+}
+
 /* Falling birthday art (gifts / balloons / stars) */
 .gift-rain {
   position: absolute;
@@ -805,6 +935,46 @@ html, body, #root {
   display: block;
   width: 3.2rem;
   height: auto;
+}
+
+/* Balloon lift (#29): the rising counter-stream to the gift rain. */
+.balloon-lift {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.balloon-lift .balloon {
+  position: absolute;
+  bottom: -140px;
+  display: inline-block;
+  will-change: transform;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.28));
+}
+.balloon-lift .balloon svg {
+  display: block;
+  width: 3.8rem;
+  height: auto;
+}
+
+/* Cake landing ring (#29): a golden pulse behind the cake's spring settle. */
+.cake-pop-ring {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 210, 87, 0.85);
+  box-shadow: 0 0 22px rgba(255, 210, 87, 0.55), inset 0 0 14px rgba(255, 210, 87, 0.35);
+  pointer-events: none;
+}
+
+/* Birthday name glow (#29): a soft candle-light pulse on the kid's name.
+   Plain CSS on purpose — the zero-animation blanket rule covers it. */
+.banner.birthday h1.birthday-glow {
+  animation: birthday-name-glow 2.6s ease-in-out infinite;
+}
+@keyframes birthday-name-glow {
+  0%, 100% { text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), 0 0 18px rgba(255, 214, 87, 0.25); }
+  50%      { text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), 0 0 34px rgba(255, 214, 87, 0.75); }
 }
 
 /* ── Sticker chips ─────────────────────────────────────────
@@ -1724,6 +1894,7 @@ input:focus-visible {
   .banner .club-logo-slot { height: clamp(48px, 9vh, 84px); }
   .banner .club-title-fallback { font-size: clamp(1.1rem, 4.5vw, 1.7rem); padding: 0 1.1rem; }
   .first-time-burst { width: clamp(72px, 20vw, 110px); top: -22%; }
+  .welcome-back-seal { width: clamp(72px, 20vw, 110px); top: -22%; }
   .first-time-burst span { font-size: clamp(0.7rem, 2.6vw, 0.95rem); }
 
   .milestone-toast {
@@ -1924,6 +2095,28 @@ input:focus-visible {
   pointer-events: none;
 }
 
+/* Rehearsal watermark (#19): sibling of .demo-pill, but amber — rehearsal is
+   an armed mode on the PRINTER, not a local simulation, and it clears itself
+   from the next tally rather than needing a reload. Sits just below the demo
+   pill's slot so both can show at once without overlapping. */
+.rehearsal-pill {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(146, 64, 14, 0.92);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(253, 230, 138, 0.6);
+  z-index: 60;
+  pointer-events: none;
+}
+
 /* ── Local .pptx renderer ──────────────────────────────────────────── */
 .pptx-stage {
   display: flex;
@@ -1977,6 +2170,17 @@ input:focus-visible {
   border-color: var(--club-primary, #f7a41c);
 }
 .milestone-toast.club-milestone .milestone-label {
+  color: var(--club-primary, #f7a41c);
+}
+
+/* Kid milestone toast (#10, round 3) — one child's 5th/10th/25th/50th club
+   night, from the sealed checkin flag. Club-colored like the club variant,
+   with a golden star edge so it reads as personal, not statistical. */
+.milestone-toast.kid-milestone {
+  border-color: var(--club-primary, #f7a41c);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 210, 87, 0.35);
+}
+.milestone-toast.kid-milestone .milestone-label {
   color: var(--club-primary, #f7a41c);
 }
 
@@ -2316,3 +2520,16 @@ input:focus-visible {
 .checkout-board.stale,
 .checkout-board.anonymous,
 .checkout-board.empty { padding: 12px 22px; }
+
+/* ─── April Fools (#21) ─────────────────────────────────────────────────────
+   config.aprilFools flips the whole stage upside down — but ONLY on April 1st
+   (App.jsx gates on the date, so the toggle is inert the other 364 days).
+   Escape hatches are non-negotiable: the settings gear and the settings panel
+   counter-rotate so an operator can always find the off switch right-side up.
+   The gear ends up in the opposite corner while flipped — that's part of the
+   joke — but its icon reads upright and it still opens a normal panel. */
+.stage.april-fools { transform: rotate(180deg); }
+.stage.april-fools .settings-gear,
+.stage.april-fools .panel-backdrop,
+.stage.april-fools .debug { transform: rotate(180deg); }
+.stage.april-fools .settings-gear:hover { transform: rotate(225deg) scale(1.05); }

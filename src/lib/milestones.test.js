@@ -87,3 +87,23 @@ describe('isBigMilestone', () => {
     expect(isBigMilestone(50)).toBe(false);
   });
 });
+
+import { ordinalNight } from './milestones.js';
+
+describe('ordinalNight (#10)', () => {
+  it('renders the milestone set', () => {
+    expect(ordinalNight(5)).toBe('5th');
+    expect(ordinalNight(10)).toBe('10th');
+    expect(ordinalNight(25)).toBe('25th');
+    expect(ordinalNight(50)).toBe('50th');
+  });
+  it('handles general ordinals and the 11-13 exceptions', () => {
+    expect(ordinalNight(1)).toBe('1st');
+    expect(ordinalNight(2)).toBe('2nd');
+    expect(ordinalNight(3)).toBe('3rd');
+    expect(ordinalNight(11)).toBe('11th');
+    expect(ordinalNight(12)).toBe('12th');
+    expect(ordinalNight(13)).toBe('13th');
+    expect(ordinalNight(21)).toBe('21st');
+  });
+});

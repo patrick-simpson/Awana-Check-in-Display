@@ -22,6 +22,8 @@ const PIECES = [
   (key) => <BalloonArt key={key} color="#f48fb1" />,
 ];
 
+const BALLOON_COLORS = ['#4fc3f7', '#f48fb1', '#ffd257', '#aed581', '#ff8a65'];
+
 // Small deterministic PRNG (mulberry32). Seeding it with the event id
 // keeps render pure — the same event always yields the same gift layout,
 // while different events still get fresh-looking randomness.
@@ -60,6 +62,23 @@ export default function BirthdayBanner({ event, audioEnabled }) {
     }));
   }, [event.id]);
 
+  // Balloons rising against the gift rain (#29) — the two opposing streams
+  // give the celebration depth the rain alone never had. Same seeded-PRNG
+  // purity (offset seed so the layouts don't correlate), same calm-mode off
+  // switch as the rain.
+  const balloons = useMemo(() => {
+    const rand = seededRandom(event.id + 7919);
+    return Array.from({ length: 7 }, (_, i) => ({
+      color: BALLOON_COLORS[i % BALLOON_COLORS.length],
+      left: 4 + rand() * 92,
+      delay: rand() * 2.2,
+      duration: 7 + rand() * 4,
+      sway: 18 + rand() * 30,
+      swayDur: 2.2 + rand() * 1.6,
+      scale: 0.8 + rand() * 0.6,
+    }));
+  }, [event.id]);
+
   return (
     <>
       {!calm && <div className="gift-rain" aria-hidden>
@@ -77,6 +96,31 @@ export default function BirthdayBanner({ event, audioEnabled }) {
             }}
           >
             {g.piece(i)}
+          </M.span>
+        ))}
+      </div>}
+
+      {/* The rising counter-stream (#29): balloons drift up from the bottom
+          edge, swaying as they climb, while the gifts fall past them. */}
+      {!calm && <div className="balloon-lift" aria-hidden>
+        {balloons.map((b, i) => (
+          <M.span
+            key={i}
+            className="balloon"
+            style={{ left: `${b.left}%`, scale: b.scale }}
+            initial={{ y: '18vh', opacity: 0 }}
+            animate={{
+              y: '-135vh',
+              x: [0, b.sway, -b.sway, 0],
+              opacity: [0, 1, 1, 1],
+            }}
+            transition={{
+              y: { delay: b.delay, duration: b.duration, ease: 'linear' },
+              x: { delay: b.delay, duration: b.swayDur, repeat: Infinity, ease: 'easeInOut' },
+              opacity: { delay: b.delay, duration: b.duration, times: [0, 0.06, 0.9, 1] },
+            }}
+          >
+            <BalloonArt color={b.color} />
           </M.span>
         ))}
       </div>}
@@ -107,6 +151,18 @@ export default function BirthdayBanner({ event, audioEnabled }) {
             ? { duration: 0.5, ease: 'easeOut' }
             : { duration: 0.75, times: [0, 0.65, 1], ease: 'easeOut' }}
         >
+          {/* A golden ring bursts outward the moment the cake lands (#29) —
+              the visual "ta-da" for the spring settle below it. One-shot,
+              live arrivals only. */}
+          {!calm && (
+            <M.span
+              className="cake-pop-ring"
+              aria-hidden
+              initial={{ scale: 0.35, opacity: 0.9 }}
+              animate={{ scale: 2.4, opacity: 0 }}
+              transition={{ duration: 0.9, ease: 'easeOut', delay: 0.6 }}
+            />
+          )}
           <M.span
             className="cake-wiggle"
             animate={calm ? undefined : { scale: [1, 1.14, 1], rotate: [0, -5, 5, 0] }}
@@ -135,7 +191,9 @@ export default function BirthdayBanner({ event, audioEnabled }) {
         </M.span>
         <div className="banner-text">
           <Eyebrow>Happy Birthday</Eyebrow>
-          <M.h1 variants={bannerNameStagger}>
+          {/* The glow pulse is plain CSS, so zero-animation mode's blanket
+              rule kills it automatically; calm arrivals skip the class. */}
+          <M.h1 variants={bannerNameStagger} className={calm ? undefined : 'birthday-glow'}>
             <AnimatedName name={`${event.firstName}!`} />
           </M.h1>
           <M.span variants={bannerItem} className="tagline">

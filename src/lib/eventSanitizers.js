@@ -19,6 +19,8 @@
  * @property {string} club
  * @property {boolean} isBirthday
  * @property {boolean} isFirstTimer
+ * @property {true} [welcomeBack] Returning kid's first night of the season (#9).
+ * @property {number} [milestone] Season night-count on a label-milestone night (#10).
  * @property {string} [id] Producer uuid for live-vs-replay dedupe.
  * @property {number} [at] Epoch ms.
  */
@@ -34,6 +36,8 @@
  * @property {Record<string, number>} counts Per-club whole counts.
  * @property {number} total
  * @property {number} at Epoch ms.
+ * @property {string} [season] Printer's unified-theming broadcast (#18).
+ * @property {true} [rehearsal] Present only while rehearsal mode is armed (#19).
  */
 
 /**
@@ -51,9 +55,10 @@
 
 /**
  * @typedef {Object} OpsEvent
- * @property {'print-failure'|'canary'|'selector-fail'} type
+ * @property {'print-failure'|'canary'|'selector-fail'|'update-ok'} type
  * @property {number} at Epoch ms.
  * @property {string} [club]
+ * @property {string} [version] Bare semver on 'update-ok' (#5) — the update health beacon.
  */
 
 /**
@@ -118,7 +123,7 @@ const NOTICE_MAX = 200;
 const TITLE_MAX = 60;
 
 /** @type {ReadonlyArray<OpsEvent['type']>} */
-const OPS_TYPES = ['print-failure', 'canary', 'selector-fail'];
+const OPS_TYPES = ['print-failure', 'canary', 'selector-fail', 'update-ok'];
 /** @type {ReadonlyArray<NoticeEvent['level']>} */
 const NOTICE_LEVELS = ['info', 'warn', 'critical'];
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -197,6 +202,14 @@ export function sanitizeCheckin(payload) {
   if (id) safe.id = id;
   const at = toEpochMs(raw.at);
   if (at !== null) safe.at = at;
+  // Optional sealed celebration flags (printer v5.21+): a returning kid's
+  // first night of the season (#9) and the label-milestone night count for
+  // the milestone wall (#10). Same literal/int discipline as the producer.
+  if (raw.welcomeBack === true) safe.welcomeBack = true;
+  if (typeof raw.milestone === 'number' && Number.isInteger(raw.milestone)
+      && raw.milestone > 0 && raw.milestone <= 999) {
+    safe.milestone = raw.milestone;
+  }
   return safe;
 }
 
@@ -309,7 +322,17 @@ export function sanitizeTally(payload) {
   const total = typeof obj.total === 'number' && Number.isFinite(obj.total) && obj.total >= 0
     ? Math.floor(obj.total)
     : Object.values(counts).reduce((a, b) => a + b, 0);
-  return { counts, total, at };
+  /** @type {TallyEvent} */
+  const out = { counts, total, at };
+  // Optional contract extras (printer v5.20+): the unified-theming season
+  // broadcast (#18) and the rehearsal watermark flag (#19). Same validation
+  // the producer applies — a non-slug season or truthy-junk rehearsal is
+  // dropped, never a reason to reject the tally.
+  if (typeof obj.season === 'string' && /^[a-z][a-z-]{1,19}$/.test(obj.season)) {
+    out.season = obj.season;
+  }
+  if (obj.rehearsal === true) out.rehearsal = true;
+  return out;
 }
 
 /**
@@ -353,6 +376,13 @@ export function sanitizeOps(payload) {
   const safe = { type, at: toEpochMs(raw.at) ?? Date.now() };
   const club = cleanString(raw.club, NAME_MAX);
   if (club) safe.club = club;
+  // Update health beacon (#5): 'update-ok' may carry the updated server's
+  // version — a bare semver only, same validation the producer applies.
+  // Displays don't render this event, but the sanitizer must pass it so
+  // the ops log/debug panel can show it faithfully.
+  if (typeof raw.version === 'string' && /^\d+\.\d+\.\d+$/.test(raw.version)) {
+    safe.version = raw.version;
+  }
   return safe;
 }
 

@@ -129,11 +129,43 @@ export function skinForCalendarTitle(title) {
  * @param {string|null} [calendarTitle] Tonight's calendar title, when known.
  * @returns {string} A skin id, or 'none'.
  */
-export function resolveSkin(nightTheme, date = new Date(), calendarTitle = null) {
+export function resolveSkin(nightTheme, date = new Date(), calendarTitle = null, printerSeason = null) {
   if (nightTheme === 'auto') {
-    return skinForCalendarTitle(calendarTitle) ?? autoSkin(date);
+    // Unified theming (#18): the printer's season broadcast (an optional
+    // plaintext field on every tally) outranks our own guessing — it is the
+    // operator's one explicit cross-app choice, so screens match labels.
+    // A skin the broadcast can't map to falls through to the usual chain.
+    return skinForPrinterSeason(printerSeason)
+      ?? skinForCalendarTitle(calendarTitle)
+      ?? autoSkin(date);
   }
   return SKINS.includes(nightTheme) ? nightTheme : 'none';
+}
+
+/**
+ * The printer's eight label seasons, mapped onto this app's skin ids.
+ * Kept total: every season the printer can broadcast lands on a real skin,
+ * pinned by test against the printer's SEASON_KEYS list.
+ * @type {Record<string, string>}
+ */
+export const PRINTER_SEASON_TO_SKIN = {
+  'back-to-school': 'backtoschool',
+  'fall': 'autumn',
+  'thanksgiving': 'thanksgiving',
+  'christmas': 'christmas',
+  'winter': 'snowday',
+  'spring': 'spring',
+  'easter': 'easter',
+  'vbs-summer': 'vbs',
+};
+
+/**
+ * @param {string|null|undefined} season
+ * @returns {string|null}
+ */
+export function skinForPrinterSeason(season) {
+  if (!season || typeof season !== 'string') return null;
+  return PRINTER_SEASON_TO_SKIN[season] ?? null;
 }
 
 /**

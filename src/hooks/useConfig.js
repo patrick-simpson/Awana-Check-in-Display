@@ -16,7 +16,7 @@ const numberBetween = (min, max) => (v) => typeof v === 'number' && Number.isFin
 const VALIDATORS = {
   pusherAppKey: isString,
   pusherCluster: isString,
-  backgroundSource: (v) => ['powerpoint', 'manual', 'pptx'].includes(v),
+  backgroundSource: (v) => ['powerpoint', 'manual', 'pptx', 'video'].includes(v),
   manualSlides: Array.isArray,
   powerpointEmbedUrl: isString,
   slideshowDelaySec: numberBetween(0, 600),
@@ -50,6 +50,10 @@ const VALIDATORS = {
   // Reads the one skin table rather than repeating its ids — adding a season
   // used to mean editing this list, skins.js, the Settings dropdown and the CSS.
   nightTheme: (v) => NIGHT_THEME_VALUES.includes(v),
+  followPrinterTheme: (v) => typeof v === 'boolean',
+  mascotMoments: (v) => typeof v === 'boolean',
+  aprilFools: (v) => typeof v === 'boolean',
+  particleEffect: (v) => ['off', 'snow', 'rain', 'sparkle'].includes(v),
   weatherTheme: isBool,
   calendarWelcomeText: isString,
   calendarShowWelcome: isBool,

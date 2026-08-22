@@ -33,6 +33,9 @@ const config = {
   //                  (Settings → Typed slides, or Ctrl+Shift+E)
   //   'pptx'       — a .pptx you upload in Settings, rendered locally
   //                  on this device (no OneDrive, no iframe)
+  //   'video'      — one video file you upload in Settings, playing
+  //                  full-screen on a loop (muted). Stored on this
+  //                  device only, never uploaded anywhere.
   backgroundSource: 'powerpoint',
 
   // Typed slides live here when you use the 'manual' source. Edit them
@@ -209,6 +212,31 @@ const config = {
   // back to the month. The skin dresses the room; banners always keep
   // their club colors.
   nightTheme: 'none',
+
+  // Unified theming (#18): when the print server broadcasts its season (an
+  // optional field on every tally), follow it — labels and screens switch
+  // together. Only consulted while nightTheme is 'auto'; a hand-pinned skin
+  // or 'none' always wins locally. Turn off to let this screen do its own
+  // calendar guessing even when the printer is broadcasting.
+  followPrinterTheme: true,
+
+  // Mascot moments (#17): between check-ins, an official club mascot
+  // occasionally peeks up from the bottom edge or scoots across it. Rare by
+  // design (one every ~2-3.5 minutes), instantly hidden when a banner shows,
+  // and skipped under reduce-motion or panic mode.
+  mascotMoments: true,
+
+  // April Fools (#21): flips this screen upside down. SCREENS ONLY - labels
+  // and the printer dashboard stay serious - and the flip only actually
+  // happens on April 1st, so a toggle left on is inert the rest of the year.
+  // The settings panel stays right-side up so you can always turn it off.
+  aprilFools: false,
+
+  // Ambient particles (#26): a gentle full-screen effect behind the corner
+  // widgets - 'snow', 'rain', 'sparkle', or 'off'. Pure CSS animation on a
+  // fixed particle set (no per-frame JS); skipped automatically under
+  // reduce-motion and panic mode.
+  particleEffect: 'off',
 
   // Let the weather add atmosphere over whatever the season chose: a
   // rainy or snowy night cools and dims the background scene. The season

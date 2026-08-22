@@ -3,6 +3,8 @@ import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { M, ZeroAnimationContext } from './lib/motion.jsx';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
+import MascotMoments from './components/MascotMoments.jsx';
+import ParticleLayer from './components/ParticleLayer.jsx';
 import DataCycle from './components/DataCycle.jsx';
 import TonightTicker from './components/TonightTicker.jsx';
 import CheckoutBoard from './components/CheckoutBoard.jsx';
@@ -31,7 +33,7 @@ import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { decideBoard } from './lib/checkoutBoard.js';
 import { weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
-import { crossedMilestones, isBigMilestone, nightMilestoneCopy } from './lib/milestones.js';
+import { crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight } from './lib/milestones.js';
 import { sanitizeOverrides } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
@@ -130,14 +132,36 @@ export default function App() {
   // per-club counts; when one club crosses a multiple of
   // clubMilestoneEvery, the milestone toast celebrates that club.
   const clubCountsRef = useRef({});
+  // Same once-per-night rule the night milestones have: a tally that bounces
+  // down (an operator undo) and back up must not re-fire the same threshold.
+  const firedClubMilestonesRef = useRef(new Set());
+  // The printer's season broadcast, null until (or unless) one arrives.
+  const [printerSeason, setPrinterSeason] = useState(/** @type {string|null} */ (null));
+  // Rehearsal mode (#19): true while the printer's tallies carry the
+  // rehearsal flag. Unlike printerSeason this DECAYS with the next tally:
+  // the moment the operator disarms, the very next broadcast (sent
+  // immediately on toggle) drops the flag and the watermark disappears.
+  const [rehearsalActive, setRehearsalActive] = useState(false);
+
   const handleTally = useCallback((tally) => {
+    // Unified theming (#18): remember the printer's season broadcast. Kept
+    // for the whole session — tallies repeat every ~60s on club nights, so a
+    // live printer keeps this fresh, and a dead one leaves the last real
+    // choice standing rather than snapping the room back to a guess.
+    setPrinterSeason(tally.season ?? null);
+    setRehearsalActive(tally.rehearsal === true);
     const every = config.clubMilestoneEvery;
     const prevCounts = clubCountsRef.current;
     if (every > 0) {
       for (const [club, n] of Object.entries(tally.counts)) {
         const prev = prevCounts[club] ?? n; // first sight is baseline, not a crossing
         if (n > prev && Math.floor(n / every) > Math.floor(prev / every)) {
-          enqueueCelebration({ kind: 'club', club, count: Math.floor(n / every) * every });
+          const count = Math.floor(n / every) * every;
+          const key = `${club}:${count}`;
+          if (!firedClubMilestonesRef.current.has(key)) {
+            firedClubMilestonesRef.current.add(key);
+            enqueueCelebration({ kind: 'club', club, count });
+          }
         }
       }
     }
@@ -152,8 +176,14 @@ export default function App() {
 
   // Operator telemetry from the printer (ops events): a red count on the
   // Signal sticker + details in the panels. NEVER a public banner.
+  // Only genuine FAILURE types feed the red count — the ops channel also
+  // carries good news (update-ok, the printer's post-update health beacon)
+  // and neutral pings (canary), and counting those as "printer problems"
+  // would raise a standing false alarm after every successful update,
+  // training operators to ignore the count real print-failures depend on.
   const [opsFailures, setOpsFailures] = useState([]);
   const recordOps = useCallback((ops) => {
+    if (ops.type !== 'print-failure' && ops.type !== 'selector-fail') return;
     setOpsFailures((prev) => [ops, ...prev].slice(0, OPS_FAILURES_MAX));
   }, []);
 
@@ -197,8 +227,19 @@ export default function App() {
       ...payload,
       presentation: isLatePhase(phaseRef.current) ? 'late' : 'live',
     });
+    // Milestone wall (#10): the sealed `milestone` flag marks the same nights
+    // the label's milestone line fires (5/10/25/50). Live check-ins only —
+    // a late-phase arrival gets a quiet banner, not a wall celebration.
+    if (payload.milestone && !isLatePhase(phaseRef.current)) {
+      enqueueCelebration({
+        kind: 'kid',
+        firstName: payload.firstName,
+        club: payload.club,
+        count: payload.milestone,
+      });
+    }
     bump();
-  }, [enqueue, bump, markSeen]);
+  }, [enqueue, bump, markSeen, enqueueCelebration]);
 
   // Recap replay: after a reconnect, celebrate the kids this display
   // missed — quiet variant, skipping ids already seen live and anything
@@ -401,7 +442,19 @@ export default function App() {
     () => deriveClubInfo(calendar.events, todayStr)?.today?.title ?? null,
     [calendar.events, todayStr],
   );
-  const skin = resolveSkin(config.nightTheme, new Date(`${todayStr}T12:00:00`), tonightTitle);
+  // April Fools (#21): screens only, and only does anything on April 1st —
+  // a toggle left on all year is inert 364 days. The settings panel and gear
+  // counter-rotate in CSS so the operator can always find the exit.
+  const noonToday = new Date(`${todayStr}T12:00:00`);
+  const aprilFools = config.aprilFools === true
+    && noonToday.getMonth() === 3 && noonToday.getDate() === 1;
+
+  const skin = resolveSkin(
+    config.nightTheme,
+    new Date(`${todayStr}T12:00:00`),
+    tonightTitle,
+    config.followPrinterTheme !== false ? printerSeason : null,
+  );
 
   // The season picks the scene; the weather only adds atmosphere over it, so a
   // deliberately-chosen VBS skin doesn't vanish because it started raining.
@@ -509,7 +562,7 @@ export default function App() {
     <ZeroAnimationContext.Provider value={config.reduceMotion}>
     <MotionConfig reducedMotion={config.reduceMotion ? 'always' : 'user'}>
     <div
-      className={`stage ${overlay ? 'overlay' : ''}`}
+      className={`stage ${overlay ? 'overlay' : ''} ${aprilFools ? 'april-fools' : ''}`}
       data-skin={skin !== 'none' ? skin : undefined}
       style={{
         ...(chroma ? { background: chroma } : null),
@@ -536,6 +589,26 @@ export default function App() {
             dim={mood.dim}
             reduceMotion={config.reduceMotion}
           />
+        </ErrorBoundary>
+      )}
+
+      {/* Ambient particles (#26): snow / rain / sparkles just above the
+          background, below every widget and banner. Signage only (never on
+          OBS overlay feeds) and skipped under reduce-motion / panic. */}
+      {!overlay && config.particleEffect && config.particleEffect !== 'off'
+        && config.reduceMotion !== true && config.panicMode !== true && (
+        <ErrorBoundary label="particles">
+          <ParticleLayer effect={config.particleEffect} />
+        </ErrorBoundary>
+      )}
+
+      {/* Mascot moments (#17): idle ambience only — mounted below the banner
+          layer and suppressed the instant anything is celebrating. Skipped
+          entirely under reduce-motion / panic, and signage-only: a mascot
+          must never scoot across an OBS/ProPresenter overlay feed. */}
+      {!overlay && config.mascotMoments !== false && config.reduceMotion !== true && config.panicMode !== true && (
+        <ErrorBoundary label="mascots">
+          <MascotMoments suppressed={currentEvent != null || celebration != null} />
         </ErrorBoundary>
       )}
 
@@ -662,15 +735,17 @@ export default function App() {
       <AnimatePresence>
         {celebration != null && (
           <M.div
-            key={`celebration-${celebration.kind}-${celebration.club ?? ''}-${celebration.count}`}
+            key={`celebration-${celebration.kind}-${celebration.club ?? ''}-${celebration.firstName ?? ''}-${celebration.count}`}
             className={
               celebration.kind === 'club'
                 ? 'milestone-toast club-milestone'
                 : celebration.kind === 'night'
                   ? 'milestone-toast night-milestone'
-                  : 'milestone-toast'
+                  : celebration.kind === 'kid'
+                    ? 'milestone-toast kid-milestone'
+                    : 'milestone-toast'
             }
-            style={celebration.kind === 'club'
+            style={celebration.kind === 'club' || celebration.kind === 'kid'
               ? { rotate: 1.1, '--club-primary': getClubPalette(celebration.club).primary }
               : { rotate: -1.2 }}
             initial={{ opacity: 0, y: 46, scale: 0.8 }}
@@ -690,12 +765,14 @@ export default function App() {
               <span className="milestone-label">
                 {celebration.kind === 'club' ? celebration.club
                   : celebration.kind === 'night' ? celebration.label
-                    : 'Checked in tonight'}
+                    : celebration.kind === 'kid' ? `${celebration.firstName}’s`
+                      : 'Checked in tonight'}
               </span>
               <span className="milestone-count">
                 {celebration.kind === 'club' ? `${celebration.count} kids strong!`
                   : celebration.kind === 'night' ? celebration.headline
-                    : `${celebration.count} kids!`}
+                    : celebration.kind === 'kid' ? `${ordinalNight(celebration.count)} club night!`
+                      : `${celebration.count} kids!`}
               </span>
             </div>
             <M.span
@@ -736,6 +813,16 @@ export default function App() {
           never mistake a fake banner for a real child arriving — and a badge
           that timed out would defeat that at exactly the wrong moment. Cleared
           only by reloading, which is also how you leave demo mode. */}
+      {/* Rehearsal watermark (#19): the printer is running a fake club
+          night, so every banner on this screen is practice. Same rule as
+          the demo pill — a passer-by must never mistake a rehearsal banner
+          for a real child arriving. Follows the tally flag live. */}
+      {rehearsalActive && (
+        <div className="rehearsal-pill" title="The print server is in rehearsal mode. Check-ins on this screen are practice, not real arrivals.">
+          rehearsal — practice run, not real check-ins
+        </div>
+      )}
+
       {demoActive && (
         <div className="demo-pill" title="A simulated event has been fired on this screen. Reload to clear.">
           demo mode — not real check-ins

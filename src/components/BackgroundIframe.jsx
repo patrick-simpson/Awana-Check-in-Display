@@ -2,6 +2,7 @@ import { M } from '../lib/motion.jsx';
 import PptxSlideshow from './PptxSlideshow.jsx';
 import ManualSlideshow from './ManualSlideshow.jsx';
 import CatalogScene from './CatalogScene.jsx';
+import VideoBackground from './VideoBackground.jsx';
 
 const OFFICE_URL = /onedrive\.live\.com|1drv\.ms|sharepoint\.com|officeapps\.live\.com/i;
 
@@ -66,6 +67,26 @@ export default function BackgroundIframe({
   // ongoing JS/paint cost entirely, for weak/kiosk hardware.
   reduceMotion = false,
 }) {
+  // Full-screen looping video (#25): one file uploaded in Settings,
+  // stored on this device only. Missing/broken video shows the friendly
+  // setup placeholder — the screen is never black.
+  if (backgroundSource === 'video') {
+    return (
+      <VideoBackground
+        fallback={(
+          <div className="background-placeholder">
+            <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim}>
+              <div className="placeholder-copy">
+                <span className="placeholder-eyebrow">Awana Clubs</span>
+                <h1>Upload a video<br />in Settings</h1>
+              </div>
+            </CatalogScene>
+          </div>
+        )}
+      />
+    );
+  }
+
   // Uploaded .pptx deck rendered locally (Settings → Background →
   // "Uploaded PowerPoint"). Whole-deck failure falls back to the URL
   // embed when one is configured, else the placeholder scene.

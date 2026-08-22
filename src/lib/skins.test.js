@@ -137,3 +137,39 @@ describe('the skin table is the single source of truth', () => {
     }
   });
 });
+
+// Unified theming (#18): the printer's season broadcast maps totally onto
+// real skins — every season the printer can send lands somewhere.
+import { PRINTER_SEASON_TO_SKIN, skinForPrinterSeason } from './skins.js';
+
+describe('printer season mapping (#18)', () => {
+  // Mirrors the printer repo's SEASON_KEYS. If the printer grows a season,
+  // this list — and the map — must grow with it.
+  const PRINTER_SEASONS = [
+    'back-to-school', 'fall', 'thanksgiving', 'christmas',
+    'winter', 'spring', 'easter', 'vbs-summer',
+  ];
+
+  it('maps every printer season to a real skin', () => {
+    for (const season of PRINTER_SEASONS) {
+      const skin = skinForPrinterSeason(season);
+      expect(skin, season).not.toBeNull();
+      expect(SKINS).toContain(skin);
+    }
+    expect(Object.keys(PRINTER_SEASON_TO_SKIN).sort()).toEqual([...PRINTER_SEASONS].sort());
+  });
+
+  it('unknown or missing seasons fall through to the usual chain', () => {
+    expect(skinForPrinterSeason('mardi-gras')).toBeNull();
+    expect(skinForPrinterSeason('')).toBeNull();
+    expect(skinForPrinterSeason(null)).toBeNull();
+  });
+
+  it('resolveSkin: broadcast wins under auto, never under a pinned skin', () => {
+    const june = new Date(2026, 5, 10);
+    expect(resolveSkin('auto', june, null, 'christmas')).toBe('christmas');
+    expect(resolveSkin('auto', june, null, null)).not.toBe('christmas');
+    expect(resolveSkin('easter', june, null, 'christmas')).toBe('easter');
+    expect(resolveSkin('none', june, null, 'christmas')).toBe('none');
+  });
+});
