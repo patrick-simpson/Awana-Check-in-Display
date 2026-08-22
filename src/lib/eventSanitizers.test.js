@@ -39,7 +39,7 @@ const ALLOWED_KEYS = {
   checkout: ['entries', 'at', 'printed'],
   tally: ['counts', 'total', 'at', 'season', 'rehearsal'],
   birthdays: ['entries'],
-  ops: ['type', 'club', 'at'],
+  ops: ['type', 'club', 'at', 'version'],
   canary: ['at', 'nonce'],
   tonight: ['checkedIn', 'booksCompleted', 'awardsEarned', 'friendsBrought', 'at'],
   points: ['groups', 'at', 'club'],

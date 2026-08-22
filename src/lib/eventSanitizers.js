@@ -55,9 +55,10 @@
 
 /**
  * @typedef {Object} OpsEvent
- * @property {'print-failure'|'canary'|'selector-fail'} type
+ * @property {'print-failure'|'canary'|'selector-fail'|'update-ok'} type
  * @property {number} at Epoch ms.
  * @property {string} [club]
+ * @property {string} [version] Bare semver on 'update-ok' (#5) — the update health beacon.
  */
 
 /**
@@ -122,7 +123,7 @@ const NOTICE_MAX = 200;
 const TITLE_MAX = 60;
 
 /** @type {ReadonlyArray<OpsEvent['type']>} */
-const OPS_TYPES = ['print-failure', 'canary', 'selector-fail'];
+const OPS_TYPES = ['print-failure', 'canary', 'selector-fail', 'update-ok'];
 /** @type {ReadonlyArray<NoticeEvent['level']>} */
 const NOTICE_LEVELS = ['info', 'warn', 'critical'];
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -375,6 +376,13 @@ export function sanitizeOps(payload) {
   const safe = { type, at: toEpochMs(raw.at) ?? Date.now() };
   const club = cleanString(raw.club, NAME_MAX);
   if (club) safe.club = club;
+  // Update health beacon (#5): 'update-ok' may carry the updated server's
+  // version — a bare semver only, same validation the producer applies.
+  // Displays don't render this event, but the sanitizer must pass it so
+  // the ops log/debug panel can show it faithfully.
+  if (typeof raw.version === 'string' && /^\d+\.\d+\.\d+$/.test(raw.version)) {
+    safe.version = raw.version;
+  }
   return safe;
 }
 
