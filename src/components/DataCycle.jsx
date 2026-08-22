@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, useReducedMotion } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
 import { formatClock } from './WallClock.jsx';
 import { WeatherGlyph } from './WeatherGlyphs.jsx';
@@ -14,8 +14,9 @@ import { Mark } from './Doodles.jsx';
  * chrome: just big floating catalog type over whatever slide is up.
  *
  * Every variant animates opacity too, so <MotionConfig
- * reducedMotion="user"> degrades each handoff to a plain crossfade;
- * the infinite idle loops are gated off entirely for those viewers.
+ * reducedMotion="user"> degrades each handoff to a plain crossfade.
+ * The faces themselves are static between handoffs — see the
+ * compositing note above ClockFace.
  */
 
 // Each item enters, idles and leaves in character: the clock springs up
@@ -81,8 +82,6 @@ export default function DataCycle({
   showWeather,
   intervalSec,
 }) {
-  const reduced = useReducedMotion();
-
   // One shared 1-second tick drives the clock face.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -135,9 +134,9 @@ export default function DataCycle({
           animate="show"
           exit="exit"
         >
-          {active === 'clock' && <ClockFace now={now} reduced={reduced} />}
-          {active === 'tally' && <TallyFace count={count} reduced={reduced} />}
-          {active === 'weather' && <WeatherFace weather={weather} reduced={reduced} />}
+          {active === 'clock' && <ClockFace now={now} />}
+          {active === 'tally' && <TallyFace count={count} />}
+          {active === 'weather' && <WeatherFace weather={weather} />}
           {/* One sparkle winks just after each item lands. */}
           <M.span
             className="data-cycle-spark"
@@ -158,47 +157,47 @@ export default function DataCycle({
 // entry spring animating transform on the outer item (the WeatherChip
 // glyph/chip split).
 
-function ClockFace({ now, reduced }) {
+// The faces hold NO infinite animation loops, deliberately. The corner
+// item carries a drop-shadow FILTER (gradient-clipped glyphs can't use
+// text-shadow — it bleeds through the clipped alpha) plus a held tilt,
+// and a child that never stops animating inside a filtered parent keeps
+// its own compositor layer forever: real GPUs (Android and desktop
+// Chrome; never headless SwiftShader) then composite the filtered,
+// rotated parent from mismatched snapshots — double-drawn glyphs and
+// ghost shadows, worst at the ends of the string (the hour digit, the
+// eyebrow's last letter). Entrances, exits, the landing sparkle and the
+// tally pop are one-shot: the tree goes static after they settle, so
+// the compositor's final paint is correct.
+function ClockFace({ now }) {
   const { time, meridiem } = formatClock(now);
   const [hours, minutes] = time.split(':');
   return (
     <>
       <span className="data-cycle-eyebrow">Right now</span>
-      <M.span
+      <span
         className="data-cycle-value"
         role="timer"
         aria-label={`Current time ${time} ${meridiem}`}
-        animate={reduced ? undefined : { y: [0, -3, 0] }}
-        transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
       >
         {hours}
-        {/* Deliberately NOT animated. The blink kept the colon on its own
-            compositing layer, and the item-level drop-shadow filter then
-            rendered a stale full-opacity silhouette of it — a dark ghost
-            colon beside the faded glyph on real GPUs (Android and desktop;
-            headless SwiftShader never showed it). The value's bob and the
-            landing sparkle keep the clock alive without it. */}
         <span className="data-cycle-colon" aria-hidden>
           :
         </span>
         {minutes}
         <span className="data-cycle-unit">{meridiem}</span>
-      </M.span>
+      </span>
     </>
   );
 }
 
-function TallyFace({ count, reduced }) {
+function TallyFace({ count }) {
   return (
     <>
       <span className="data-cycle-eyebrow">Tonight</span>
-      <M.span
-        className="data-cycle-value"
-        animate={reduced ? undefined : { scale: [1, 1.045, 1] }}
-        transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-      >
+      <span className="data-cycle-value">
         {/* Remounting on every increment gives the number a joyful
-            little pop-and-twist as each kid checks in. */}
+            little pop-and-twist as each kid checks in — one-shot, so it
+            settles (see the compositing note above the faces). */}
         <M.span
           key={count}
           className="data-cycle-pop"
@@ -208,13 +207,13 @@ function TallyFace({ count, reduced }) {
         >
           {count}
         </M.span>
-      </M.span>
+      </span>
       <span className="data-cycle-sub">checked in</span>
     </>
   );
 }
 
-function WeatherFace({ weather, reduced }) {
+function WeatherFace({ weather }) {
   const { label, icon } = weatherPresentation(weather.code, weather.isDay);
   const unit = weather.units === 'celsius' ? 'C' : 'F';
   return (
@@ -225,18 +224,9 @@ function WeatherFace({ weather, reduced }) {
         role="status"
         aria-label={`${weather.temp} degrees, ${label}`}
       >
-        {/* The glyph bobs and sways like it's happy to be here. */}
-        <M.span
-          className="data-cycle-glyph"
-          aria-hidden
-          animate={reduced ? undefined : { y: [0, -3, 0], rotate: [-3, 3, -3] }}
-          transition={{
-            y: { duration: 3.2, repeat: Infinity, ease: 'easeInOut' },
-            rotate: { duration: 5.4, repeat: Infinity, ease: 'easeInOut' },
-          }}
-        >
+        <span className="data-cycle-glyph" aria-hidden>
           <WeatherGlyph icon={icon} stroke="#ffffff" fill="#ffe6a3" />
-        </M.span>
+        </span>
         <span className="data-cycle-value">
           {weather.temp}°<span className="data-cycle-unit">{unit}</span>
         </span>
