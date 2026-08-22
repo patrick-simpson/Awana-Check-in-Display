@@ -172,14 +172,15 @@ function ClockFace({ now, reduced }) {
         transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
       >
         {hours}
-        <M.span
-          className="data-cycle-colon"
-          aria-hidden
-          animate={reduced ? undefined : { opacity: [1, 0.25, 1] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-        >
+        {/* Deliberately NOT animated. The blink kept the colon on its own
+            compositing layer, and the item-level drop-shadow filter then
+            rendered a stale full-opacity silhouette of it — a dark ghost
+            colon beside the faded glyph on real GPUs (Android and desktop;
+            headless SwiftShader never showed it). The value's bob and the
+            landing sparkle keep the clock alive without it. */}
+        <span className="data-cycle-colon" aria-hidden>
           :
-        </M.span>
+        </span>
         {minutes}
         <span className="data-cycle-unit">{meridiem}</span>
       </M.span>
