@@ -112,16 +112,11 @@ export default function BackgroundIframe({
       <div className="background-placeholder">
         <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim}>
           <div className="placeholder-copy">
-            {/* Gentle shimmer + breath keep the welcome screen feeling
+            {/* Gentle breath + float keep the welcome screen feeling
                 alive between check-ins; both loops are subtle enough to
-                read as "glow", not "blink". */}
-            <M.span
-              className="placeholder-eyebrow"
-              animate={{ opacity: [0.75, 1, 0.75] }}
-              transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              Awana Clubs
-            </M.span>
+                read as "glow", not "blink". No eyebrow here — "Awana"
+                is already the headline, so a brand line above it would
+                just say the same thing twice. */}
             <M.h1
               animate={{ scale: [1, 1.02, 1] }}
               transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
