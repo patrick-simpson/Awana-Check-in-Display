@@ -3,6 +3,7 @@ import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { M, ZeroAnimationContext } from './lib/motion.jsx';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
+import MascotMoments from './components/MascotMoments.jsx';
 import DataCycle from './components/DataCycle.jsx';
 import TonightTicker from './components/TonightTicker.jsx';
 import CheckoutBoard from './components/CheckoutBoard.jsx';
@@ -560,6 +561,15 @@ export default function App() {
             dim={mood.dim}
             reduceMotion={config.reduceMotion}
           />
+        </ErrorBoundary>
+      )}
+
+      {/* Mascot moments (#17): idle ambience only — mounted below the banner
+          layer and suppressed the instant anything is celebrating. Skipped
+          entirely under reduce-motion / panic. */}
+      {config.mascotMoments !== false && config.reduceMotion !== true && config.panicMode !== true && (
+        <ErrorBoundary label="mascots">
+          <MascotMoments suppressed={currentEvent != null || celebration != null} />
         </ErrorBoundary>
       )}
 

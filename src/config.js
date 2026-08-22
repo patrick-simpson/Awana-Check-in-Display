@@ -217,6 +217,12 @@ const config = {
   // calendar guessing even when the printer is broadcasting.
   followPrinterTheme: true,
 
+  // Mascot moments (#17): between check-ins, an official club mascot
+  // occasionally peeks up from the bottom edge or scoots across it. Rare by
+  // design (one every ~2-3.5 minutes), instantly hidden when a banner shows,
+  // and skipped under reduce-motion or panic mode.
+  mascotMoments: true,
+
   // Let the weather add atmosphere over whatever the season chose: a
   // rainy or snowy night cools and dims the background scene. The season
   // still owns the palette, so a chosen VBS skin doesn't disappear when

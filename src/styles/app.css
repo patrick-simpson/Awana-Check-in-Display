@@ -832,6 +832,30 @@ html, body, #root {
   letter-spacing: 0.02em;
 }
 
+/* Mascot moments (#17): idle-only club characters along the bottom edge.
+   Below the banner layer, above the background; never intercepts input. */
+.mascot-moments {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+.mascot-moment {
+  position: absolute;
+  bottom: 0;
+  width: clamp(90px, 11vw, 170px);
+}
+.mascot-moment img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.35));
+}
+.mascot-scoot {
+  left: 0;
+}
+
 /* Falling birthday art (gifts / balloons / stars) */
 .gift-rain {
   position: absolute;
