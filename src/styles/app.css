@@ -2095,6 +2095,28 @@ input:focus-visible {
   pointer-events: none;
 }
 
+/* Rehearsal watermark (#19): sibling of .demo-pill, but amber — rehearsal is
+   an armed mode on the PRINTER, not a local simulation, and it clears itself
+   from the next tally rather than needing a reload. Sits just below the demo
+   pill's slot so both can show at once without overlapping. */
+.rehearsal-pill {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(146, 64, 14, 0.92);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(253, 230, 138, 0.6);
+  z-index: 60;
+  pointer-events: none;
+}
+
 /* ── Local .pptx renderer ──────────────────────────────────────────── */
 .pptx-stage {
   display: flex;

@@ -134,6 +134,11 @@ export default function App() {
   const clubCountsRef = useRef({});
   // The printer's season broadcast, null until (or unless) one arrives.
   const [printerSeason, setPrinterSeason] = useState(/** @type {string|null} */ (null));
+  // Rehearsal mode (#19): true while the printer's tallies carry the
+  // rehearsal flag. Unlike printerSeason this DECAYS with the next tally:
+  // the moment the operator disarms, the very next broadcast (sent
+  // immediately on toggle) drops the flag and the watermark disappears.
+  const [rehearsalActive, setRehearsalActive] = useState(false);
 
   const handleTally = useCallback((tally) => {
     // Unified theming (#18): remember the printer's season broadcast. Kept
@@ -141,6 +146,7 @@ export default function App() {
     // live printer keeps this fresh, and a dead one leaves the last real
     // choice standing rather than snapping the room back to a guess.
     setPrinterSeason(tally.season ?? null);
+    setRehearsalActive(tally.rehearsal === true);
     const every = config.clubMilestoneEvery;
     const prevCounts = clubCountsRef.current;
     if (every > 0) {
@@ -792,6 +798,16 @@ export default function App() {
           never mistake a fake banner for a real child arriving — and a badge
           that timed out would defeat that at exactly the wrong moment. Cleared
           only by reloading, which is also how you leave demo mode. */}
+      {/* Rehearsal watermark (#19): the printer is running a fake club
+          night, so every banner on this screen is practice. Same rule as
+          the demo pill — a passer-by must never mistake a rehearsal banner
+          for a real child arriving. Follows the tally flag live. */}
+      {rehearsalActive && (
+        <div className="rehearsal-pill" title="The print server is in rehearsal mode. Check-ins on this screen are practice, not real arrivals.">
+          rehearsal — practice run, not real check-ins
+        </div>
+      )}
+
       {demoActive && (
         <div className="demo-pill" title="A simulated event has been fired on this screen. Reload to clear.">
           demo mode — not real check-ins
