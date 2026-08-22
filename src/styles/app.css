@@ -787,6 +787,51 @@ html, body, #root {
     0 -10px 120px rgba(255, 184, 28, 0.45);
 }
 
+/* Welcome-back band (#9): a returning kid's first night of the season.
+   Cool blue band — familiar and warm where the first-timer band is loud
+   and new — with the round rosette seal where the starburst would sit. */
+.banner.welcome-back {
+  --band-top: #3b82f6;
+  --band-bottom: #1e3a8a;
+  box-shadow:
+    0 -18px 90px rgba(20, 26, 40, 0.35),
+    0 -10px 120px rgba(59, 130, 246, 0.4);
+}
+.welcome-back-seal {
+  position: absolute;
+  top: -34%;
+  left: 5.5%;
+  width: clamp(96px, 12vw, 170px);
+  z-index: 2;
+  pointer-events: none;
+}
+.welcome-back-seal-inner {
+  position: relative;
+  width: 100%;
+}
+.welcome-back-seal svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter:
+    drop-shadow(0 4px 0 rgba(0, 0, 0, 0.12))
+    drop-shadow(0 10px 24px rgba(0, 0, 0, 0.3));
+}
+.welcome-back-seal span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-condensed);
+  font-size: clamp(0.9rem, 1.4vw, 1.5rem);
+  font-weight: 600;
+  line-height: 1.05;
+  text-align: center;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
 /* Falling birthday art (gifts / balloons / stars) */
 .gift-rain {
   position: absolute;
@@ -1724,6 +1769,7 @@ input:focus-visible {
   .banner .club-logo-slot { height: clamp(48px, 9vh, 84px); }
   .banner .club-title-fallback { font-size: clamp(1.1rem, 4.5vw, 1.7rem); padding: 0 1.1rem; }
   .first-time-burst { width: clamp(72px, 20vw, 110px); top: -22%; }
+  .welcome-back-seal { width: clamp(72px, 20vw, 110px); top: -22%; }
   .first-time-burst span { font-size: clamp(0.7rem, 2.6vw, 0.95rem); }
 
   .milestone-toast {

@@ -40,6 +40,11 @@ export function useCheckInQueue(config) {
         club: payload.club || '',
         isBirthday: !!payload.isBirthday,
         isFirstTimer: !!payload.isFirstTimer,
+        // Sealed celebration flags (#9/#10) — must survive BOTH allowlists
+        // (the sanitizer and this one) or they vanish before the banner.
+        welcomeBack: payload.welcomeBack === true,
+        milestone: Number.isInteger(payload.milestone) && payload.milestone > 0
+          ? payload.milestone : null,
         // 'live' (default) | 'replay' (recap after reconnect) | 'late'
         // (arrived mid-program) — presentation only, never logic.
         presentation: payload.presentation === 'replay' || payload.presentation === 'late'

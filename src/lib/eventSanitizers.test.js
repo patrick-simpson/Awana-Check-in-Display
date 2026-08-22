@@ -34,7 +34,7 @@ const SANITIZERS = {
 // The exact key set each sanitizer may emit (checkin `at` becomes epoch
 // ms locally, so values differ from the wire shape but keys must not).
 const ALLOWED_KEYS = {
-  checkin: ['id', 'at', 'firstName', 'club', 'isBirthday', 'isFirstTimer'],
+  checkin: ['id', 'at', 'firstName', 'club', 'isBirthday', 'isFirstTimer', 'welcomeBack', 'milestone'],
   recap: ['entries', 'at'],
   checkout: ['entries', 'at', 'printed'],
   tally: ['counts', 'total', 'at', 'season', 'rehearsal'],
@@ -142,5 +142,38 @@ describe('tally specifics', () => {
   it('derives total when the payload omits it', () => {
     const out = sanitizeTally({ counts: { Sparks: 2, Trek: 3 }, at: '2026-09-16T22:07:00.000Z' });
     expect(out.total).toBe(5);
+  });
+});
+
+// Sealed celebration flags (#9/#10): the fixture proves the keys are ALLOWED;
+// these prove the values actually SURVIVE both directions of the contract.
+import { sanitizeCheckin as sc } from './eventSanitizers.js';
+
+describe('checkin celebration flags (#9/#10)', () => {
+  const base = { firstName: 'Noah', club: 'T&T', isBirthday: false, isFirstTimer: false };
+
+  it('passes welcomeBack and milestone through intact', () => {
+    const out = sc({ ...base, welcomeBack: true, milestone: 25 });
+    expect(out.welcomeBack).toBe(true);
+    expect(out.milestone).toBe(25);
+  });
+
+  it('drops junk without rejecting the checkin', () => {
+    const out = sc({ ...base, welcomeBack: 'yes', milestone: 'Alice Smith' });
+    expect(out).not.toBeNull();
+    expect(out.welcomeBack).toBeUndefined();
+    expect(out.milestone).toBeUndefined();
+  });
+
+  it('drops out-of-range milestones', () => {
+    expect(sc({ ...base, milestone: 0 }).milestone).toBeUndefined();
+    expect(sc({ ...base, milestone: 2.5 }).milestone).toBeUndefined();
+    expect(sc({ ...base, milestone: 1000 }).milestone).toBeUndefined();
+  });
+
+  it('a plain checkin stays flag-free (legacy shape)', () => {
+    const out = sc(base);
+    expect('welcomeBack' in out).toBe(false);
+    expect('milestone' in out).toBe(false);
   });
 });

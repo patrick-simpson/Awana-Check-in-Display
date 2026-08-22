@@ -19,6 +19,8 @@
  * @property {string} club
  * @property {boolean} isBirthday
  * @property {boolean} isFirstTimer
+ * @property {true} [welcomeBack] Returning kid's first night of the season (#9).
+ * @property {number} [milestone] Season night-count on a label-milestone night (#10).
  * @property {string} [id] Producer uuid for live-vs-replay dedupe.
  * @property {number} [at] Epoch ms.
  */
@@ -199,6 +201,14 @@ export function sanitizeCheckin(payload) {
   if (id) safe.id = id;
   const at = toEpochMs(raw.at);
   if (at !== null) safe.at = at;
+  // Optional sealed celebration flags (printer v5.21+): a returning kid's
+  // first night of the season (#9) and the label-milestone night count for
+  // the milestone wall (#10). Same literal/int discipline as the producer.
+  if (raw.welcomeBack === true) safe.welcomeBack = true;
+  if (typeof raw.milestone === 'number' && Number.isInteger(raw.milestone)
+      && raw.milestone > 0 && raw.milestone <= 999) {
+    safe.milestone = raw.milestone;
+  }
   return safe;
 }
 
