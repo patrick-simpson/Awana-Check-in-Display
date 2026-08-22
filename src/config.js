@@ -223,6 +223,12 @@ const config = {
   // and skipped under reduce-motion or panic mode.
   mascotMoments: true,
 
+  // April Fools (#21): flips this screen upside down. SCREENS ONLY - labels
+  // and the printer dashboard stay serious - and the flip only actually
+  // happens on April 1st, so a toggle left on is inert the rest of the year.
+  // The settings panel stays right-side up so you can always turn it off.
+  aprilFools: false,
+
   // Let the weather add atmosphere over whatever the season chose: a
   // rainy or snowy night cools and dims the background scene. The season
   // still owns the palette, so a chosen VBS skin doesn't disappear when

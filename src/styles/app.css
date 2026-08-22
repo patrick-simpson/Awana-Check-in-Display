@@ -2397,3 +2397,15 @@ input:focus-visible {
 .checkout-board.stale,
 .checkout-board.anonymous,
 .checkout-board.empty { padding: 12px 22px; }
+
+/* ─── April Fools (#21) ─────────────────────────────────────────────────────
+   config.aprilFools flips the whole stage upside down — but ONLY on April 1st
+   (App.jsx gates on the date, so the toggle is inert the other 364 days).
+   Escape hatches are non-negotiable: the settings gear and the settings panel
+   counter-rotate so an operator can always find the off switch right-side up.
+   The gear ends up in the opposite corner while flipped — that's part of the
+   joke — but its icon reads upright and it still opens a normal panel. */
+.stage.april-fools { transform: rotate(180deg); }
+.stage.april-fools .settings-gear,
+.stage.april-fools .panel-backdrop { transform: rotate(180deg); }
+.stage.april-fools .settings-gear:hover { transform: rotate(225deg) scale(1.05); }

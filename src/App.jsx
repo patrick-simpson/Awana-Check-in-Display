@@ -421,6 +421,13 @@ export default function App() {
     () => deriveClubInfo(calendar.events, todayStr)?.today?.title ?? null,
     [calendar.events, todayStr],
   );
+  // April Fools (#21): screens only, and only does anything on April 1st —
+  // a toggle left on all year is inert 364 days. The settings panel and gear
+  // counter-rotate in CSS so the operator can always find the exit.
+  const noonToday = new Date(`${todayStr}T12:00:00`);
+  const aprilFools = config.aprilFools === true
+    && noonToday.getMonth() === 3 && noonToday.getDate() === 1;
+
   const skin = resolveSkin(
     config.nightTheme,
     new Date(`${todayStr}T12:00:00`),
@@ -534,7 +541,7 @@ export default function App() {
     <ZeroAnimationContext.Provider value={config.reduceMotion}>
     <MotionConfig reducedMotion={config.reduceMotion ? 'always' : 'user'}>
     <div
-      className={`stage ${overlay ? 'overlay' : ''}`}
+      className={`stage ${overlay ? 'overlay' : ''} ${aprilFools ? 'april-fools' : ''}`}
       data-skin={skin !== 'none' ? skin : undefined}
       style={{
         ...(chroma ? { background: chroma } : null),

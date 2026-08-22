@@ -22,13 +22,15 @@ const SCOOT_MS = 9000;
 export default function MascotMoments({ suppressed }) {
   const [moment, setMoment] = useState(null);
   const suppressedRef = useRef(suppressed);
-  suppressedRef.current = suppressed;
+
+  useEffect(() => {
+    suppressedRef.current = suppressed;
+  }, [suppressed]);
 
   // A banner appearing mid-moment sends the mascot away instantly — the
-  // child's name owns the screen.
-  useEffect(() => {
-    if (suppressed) setMoment(null);
-  }, [suppressed]);
+  // child's name owns the screen. Derived at render (no state write): the
+  // moment's own clear timer still runs, so it won't linger past its slot.
+  const shown = suppressed ? null : moment;
 
   useEffect(() => {
     const clubs = getMascotClubs();
@@ -70,33 +72,33 @@ export default function MascotMoments({ suppressed }) {
   return (
     <div className="mascot-moments" aria-hidden>
       <AnimatePresence>
-        {moment && moment.kind === 'peek' && (
+        {shown && shown.kind === 'peek' && (
           <M.div
-            key={moment.id}
+            key={shown.id}
             className="mascot-moment mascot-peek"
-            style={{ left: `${moment.x}%`, scaleX: moment.flip ? -1 : 1 }}
+            style={{ left: `${shown.x}%`, scaleX: shown.flip ? -1 : 1 }}
             initial={{ y: '105%' }}
             animate={{ y: ['105%', '18%', '12%', '18%', '105%'] }}
             exit={{ y: '105%', transition: { duration: 0.4, ease: 'easeIn' } }}
             transition={{ duration: PEEK_MS / 1000, times: [0, 0.18, 0.5, 0.82, 1], ease: 'easeInOut' }}
           >
-            <img src={moment.mascot} alt="" draggable={false} />
+            <img src={shown.mascot} alt="" draggable={false} />
           </M.div>
         )}
-        {moment && moment.kind === 'scoot' && (
+        {shown && shown.kind === 'scoot' && (
           <M.div
-            key={moment.id}
+            key={shown.id}
             className="mascot-moment mascot-scoot"
-            style={{ scaleX: moment.flip ? -1 : 1 }}
-            initial={{ x: moment.flip ? '110vw' : '-15vw' }}
-            animate={{ x: moment.flip ? '-15vw' : '110vw', y: [0, -8, 0, -8, 0, -8, 0] }}
+            style={{ scaleX: shown.flip ? -1 : 1 }}
+            initial={{ x: shown.flip ? '110vw' : '-15vw' }}
+            animate={{ x: shown.flip ? '-15vw' : '110vw', y: [0, -8, 0, -8, 0, -8, 0] }}
             exit={{ opacity: 0, transition: { duration: 0.3 } }}
             transition={{
               x: { duration: SCOOT_MS / 1000, ease: 'linear' },
               y: { duration: 1.4, repeat: Math.ceil(SCOOT_MS / 1400), ease: 'easeInOut' },
             }}
           >
-            <img src={moment.mascot} alt="" draggable={false} />
+            <img src={shown.mascot} alt="" draggable={false} />
           </M.div>
         )}
       </AnimatePresence>

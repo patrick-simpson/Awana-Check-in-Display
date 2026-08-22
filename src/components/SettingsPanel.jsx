@@ -46,6 +46,7 @@ export default function SettingsPanel({
     nightTheme: NIGHT_THEME_VALUES.includes(config.nightTheme) ? config.nightTheme : 'none',
     followPrinterTheme: config.followPrinterTheme !== false,
     mascotMoments: config.mascotMoments !== false,
+    aprilFools: config.aprilFools === true,
     weatherTheme: config.weatherTheme === true,
     confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
     burstFloorMs: config.burstFloorMs ?? 2500,
@@ -753,6 +754,13 @@ function DisplayTab({ form, set }) {
           Uses the printer's live per-club counts — "Sparks 20 kids strong!". 0 turns it off.
         </span>
       </div>
+
+      <Toggle
+        checked={form.aprilFools === true}
+        onChange={set('aprilFools')}
+        title="April Fools: flip this screen upside down"
+        hint="Only does anything on April 1st — every other day it's a plain, boring toggle. Labels and the printer stay serious, and this settings panel (plus its gear) stays right-side up so you can always turn it off."
+      />
 
       <Toggle
         checked={form.panicMode}

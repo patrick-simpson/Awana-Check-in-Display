@@ -52,6 +52,7 @@ const VALIDATORS = {
   nightTheme: (v) => NIGHT_THEME_VALUES.includes(v),
   followPrinterTheme: (v) => typeof v === 'boolean',
   mascotMoments: (v) => typeof v === 'boolean',
+  aprilFools: (v) => typeof v === 'boolean',
   weatherTheme: isBool,
   calendarWelcomeText: isString,
   calendarShowWelcome: isBool,
