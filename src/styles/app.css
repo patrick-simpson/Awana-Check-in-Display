@@ -954,16 +954,26 @@ html, body, #root {
   line-height: 1.05;
 }
 /* Chrome drops a background-clip:text background from any descendant
-   that carries its own transform (the pop/colon spans framer-motion
-   animates), leaving invisible glyphs — so every text-holding span
-   paints its own clipped gradient instead of inheriting the value's. */
+   that carries its own transform (the pop span framer-motion animates),
+   leaving invisible glyphs — so every text-holding span paints its own
+   clipped gradient instead of inheriting the value's. */
 .data-cycle-value,
-.data-cycle-colon,
 .data-cycle-pop {
   background: linear-gradient(180deg, var(--awana-gold-pale) 10%, var(--awana-orange) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+/* The colon is the one glyph that NEVER stops animating (its opacity
+   breathes forever), so Chrome keeps it on its own compositing layer —
+   and a background-clip:text texture on a composited inline span can
+   rasterize against the wrong box, painting a ghost colon at the
+   value's left edge (seen on Android). A solid color the shade of the
+   gradient's midpoint blinks safely and is indistinguishable at this
+   size, because the colon only ever samples the middle of the ramp. */
+.data-cycle-colon {
+  color: #fbc35d;
+  -webkit-text-fill-color: currentColor;
 }
 .data-cycle-colon,
 .data-cycle-pop {
