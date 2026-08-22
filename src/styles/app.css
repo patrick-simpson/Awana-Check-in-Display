@@ -722,6 +722,7 @@ html, body, #root {
 }
 .banner.birthday .cake {
   display: inline-block;
+  position: relative; /* anchors the landing ring (#29) */
   flex-shrink: 0;
   width: clamp(72px, 13vh, 132px);
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
@@ -934,6 +935,46 @@ html, body, #root {
   display: block;
   width: 3.2rem;
   height: auto;
+}
+
+/* Balloon lift (#29): the rising counter-stream to the gift rain. */
+.balloon-lift {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.balloon-lift .balloon {
+  position: absolute;
+  bottom: -140px;
+  display: inline-block;
+  will-change: transform;
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.28));
+}
+.balloon-lift .balloon svg {
+  display: block;
+  width: 3.8rem;
+  height: auto;
+}
+
+/* Cake landing ring (#29): a golden pulse behind the cake's spring settle. */
+.cake-pop-ring {
+  position: absolute;
+  inset: -12%;
+  border-radius: 50%;
+  border: 5px solid rgba(255, 210, 87, 0.85);
+  box-shadow: 0 0 22px rgba(255, 210, 87, 0.55), inset 0 0 14px rgba(255, 210, 87, 0.35);
+  pointer-events: none;
+}
+
+/* Birthday name glow (#29): a soft candle-light pulse on the kid's name.
+   Plain CSS on purpose — the zero-animation blanket rule covers it. */
+.banner.birthday h1.birthday-glow {
+  animation: birthday-name-glow 2.6s ease-in-out infinite;
+}
+@keyframes birthday-name-glow {
+  0%, 100% { text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), 0 0 18px rgba(255, 214, 87, 0.25); }
+  50%      { text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), 0 0 34px rgba(255, 214, 87, 0.75); }
 }
 
 /* ── Sticker chips ─────────────────────────────────────────
