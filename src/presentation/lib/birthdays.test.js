@@ -15,6 +15,24 @@ const entry = (name, month, day, club) => ({
   club,
 });
 
+describe('normalizeClub', () => {
+  it('maps catalog spellings and loose variants', () => {
+    expect(normalizeClub('Sparks')).toBe('sparks');
+    expect(normalizeClub('SPARKS!')).toBe('sparks');
+    expect(normalizeClub('T&T')).toBe('tnt');
+    expect(normalizeClub('TnT')).toBe('tnt');
+    expect(normalizeClub('Truth & Training')).toBe('tnt');
+    expect(normalizeClub('Cubbies')).toBe('cubbies');
+    expect(normalizeClub('cubby')).toBe('cubbies');
+    expect(normalizeClub('Puggles')).toBe('puggles');
+    expect(normalizeClub('Trek')).toBe('trek');
+    expect(normalizeClub('TREK!')).toBe('trek');
+    expect(normalizeClub('Journey')).toBe('journey');
+    expect(normalizeClub('  journey  ')).toBe('journey');
+    expect(normalizeClub('youth group')).toBeNull();
+  });
+});
+
 describe('listNames', () => {
   it('joins names for display', () => {
     expect(listNames([])).toBe('');

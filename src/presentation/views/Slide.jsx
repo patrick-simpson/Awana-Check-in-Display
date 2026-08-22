@@ -84,7 +84,7 @@ const SlideBody = ({ slide, events }) => {
     case 'celebration':
       return (
         <>
-          <CrayonHeadline text={slide.title} gradient="rainbow" size="display" />
+          <CrayonHeadline text={slide.title} gradient="white" size="display" />
           {slide.subtitle && <ScriptLine text={slide.subtitle} color="#FFC107" />}
         </>
       );
@@ -93,7 +93,7 @@ const SlideBody = ({ slide, events }) => {
       return (
         <>
           <Eyebrow className="mb-6">{slide.title}</Eyebrow>
-          <CrayonHeadline text={slide.title} gradient="rainbow" size="display" />
+          <CrayonHeadline text={slide.title} gradient="white" size="display" />
           {slide.subtitle && <ScriptLine text={slide.subtitle} color="#FFFFFF" />}
         </>
       );
@@ -162,18 +162,16 @@ const ComingUpList = ({ events }) => {
   );
 };
 
-/** Hand-placed crayon letters (rainbow) — cycling brand colors, per-letter cycling. */
-const CRAYON_COLORS = ['#E8192C', '#FFC107', '#0072CE', '#00A651'];
-
 /**
  * Display headline styled like construction-paper cutout letters: for
- * `gradient="rainbow"`, each character cycles through the brand palette
- * with a tiny alternating tilt and vertical nudge, as if hand-placed one
- * letter at a time. `gradient="amber"` stays a single flat catalog gold.
- * No blur, no gradient-clip animation — solid crisp color only.
+ * `gradient="white"`, each character keeps the tiny alternating tilt
+ * and vertical nudge — hand-placed one letter at a time — but in plain
+ * white (the rainbow color cycling was retired by operator request).
+ * `gradient="amber"` stays a single flat catalog gold. No blur, no
+ * gradient-clip animation — solid crisp color only.
  */
 const CrayonHeadline = ({ text, gradient, size }) => {
-  if (gradient !== 'rainbow') {
+  if (gradient !== 'white') {
     return (
       <h1
         className="leading-none text-center"
@@ -203,7 +201,7 @@ const CrayonHeadline = ({ text, gradient, size }) => {
                   key={i}
                   style={{
                     display: 'inline-block',
-                    color: CRAYON_COLORS[n % CRAYON_COLORS.length],
+                    color: '#FFFFFF',
                     transform: `rotate(${n % 2 === 0 ? -2 : 2}deg) translateY(${n % 2 === 0 ? 0 : '0.05em'})`,
                   }}
                 >
