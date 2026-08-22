@@ -48,6 +48,7 @@ export default function SettingsPanel({
     followPrinterTheme: config.followPrinterTheme !== false,
     mascotMoments: config.mascotMoments !== false,
     aprilFools: config.aprilFools === true,
+    particleEffect: ['snow', 'rain', 'sparkle'].includes(config.particleEffect) ? config.particleEffect : 'off',
     weatherTheme: config.weatherTheme === true,
     confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
     burstFloorMs: config.burstFloorMs ?? 2500,
@@ -748,6 +749,21 @@ function DisplayTab({ form, set }) {
         title="Mascot moments between check-ins"
         hint="Every few quiet minutes, an official club mascot peeks up from the bottom of the screen or scoots across it. Hidden instantly when a banner shows; off under reduce-motion and panic mode."
       />
+
+      <div className="field">
+        <label htmlFor="particleEffect">Ambient particles</label>
+        <select id="particleEffect" value={form.particleEffect} onChange={set('particleEffect')}>
+          <option value="off">Off</option>
+          <option value="snow">Snow</option>
+          <option value="rain">Rain</option>
+          <option value="sparkle">Sparkles</option>
+        </select>
+        <span className="hint">
+          A gentle full-screen effect behind the corner widgets — snowfall for a
+          Christmas party night, sparkles for awards night. Pauses automatically
+          under reduce-motion and panic mode.
+        </span>
+      </div>
 
       <Toggle
         checked={form.weatherTheme === true}

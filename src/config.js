@@ -232,6 +232,12 @@ const config = {
   // The settings panel stays right-side up so you can always turn it off.
   aprilFools: false,
 
+  // Ambient particles (#26): a gentle full-screen effect behind the corner
+  // widgets - 'snow', 'rain', 'sparkle', or 'off'. Pure CSS animation on a
+  // fixed particle set (no per-frame JS); skipped automatically under
+  // reduce-motion and panic mode.
+  particleEffect: 'off',
+
   // Let the weather add atmosphere over whatever the season chose: a
   // rainy or snowy night cools and dims the background scene. The season
   // still owns the palette, so a chosen VBS skin doesn't disappear when

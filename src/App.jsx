@@ -4,6 +4,7 @@ import { M, ZeroAnimationContext } from './lib/motion.jsx';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import MascotMoments from './components/MascotMoments.jsx';
+import ParticleLayer from './components/ParticleLayer.jsx';
 import DataCycle from './components/DataCycle.jsx';
 import TonightTicker from './components/TonightTicker.jsx';
 import CheckoutBoard from './components/CheckoutBoard.jsx';
@@ -568,6 +569,16 @@ export default function App() {
             dim={mood.dim}
             reduceMotion={config.reduceMotion}
           />
+        </ErrorBoundary>
+      )}
+
+      {/* Ambient particles (#26): snow / rain / sparkles just above the
+          background, below every widget and banner. Signage only (never on
+          OBS overlay feeds) and skipped under reduce-motion / panic. */}
+      {!overlay && config.particleEffect && config.particleEffect !== 'off'
+        && config.reduceMotion !== true && config.panicMode !== true && (
+        <ErrorBoundary label="particles">
+          <ParticleLayer effect={config.particleEffect} />
         </ErrorBoundary>
       )}
 

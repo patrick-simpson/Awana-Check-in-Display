@@ -845,6 +845,53 @@ html, body, #root {
   letter-spacing: 0.02em;
 }
 
+/* Ambient particle layer (#26): snow / rain / sparkles behind the widgets.
+   Pure CSS animation over a deterministic particle set — no JS per frame.
+   z-index 1: above the background scene, below everything that talks. */
+.particle-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+.particle { position: absolute; display: block; }
+.particle-snow .particle {
+  top: -3vh;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
+  animation: particle-snow-fall linear infinite;
+}
+@keyframes particle-snow-fall {
+  0%   { transform: translate3d(0, -4vh, 0); }
+  25%  { transform: translate3d(2.2vw, 24vh, 0); }
+  50%  { transform: translate3d(-1.6vw, 52vh, 0); }
+  75%  { transform: translate3d(1.8vw, 78vh, 0); }
+  100% { transform: translate3d(-0.8vw, 106vh, 0); }
+}
+.particle-rain .particle {
+  top: -12vh;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(210, 230, 255, 0.9) 100%);
+  animation: particle-rain-fall linear infinite;
+}
+@keyframes particle-rain-fall {
+  0%   { transform: translate3d(0, -12vh, 0) rotate(8deg); }
+  100% { transform: translate3d(-6vw, 112vh, 0) rotate(8deg); }
+}
+.particle-sparkle .particle {
+  color: #fff;
+  text-shadow: 0 0 8px rgba(255, 235, 160, 0.9);
+  opacity: 0;
+  animation: particle-sparkle-twinkle ease-in-out infinite;
+}
+@keyframes particle-sparkle-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  50%      { opacity: 0.85; transform: scale(1) rotate(45deg); }
+}
+
 /* Mascot moments (#17): idle-only club characters along the bottom edge.
    Below the banner layer, above the background; never intercepts input. */
 .mascot-moments {
