@@ -132,6 +132,9 @@ export default function App() {
   // per-club counts; when one club crosses a multiple of
   // clubMilestoneEvery, the milestone toast celebrates that club.
   const clubCountsRef = useRef({});
+  // Same once-per-night rule the night milestones have: a tally that bounces
+  // down (an operator undo) and back up must not re-fire the same threshold.
+  const firedClubMilestonesRef = useRef(new Set());
   // The printer's season broadcast, null until (or unless) one arrives.
   const [printerSeason, setPrinterSeason] = useState(/** @type {string|null} */ (null));
   // Rehearsal mode (#19): true while the printer's tallies carry the
@@ -153,7 +156,12 @@ export default function App() {
       for (const [club, n] of Object.entries(tally.counts)) {
         const prev = prevCounts[club] ?? n; // first sight is baseline, not a crossing
         if (n > prev && Math.floor(n / every) > Math.floor(prev / every)) {
-          enqueueCelebration({ kind: 'club', club, count: Math.floor(n / every) * every });
+          const count = Math.floor(n / every) * every;
+          const key = `${club}:${count}`;
+          if (!firedClubMilestonesRef.current.has(key)) {
+            firedClubMilestonesRef.current.add(key);
+            enqueueCelebration({ kind: 'club', club, count });
+          }
         }
       }
     }
@@ -168,8 +176,14 @@ export default function App() {
 
   // Operator telemetry from the printer (ops events): a red count on the
   // Signal sticker + details in the panels. NEVER a public banner.
+  // Only genuine FAILURE types feed the red count — the ops channel also
+  // carries good news (update-ok, the printer's post-update health beacon)
+  // and neutral pings (canary), and counting those as "printer problems"
+  // would raise a standing false alarm after every successful update,
+  // training operators to ignore the count real print-failures depend on.
   const [opsFailures, setOpsFailures] = useState([]);
   const recordOps = useCallback((ops) => {
+    if (ops.type !== 'print-failure' && ops.type !== 'selector-fail') return;
     setOpsFailures((prev) => [ops, ...prev].slice(0, OPS_FAILURES_MAX));
   }, []);
 
@@ -590,8 +604,9 @@ export default function App() {
 
       {/* Mascot moments (#17): idle ambience only — mounted below the banner
           layer and suppressed the instant anything is celebrating. Skipped
-          entirely under reduce-motion / panic. */}
-      {config.mascotMoments !== false && config.reduceMotion !== true && config.panicMode !== true && (
+          entirely under reduce-motion / panic, and signage-only: a mascot
+          must never scoot across an OBS/ProPresenter overlay feed. */}
+      {!overlay && config.mascotMoments !== false && config.reduceMotion !== true && config.panicMode !== true && (
         <ErrorBoundary label="mascots">
           <MascotMoments suppressed={currentEvent != null || celebration != null} />
         </ErrorBoundary>

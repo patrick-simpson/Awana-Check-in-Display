@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { deleteDeck, getDeck, putDeck } from '../lib/pptxStore.js';
 import { BACKGROUND_VIDEO_ID, deleteVideo, getVideo, putVideo } from '../lib/videoStore.js';
+import { BACKGROUND_VIDEO_CHANGED_EVENT } from './VideoBackground.jsx';
 import { parseAndCacheDeck } from '../lib/pptxModel.js';
 import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
@@ -1110,6 +1111,8 @@ function VideoUploadField() {
       await putVideo(BACKGROUND_VIDEO_ID, file);
       setStored(file);
       setStatus({ tone: 'ok', text: `Saved: ${file.name} — it plays full-screen on a loop, muted.` });
+      // Tell a mounted background to re-read the slot — see VideoBackground.
+      window.dispatchEvent(new Event(BACKGROUND_VIDEO_CHANGED_EVENT));
     } catch {
       setStatus({ tone: 'warn', text: 'Could not save the video on this device (storage blocked or full).' });
     }
@@ -1121,6 +1124,7 @@ function VideoUploadField() {
     await deleteVideo(BACKGROUND_VIDEO_ID);
     setStored(null);
     setStatus(null);
+    window.dispatchEvent(new Event(BACKGROUND_VIDEO_CHANGED_EVENT));
   };
 
   return (

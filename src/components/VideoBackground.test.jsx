@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import VideoBackground from './VideoBackground.jsx';
+import VideoBackground, { BACKGROUND_VIDEO_CHANGED_EVENT } from './VideoBackground.jsx';
 import { BACKGROUND_VIDEO_ID, getVideo } from '../lib/videoStore.js';
 
 vi.mock('../lib/videoStore.js', () => ({
@@ -52,6 +52,32 @@ describe('VideoBackground', () => {
     await flush();
 
     fireEvent.error(container.querySelector('video'));
+    expect(screen.getByText('fallback')).toBeTruthy();
+    expect(container.querySelector('video')).toBeNull();
+  });
+
+  it('re-reads the slot when Settings announces a change — no reload needed', async () => {
+    // The latch bug this pins: source already 'video', slot empty → placeholder;
+    // the operator uploads a video and saves — no prop changes, so only the
+    // change event can un-latch `broken` and load the new blob.
+    getVideo.mockResolvedValue(null);
+    const { container } = render(<VideoBackground fallback={<div>fallback</div>} />);
+    await flush();
+    expect(screen.getByText('fallback')).toBeTruthy();
+
+    getVideo.mockResolvedValue(new Blob(['x'], { type: 'video/mp4' }));
+    await act(async () => {
+      window.dispatchEvent(new Event(BACKGROUND_VIDEO_CHANGED_EVENT));
+      await Promise.resolve();
+    });
+    expect(container.querySelector('video.background-video')).toBeTruthy();
+
+    // And the reverse: a remove drops back to the fallback.
+    getVideo.mockResolvedValue(null);
+    await act(async () => {
+      window.dispatchEvent(new Event(BACKGROUND_VIDEO_CHANGED_EVENT));
+      await Promise.resolve();
+    });
     expect(screen.getByText('fallback')).toBeTruthy();
     expect(container.querySelector('video')).toBeNull();
   });

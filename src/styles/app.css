@@ -2530,5 +2530,6 @@ input:focus-visible {
    joke — but its icon reads upright and it still opens a normal panel. */
 .stage.april-fools { transform: rotate(180deg); }
 .stage.april-fools .settings-gear,
-.stage.april-fools .panel-backdrop { transform: rotate(180deg); }
+.stage.april-fools .panel-backdrop,
+.stage.april-fools .debug { transform: rotate(180deg); }
 .stage.april-fools .settings-gear:hover { transform: rotate(225deg) scale(1.05); }
