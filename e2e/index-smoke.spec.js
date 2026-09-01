@@ -32,3 +32,23 @@ test('overlay mode renders a transparent stage', async ({ page }) => {
   await page.goto('/index.html?overlay=1');
   await expect(page.locator('.stage.overlay')).toBeVisible();
 });
+
+// Slide sync, end to end from the cache: a screen that received a published
+// deck renders THAT deck after a reboot — no network, no local slides. This
+// is the boot path every display takes at 5pm on club night.
+test('a cached synced deck renders in place of local slides', async ({ page }) => {
+  await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
+  await page.addInitScript(() => {
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ backgroundSource: 'manual' }));
+    localStorage.setItem('awanaSyncedSlides.v1', JSON.stringify({
+      deckRev: 7,
+      publishedAt: 1789939800000,
+      slides: [{
+        id: 's_sync', eyebrow: 'Awana Clubs', text: 'Synced from the check-in desk',
+        theme: 'sky', textSize: 'auto', durationSec: 0,
+      }],
+    }));
+  });
+  await page.goto('/index.html');
+  await expect(page.locator('.manual-slide-text')).toHaveText('Synced from the check-in desk');
+});

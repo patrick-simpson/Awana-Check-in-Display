@@ -14,6 +14,8 @@ import {
   sanitizeSlides,
 } from '../lib/slides.js';
 import { collectGarbage, getVideo, makeVideoId, putVideo } from '../lib/videoStore.js';
+import { publishDeck } from '../lib/publishDeck.js';
+import { loadPublishToken } from '../lib/publishToken.js';
 
 const THEME_OPTIONS = [
   { value: 'auto', label: 'Auto (rotate)' },
@@ -40,10 +42,17 @@ const SIZE_OPTIONS = [
  * (IndexedDB) and NEVER uploaded — a deck exported as JSON carries
  * only the video's name, so other devices need the file re-added.
  */
-export default function SlideEditorPanel({ config, onChange, onClose }) {
-  const [slides, setSlides] = useState(() => sanitizeSlides(config.manualSlides));
+export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose }) {
+  // When this screen follows a published deck, THAT deck is what's on the
+  // wall, so it is what the editor opens — otherwise editing would silently
+  // start from a stale local copy. Snapshotted at open: if a new publish
+  // lands while this panel is up, the banner must keep describing the deck
+  // the editor actually opened, not drift to a rev it doesn't contain.
+  const [seededDeck] = useState(() => syncedDeck);
+  const [slides, setSlides] = useState(() => sanitizeSlides(seededDeck ? seededDeck.slides : config.manualSlides));
   const [importError, setImportError] = useState('');
   const [videoError, setVideoError] = useState('');
+  const [publishState, setPublishState] = useState({ phase: 'idle', message: '' });
   const fileRef = useRef(null);
   const videoFileRef = useRef(null);
 
@@ -106,9 +115,60 @@ export default function SlideEditorPanel({ config, onChange, onClose }) {
 
   const save = () => {
     const next = sanitizeSlides(slides);
+    // In follow mode the editor opened the PUBLISHED deck, so Save would
+    // replace whatever deck this device saved locally — including video
+    // slides whose bytes exist only here and are garbage-collected the
+    // moment no saved deck references them. That must never be a silent
+    // side effect of tweaking a synced slide's wording.
+    if (seededDeck) {
+      const local = sanitizeSlides(config.manualSlides);
+      const localVideos = local.filter(isVideoSlide).length;
+      if (local.length > 0 && JSON.stringify(local) !== JSON.stringify(next) && !window.confirm(
+        `Replace the deck saved on THIS device (${local.length} slide${local.length === 1 ? '' : 's'}`
+        + (localVideos ? `, including ${localVideos} video slide${localVideos === 1 ? '' : 's'} whose file${localVideos === 1 ? '' : 's'} will be DELETED from this device` : '')
+        + ') with what is in the editor?\n\nThe editor opened the published deck, not this device\u2019s saved one.')) {
+        return;
+      }
+    }
     onChange({ manualSlides: next });
     gcAgainst(next);
     onClose();
+  };
+
+  // Publish to every display, via the print server. Local save happens FIRST,
+  // so a failed publish never loses an edit; the deck that goes out is
+  // text-only (video bytes exist only in this browser's storage).
+  const publishAll = async () => {
+    const next = sanitizeSlides(slides);
+    const videoCount = next.filter(isVideoSlide).length;
+    const textCount = next.length - videoCount;
+    if (textCount === 0 && !window.confirm(
+      'Publish an EMPTY deck?\n\nEvery display drops its typed slides and shows the welcome placeholder until something new is published.')) return;
+    if (videoCount > 0 && !window.confirm(
+      `${videoCount} video slide${videoCount === 1 ? ' stays' : 's stay'} on THIS device — the published deck carries text slides only.\n\nPublish the ${textCount} text slide${textCount === 1 ? '' : 's'} to every display?`)) return;
+    // Save-local-first applies only when the editor OPENED the local deck.
+    // In follow mode it opened the published deck, and overwriting this
+    // device's saved deck with it would destroy the local deck (and GC its
+    // video files) as a side effect — the published deck needs no local
+    // backup anyway, because this screen receives and caches its own
+    // broadcast, and a failed publish keeps the editor open with the edits.
+    if (!seededDeck) {
+      onChange({ manualSlides: next });
+      gcAgainst(next);
+    }
+    setPublishState({ phase: 'busy', message: 'Publishing…' });
+    const result = await publishDeck(next, loadPublishToken());
+    if (result.ok) {
+      setPublishState({
+        phase: 'ok',
+        message: `Published rev ${result.deckRev} (${result.slideCount} slide${result.slideCount === 1 ? '' : 's'}). When this screen shows the new deck, the whole pipe is confirmed — every online display receives the same broadcast, and screens that are off catch up within ~5 minutes of coming back.`,
+      });
+    } else {
+      const fallback = result.reason === 'auth' || result.reason === 'rejected'
+        ? ' Fallback that always works: press Export, then paste the file into the print-server dashboard → Lobby Slides → Publish.'
+        : '';
+      setPublishState({ phase: 'err', message: `${result.message}${fallback}` });
+    }
   };
 
   const cancel = () => {
@@ -165,6 +225,15 @@ export default function SlideEditorPanel({ config, onChange, onClose }) {
           Pick <strong>Typed slides</strong> as the background source in Settings to put
           them on screen.
         </div>
+
+        {seededDeck && (
+          <div className="hint" style={{ marginBottom: '1rem' }}>
+            <strong>This editor opened the published deck (rev {seededDeck.deckRev})</strong> — the one
+            every display is following. <strong>Publish to all displays</strong> sends your changes
+            everywhere; <strong>Save slides</strong> replaces the deck saved on this device only
+            (hidden while this screen follows the published deck).
+          </div>
+        )}
 
         {slides.length === 0 && (
           <div className="slide-empty">
@@ -333,7 +402,24 @@ export default function SlideEditorPanel({ config, onChange, onClose }) {
           />
           <button onClick={cancel}>Cancel</button>
           <button className="primary" onClick={save}>Save slides</button>
+          <button
+            className="primary"
+            onClick={publishAll}
+            disabled={publishState.phase === 'busy'}
+            title="Send this deck to every display, via the print server"
+          >
+            {publishState.phase === 'busy' ? 'Publishing…' : 'Publish to all displays'}
+          </button>
         </div>
+        {publishState.phase !== 'idle' && publishState.phase !== 'busy' && (
+          <div
+            className={publishState.phase === 'err' ? 'slide-editor-error' : 'hint'}
+            style={{ marginTop: '0.75rem' }}
+            role="status"
+          >
+            {publishState.message}
+          </div>
+        )}
       </div>
     </div>
   );

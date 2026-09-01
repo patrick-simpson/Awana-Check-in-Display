@@ -18,6 +18,7 @@ import {
   sanitizePoints,
   sanitizeRecap,
   sanitizeSchedule,
+  sanitizeSlidesChunk,
   sanitizeTally,
   sanitizeTonight,
 } from '../lib/eventSanitizers.js';
@@ -40,6 +41,7 @@ const EVENT_SANITIZERS = {
   points: sanitizePoints,
   schedule: sanitizeSchedule,
   notice: sanitizeNotice,
+  slides: sanitizeSlidesChunk,
 };
 
 /**
@@ -68,6 +70,7 @@ const HANDLER_NAMES = {
   points: 'onPoints',
   schedule: 'onSchedule',
   notice: 'onNotice',
+  slides: 'onSlides',
 };
 
 /**
@@ -106,6 +109,16 @@ export function useSocket(handlers) {
   //   'bad-key'     sealed frames arrive and will not open (wrong/rotated key)
   //   'downgraded'  PLAINTEXT names arrived while a key is configured — refused
   const [nameStatus, setNameStatus] = useState('ok');
+  // The synced slide deck rides the same sealed transport but must NEVER move
+  // the name-readability needle: `slides` frames arrive as a weekly-scale
+  // heartbeat too, and a keyless screen quietly skipping slide sync is normal,
+  // not the "cannot read names" emergency the wall sticker exists for. So it
+  // gets its own status, surfaced only in Settings:
+  //   'idle'                no sealed slides frame seen yet
+  //   'ok'                  the last slides frame opened
+  //   'no-key'/'bad-key'    frames arrive but cannot be opened here
+  //   'refused-plaintext'   a plaintext slides frame was refused (anti-downgrade)
+  const [slidesStatus, setSlidesStatus] = useState('idle');
   const keyRef = useRef(null);
   const failuresRef = useRef(0);
   // One promise chain per sealed event. crypto.subtle.decrypt is async inside
@@ -127,7 +140,13 @@ export function useSocket(handlers) {
       if (displayKey && !imported) {
         console.error('[socket] The display key on this screen is not usable — names will not appear');
         setNameStatus('bad-key');
+        setSlidesStatus('bad-key');
       } else {
+        // A key change (fixed, replaced, or removed) resets the slide-sync
+        // verdict too: slides frames are sparse (publish + 5-minute
+        // heartbeat), so a stale 'bad-key' would keep telling the operator
+        // to re-paste the key they just fixed until the next frame arrives.
+        setSlidesStatus('idle');
         // No key is not an error yet: until the publisher starts sealing, this is
         // the normal state and plaintext is accepted. It only becomes visible
         // when a sealed frame actually shows up and cannot be opened.
@@ -184,8 +203,11 @@ export function useSocket(handlers) {
         // than the only lock — but it is the lock that belongs on the consumer.)
         if (keyRef.current && !isEnvelope(frame)) {
           console.error(
-            `[socket] REFUSED a plaintext '${event}' — this screen has a display key, so names must arrive sealed`);
-          setNameStatus('downgraded');
+            `[socket] REFUSED a plaintext '${event}' — this screen has a display key, so sealed events must arrive sealed`);
+          // Refused slides mean a rollout-mode publisher, not unreadable
+          // names — keep the wall sticker for the events it was built for.
+          if (event === 'slides') setSlidesStatus('refused-plaintext');
+          else setNameStatus('downgraded');
           return;
         }
 
@@ -202,9 +224,21 @@ export function useSocket(handlers) {
           .then(async () => {
             const result = await openEnvelope(keyRef.current, event, frame);
             if (result.ok) {
-              failuresRef.current = 0;
-              setNameStatus('ok');
+              if (event === 'slides') {
+                setSlidesStatus('ok');
+              } else {
+                failuresRef.current = 0;
+                setNameStatus('ok');
+              }
               accept(event, result.payload);
+              return;
+            }
+            if (event === 'slides') {
+              // Slides frames are sparse (publish + 5-minute heartbeat), so a
+              // consecutive-failure counter would take ages to trip; this only
+              // drives a Settings status row, never the public wall sticker.
+              setSlidesStatus(result.reason === 'no-key' ? 'no-key' : 'bad-key');
+              console.warn(`[socket] Could not open 'slides': ${result.reason}`);
               return;
             }
             // Count consecutive failures rather than reacting to one: a single
@@ -264,6 +298,9 @@ export function useSocket(handlers) {
     // read a single name. Those are different faults with different fixes, so
     // they get different words on the wall.
     nameStatus: enabled ? nameStatus : 'ok',
+    // Slide-sync readability, kept apart from nameStatus on purpose (see the
+    // state's comment). Only Settings renders this.
+    slidesStatus: enabled ? slidesStatus : 'idle',
     hasDisplayKey: Boolean(displayKey),
   };
 }

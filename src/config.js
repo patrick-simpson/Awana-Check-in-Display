@@ -220,6 +220,14 @@ const config = {
   // calendar guessing even when the printer is broadcasting.
   followPrinterTheme: true,
 
+  // Slide sync (#27): when the print server has published a typed slide deck
+  // (sealed `slides` event), show THAT deck instead of this device's own —
+  // the operator edits slides once and every screen follows. Turn off to pin
+  // this one screen to its locally-saved deck (a special-purpose display in a
+  // classroom, say). Only the typed deck syncs; pptx and video backgrounds
+  // stay per-device by design.
+  followPublishedSlides: true,
+
   // Mascot moments (#17): between check-ins, an official club mascot
   // occasionally peeks up from the bottom edge or scoots across it. Rare by
   // design (one every ~2-3.5 minutes), instantly hidden when a banner shows,

@@ -23,6 +23,7 @@ const HANDLER_FOR = {
   points: 'onPoints',
   schedule: 'onSchedule',
   notice: 'onNotice',
+  slides: 'onSlides',
 };
 
 describe('simulateEvent', () => {

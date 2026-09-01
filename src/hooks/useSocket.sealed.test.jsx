@@ -261,3 +261,106 @@ describe('with a display key', () => {
     expect(onCheckin).not.toHaveBeenCalled();
   });
 });
+
+// The `slides` event rides the same sealed transport but reports on its own
+// channel: slide-sync trouble is a Settings row, never the "cannot read
+// names" sticker on the lobby wall. These assert the two never cross.
+describe('slide sync frames', () => {
+  const CHUNK = {
+    deckRev: 3,
+    publishedAt: AT,
+    seq: 0,
+    total: 1,
+    slides: [{ eyebrow: '', text: 'Welcome to\nAwana!', theme: 'sky', textSize: 'auto', durationSec: 0 }],
+  };
+
+  it('opens a sealed chunk, sanitizes it, and reports ok — names untouched', async () => {
+    saveDisplayKey(KEY);
+    const onSlides = vi.fn();
+    const { result } = setup({ onSlides });
+    await waitFor(() => expect(bound.slides).toBeTypeOf('function'));
+    await waitFor(() => expect(result.current.hasDisplayKey).toBe(true));
+
+    emit('slides', await sealForTest(keyBytes(), 'slides', CHUNK));
+    await waitFor(() => expect(onSlides).toHaveBeenCalled());
+    const got = onSlides.mock.calls[0][0];
+    expect(got).toMatchObject({ deckRev: 3, seq: 0, total: 1 });
+    expect(got.publishedAt).toBe(Date.parse(AT));
+    expect(got.slides[0].text).toBe('Welcome to\nAwana!');
+    expect(result.current.slidesStatus).toBe('ok');
+    expect(result.current.nameStatus).toBe('ok');
+  });
+
+  it('strips a smuggled video entry from an OPENED chunk — sealed is authenticated, not trusted', async () => {
+    saveDisplayKey(KEY);
+    const onSlides = vi.fn();
+    const { result } = setup({ onSlides });
+    await waitFor(() => expect(bound.slides).toBeTypeOf('function'));
+    await waitFor(() => expect(result.current.hasDisplayKey).toBe(true));
+
+    emit('slides', await sealForTest(keyBytes(), 'slides', {
+      ...CHUNK,
+      slides: [
+        { type: 'video', videoId: 'v_1', videoName: 'a.mp4' },
+        ...CHUNK.slides,
+      ],
+    }));
+    await waitFor(() => expect(onSlides).toHaveBeenCalled());
+    const got = onSlides.mock.calls[0][0];
+    expect(got.slides).toHaveLength(1);
+    expect(JSON.stringify(got)).not.toContain('v_1');
+  });
+
+  it('REFUSES a plaintext slides frame when keyed — without touching nameStatus', async () => {
+    saveDisplayKey(KEY);
+    const onSlides = vi.fn();
+    const { result } = setup({ onSlides });
+    await waitFor(() => expect(bound.slides).toBeTypeOf('function'));
+    await waitFor(() => expect(result.current.hasDisplayKey).toBe(true));
+
+    emit('slides', CHUNK);
+    await waitFor(() => expect(result.current.slidesStatus).toBe('refused-plaintext'));
+    expect(onSlides).not.toHaveBeenCalled();
+    expect(result.current.nameStatus).toBe('ok');
+  });
+
+  it('reports bad-key on ITS channel when the deck is sealed with a different key', async () => {
+    saveDisplayKey(KEY);
+    const onSlides = vi.fn();
+    const { result } = setup({ onSlides });
+    await waitFor(() => expect(bound.slides).toBeTypeOf('function'));
+    await waitFor(() => expect(result.current.hasDisplayKey).toBe(true));
+
+    const otherKey = new Uint8Array(32).fill(9);
+    emit('slides', await sealForTest(otherKey, 'slides', CHUNK));
+    await waitFor(() => expect(result.current.slidesStatus).toBe('bad-key'));
+    expect(result.current.nameStatus).toBe('ok');
+    expect(onSlides).not.toHaveBeenCalled();
+  });
+
+  it('resets the slide-sync verdict when the key changes — no stale re-paste advice', async () => {
+    saveDisplayKey(KEY);
+    const { result } = setup({ onSlides: vi.fn() });
+    await waitFor(() => expect(bound.slides).toBeTypeOf('function'));
+    await waitFor(() => expect(result.current.hasDisplayKey).toBe(true));
+
+    const otherKey = new Uint8Array(32).fill(9);
+    emit('slides', await sealForTest(otherKey, 'slides', CHUNK));
+    await waitFor(() => expect(result.current.slidesStatus).toBe('bad-key'));
+
+    // Operator pastes a (different) key: the old verdict is void — slides
+    // frames are sparse, so it must clear NOW, not at the next heartbeat.
+    const replacementKey = btoa(String.fromCharCode(...new Uint8Array(32).fill(7)));
+    act(() => { saveDisplayKey(replacementKey); });
+    await waitFor(() => expect(result.current.slidesStatus).toBe('idle'));
+  });
+
+  it('accepts a plaintext chunk while unkeyed (rollout mode), like every sealed event', async () => {
+    const onSlides = vi.fn();
+    setup({ onSlides });
+    await waitFor(() => expect(bound.slides).toBeTypeOf('function'));
+    emit('slides', CHUNK);
+    await waitFor(() => expect(onSlides).toHaveBeenCalled());
+    expect(onSlides.mock.calls[0][0].deckRev).toBe(3);
+  });
+});

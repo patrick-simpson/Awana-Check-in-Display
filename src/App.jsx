@@ -20,6 +20,7 @@ import StickerChip from './components/StickerChip.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useSocket, simulateEvent } from './hooks/useSocket.js';
+import { useSyncedDeck } from './hooks/useSyncedDeck.js';
 import { useSeenEvents } from './hooks/useSeenEvents.js';
 import { useSchedule } from './hooks/useSchedule.js';
 import { useWakeLock } from './hooks/useWakeLock.js';
@@ -260,6 +261,10 @@ export default function App() {
   // decideBoard() in src/lib/checkoutBoard.js.
   const [checkout, setCheckout] = useState(null);
 
+  // The synced slide deck — published once at the check-in machine, mirrored
+  // to every screen over the sealed `slides` event, cached for reboots.
+  const { deck: syncedDeck, onSlides, forget: forgetSyncedDeck } = useSyncedDeck();
+
   const socketHandlers = useMemo(() => ({
     onCheckin: handleCheckIn,
     onRecap: handleRecap,
@@ -268,9 +273,19 @@ export default function App() {
     onTonight: handleTonight,
     onNotice: handleNotice,
     onCheckout: setCheckout,
-  }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice]);
+    onSlides,
+  }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice, onSlides]);
 
-  const { status, lastEventAt, lastCheckinAt, retry, nameStatus } = useSocket(socketHandlers);
+  const { status, lastEventAt, lastCheckinAt, retry, nameStatus, slidesStatus } = useSocket(socketHandlers);
+
+  // Which typed deck actually renders: the published one wherever this device
+  // follows it (the default), else this device's own. An EMPTY published deck
+  // is a real deck — the operator cleared the slides everywhere — so it wins
+  // too; only "never received one" falls back to the local deck.
+  const followPublishedSlides = config.followPublishedSlides !== false;
+  const effectiveManualSlides = (followPublishedSlides && syncedDeck)
+    ? syncedDeck.slides
+    : config.manualSlides;
 
   // ── Simulated events go through the SAME sanitizers as real ones ────────────
   // The debug panel used to call these handlers directly, so every fake payload
@@ -588,7 +603,7 @@ export default function App() {
             slideshowDelaySec={config.slideshowDelaySec}
             useLocalSlideshow={config.useLocalSlideshow}
             backgroundSource={config.backgroundSource}
-            manualSlides={config.manualSlides}
+            manualSlides={effectiveManualSlides}
             calendarSlides={calendarSlides}
             sceneTheme={sceneTheme ?? 'sky'}
             cozy={mood.cozy}
@@ -859,6 +874,9 @@ export default function App() {
             opsFailures={opsFailures}
             remoteConfigError={FLAGS.configUrl ? remoteConfigError : null}
             wakeLockStatus={wakeLockStatus}
+            syncedDeck={syncedDeck}
+            slidesStatus={slidesStatus}
+            onForgetSyncedDeck={forgetSyncedDeck}
             onChange={updateConfig}
             onReset={resetConfig}
             onClose={() => setSettingsOpen(false)}
@@ -877,6 +895,7 @@ export default function App() {
         <ErrorBoundary label="slide-editor" onError={() => setSlideEditorOpen(false)}>
           <SlideEditorPanel
             config={config}
+            syncedDeck={followPublishedSlides ? syncedDeck : null}
             onChange={updateConfig}
             onClose={() => setSlideEditorOpen(false)}
           />

@@ -54,6 +54,26 @@ the framing and the reasoning; the publisher half is `print-server/events.js` in
 the printer repo, and the two are pinned to a shared interop fixture
 (`envelope-vectors.json`) so they cannot drift.
 
+**The synced slide deck (`slides`, contract v5) is sealed too.** It is
+free-typed operator copy — one day it will say "Pray for the Smiths" — so it
+gets the same envelope, on its own pad ladder (`[2048, 4096]`, fail-closed,
+because the 8192 rung would not fit Pusher's frame ceiling). Honesty about what
+that buys: "encrypted" means **church-readable** — every screen holding the
+shared display key can read the deck, there is no forward secrecy (a leaked key
+opens recorded past frames, same as `checkin`), and the deck sits in plaintext
+in each screen's localStorage and in the print server's `lobby-slides.json`.
+All acceptable for lobby-facing announcements, and stated here so nobody
+mistakes it for more.
+
+The slide **publish token** is a separate, lesser credential: it lets its
+holder ask the print server (from an allowlisted origin, with loopback or
+PIN-gated reach) to broadcast a new deck. It lives in its own localStorage
+entry (`src/lib/publishToken.js`) on the one machine that edits slides, never
+in `VALIDATORS`/config — the same three leak paths that displayKey.js
+enumerates are pinned shut by `publishToken.test.js`. Blast radius if it leaks:
+length-capped, allowlist-sanitized plain text on the lobby TVs, revoked by
+regenerating the token on the printer dashboard.
+
 The channel is still a public channel and the App Key still ships in the bundle.
 That is deliberate: Pusher public channels have **no server-side authorization
 primitive** — subscription is granted by possession of the key, and there is no
@@ -81,7 +101,7 @@ rules are part of the privacy design:
 The decision logic is a pure function (`src/lib/checkoutBoard.js`) precisely so
 it can be tested exhaustively rather than eyeballed.
 
-### Why the other six events stay in the clear
+### Why the other events stay in the clear
 
 `tally`, `tonight`, `points`, `schedule`, `notice`, `ops` and `canary` are
 **deliberately** unencrypted. They are counts and church-authored copy, none of

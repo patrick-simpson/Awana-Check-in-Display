@@ -10,6 +10,8 @@ import { NIGHT_THEME_VALUES, skinOptions } from '../lib/skins.js';
 import { useDisplayKey } from '../hooks/useDisplayKey.js';
 import { maskDisplayKey } from '../lib/displayKey.js';
 import { isPlausibleKey } from '../lib/envelope.js';
+import { loadDisplayKey } from '../lib/displayKey.js';
+import { loadPublishToken, maskPublishToken, savePublishToken } from '../lib/publishToken.js';
 
 const TABS = [
   { id: 'connection', label: 'Connection' },
@@ -25,6 +27,7 @@ export default function SettingsPanel({
   config, overrides, status, lastEventAt, calendar, phase, scheduleSource, opsFailures,
   remoteConfigError, wakeLockStatus,
   onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug,
+  syncedDeck, slidesStatus, onForgetSyncedDeck,
 }) {
   const [form, setForm] = useState({
     pusherAppKey: config.pusherAppKey || '',
@@ -47,6 +50,7 @@ export default function SettingsPanel({
     // reset to 'none' the moment Settings was opened.
     nightTheme: NIGHT_THEME_VALUES.includes(config.nightTheme) ? config.nightTheme : 'none',
     followPrinterTheme: config.followPrinterTheme !== false,
+    followPublishedSlides: config.followPublishedSlides !== false,
     mascotMoments: config.mascotMoments !== false,
     aprilFools: config.aprilFools === true,
     particleEffect: ['auto', 'snow', 'rain', 'sparkle', 'off'].includes(config.particleEffect)
@@ -265,7 +269,15 @@ export default function SettingsPanel({
             <ConnectionTab form={form} set={set} lastEventAt={lastEventAt} />
           )}
           {tab === 'background' && (
-            <BackgroundTab form={form} set={set} config={config} onOpenSlideEditor={onOpenSlideEditor} />
+            <BackgroundTab
+              form={form}
+              set={set}
+              config={config}
+              onOpenSlideEditor={onOpenSlideEditor}
+              syncedDeck={syncedDeck}
+              slidesStatus={slidesStatus}
+              onForgetSyncedDeck={onForgetSyncedDeck}
+            />
           )}
           {tab === 'banners' && (
             <BannersTab form={form} set={set} setForm={setForm} />
@@ -459,7 +471,7 @@ function DisplayKeyField() {
   );
 }
 
-function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
+function BackgroundTab({ form, set, config, onOpenSlideEditor, syncedDeck, slidesStatus, onForgetSyncedDeck }) {
   return (
     <>
       <div className="field">
@@ -531,6 +543,16 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
         </div>
       )}
 
+      {form.backgroundSource === 'manual' && (
+        <SlideSyncSection
+          form={form}
+          set={set}
+          syncedDeck={syncedDeck}
+          slidesStatus={slidesStatus}
+          onForgetSyncedDeck={onForgetSyncedDeck}
+        />
+      )}
+
       {form.backgroundSource === 'pptx' && <PptxUploadField />}
 
       {form.backgroundSource === 'video' && <VideoUploadField />}
@@ -574,6 +596,144 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor }) {
         </span>
       </div>
     </>
+  );
+}
+
+
+/**
+ * Slide sync — the per-display view of the PUBLISHED deck: whether this screen
+ * follows it, what it last received, why it might not be receiving, and the
+ * recovery lever. The publish side (token + button) lives with the editor on
+ * whichever machine does the editing; this section carries the token field so
+ * that machine has somewhere to paste it.
+ */
+function SlideSyncSection({ form, set, syncedDeck, slidesStatus, onForgetSyncedDeck }) {
+  const hasKey = Boolean(loadDisplayKey());
+  const following = form.followPublishedSlides !== false;
+  // Snapshot at open — the age line doesn't need to tick live.
+  const [nowAt] = useState(() => Date.now());
+
+  let statusLine;
+  if (syncedDeck) {
+    const when = new Date(syncedDeck.publishedAt);
+    const mins = Math.max(0, Math.round((nowAt - syncedDeck.publishedAt) / 60000));
+    const age = mins < 1 ? 'just now' : mins < 60 ? `${mins} min ago` : `${Math.floor(mins / 60)}h ${mins % 60}m ago`;
+    statusLine = `Received rev ${syncedDeck.deckRev} — ${syncedDeck.slides.length} slide${syncedDeck.slides.length === 1 ? '' : 's'}, published ${when.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${age}).`;
+  } else {
+    statusLine = 'Never received a published deck on this screen.';
+  }
+
+  // Why frames might not be opening — worded by fix, not by mechanism.
+  let hintLine = null;
+  if (following && !hasKey) {
+    hintLine = 'This screen has no display key, so it cannot read published decks — paste the key under Connection → Display key.';
+  } else if (slidesStatus === 'bad-key') {
+    hintLine = 'Published decks are arriving but will not open with this screen’s key — re-paste the current display key from the print-server dashboard.';
+  } else if (slidesStatus === 'no-key') {
+    hintLine = 'Published decks are arriving but this screen has no usable key — paste the display key under Connection.';
+  } else if (slidesStatus === 'refused-plaintext') {
+    hintLine = 'The print server is publishing slides UNENCRYPTED (no display key set there); this keyed screen refuses them. Set the display key on the print server.';
+  }
+
+  return (
+    <div className="field">
+      <Toggle
+        checked={following}
+        onChange={set('followPublishedSlides')}
+        title="Follow published slides"
+        hint="Show the deck published from the print server / check-in machine instead of this device’s own typed slides. The editor here still works — publishing from it updates every screen; plain Save keeps a deck on this device only."
+      />
+      <span className="hint">
+        {statusLine}
+        {hintLine && <> <strong>{hintLine}</strong></>}
+      </span>
+      {syncedDeck && (
+        <button
+          type="button"
+          className="ghost"
+          style={{ alignSelf: 'flex-start' }}
+          onClick={() => {
+            if (window.confirm('Forget the received deck on THIS screen? It falls back to its locally saved slides until the next publish arrives.')) {
+              onForgetSyncedDeck?.();
+            }
+          }}
+        >
+          Forget received deck
+        </button>
+      )}
+      <PublishTokenField />
+    </div>
+  );
+}
+
+/**
+ * The publish token — the credential the print server requires before THIS
+ * machine's slide editor may publish to every screen. Deliberately NOT part of
+ * `form`/`set`, for exactly the reasons the display key is not: `form` backs
+ * the settings export and the ?config= merge, and a credential must ride
+ * neither. See src/lib/publishToken.js; publishToken.test.js pins the paths.
+ */
+function PublishTokenField() {
+  const [token, setToken] = useState(loadPublishToken);
+  const [draft, setDraft] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  const commit = () => {
+    const next = draft.trim();
+    const ok = savePublishToken(next);
+    if (ok) setToken(next);
+    else window.alert('This machine cannot save the token — browser storage is blocked.');
+    setEditing(false);
+    setDraft('');
+  };
+
+  return (
+    <div className="field" style={{ marginTop: '0.5rem' }}>
+      <label htmlFor="ptoken">Publish token (only needed on the machine that edits slides)</label>
+      {!editing ? (
+        <div className="display-key-row">
+          <code className="display-key-value">
+            {token ? maskPublishToken(token) : 'not set — the Publish button will explain how to get one'}
+          </code>
+          <button type="button" className="ghost" onClick={() => setEditing(true)}>
+            {token ? 'Replace' : 'Paste token'}
+          </button>
+          {token && (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                if (window.confirm('Remove the publish token from this machine? Its Publish button will stop working; other screens are unaffected.')) {
+                  savePublishToken('');
+                  setToken('');
+                }
+              }}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="display-key-row">
+          <input
+            id="ptoken"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
+            placeholder="paste the token from the printer dashboard"
+          />
+          <button type="button" className="ghost" disabled={!draft.trim()} onClick={commit}>Save</button>
+          <button type="button" className="ghost" onClick={() => { setEditing(false); setDraft(''); }}>Cancel</button>
+        </div>
+      )}
+      <span className="hint">
+        From the print-server dashboard → <strong>Lobby Slides</strong> → Generate. It stays on this machine —
+        never in a settings export, a <code>?config=</code> file, or a URL.
+      </span>
+    </div>
   );
 }
 

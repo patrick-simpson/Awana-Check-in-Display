@@ -120,6 +120,48 @@ reaching the projector. (The verse-of-the-month slide was retired: the
 opening ceremony ends on a blackout, and pressing → on the blackout
 jumps straight into the first game window.)
 
+## Slides on every display (slide sync)
+
+The typed slide deck is published ONCE and every lobby display shows it.
+Edit slides anywhere (Ctrl+Shift+E), then get them to the screens one of
+two ways:
+
+- **At the check-in computer, in the display app**: open the slide editor
+  and press **Publish to all displays**. This needs the one-time publish
+  token: printer dashboard → **Lobby Slides** → Generate, then paste it
+  into the display's Settings → Background → Publish token. Chrome may ask
+  once to allow the page to reach the local printer app — allow it.
+- **On the printer dashboard (always works, any browser)**: in the display
+  app press **Export** (downloads `awana-slides.json`), then paste or drop
+  that file into the dashboard's **Lobby Slides** card and press Publish.
+  This is also the path for a deck drafted at home: export it there, carry
+  the file, paste it at church.
+
+What the screens do: displays holding the display key decrypt the deck,
+show it, and **cache it** — a screen that reboots on club night renders
+the deck instantly, and screens that were off catch up within ~5 minutes
+of coming back (while the printer app is running). The editor screen
+switching to the new deck is your confirmation the whole pipe works.
+
+Facts worth knowing:
+
+- Only **typed text slides** sync. Video slides and pptx/video background
+  uploads stay on the device they were added to, on purpose (their files
+  live in that device's browser).
+- Publishing an **empty** deck clears the slides on every display — that
+  is a feature, and the editor asks first.
+- A display can opt out: Settings → Background → **Follow published
+  slides** off pins it to its own local deck.
+- With the **display key** set on the print server (the normal state), the
+  deck travels encrypted like the names do. Without it, the printer is in
+  rollout mode and the deck goes out **unencrypted** — so set the key. A
+  keyed screen refuses unencrypted decks; a screen missing the key can't
+  read encrypted ones and keeps its local slides — either way Settings →
+  Background says exactly what to fix.
+- Wrong deck showing after a printer reinstall or clock problem? Settings
+  → Background → **Forget received deck** on the affected screen, then
+  publish again.
+
 ## Moving or replacing a display device
 
 Settings on a device live in that device's browser. To clone a lobby

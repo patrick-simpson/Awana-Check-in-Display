@@ -15,11 +15,13 @@
 //
 // So the events that carry a child's name — `checkin`, `recap`, `birthdays` and
 // `checkout` — are sealed with AES-256-GCM under a key that only the print
-// server and the church's own screens hold. The other seven events stay in
-// the clear ON PURPOSE: they are counts and church-authored copy, and their
-// readability is what lets a screen tell "the pipe is down" apart from "I
-// can't read the names" apart from "quiet night". A screen that goes blank
-// with no explanation is worse than one that says which half is broken.
+// server and the church's own screens hold. `slides` (contract v5) is sealed
+// too: the synced slide deck is free-typed operator copy that will eventually
+// name people, and it has no business being world-readable forever. The other
+// events stay in the clear ON PURPOSE: they are counts and short public copy,
+// and their readability is what lets a screen tell "the pipe is down" apart
+// from "I can't read the names" apart from "quiet night". A screen that goes
+// blank with no explanation is worse than one that says which half is broken.
 //
 // WHAT THIS DOES NOT BUY
 //
@@ -53,8 +55,9 @@
 /** Envelope format version. Bumping it changes the AAD, so old frames fail. */
 export const ENVELOPE_VERSION = 1;
 
-/** Events whose payloads carry a child's name and must be sealed. */
-export const ENCRYPTED_EVENTS = ['checkin', 'recap', 'birthdays', 'checkout'];
+/** Events that must arrive sealed: the name-bearing four plus the synced
+ * slide deck (operator-authored free text). */
+export const ENCRYPTED_EVENTS = ['checkin', 'recap', 'birthdays', 'checkout', 'slides'];
 
 /**
  * Fixed padded plaintext size for `checkin` — every frame is exactly this big.
@@ -78,6 +81,15 @@ export const CHECKIN_PAD = 512;
  */
 export const PAD_LADDER = [2048, 4096, 8192];
 
+/**
+ * `slides` pads on its own SHORTER ladder with no round-up past the top rung:
+ * an 8192-padded plaintext base64-inflates past Pusher's 10 KB per-event
+ * ceiling, so a rung the transport cannot deliver must not exist for this
+ * event. The publisher chunks decks so every chunk fits 4096; anything bigger
+ * fails closed on the sealing side and is unopenable here by construction.
+ */
+export const SLIDES_PAD_LADDER = [2048, 4096];
+
 const LEN_PREFIX = 4;
 
 /**
@@ -95,6 +107,10 @@ export function paddedSize(event, jsonByteLength) {
     // length upstream, so this is unreachable; if it ever fires, the publisher
     // fails closed rather than leaking.
     return needed <= CHECKIN_PAD ? CHECKIN_PAD : null;
+  }
+  if (event === 'slides') {
+    for (const rung of SLIDES_PAD_LADDER) if (needed <= rung) return rung;
+    return null;   // fail closed — see SLIDES_PAD_LADDER above
   }
   for (const rung of PAD_LADDER) if (needed <= rung) return rung;
   // Above the ladder, round up to whole rungs of the largest step.

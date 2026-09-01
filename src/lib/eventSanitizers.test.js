@@ -10,6 +10,7 @@ import {
   sanitizePoints,
   sanitizeRecap,
   sanitizeSchedule,
+  sanitizeSlidesChunk,
   sanitizeTally,
   sanitizeTonight,
 } from './eventSanitizers.js';
@@ -29,6 +30,7 @@ const SANITIZERS = {
   points: sanitizePoints,
   schedule: sanitizeSchedule,
   notice: sanitizeNotice,
+  slides: sanitizeSlidesChunk,
 };
 
 // The exact key set each sanitizer may emit (checkin `at` becomes epoch
@@ -45,11 +47,14 @@ const ALLOWED_KEYS = {
   points: ['groups', 'at', 'club'],
   schedule: ['at', 'nextMeetingDate', 'title', 'noClubThisWeek'],
   notice: ['level', 'message', 'at'],
+  slides: ['deckRev', 'publishedAt', 'seq', 'total', 'slides'],
 };
 
-describe('contract vectors are the v4 contract', () => {
-  it('is contract version 4 on awana-channel', () => {
-    expect(vectors.contractVersion).toBe(4);
+const SLIDE_ENTRY_KEYS = ['id', 'eyebrow', 'text', 'theme', 'textSize', 'durationSec'];
+
+describe('contract vectors are the v5 contract', () => {
+  it('is contract version 5 on awana-channel', () => {
+    expect(vectors.contractVersion).toBe(5);
     expect(vectors.channel).toBe('awana-channel');
   });
 
@@ -79,6 +84,11 @@ for (const [event, spec] of Object.entries(vectors.events)) {
             for (const key of Object.keys(e)) expect(entryAllowed).toContain(key);
           }
         }
+        if (event === 'slides') {
+          for (const e of out.slides) {
+            for (const key of Object.keys(e)) expect(SLIDE_ENTRY_KEYS).toContain(key);
+          }
+        }
       });
     }
 
@@ -90,7 +100,7 @@ for (const [event, spec] of Object.entries(vectors.events)) {
           expect(raw).not.toContain(banned);
         }
         if (dirty.expectEntryCount !== undefined) {
-          expect(out?.entries?.length ?? 0).toBe(dirty.expectEntryCount);
+          expect((out?.entries ?? out?.slides)?.length ?? 0).toBe(dirty.expectEntryCount);
         }
       });
     }
@@ -142,6 +152,58 @@ describe('tally specifics', () => {
   it('derives total when the payload omits it', () => {
     const out = sanitizeTally({ counts: { Sparks: 2, Trek: 3 }, at: '2026-09-16T22:07:00.000Z' });
     expect(out.total).toBe(5);
+  });
+});
+
+describe('slides chunk specifics (contract v5)', () => {
+  const base = {
+    deckRev: 2,
+    publishedAt: '2026-09-16T22:12:00.000Z',
+    seq: 0,
+    total: 1,
+    slides: [{ eyebrow: '', text: 'Hello', theme: 'sky', textSize: 'auto', durationSec: 0 }],
+  };
+
+  it('normalizes publishedAt to epoch ms — the ordering authority must be comparable', () => {
+    const out = sanitizeSlidesChunk(base);
+    expect(out.publishedAt).toBe(Date.parse('2026-09-16T22:12:00.000Z'));
+  });
+
+  it('accepts an epoch-ms publishedAt too (producer freedom, one consumer shape)', () => {
+    const out = sanitizeSlidesChunk({ ...base, publishedAt: 1789600000000 });
+    expect(out.publishedAt).toBe(1789600000000);
+  });
+
+  it('drops a video slide however it is spelled, without rejecting the chunk', () => {
+    const out = sanitizeSlidesChunk({
+      ...base,
+      slides: [{ type: 'video', videoId: 'v_x' }, { type: 'hologram', text: 'future' }, { text: 'Kept' }],
+    });
+    expect(out.slides).toHaveLength(1);
+    expect(out.slides[0].text).toBe('Kept');
+  });
+
+  it('keeps multi-line slide text', () => {
+    const out = sanitizeSlidesChunk({ ...base, slides: [{ text: 'Welcome to\nAwana!' }] });
+    expect(out.slides[0].text).toBe('Welcome to\nAwana!');
+  });
+
+  it('clamps durations and falls back on junk theme/size', () => {
+    const out = sanitizeSlidesChunk({
+      ...base,
+      slides: [{ text: 'x', theme: 'hotdog-stand', textSize: 'banner', durationSec: 99999 }],
+    });
+    expect(out.slides[0]).toMatchObject({ theme: 'auto', textSize: 'auto', durationSec: 600 });
+  });
+
+  it('refuses deckRev below 1 and junk deckRev', () => {
+    expect(sanitizeSlidesChunk({ ...base, deckRev: 0 })).toBeNull();
+    expect(sanitizeSlidesChunk({ ...base, deckRev: 'seven' })).toBeNull();
+  });
+
+  it('refuses fractional seq/total (int discipline, not coercion)', () => {
+    expect(sanitizeSlidesChunk({ ...base, seq: 0.5, total: 2 })).toBeNull();
+    expect(sanitizeSlidesChunk({ ...base, total: 1.5 })).toBeNull();
   });
 });
 

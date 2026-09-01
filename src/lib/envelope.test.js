@@ -4,6 +4,7 @@ import {
   ENCRYPTED_EVENTS,
   CHECKIN_PAD,
   PAD_LADDER,
+  SLIDES_PAD_LADDER,
   paddedSize,
   fromBase64,
   toBase64,
@@ -37,11 +38,22 @@ const keyBytes = () => fromBase64(fixture.testKey);
 beforeEach(() => { _resetKeyCache(); });
 
 describe('the framing this build implements matches the fixture', () => {
-  it('agrees with the printer on version, pad and ladder', () => {
+  it('agrees with the printer on version, pad and ladders', () => {
     expect(fixture.envelopeVersion).toBe(ENVELOPE_VERSION);
     expect(fixture.checkinPad).toBe(CHECKIN_PAD);
     expect(fixture.padLadder).toEqual(PAD_LADDER);
+    expect(fixture.slidesPadLadder).toEqual(SLIDES_PAD_LADDER);
     expect(fixture.encryptedEvents).toEqual(ENCRYPTED_EVENTS);
+  });
+
+  it('slides pads fail closed above their top rung — the 8192 rung must not exist for them', () => {
+    // (paddedSize takes the JSON length; the rung includes the 4-byte prefix)
+    expect(paddedSize('slides', 2000)).toBe(2048);
+    expect(paddedSize('slides', 2044)).toBe(2048);
+    expect(paddedSize('slides', 2045)).toBe(4096);
+    expect(paddedSize('slides', 4092)).toBe(4096);
+    expect(paddedSize('slides', 4093)).toBeNull();
+    expect(paddedSize('slides', 50000)).toBeNull();
   });
 });
 

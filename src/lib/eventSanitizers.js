@@ -112,6 +112,16 @@
  * @property {number} at Epoch ms.
  */
 
+import {
+  MAX_DURATION_SEC,
+  MAX_EYEBROW,
+  MAX_SLIDES,
+  MAX_TEXT,
+  MIN_DURATION_SEC,
+  SLIDE_THEMES,
+  TEXT_SIZES,
+} from './slides.js';
+
 const NAME_MAX = 40;
 const ID_MAX = 64;
 const RECAP_MAX = 30;
@@ -473,6 +483,84 @@ export function sanitizeSchedule(payload) {
   if (title) safe.title = title;
   if (typeof raw.noClubThisWeek === 'boolean') safe.noClubThisWeek = raw.noClubThisWeek;
   return safe;
+}
+
+/**
+ * One text slide inside a `slides` chunk — the caps come straight from
+ * src/lib/slides.js so the wire contract and the local editor can never
+ * disagree about what a slide is.
+ * @typedef {Object} SlidesChunkEntry
+ * @property {string} [id]
+ * @property {string} eyebrow
+ * @property {string} text
+ * @property {string} theme
+ * @property {string} textSize
+ * @property {number} durationSec
+ */
+
+/**
+ * `slides` (contract v5) — one sealed chunk of the operator's published slide
+ * deck. TEXT ONLY: a `type: 'video'` (or any typed) entry references bytes in
+ * one device's own storage, so it is dropped here no matter what the producer
+ * sent. `publishedAt` is the consumer's ordering + anti-replay authority and
+ * is therefore required; `deckRev` is an operator-facing counter used only to
+ * group chunks. slides:[] is legal only on a single-chunk publish — an
+ * explicitly cleared deck propagates, a multi-chunk deck has no empty pieces.
+ * @typedef {Object} SlidesChunkEvent
+ * @property {number} deckRev int ≥ 1
+ * @property {number} publishedAt Epoch ms.
+ * @property {number} seq 0 ≤ seq < total
+ * @property {number} total 1..12
+ * @property {SlidesChunkEntry[]} slides
+ */
+
+const SLIDES_TOTAL_MAX = 12;
+
+/**
+ * @param {unknown} payload
+ * @returns {SlidesChunkEvent | null}
+ */
+export function sanitizeSlidesChunk(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+  const raw = /** @type {Record<string, unknown>} */ (payload);
+  const publishedAt = toEpochMs(raw.publishedAt);
+  if (publishedAt === null) return null;
+  const deckRev = typeof raw.deckRev === 'number' && Number.isFinite(raw.deckRev)
+    ? Math.floor(raw.deckRev)
+    : NaN;
+  if (!(deckRev >= 1)) return null;
+  const seq = typeof raw.seq === 'number' && Number.isInteger(raw.seq) ? raw.seq : NaN;
+  const total = typeof raw.total === 'number' && Number.isInteger(raw.total) ? raw.total : NaN;
+  if (!(total >= 1 && total <= SLIDES_TOTAL_MAX)) return null;
+  if (!(seq >= 0 && seq < total)) return null;
+  if (!Array.isArray(raw.slides)) return null;
+  if (raw.slides.length === 0 && total !== 1) return null;
+
+  /** @type {SlidesChunkEntry[]} */
+  const slides = [];
+  for (const item of raw.slides.slice(0, MAX_SLIDES)) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const entry = /** @type {Record<string, unknown>} */ (item);
+    // TEXT ONLY — any typed entry (video today, whatever tomorrow) is dropped.
+    if (entry.type !== undefined) continue;
+    const text = typeof entry.text === 'string' ? entry.text.trim().slice(0, MAX_TEXT) : '';
+    if (!text) continue;
+    /** @type {SlidesChunkEntry} */
+    const safe = {
+      eyebrow: cleanString(entry.eyebrow, MAX_EYEBROW),
+      text,
+      theme: typeof entry.theme === 'string' && SLIDE_THEMES.includes(entry.theme) ? entry.theme : 'auto',
+      textSize: typeof entry.textSize === 'string' && TEXT_SIZES.includes(entry.textSize) ? entry.textSize : 'auto',
+      durationSec: 0,
+    };
+    if (typeof entry.durationSec === 'number' && Number.isFinite(entry.durationSec) && entry.durationSec > 0) {
+      safe.durationSec = Math.min(MAX_DURATION_SEC, Math.max(MIN_DURATION_SEC, Math.round(entry.durationSec)));
+    }
+    const id = cleanString(entry.id, ID_MAX);
+    if (id) safe.id = id;
+    slides.push(safe);
+  }
+  return { deckRev, publishedAt, seq, total, slides };
 }
 
 /**

@@ -151,7 +151,8 @@ The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
 **One strict allowlist sanitizer per event type** — see
 `src/lib/eventSanitizers.js` (bound per-event in
 `src/hooks/useSocket.js`). Each incoming payload on the Pusher channel
-(`checkin`, `recap`, `checkout`, `tally`, `birthdays`, `ops`, `canary`) is reduced
+(`checkin`, `recap`, `checkout`, `tally`, `birthdays`, `ops`, `canary`,
+`tonight`, `points`, `schedule`, `notice`, `slides`) is reduced
 to exactly its allowlisted fields before anything else sees it: first
 names only, ever. Allergy info, contact info, last names, birth years,
 photos — none of it can ever reach the screen. Payload shapes are
@@ -163,7 +164,10 @@ change to the socket layer, the sanitizers, or banner components.
 **The four name-bearing events arrive ENCRYPTED**, because the Pusher
 channel is public and Pusher public channels have no server-side
 authorization primitive at all. `checkin`, `recap`, `birthdays` and
-`checkout` are sealed with AES-256-GCM (`src/lib/envelope.js`; publisher half is
+`checkout` — plus `slides`, the operator's published slide deck (free-typed
+church copy, contract v5; chunked, ordered strictly by `publishedAt`,
+cached in `awanaSyncedSlides.v1`, publish token in its own storage like the
+display key) — are sealed with AES-256-GCM (`src/lib/envelope.js`; publisher half is
 `print-server/events.js` in the printer repo, pinned to a shared
 `envelope-vectors.json` interop fixture). Rules that must survive any
 change:
@@ -179,7 +183,7 @@ change:
   the key. `displayKey.test.js` guards all three paths.
 - Decrypts are serialized through one promise chain per event, or a burst
   of arrivals greets children out of order.
-- The other six events stay plaintext **on purpose**: their readability
+- The other events stay plaintext **on purpose**: their readability
   is what lets a screen distinguish "pipe down" from "cannot read names"
   from "quiet night". See SECURITY.md.
 

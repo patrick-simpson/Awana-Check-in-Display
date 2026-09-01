@@ -51,6 +51,7 @@ const VALIDATORS = {
   // used to mean editing this list, skins.js, the Settings dropdown and the CSS.
   nightTheme: (v) => NIGHT_THEME_VALUES.includes(v),
   followPrinterTheme: (v) => typeof v === 'boolean',
+  followPublishedSlides: isBool,
   mascotMoments: (v) => typeof v === 'boolean',
   aprilFools: (v) => typeof v === 'boolean',
   particleEffect: (v) => ['auto', 'off', 'snow', 'rain', 'sparkle'].includes(v),
