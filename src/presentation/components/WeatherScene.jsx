@@ -23,9 +23,15 @@ const SNOWFLAKES = Array.from({ length: 50 }, (_, i) => ({
 }));
 
 // ── Clouds ──
+// `left` spreads each cloud across the sky; `cloudDrift` only swings a
+// clou around ITS OWN anchor (±150px), so without a distinct per-cloud
+// left every cloud defaults to the same spot (the container's static
+// position, near the left edge) and the whole flock piles up and
+// oscillates in place instead of dotting the sky.
 const CLOUDS = Array.from({ length: 6 }, (_, i) => ({
   id: i,
   top: `${10 + (i * 11) % 60}%`,
+  left: `${5 + (i * 16) % 90}%`,
   duration: `${20 + (i * 3) % 10}s`,
   delay: `${-(i * 3.3)}s`,
   size: `${100 + (i * 17) % 80}px`,
@@ -33,9 +39,12 @@ const CLOUDS = Array.from({ length: 6 }, (_, i) => ({
 }));
 
 // ── Fog ──
+// Same reasoning as CLOUDS above — each blob needs its own `left`, or
+// cloudDrift's ±150px swing just oscillates the whole bank in place.
 const FOG_BLOBS = Array.from({ length: 8 }, (_, i) => ({
   id: i,
   top: `${(i * 12.5) % 100}%`,
+  left: `${(i * 12.5 + 6) % 100}%`,
   duration: `${30 + (i * 4) % 15}s`,
   delay: `${-(i * 3.75)}s`,
   size: `${200 + (i * 23) % 150}px`,
@@ -256,6 +265,7 @@ export const WeatherScene = ({ weather }) => {
               className="absolute rounded-full bg-white"
               style={{
                 top: cloud.top,
+                left: cloud.left,
                 width: cloud.size,
                 height: `${Math.round(parseInt(cloud.size) * 0.5)}px`,
                 opacity: cloud.opacity,
@@ -277,7 +287,7 @@ export const WeatherScene = ({ weather }) => {
               className="absolute rounded-full bg-white"
               style={{
                 top: blob.top,
-                left: '-150px',
+                left: blob.left,
                 width: blob.size,
                 height: blob.size,
                 opacity: blob.opacity,
