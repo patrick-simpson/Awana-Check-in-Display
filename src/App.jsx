@@ -3,7 +3,6 @@ import { AnimatePresence, MotionConfig } from 'framer-motion';
 import { M, ZeroAnimationContext } from './lib/motion.jsx';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
-import MascotMoments from './components/MascotMoments.jsx';
 import ParticleLayer from './components/ParticleLayer.jsx';
 import DataCycle from './components/DataCycle.jsx';
 import TonightTicker from './components/TonightTicker.jsx';
@@ -620,16 +619,6 @@ export default function App() {
         && config.reduceMotion !== true && config.panicMode !== true && (
         <ErrorBoundary label="particles">
           <ParticleLayer effect={particleEffect} />
-        </ErrorBoundary>
-      )}
-
-      {/* Mascot moments (#17): idle ambience only — mounted below the banner
-          layer and suppressed the instant anything is celebrating. Skipped
-          entirely under reduce-motion / panic, and signage-only: a mascot
-          must never scoot across an OBS/ProPresenter overlay feed. */}
-      {!overlay && config.mascotMoments !== false && config.reduceMotion !== true && config.panicMode !== true && (
-        <ErrorBoundary label="mascots">
-          <MascotMoments suppressed={currentEvent != null || celebration != null} />
         </ErrorBoundary>
       )}
 

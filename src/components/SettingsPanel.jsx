@@ -51,7 +51,6 @@ export default function SettingsPanel({
     nightTheme: NIGHT_THEME_VALUES.includes(config.nightTheme) ? config.nightTheme : 'none',
     followPrinterTheme: config.followPrinterTheme !== false,
     followPublishedSlides: config.followPublishedSlides !== false,
-    mascotMoments: config.mascotMoments !== false,
     aprilFools: config.aprilFools === true,
     particleEffect: ['auto', 'snow', 'rain', 'sparkle', 'off'].includes(config.particleEffect)
       ? config.particleEffect
@@ -904,13 +903,6 @@ function DisplayTab({ form, set }) {
         onChange={set('followPrinterTheme')}
         title="Follow the printer's season"
         hint="When the label printer broadcasts its season theme, this screen wears the matching skin so labels and screens switch together. Only applies while the skin above is set to Auto; picking a skin by hand always wins."
-      />
-
-      <Toggle
-        checked={form.mascotMoments === true}
-        onChange={set('mascotMoments')}
-        title="Mascot moments between check-ins"
-        hint="Every few quiet minutes, an official club mascot peeks up from the bottom of the screen or scoots across it. Hidden instantly when a banner shows; off under reduce-motion and panic mode."
       />
 
       <div className="field">

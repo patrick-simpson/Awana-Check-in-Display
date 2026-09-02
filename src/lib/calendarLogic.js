@@ -173,7 +173,10 @@ export function buildCalendarSlides(info, cfg = {}) {
       const { title, note } = splitTitle(entry.title);
       slides.push(slide('cal_next', {
         eyebrow: 'Mark your calendar',
-        text: gap <= 8 ? `Next week is ${title}!` : `Coming up: ${title} — ${formatShortDate(entry.date)}`,
+        // A colon, not "is": titles are often whole sentences ("Poster
+        // contest kicks off"), and "Next week is Poster contest kicks off"
+        // reads as broken grammar on a wall.
+        text: gap <= 8 ? `Next week: ${title}` : `Coming up: ${title} — ${formatShortDate(entry.date)}`,
         subtext: note,
         theme: 'sunset',
         textSize: 'lg',

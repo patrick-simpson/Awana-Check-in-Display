@@ -228,12 +228,6 @@ const config = {
   // stay per-device by design.
   followPublishedSlides: true,
 
-  // Mascot moments (#17): between check-ins, an official club mascot
-  // occasionally peeks up from the bottom edge or scoots across it. Rare by
-  // design (one every ~2-3.5 minutes), instantly hidden when a banner shows,
-  // and skipped under reduce-motion or panic mode.
-  mascotMoments: true,
-
   // April Fools (#21): flips this screen upside down. SCREENS ONLY - labels
   // and the printer dashboard stay serious - and the flip only actually
   // happens on April 1st, so a toggle left on is inert the rest of the year.

@@ -139,14 +139,3 @@ export function getAllClubs() {
   // Used by the debug panel's "Trigger Every Club" button.
   return Object.values(CLUBS).map((c) => c.name);
 }
-
-/**
- * Clubs that have official mascot art — the cast of MascotMoments (#17).
- * Trek and Journey have no mascot characters (mascot: null) by design.
- * @returns {{ name: string, mascot: string, primary: string }[]}
- */
-export function getMascotClubs() {
-  return Object.values(CLUBS)
-    .filter((c) => c.mascot)
-    .map((c) => ({ name: c.name, mascot: c.mascot, primary: c.primary }));
-}

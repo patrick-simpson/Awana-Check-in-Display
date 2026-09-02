@@ -154,7 +154,7 @@ describe('buildCalendarSlides', () => {
   it('next week special → announcement slide with note', () => {
     const info = deriveClubInfo([club('2026-09-09'), club('2026-09-16', 'Backwards Night')], '2026-09-09');
     const next = byId(buildCalendarSlides(info, {}), 'cal_next');
-    expect(next.text).toBe('Next week is Backwards Night!');
+    expect(next.text).toBe('Next week: Backwards Night');
   });
 
   it('next week cancelled → "No club next week" with the comeback date', () => {
@@ -240,13 +240,13 @@ describe('buildCalendarSlides', () => {
     expect(next.text).toBe('Coming up: Backwards Night — Wed, Jan 6');
   });
 
-  it('night before the finale reads "Next week is Awards Night!"', () => {
+  it('night before the finale reads "Next week: Awards Night"', () => {
     const info = deriveClubInfo(
       [club('2027-05-19'), club('2027-05-26', 'Awards Night - final night of the year!')],
       '2027-05-19'
     );
     const slides = buildCalendarSlides(info, {});
-    expect(byId(slides, 'cal_next').text).toBe('Next week is Awards Night!');
+    expect(byId(slides, 'cal_next').text).toBe('Next week: Awards Night');
     expect(byId(slides, 'cal_remaining').text).toBe('1 night remaining');
   });
 
