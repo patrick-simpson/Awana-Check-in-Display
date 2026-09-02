@@ -640,7 +640,7 @@ function SlideSyncSection({ form, set, syncedDeck, slidesStatus, onForgetSyncedD
         checked={following}
         onChange={set('followPublishedSlides')}
         title="Follow published slides"
-        hint="Show the deck published from the print server / check-in machine instead of this device’s own typed slides. The editor here still works — publishing from it updates every screen; plain Save keeps a deck on this device only."
+        hint="Show the deck published from the print server / check-in machine instead of this device’s own typed slides. Video slides saved on this device still play alongside it (their files only exist here). The editor still works — publishing from it updates every screen."
       />
       <span className="hint">
         {statusLine}

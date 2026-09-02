@@ -9,6 +9,7 @@ import {
   makeSlide,
   makeSlideId,
   makeVideoSlide,
+  mergeSyncedDeck,
   resolveSizeClass,
   resolveTheme,
   sanitizeSlides,
@@ -213,5 +214,56 @@ describe('slideDurationMs', () => {
   it('clamps so a slide can never flash by or stick forever', () => {
     expect(slideDurationMs({ durationSec: 0 }, 1)).toBe(3000);
     expect(slideDurationMs({ durationSec: 0 }, 99999)).toBe(600000);
+  });
+});
+
+describe('mergeSyncedDeck', () => {
+  const text = (id, body) => ({ id, eyebrow: '', text: body, theme: 'auto', durationSec: 0, textSize: 'auto' });
+  const video = (id, videoId) => ({ id, type: 'video', videoId, videoName: 'clip.mp4', videoSize: 1000, durationSec: 0 });
+
+  it('returns the published deck untouched when this device has no video slides', () => {
+    const synced = [text('s_a', 'Hello'), text('s_b', 'World')];
+    expect(mergeSyncedDeck(synced, [text('s_local', 'Old local')])).toEqual(synced);
+    expect(mergeSyncedDeck(synced, [])).toEqual(synced);
+    expect(mergeSyncedDeck(synced, null)).toEqual(synced);
+  });
+
+  it('keeps this device\'s video slides in the rotation — the "saved a video and it vanished" fix', () => {
+    const synced = [text('s_a', 'Hello')];
+    const local = [video('s_v', 'vid_1')];
+    const merged = mergeSyncedDeck(synced, local);
+    expect(merged.map((s) => s.id)).toEqual(['s_a', 's_v']);
+    expect(merged.filter(isVideoSlide)).toHaveLength(1);
+  });
+
+  it('honors the local interleave when local text matches the published text', () => {
+    const synced = [text('s_a', 'Hello'), text('s_b', 'World')];
+    const local = [text('s_a', 'Hello'), video('s_v', 'vid_1'), text('s_b', 'World')];
+    expect(mergeSyncedDeck(synced, local).map((s) => s.id)).toEqual(['s_a', 's_v', 's_b']);
+  });
+
+  it('falls back to published-text-first + videos appended when the fleet has newer text', () => {
+    const synced = [text('s_new', 'Fresh publish')];
+    const local = [text('s_a', 'Stale'), video('s_v', 'vid_1'), text('s_b', 'Old')];
+    const merged = mergeSyncedDeck(synced, local);
+    expect(merged.map((s) => s.text ?? 'VIDEO')).toEqual(['Fresh publish', 'VIDEO']);
+    expect(merged[0].id).toBe('s_new');
+    expect(merged[1].videoId).toBe('vid_1');
+  });
+
+  it('an explicitly published EMPTY deck still plays this device\'s videos', () => {
+    const local = [video('s_v', 'vid_1')];
+    const merged = mergeSyncedDeck([], local);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].videoId).toBe('vid_1');
+  });
+
+  it('dedupes an id shared between the published deck and a local video', () => {
+    const synced = [text('s_dup', 'Hello')];
+    const local = [text('s_x', 'Different'), video('s_dup', 'vid_1')];
+    const merged = mergeSyncedDeck(synced, local);
+    const ids = merged.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(merged.filter(isVideoSlide)).toHaveLength(1);
   });
 });

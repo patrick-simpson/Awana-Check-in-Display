@@ -9,6 +9,7 @@ import {
   makeSlide,
   makeSlideId,
   makeVideoSlide,
+  mergeSyncedDeck,
   resolveSizeClass,
   resolveTheme,
   sanitizeSlides,
@@ -43,13 +44,17 @@ const SIZE_OPTIONS = [
  * only the video's name, so other devices need the file re-added.
  */
 export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose }) {
-  // When this screen follows a published deck, THAT deck is what's on the
-  // wall, so it is what the editor opens — otherwise editing would silently
-  // start from a stale local copy. Snapshotted at open: if a new publish
-  // lands while this panel is up, the banner must keep describing the deck
-  // the editor actually opened, not drift to a rev it doesn't contain.
+  // When this screen follows a published deck, what's on the wall is that
+  // deck merged with this device's own video slides (mergeSyncedDeck — video
+  // bytes never ride a publish), so that merged view is what the editor
+  // opens — otherwise editing would silently start from a stale local copy,
+  // or lose the videos. Snapshotted at open: if a new publish lands while
+  // this panel is up, the banner must keep describing the deck the editor
+  // actually opened, not drift to a rev it doesn't contain.
   const [seededDeck] = useState(() => syncedDeck);
-  const [slides, setSlides] = useState(() => sanitizeSlides(seededDeck ? seededDeck.slides : config.manualSlides));
+  const [slides, setSlides] = useState(() => (
+    seededDeck ? mergeSyncedDeck(seededDeck.slides, config.manualSlides) : sanitizeSlides(config.manualSlides)
+  ));
   const [importError, setImportError] = useState('');
   const [videoError, setVideoError] = useState('');
   const [publishState, setPublishState] = useState({ phase: 'idle', message: '' });
@@ -115,18 +120,24 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
 
   const save = () => {
     const next = sanitizeSlides(slides);
-    // In follow mode the editor opened the PUBLISHED deck, so Save would
-    // replace whatever deck this device saved locally — including video
-    // slides whose bytes exist only here and are garbage-collected the
-    // moment no saved deck references them. That must never be a silent
-    // side effect of tweaking a synced slide's wording.
+    // In follow mode the editor opened the published deck merged with this
+    // device's video slides, and Save replaces the locally saved deck with
+    // it. Warn only when that genuinely loses something: a video slide whose
+    // file is garbage-collected the moment no saved deck references it, or a
+    // locally typed slide that exists nowhere in the editor (a pre-follow
+    // deck being overwritten). A routine save must not nag.
     if (seededDeck) {
       const local = sanitizeSlides(config.manualSlides);
-      const localVideos = local.filter(isVideoSlide).length;
-      if (local.length > 0 && JSON.stringify(local) !== JSON.stringify(next) && !window.confirm(
-        `Replace the deck saved on THIS device (${local.length} slide${local.length === 1 ? '' : 's'}`
-        + (localVideos ? `, including ${localVideos} video slide${localVideos === 1 ? '' : 's'} whose file${localVideos === 1 ? '' : 's'} will be DELETED from this device` : '')
-        + ') with what is in the editor?\n\nThe editor opened the published deck, not this device\u2019s saved one.')) {
+      const keptVideoIds = new Set(next.filter(isVideoSlide).map((s) => s.videoId));
+      const lostVideos = local.filter(isVideoSlide).filter((s) => !keptVideoIds.has(s.videoId)).length;
+      const keptTexts = new Set(next.filter((s) => !isVideoSlide(s)).map((s) => s.text));
+      const lostTexts = local.filter((s) => !isVideoSlide(s)).filter((s) => !keptTexts.has(s.text)).length;
+      const losses = [
+        lostTexts ? `${lostTexts} typed slide${lostTexts === 1 ? '' : 's'}` : '',
+        lostVideos ? `${lostVideos} video slide${lostVideos === 1 ? '' : 's'} (file${lostVideos === 1 ? '' : 's'} DELETED from this device)` : '',
+      ].filter(Boolean).join(' and ');
+      if (losses && !window.confirm(
+        `Saving replaces the deck saved on THIS device — ${losses} not in the editor will be lost. Continue?`)) {
         return;
       }
     }
@@ -146,16 +157,15 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
       'Publish an EMPTY deck?\n\nEvery display drops its typed slides and shows the welcome placeholder until something new is published.')) return;
     if (videoCount > 0 && !window.confirm(
       `${videoCount} video slide${videoCount === 1 ? ' stays' : 's stay'} on THIS device — the published deck carries text slides only.\n\nPublish the ${textCount} text slide${textCount === 1 ? '' : 's'} to every display?`)) return;
-    // Save-local-first applies only when the editor OPENED the local deck.
-    // In follow mode it opened the published deck, and overwriting this
-    // device's saved deck with it would destroy the local deck (and GC its
-    // video files) as a side effect — the published deck needs no local
-    // backup anyway, because this screen receives and caches its own
-    // broadcast, and a failed publish keeps the editor open with the edits.
-    if (!seededDeck) {
-      onChange({ manualSlides: next });
-      gcAgainst(next);
-    }
+    // Save-local-first, in BOTH modes: a failed publish never loses an edit,
+    // and the locally saved copy is what lets mergeSyncedDeck() keep this
+    // device's video slides — in the order arranged here — in the rotation
+    // once the new publish comes back. This can no longer destroy local
+    // videos as a side effect: in follow mode the editor opened the merged
+    // deck, so this device's video slides are in `next` unless the operator
+    // deleted them on purpose.
+    onChange({ manualSlides: next });
+    gcAgainst(next);
     setPublishState({ phase: 'busy', message: 'Publishing…' });
     const result = await publishDeck(next, loadPublishToken());
     if (result.ok) {
@@ -228,10 +238,12 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
 
         {seededDeck && (
           <div className="hint" style={{ marginBottom: '1rem' }}>
-            <strong>This editor opened the published deck (rev {seededDeck.deckRev})</strong> — the one
-            every display is following. <strong>Publish to all displays</strong> sends your changes
-            everywhere; <strong>Save slides</strong> replaces the deck saved on this device only
-            (hidden while this screen follows the published deck).
+            <strong>This editor opened the published deck (rev {seededDeck.deckRev})</strong> plus
+            this device&rsquo;s own video slides — what this screen is showing.
+            <strong> Save slides</strong> keeps video slides (and their order) showing on this
+            screen; changed <em>text</em> only reaches the wall via
+            <strong> Publish to all displays</strong>, which sends the text slides to every
+            screen — video files never leave the device they were added on.
           </div>
         )}
 

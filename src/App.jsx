@@ -36,6 +36,7 @@ import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
 import { crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight } from './lib/milestones.js';
 import { sanitizeOverrides } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
+import { mergeSyncedDeck } from './lib/slides.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
@@ -280,11 +281,17 @@ export default function App() {
   // Which typed deck actually renders: the published one wherever this device
   // follows it (the default), else this device's own. An EMPTY published deck
   // is a real deck — the operator cleared the slides everywhere — so it wins
-  // too; only "never received one" falls back to the local deck.
+  // too; only "never received one" falls back to the local deck. Either way
+  // THIS device's saved video slides stay in the rotation (mergeSyncedDeck):
+  // their bytes exist only in this browser and can never ride a publish, so
+  // following the published deck must not silently drop them.
   const followPublishedSlides = config.followPublishedSlides !== false;
-  const effectiveManualSlides = (followPublishedSlides && syncedDeck)
-    ? syncedDeck.slides
-    : config.manualSlides;
+  const effectiveManualSlides = useMemo(
+    () => ((followPublishedSlides && syncedDeck)
+      ? mergeSyncedDeck(syncedDeck.slides, config.manualSlides)
+      : config.manualSlides),
+    [followPublishedSlides, syncedDeck, config.manualSlides]
+  );
 
   // ── Simulated events go through the SAME sanitizers as real ones ────────────
   // The debug panel used to call these handlers directly, so every fake payload

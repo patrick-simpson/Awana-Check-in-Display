@@ -147,7 +147,11 @@ Facts worth knowing:
 
 - Only **typed text slides** sync. Video slides and pptx/video background
   uploads stay on the device they were added to, on purpose (their files
-  live in that device's browser).
+  live in that device's browser). A following screen still plays its own
+  saved video slides alongside the published deck — in the order arranged
+  in its editor when its saved text matches the published text, appended
+  at the end when a newer publish has since landed (the next local Save
+  re-interleaves them).
 - Publishing an **empty** deck clears the slides on every display — that
   is a feature, and the editor asks first.
 - A display can opt out: Settings → Background → **Follow published

@@ -119,6 +119,33 @@ export function sanitizeSlides(raw) {
   return clean;
 }
 
+/**
+ * The deck a screen that FOLLOWS a published deck actually rotates: the
+ * published (text-only) slides merged with THIS device's saved video
+ * slides. Video bytes live in this browser's storage and can never ride
+ * a publish, so without this merge a following screen had no way to show
+ * a video at all — an operator added one, pressed Save, and it silently
+ * never appeared ("it doesn't actually stay" — reported 2026-09-02).
+ *
+ * Ordering: when the local deck's text slides are exactly the published
+ * ones (the normal state right after a follow-mode Save copies them
+ * down), the local deck IS the published deck plus positioned videos —
+ * honor its interleaving. When the fleet has published something newer,
+ * the published text wins and this device's videos join at the end of
+ * the rotation until the next local Save re-interleaves them.
+ */
+export function mergeSyncedDeck(syncedSlides, localSlides) {
+  const synced = sanitizeSlides(syncedSlides);
+  const local = sanitizeSlides(localSlides);
+  const localVideos = local.filter(isVideoSlide);
+  if (!localVideos.length) return synced;
+  const textOf = (slides) => JSON.stringify(slides.filter((s) => !isVideoSlide(s)));
+  if (textOf(local) === textOf(synced)) return local;
+  // Re-sanitize the concatenation: it dedupes any id shared across the
+  // two sources and re-applies the MAX_SLIDES cap.
+  return sanitizeSlides([...synced, ...localVideos]);
+}
+
 // 'auto' cycles through the themes by slide position, so a deck typed
 // with all-default themes still gets the full catalog variety.
 export function resolveTheme(slide, index) {
