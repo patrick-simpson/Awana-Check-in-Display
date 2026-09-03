@@ -135,6 +135,31 @@ Commit the change. A new build deploys in about a minute.
 > and showing their children's names on your screen. See
 > [SECURITY.md](SECURITY.md).
 
+### Option C — repository variables (recommended for a fleet)
+
+Bakes the key into the build **without** committing it to the repository, so a
+brand-new screen connects with nothing typed and a fork starts blank:
+
+1. GitHub → your repo → **Settings → Secrets and variables → Actions → Variables**.
+2. Add `PUSHER_APP_KEY` (the public `key`) and `PUSHER_CLUSTER` (e.g. `us2`).
+3. Push anything (or re-run the *Deploy to GitHub Pages* workflow). The build
+   reads them as `VITE_PUSHER_APP_KEY` / `VITE_PUSHER_CLUSTER`.
+
+Use *variables*, not *secrets*: the App Key is Pusher's public subscribe key and
+ships in every display's bundle anyway. Per-device Settings and `?key=` still
+override the baked value.
+
+### Logging a screen in (names, slides, publishing)
+
+With Pusher connected, the one remaining step on each screen is the **display
+login**. On the print-server dashboard, Settings → **Display login** →
+**Generate** (it saves immediately). Then on the screen: gear → Settings →
+Connection → **Display login** → type the passphrase → **Log in**. The screen
+receives the display key (children's names, published slides) and the slide
+publish token by itself, and keeps following rotations made on the print
+server. The print server must be running while a screen logs in. Pasting the
+keys by hand still works under the same tab's **Advanced** section.
+
 #### Getting the OneDrive embed URL
 
 1. Upload your `.pptx` to OneDrive.

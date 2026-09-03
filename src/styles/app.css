@@ -2509,3 +2509,9 @@ input:focus-visible {
 .stage.april-fools .panel-backdrop,
 .stage.april-fools .debug { transform: rotate(180deg); }
 .stage.april-fools .settings-gear:hover { transform: rotate(225deg) scale(1.05); }
+
+/* Settings → Connection: the by-hand key fields fold away behind the login. */
+details.advanced-fields { margin-top: 0.75rem; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 0.5rem; }
+details.advanced-fields > summary { cursor: pointer; font-weight: 700; opacity: 0.8; padding: 0.25rem 0; }
+details.advanced-fields > summary:hover { opacity: 1; }
+details.advanced-fields[open] > summary { margin-bottom: 0.5rem; }

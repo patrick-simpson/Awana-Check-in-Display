@@ -9,6 +9,12 @@ import {
   openEnvelope,
 } from '../lib/envelope.js';
 import {
+  PROVISION_CHANNEL,
+  PROVISION_EVENT,
+  noteCacheMiss,
+  receiveProvisionFrame,
+} from '../lib/displayLogin.js';
+import {
   sanitizeBirthdays,
   sanitizeCanary,
   sanitizeCheckin,
@@ -178,6 +184,19 @@ export function useSocket(handlers) {
       setSocketStatus('disconnected');
     });
 
+    // DEVICE PROVISIONING, NOT DISPLAY DATA. The print server publishes the
+    // display key + publish token, sealed under a passphrase-derived key, on a
+    // separate CACHE channel (a new subscriber gets the last frame at once).
+    // Frames go to src/lib/displayLogin.js, which validates them strictly and
+    // writes only into the displayKey/publishToken storage slots. Nothing from
+    // this channel is ever sanitized-and-rendered, and it never reaches
+    // dispatchEvent — it is not one of the contract events above. This is the
+    // one file allowed to import pusher-js, which is why the subscription
+    // lives here rather than in displayLogin.js.
+    const provision = pusher.subscribe(PROVISION_CHANNEL);
+    provision.bind(PROVISION_EVENT, (frame) => receiveProvisionFrame(frame));
+    provision.bind('pusher:cache_miss', () => noteCacheMiss());
+
     // Bind every contract event. The sanitizing + handler lookup lives in
     // dispatchEvent so the debug panel's simulated events use the identical
     // path — see simulateEvent below.
@@ -281,6 +300,8 @@ export function useSocket(handlers) {
       pusher.connection.unbind('connecting_in', onConnectingIn);
       channel.unbind_all();
       pusher.unsubscribe('awana-channel');
+      provision.unbind_all();
+      pusher.unsubscribe(PROVISION_CHANNEL);
       pusher.disconnect();
     };
   }, [enabled, pusherAppKey, pusherCluster]);

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { FLAGS } from '../lib/flags.js';
 import { useConfig } from '../../hooks/useConfig.js';
+import { useDisplayLogin } from '../../hooks/useDisplayLogin.js';
 import { GlassPanel } from './GlassPanel.jsx';
 
-// Migration cutover helper (MIGRATION.md step 3): localStorage does not
-// cross origins, so a kiosk bookmark moved from the old countdown site
-// arrives here with no Pusher key. Until it exists (or the operator
-// dismisses it), show a quiet corner note that points at the QuickNav
-// menu — the key also powers birthday sync, so it is the ONE setup
-// step. Dismissal is remembered per device.
+// First-run helper: a new screen needs (a) the Pusher key — baked into the
+// build when the repository variables are set, else typed — and (b) to be
+// logged in with the church's display passphrase, which provisions the
+// display key (sealed birthdays) and the publish token. Until both are
+// true (or the operator dismisses it), show a quiet corner note that
+// points at the QuickNav menu. Dismissal is remembered per device.
 const DISMISS_KEY = 'awanaSetupChecklistDismissed.v1';
 
 function dismissed() {
@@ -21,11 +22,13 @@ function dismissed() {
 
 export const SetupChecklist = () => {
   const { config } = useConfig();
+  const { loginStatus } = useDisplayLogin();
   const [hidden, setHidden] = useState(dismissed);
 
   const hasKey = Boolean(config.pusherAppKey);
+  const loggedIn = loginStatus === 'logged-in';
   // Operator chrome stays out of screenshot/visual-regression mode.
-  if (FLAGS.vr || hidden || hasKey) return null;
+  if (FLAGS.vr || hidden || (hasKey && loggedIn)) return null;
 
   const dismiss = () => {
     try {
@@ -43,18 +46,19 @@ export const SetupChecklist = () => {
           className="text-xs uppercase text-amber-300"
           style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.12em' }}
         >
-          New display? one quick setup step
+          New display? {hasKey ? 'one quick setup step' : 'two quick setup steps'}
         </p>
         <ul
           className="flex flex-col gap-1 text-xs text-gray-300"
           style={{ fontFamily: 'var(--font-condensed)', fontWeight: 600, letterSpacing: '0.06em' }}
         >
-          <li>⬜ Live data key — hover the top-right corner → Display Settings</li>
-          <li className="text-gray-500">Counts and birthdays then sync themselves from check-in.</li>
+          {!hasKey && <li>⬜ Live data key — hover the top-right corner → Display Settings → Advanced</li>}
+          <li>{loggedIn ? '✅' : '⬜'} Log in with the display passphrase — hover the top-right corner → Display Settings</li>
+          <li className="text-gray-500">Counts, names and birthdays then sync themselves from check-in.</li>
         </ul>
         <p className="text-[0.65rem] text-gray-500" style={{ fontFamily: 'var(--font-condensed)', fontWeight: 600 }}>
-          Settings don't follow bookmarks between sites, so a display moved from the old
-          countdown page needs these entered once here.
+          The passphrase is on the print-server dashboard (Settings → Display login). Settings don't
+          follow bookmarks between sites, so a display moved from the old countdown page needs this once here.
         </p>
         <button
           onClick={dismiss}

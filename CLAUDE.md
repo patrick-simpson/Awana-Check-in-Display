@@ -183,6 +183,15 @@ change:
   the key. `displayKey.test.js` guards all three paths.
 - Decrypts are serialized through one promise chain per event, or a burst
   of arrivals greets children out of order.
+- **Display login** (`src/lib/displayLogin.js`): `provision` frames on the
+  `cache-awana-channel-provision` cache channel are opened with a
+  passphrase-derived key (PBKDF2-SHA256, params pinned in the fixture's
+  `provision` section) and write ONLY into the displayKey/publishToken
+  storage slots — never into config, never through `dispatchEvent`, never
+  rendered. The derived login key lives in its own `awanaLoginKey.v1` entry
+  with the same three leak-path tests as the display key. `useSocket.js` is
+  still the only file that imports pusher-js, which is why the subscription
+  lives there.
 - The other events stay plaintext **on purpose**: their readability
   is what lets a screen distinguish "pipe down" from "cannot read names"
   from "quiet night". See SECURITY.md.
