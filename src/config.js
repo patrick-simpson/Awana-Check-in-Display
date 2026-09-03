@@ -24,8 +24,18 @@ const fromSiteRoot = (path) => {
 const config = {
   // Pusher credentials. Sign up free at https://pusher.com, create a
   // Channels app, and copy these two values from its "App Keys" page.
-  pusherAppKey: '',
-  pusherCluster: 'us2',
+  //
+  // A fleet can bake them into the build so a brand-new screen connects
+  // with nothing typed: set the GitHub repository VARIABLES
+  // PUSHER_APP_KEY and PUSHER_CLUSTER (Settings → Secrets and variables →
+  // Actions → Variables) and deploy.yml passes them in as VITE_PUSHER_*.
+  // The app key is Pusher's PUBLIC subscribe key — it ships in every
+  // display's bundle regardless — so a variable, not a secret, is the
+  // right home; a fork that sets neither starts blank, exactly as before.
+  // Per-device Settings and ?key= still override these (useConfig merge
+  // order, then App.jsx's URL flags).
+  pusherAppKey: import.meta.env.VITE_PUSHER_APP_KEY || '',
+  pusherCluster: import.meta.env.VITE_PUSHER_CLUSTER || 'us2',
 
   // What plays behind the check-in banners:
   //   'powerpoint' — the OneDrive PowerPoint embed below (the default)

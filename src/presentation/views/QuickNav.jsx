@@ -9,6 +9,7 @@ import { useEffectiveSchedule } from '../hooks/useEffectiveSchedule.js';
 import { lowPowerPreference, setLowPowerPreference, useLowPower } from '../hooks/useLowPower.js';
 import { useClockDrift } from '../hooks/useClockDrift.js';
 import { useConfig } from '../../hooks/useConfig.js';
+import { useDisplayLogin } from '../../hooks/useDisplayLogin.js';
 import { GlassPanel } from '../components/GlassPanel.jsx';
 
 /**
@@ -275,15 +276,45 @@ const BirthdayStatus = () => {
 const DisplaySettings = () => {
   const { config, updateConfig } = useConfig();
   const [open, setOpen] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const [key, setKey] = useState(config.pusherAppKey || '');
   const [cluster, setCluster] = useState(config.pusherCluster || 'us2');
   const [saved, setSaved] = useState(false);
+  // Display login: one passphrase provisions the display key + publish token
+  // (the sealed birthday list needs the key). Same store the signage page's
+  // Settings uses — src/lib/displayLogin.js.
+  const { frameStatus, loginStatus, kid, login, logout } = useDisplayLogin();
+  const [passphrase, setPassphrase] = useState('');
+  const [loginNote, setLoginNote] = useState('');
 
   const save = () => {
     updateConfig({ pusherAppKey: key.trim(), pusherCluster: cluster.trim() });
     setSaved(true);
     setTimeout(() => setSaved(false), 4000);
   };
+
+  const doLogin = async () => {
+    const p = passphrase.trim();
+    if (!p) return;
+    const result = await login(p);
+    setPassphrase(result === 'logged-in' ? '' : passphrase);
+    setLoginNote(
+      result === 'logged-in' ? 'Logged in — birthdays + names unlocked'
+        : result === 'wrong' ? 'Wrong passphrase'
+          : result === 'no-frame' ? 'Print server not heard from yet'
+            : result === 'unsupported' ? 'No secure crypto here — use Advanced'
+              : 'Could not save (storage blocked)',
+    );
+  };
+
+  const loginLine = loginStatus === 'logged-in' ? `Logged in${kid ? ` · key ${kid}` : ''}`
+    : loginStatus === 'stale' ? 'Passphrase changed — log in again'
+      : loginStatus === 'busy' ? 'Checking…'
+        : loginStatus === 'unsupported' ? 'No secure crypto — use Advanced'
+          : frameStatus === 'received' ? 'Type the display passphrase'
+            : frameStatus === 'miss' ? 'Print server has not published lately'
+              : 'Waiting for the print server…';
+  const canLogin = frameStatus === 'received' && loginStatus !== 'busy' && loginStatus !== 'logged-in';
 
   const inputStyle =
     'px-2 py-1 text-xs rounded bg-white/10 border border-white/15 text-white placeholder-gray-500 outline-none focus:border-white/40 w-40';
@@ -304,32 +335,83 @@ const DisplaySettings = () => {
       {open && (
         <div className="px-3 pb-1 flex flex-col items-end gap-1.5">
           <label className="text-[0.6rem] uppercase text-gray-500" style={{ fontWeight: 700 }}>
-            Live data key (Pusher, public)
+            Display login
           </label>
-          <input
-            className={inputStyle}
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="public key — blank = off"
-            spellCheck={false}
-          />
-          <input
-            className={inputStyle}
-            value={cluster}
-            onChange={(e) => setCluster(e.target.value)}
-            placeholder="cluster (us2)"
-            spellCheck={false}
-          />
-          <button
-            onClick={save}
-            className="px-3 py-1 text-xs uppercase text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all border border-emerald-400/20"
-            style={{ fontWeight: 800 }}
-          >
-            Save
-          </button>
+          {loginStatus !== 'logged-in' ? (
+            <>
+              <input
+                className={inputStyle}
+                type="password"
+                value={passphrase}
+                onChange={(e) => setPassphrase(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && canLogin) doLogin(); }}
+                placeholder="display passphrase"
+                spellCheck={false}
+                autoComplete="off"
+                disabled={!canLogin && loginStatus !== 'stale' && loginStatus !== 'wrong'}
+              />
+              <button
+                onClick={doLogin}
+                disabled={!canLogin || !passphrase.trim()}
+                className="px-3 py-1 text-xs uppercase text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all border border-emerald-400/20 disabled:opacity-40"
+                style={{ fontWeight: 800 }}
+              >
+                Log in
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => {
+                if (window.confirm('Log this screen out? It forgets the display key and publish token too.')) { logout(); setLoginNote(''); }
+              }}
+              className="px-3 py-1 text-xs uppercase text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all border border-white/15"
+              style={{ fontWeight: 800 }}
+            >
+              Log out
+            </button>
+          )}
           <p className="text-[0.6rem] uppercase text-gray-500 text-right" style={{ fontWeight: 700 }}>
-            {saved ? 'Saved — applies immediately' : 'Powers live counts + birthday sync'}
+            {loginNote || loginLine}
           </p>
+
+          <button
+            onClick={() => setAdvanced((v) => !v)}
+            className="px-2 py-0.5 text-[0.6rem] uppercase text-gray-500 hover:text-white rounded transition-all"
+            style={{ fontWeight: 700 }}
+          >
+            {advanced ? '▴ Advanced' : '▾ Advanced (paste keys by hand)'}
+          </button>
+          {advanced && (
+            <>
+              <label className="text-[0.6rem] uppercase text-gray-500" style={{ fontWeight: 700 }}>
+                Live data key (Pusher, public)
+              </label>
+              <input
+                className={inputStyle}
+                value={key}
+                onChange={(e) => setKey(e.target.value)}
+                placeholder="public key — blank = off"
+                spellCheck={false}
+              />
+              <input
+                className={inputStyle}
+                value={cluster}
+                onChange={(e) => setCluster(e.target.value)}
+                placeholder="cluster (us2)"
+                spellCheck={false}
+              />
+              <button
+                onClick={save}
+                className="px-3 py-1 text-xs uppercase text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all border border-emerald-400/20"
+                style={{ fontWeight: 800 }}
+              >
+                Save
+              </button>
+              <p className="text-[0.6rem] uppercase text-gray-500 text-right" style={{ fontWeight: 700 }}>
+                {saved ? 'Saved — applies immediately' : 'Powers live counts + birthday sync'}
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>

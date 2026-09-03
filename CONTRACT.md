@@ -14,6 +14,14 @@ and every repo's contract tests in the same change.
   with the public key (`pusherAppKey` + `pusherCluster` in settings).
 - Consumer code: `src/hooks/useSocket.js`, which binds every event through
   its own strict allowlist sanitizer in `src/lib/eventSanitizers.js`.
+- A second channel, **`cache-awana-channel-provision`** (a Pusher cache
+  channel), carries one `provision` frame: the display key and slide-publish
+  token sealed under a passphrase-derived key, for the display login. It is
+  **transport/provisioning, not a display event** — never sanitized, never
+  rendered, opened only by `src/lib/displayLogin.js`, which writes solely into
+  the display-key and publish-token storage slots. Shape and KDF are pinned by
+  the `provision` section of `envelope-vectors.json`; the authoritative
+  description is the printer repo's CONTRACT.md.
 
 ## Privacy invariant — do not relax
 

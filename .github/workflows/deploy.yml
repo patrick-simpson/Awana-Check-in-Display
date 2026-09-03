@@ -74,7 +74,16 @@ jobs:
 
       - name: Build
         # Vite is configured with `base: './'` so assets use relative
-        # paths and the bundle works under any URL (no env needed).
+        # paths and the bundle works under any URL. The two repository
+        # VARIABLES below (Settings → Secrets and variables → Actions →
+        # Variables) bake the Pusher subscribe key + cluster into the site
+        # so a new screen connects with nothing typed; unset, the build is
+        # blank exactly as before. The key is public by design (it ships in
+        # every display's bundle), which is why it is a variable, not a
+        # secret. See README → "Option C — repository variables".
+        env:
+          VITE_PUSHER_APP_KEY: ${{ vars.PUSHER_APP_KEY }}
+          VITE_PUSHER_CLUSTER: ${{ vars.PUSHER_CLUSTER }}
         run: npm run build
 
       - name: Install Playwright Chromium

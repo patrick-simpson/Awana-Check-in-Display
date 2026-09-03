@@ -125,16 +125,45 @@ children is the worst outcome this change could produce.
 
 ### Setting it up
 
-1. On the print-server dashboard (`http://localhost:3456`): the front page
-   card **Names on the Welcome Screen** says whether names are encrypted;
-   its button opens **Settings → Realtime privacy — display key**. Press
-   **Generate display key** and copy it.
-   (Direct link: `http://localhost:3456/#display-key`.)
-2. On each screen: gear → Settings → Connection → **Display key** → paste, Save.
+The easy way — **display login**:
+
+1. On the print-server dashboard (`http://localhost:3456`): **Settings →
+   Realtime privacy — display key → Generate display key → Save Settings**,
+   then **Settings → Display login → Generate** (saves immediately).
+   (Direct links: `http://localhost:3456/#display-key`, `#display-login`.)
+2. On each screen: gear → Settings → Connection → **Display login** → type
+   the passphrase → **Log in**. The screen receives the display key (and the
+   slide-publish token) and keeps following rotations made on the dashboard.
+   The print server must be running while a screen logs in.
 3. Back on the dashboard, press **Night Test**. Each screen confirms it can read
    names.
-4. Write the key on a card and keep it where the church keeps the WiFi password.
-   It needs to be somewhere the *next* volunteer can find it.
+4. Write the passphrase on a card and keep it where the church keeps the WiFi
+   password. It needs to be somewhere the *next* volunteer can find it.
+
+The manual way still works — **Generate display key**, copy, paste it under
+each screen's Settings → Connection → **Advanced → Display key**, *then* Save
+Settings on the dashboard — and is the fallback for a screen that cannot log
+in (no print server on the network, or a browser without secure crypto).
+
+**How the login works, and what it costs.** The print server derives a
+wrapping key from the passphrase with PBKDF2-SHA256 (600,000 iterations, a
+random salt minted whenever the passphrase changes) and publishes the display
+key + publish token sealed under it — the same AES-256-GCM envelope as the
+name events — as a `provision` frame on a Pusher *cache* channel, so a screen
+switched on later receives the latest frame at once. The screen derives the
+same key from what you type (`src/lib/displayLogin.js`), opens the frame with
+the one `openEnvelope()` it already trusts, and writes the two secrets into
+their own storage slots; the derived login key is stored the same way so later
+frames (a rotated key or token) apply by themselves. Consequences to be plain
+about: the frame is **public ciphertext on a public channel**, so the
+passphrase's strength is the only protection — generated ones are 80 bits, a
+typed one must be 12+ characters; a **leaked passphrase is a leaked display
+key and token** — rotate the passphrase (new salt) *and* the key *and* the
+token, and screens then ask to be logged in again; a captured frame cannot
+roll a screen back to an older key (`issuedAt` replay guard); and nothing is
+ever published without a display key, so a screen can never be provisioned
+into plaintext. Login needs `crypto.subtle` — a plain-http embed has none and
+falls back to pasting keys.
 
 Without a key a screen still shows the clock, weather, counts, countdown, slides
 and any CLUB CANCELLED notice — **only the welcome banners stop**. So a missed
@@ -217,6 +246,10 @@ Three deny-lists would each have been one forgotten line away from publishing th
 key. A separate storage entry means there is no list to forget.
 `src/lib/displayKey.test.js` asserts all three paths stay closed, and those
 assertions were verified to fail when the key is added to `VALIDATORS`.
+
+The same rule covers the slide publish token (`src/lib/publishToken.js`) and
+the display-login key (`src/lib/displayLogin.js`, `awanaLoginKey.v1`) — each
+in its own entry, each with the same three tests.
 
 ## What lives on the device
 

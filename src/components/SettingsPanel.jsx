@@ -8,6 +8,7 @@ import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle
 import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 import { NIGHT_THEME_VALUES, skinOptions } from '../lib/skins.js';
 import { useDisplayKey } from '../hooks/useDisplayKey.js';
+import { useDisplayLogin } from '../hooks/useDisplayLogin.js';
 import { maskDisplayKey } from '../lib/displayKey.js';
 import { isPlausibleKey } from '../lib/envelope.js';
 import { loadDisplayKey } from '../lib/displayKey.js';
@@ -353,34 +354,134 @@ function ConnectionTab({ form, set, lastEventAt }) {
         </strong>
       </div>
 
-      <div className="field">
-        <label htmlFor="pkey">Pusher App Key</label>
-        <input
-          id="pkey" type="text" value={form.pusherAppKey}
-          onChange={set('pusherAppKey')}
-          placeholder="abcdef1234567890"
-        />
-        <span className="hint">
-          From your Pusher Channels app's <code>App Keys</code> page — the <code>key</code> value (public, safe to ship).
-          Must be the <strong>same app</strong> the label print server is configured with — then use its
-          dashboard's "Test Welcome Screen" button to verify end-to-end.
-        </span>
-      </div>
+      <DisplayLoginField />
 
-      <div className="field">
-        <label htmlFor="pcluster">Pusher Cluster</label>
-        <input
-          id="pcluster" type="text" value={form.pusherCluster}
-          onChange={set('pusherCluster')}
-          placeholder="us2"
-        />
+      <details className="advanced-fields">
+        <summary>Advanced — paste keys by hand</summary>
         <span className="hint">
-          From the same page (e.g. <code>us2</code>, <code>eu</code>, <code>ap1</code>) — must also match the print server.
+          Only needed when this screen cannot log in (no print server on this network, or a browser without
+          secure crypto). A logged-in screen fills the display key and publish token in by itself.
         </span>
-      </div>
 
-      <DisplayKeyField />
+        <div className="field">
+          <label htmlFor="pkey">Pusher App Key</label>
+          <input
+            id="pkey" type="text" value={form.pusherAppKey}
+            onChange={set('pusherAppKey')}
+            placeholder="abcdef1234567890"
+          />
+          <span className="hint">
+            From your Pusher Channels app's <code>App Keys</code> page — the <code>key</code> value (public, safe to ship).
+            Must be the <strong>same app</strong> the label print server is configured with — then use its
+            dashboard's "Test Welcome Screen" button to verify end-to-end. A site built with the repository
+            variables (see the README) has this filled in already.
+          </span>
+        </div>
+
+        <div className="field">
+          <label htmlFor="pcluster">Pusher Cluster</label>
+          <input
+            id="pcluster" type="text" value={form.pusherCluster}
+            onChange={set('pusherCluster')}
+            placeholder="us2"
+          />
+          <span className="hint">
+            From the same page (e.g. <code>us2</code>, <code>eu</code>, <code>ap1</code>) — must also match the print server.
+          </span>
+        </div>
+
+        <DisplayKeyField />
+      </details>
     </>
+  );
+}
+
+/**
+ * Display login — the one thing a volunteer types on a new screen. The print
+ * server publishes the display key + publish token sealed under a
+ * passphrase-derived key; typing the passphrase here opens that frame and
+ * fills both secrets in. Like the key and token fields below it, this is
+ * deliberately NOT part of `form`/`set`: the derived login key lives in its
+ * own storage slot (src/lib/displayLogin.js) so it never rides the settings
+ * export, a `?config=` file, or a URL.
+ */
+function DisplayLoginField() {
+  const { frameStatus, loginStatus, kid, login, logout } = useDisplayLogin();
+  const [draft, setDraft] = useState('');
+  const [note, setNote] = useState('');
+
+  const submit = async () => {
+    const p = draft.trim();
+    if (!p) return;
+    setNote('');
+    const result = await login(p);
+    if (result === 'logged-in') { setDraft(''); setNote('Logged in. Names and published slides now work on this screen.'); }
+    else if (result === 'wrong') setNote('That passphrase does not match the print server’s. Check the dashboard → Settings → Display login.');
+    else if (result === 'no-frame') setNote('Nothing to log in to yet — the print server has not published a login frame.');
+    else if (result === 'storage') setNote('This screen cannot save the keys — browser storage is blocked.');
+    else if (result === 'unsupported') setNote('This browser cannot derive the login key (no secure crypto). Paste the keys under Advanced instead.');
+  };
+
+  const canType = frameStatus === 'received' && loginStatus !== 'busy';
+  let status;
+  if (loginStatus === 'logged-in') {
+    status = <><strong>Logged in</strong>{kid ? <> · key <code>{kid}</code></> : null} — the display key and publish token were filled in automatically and will follow rotations on the print server.</>;
+  } else if (loginStatus === 'stale') {
+    status = <><strong>The display passphrase was changed on the print server.</strong> Names keep working with the key this screen already holds until you log in again.</>;
+  } else if (loginStatus === 'busy') {
+    status = <>Checking… (this takes a few seconds on a small TV stick — it only happens once)</>;
+  } else if (loginStatus === 'unsupported') {
+    status = <><strong>This browser cannot derive the login key</strong> (no secure crypto) — paste the keys under Advanced.</>;
+  } else if (frameStatus === 'waiting') {
+    status = <>Waiting for the print server… It must be running, with a display key <em>and</em> a display passphrase set (dashboard → Settings → Display login).</>;
+  } else if (frameStatus === 'miss') {
+    status = <><strong>The print server has not published a login frame in the last 30 minutes.</strong> Start it (or check its Pusher settings), then try again.</>;
+  } else {
+    status = <>Type the church’s display passphrase from the print-server dashboard (Settings → Display login). This screen then receives the display key and publish token by itself.</>;
+  }
+
+  const loggedIn = loginStatus === 'logged-in';
+  return (
+    <div className="field">
+      <label htmlFor="dlogin">Display login</label>
+      {!loggedIn && (
+        <div className="display-key-row">
+          <input
+            id="dlogin"
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && canType && draft.trim()) submit(); }}
+            placeholder="display passphrase"
+            disabled={!canType && loginStatus !== 'stale' && loginStatus !== 'wrong'}
+          />
+          <button type="button" className="ghost" disabled={!canType || !draft.trim()} onClick={submit}>Log in</button>
+        </div>
+      )}
+      {loggedIn && (
+        <div className="display-key-row">
+          <code className="display-key-value" id="dlogin">logged in{kid ? ` · key ${kid}` : ''}</code>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => {
+              if (window.confirm('Log this screen out? It forgets the login key, the display key and the publish token — names and published slides stop here until someone logs in again.')) {
+                logout();
+                setNote('');
+              }
+            }}
+          >
+            Log out
+          </button>
+        </div>
+      )}
+      <span className="hint">
+        {note && <><strong>{note}</strong> </>}
+        {status}
+      </span>
+    </div>
   );
 }
 
@@ -689,7 +790,7 @@ function PublishTokenField() {
 
   return (
     <div className="field" style={{ marginTop: '0.5rem' }}>
-      <label htmlFor="ptoken">Publish token (only needed on the machine that edits slides)</label>
+      <label htmlFor="ptoken">Publish token (only needed on the machine that edits slides — filled in automatically on a logged-in screen)</label>
       {!editing ? (
         <div className="display-key-row">
           <code className="display-key-value">
