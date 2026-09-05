@@ -95,6 +95,11 @@ test('the ?key= URL flag reaches the socket', async ({ page }) => {
 // no reload. This is the first thing a volunteer does on a new screen.
 test('saving the Pusher key in Settings connects without a reload', async ({ page }) => {
   await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
+  // Keep the sticker visible once the screen leaves 'off' (it auto-shows
+  // only for 'off' and for long drops).
+  await page.addInitScript(() => {
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ showConnectionStatus: true }));
+  });
   await page.goto('/index.html');
   await expect(page.locator('.status-dot')).toContainText('not set up');
   await page.keyboard.press('Control+Shift+S');

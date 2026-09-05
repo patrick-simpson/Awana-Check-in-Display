@@ -98,12 +98,24 @@ Pick whichever is easier — most people use the Settings panel.
 Keeps the key in the browser's local storage on that device, so it never enters
 your repository and is not inherited by anyone who forks it.
 
-1. Open your deployed app (see step 6).
-2. Move the mouse to wake the gear icon in the bottom-left corner, and click it. (Keyboard shortcut: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.)
-3. Paste the **Pusher App Key** and **Cluster**, fill in the PowerPoint link and start time, click **Save**.
+1. Open your deployed app (see step 6). A brand-new screen shows a small
+   **New display?** card in the bottom-left corner with these same steps and an
+   **Open Settings** button.
+2. Or click the gear icon in the bottom-left corner (it stays faintly visible),
+   or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.
+3. **Connection** tab → **Display login** → type the church's display passphrase
+   (print-server dashboard → Settings → **Display login**) → **Log in**. That
+   fills in the display key and the slide publish token by itself.
+4. Only if the header says *Not set up yet*: open **Advanced — paste keys by
+   hand** on the same tab, paste the **Pusher App Key** and **Cluster**, press
+   **Save**, then log in. (A site built with the repository variables —
+   Option C — already has these filled in.)
+5. **Background** tab: the default source is **Typed slides**, which shows the
+   deck published from the check-in computer plus the calendar slides. Pick
+   another source only if this screen should play its own PowerPoint or video.
 
-Repeat once per screen. For a single projector — the usual case — that is one
-device, and it is the least error-prone route.
+Repeat once per screen. Settings only writes what you changed, so a screen
+never pins the baked key or a central setting by accident.
 
 ### Option B — edit `src/config.js` (applies to every visitor)
 
@@ -124,8 +136,8 @@ Open `src/config.js` on GitHub (pencil icon to edit in-browser) and fill in:
 ```js
 pusherAppKey: 'abcdef1234567890',
 pusherCluster: 'us2',
+backgroundSource: 'powerpoint',
 powerpointEmbedUrl: 'https://onedrive.live.com/embed?cid=…',
-countdownTargetTime: '18:30',
 ```
 
 Commit the change. A new build deploys in about a minute.
@@ -147,7 +159,8 @@ brand-new screen connects with nothing typed and a fork starts blank:
 
 Use *variables*, not *secrets*: the App Key is Pusher's public subscribe key and
 ships in every display's bundle anyway. Per-device Settings and `?key=` still
-override the baked value.
+override the baked value (the layering lives in `src/hooks/useConfig.js`:
+baked defaults < `?config=` file < this device's Settings < `?key=`).
 
 ### Logging a screen in (names, slides, publishing)
 
@@ -185,6 +198,22 @@ file (mp4/webm) into the rotation:
   a deck on another machine, re-add the video files there (the editor
   badges them "Video not on this device" until you do).
 - Clearing the browser's site data deletes stored videos.
+
+#### Publishing the deck to every display
+
+Type the deck once, on the check-in computer, then press **Publish to all
+displays** — the text slides go to every screen through the print server (the
+button is the filled one whenever this machine holds a publish token, which a
+logged-in screen gets automatically). Each screen's Settings → Background →
+**Follow published slides** (on by default) is what makes the published deck
+appear; **Save slides** only keeps a deck on the device you are typing on;
+**Forget received deck** stops following. Video slides never publish: they stay
+on the device they were added to, and a following screen keeps playing its own
+alongside the published text. **Export**/**Import** remain for moving a deck
+between machines by hand, and as the fallback when this machine has no publish
+token (paste the file into the dashboard → Lobby Slides → Publish). A screen set
+to any other background source ignores the published deck — Settings →
+Background says so and offers **Use Typed slides**.
 
 ### Calendar slides — automatic, from the church calendar
 
@@ -293,7 +322,9 @@ https://<your-github-username>.github.io/<repo-name>/?overlay=1&key=YOUR_APP_KEY
 | Shortcut                                               | What it does                                 |
 | ------------------------------------------------------ | -------------------------------------------- |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>          | Open the Settings panel                      |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>          | Open the Typed Slides editor                 |
 | <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>          | Open the Debug panel (simulate check-ins)    |
+| <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>          | Panic mode — strip to the reliable core (banners keep working); press again to restore |
 | <kbd>F11</kbd> or double-click                         | Toggle fullscreen                            |
 
 The Debug panel is how you test without publishing any real Pusher events — click "Standard welcome", "Birthday welcome", or "Trigger 5 simultaneous" to see the exact same animations real check-ins trigger.

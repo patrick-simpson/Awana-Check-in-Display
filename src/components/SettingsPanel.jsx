@@ -809,8 +809,25 @@ function BackgroundTab({
       ? 'No typed slides on this device yet. Typed slides (and any published deck) only show while Background source is Typed slides.'
       : `${n} typed slide${n === 1 ? '' : 's'} saved on this device — shown only while Background source is Typed slides.`);
 
+  const ignored = syncedDeck && form.backgroundSource !== 'manual';
+
   return (
     <>
+      {ignored && (
+        <div className="notice-warn" role="status">
+          A published deck has arrived (rev {syncedDeck.deckRev}, {syncedDeck.slides.length} slide
+          {syncedDeck.slides.length === 1 ? '' : 's'}) but this screen is set to{' '}
+          {SOURCE_LABELS[form.backgroundSource] || form.backgroundSource}, so it is not showing.{' '}
+          <button
+            type="button"
+            className="ghost small"
+            onClick={() => setForm((f) => ({ ...f, backgroundSource: 'manual' }))}
+          >
+            Use Typed slides
+          </button>
+          {' '}<span className="hint">then press Save.</span>
+        </div>
+      )}
       <div className="field">
         <label>Background source</label>
         <div className="radio-row">
@@ -853,8 +870,6 @@ function BackgroundTab({
       <SlideSyncSection
         form={form}
         set={set}
-        backgroundSource={form.backgroundSource}
-        onUseTypedSlides={() => setForm((f) => ({ ...f, backgroundSource: 'manual' }))}
         syncedDeck={syncedDeck}
         slidesStatus={slidesStatus}
         onForgetSyncedDeck={onForgetSyncedDeck}
@@ -907,15 +922,12 @@ function BackgroundTab({
 /**
  * Slide sync — the per-display view of the PUBLISHED deck: whether this screen
  * follows it, what it last received, why it might not be receiving, and the
- * recovery lever. Rendered on every background source, because a published
- * deck that this screen is set to ignore is exactly the thing the operator
- * needs told. The publish side (token + button) lives with the editor on
+ * recovery lever. Rendered on every background source (the "a published deck
+ * is being ignored" notice sits at the top of the tab). The publish side (token + button) lives with the editor on
  * whichever machine does the editing; this section carries the token field so
  * that machine has somewhere to paste it.
  */
-function SlideSyncSection({
-  form, set, backgroundSource, onUseTypedSlides, syncedDeck, slidesStatus, onForgetSyncedDeck, loggedIn,
-}) {
+function SlideSyncSection({ form, set, syncedDeck, slidesStatus, onForgetSyncedDeck, loggedIn }) {
   const hasKey = Boolean(loadDisplayKey()) || loggedIn;
   const following = form.followPublishedSlides !== false;
   // Snapshot at open — the age line doesn't need to tick live.
@@ -944,19 +956,8 @@ function SlideSyncSection({
     hintLine = 'The print server is publishing slides UNENCRYPTED (no display key set there); this keyed screen refuses them. Set the display key on the print server.';
   }
 
-  const ignored = syncedDeck && backgroundSource !== 'manual';
-
   return (
     <div className="field">
-      {ignored && (
-        <div className="notice-warn" role="status">
-          A published deck has arrived (rev {syncedDeck.deckRev}, {syncedDeck.slides.length} slide
-          {syncedDeck.slides.length === 1 ? '' : 's'}) but this screen is set to{' '}
-          {SOURCE_LABELS[backgroundSource] || backgroundSource}, so it is not showing.{' '}
-          <button type="button" className="ghost small" onClick={onUseTypedSlides}>Use Typed slides</button>
-          {' '}<span className="hint">then press Save.</span>
-        </div>
-      )}
       <Toggle
         checked={following}
         onChange={set('followPublishedSlides')}
@@ -1185,7 +1186,7 @@ function DisplayTab({ form, set }) {
       <h3 className="section">Corner widgets</h3>
 
       <div className="field">
-        <label>Corner widgets</label>
+        <label>Layout</label>
         <div className="radio-row">
           <label className="radio-option">
             <input

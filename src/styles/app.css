@@ -1278,14 +1278,16 @@ html, body, #root {
   color: var(--awana-blue);
 }
 .panel h3.section:first-of-type { margin-top: 1rem; }
+/* A section heading that opens a tab needs no rule above it. */
+.panel-body > h3.section:first-child { margin-top: 0.25rem; padding-top: 0; border-top: 0; }
 
 /* ── Tabbed settings panel ───────────────────────────────── */
 /* The panel becomes a fixed-height column: header + tab rail pinned on
    top, fields scrolling in the middle, Save/Cancel always visible at
    the bottom — crucial when driving a TV from a couch. */
 .panel--tabbed {
-  width: min(47.5rem, 94vw);
-  height: min(42.5rem, 88vh);
+  width: min(52rem, 94vw);
+  height: min(52rem, 90vh);
   max-height: 88vh;
   display: flex;
   flex-direction: column;
