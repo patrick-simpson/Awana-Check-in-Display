@@ -41,7 +41,7 @@ import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
-import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
+import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -329,9 +329,14 @@ export default function App() {
   // (and nothing when the weather is unknown — no location, dead API).
   const particleEffect = particleAuto ? autoParticleEffect(weather) : config.particleEffect;
 
-  const calendarSlides = config.calendarEnabled
-    ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr), config)
-    : [];
+  // Memoized on exactly the inputs buildCalendarSlides reads: a fresh array
+  // every render used to restart the background slideshow's hold timer on
+  // every App re-render (i.e. every event), stalling the show on one slide.
+  const { calendarEnabled, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining } = config;
+  const calendarSlides = useMemo(() => (calendarEnabled
+    ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr),
+      { calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining })
+    : []), [calendarEnabled, calendar.events, todayStr, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining]);
 
   // Thin the confetti while a rush is draining so cheap signage sticks
   // hold 60fps with banners firing back-to-back.
@@ -424,6 +429,22 @@ export default function App() {
     const t = setInterval(advance, 30000);
     return () => clearInterval(t);
   }, [checkout]);   // re-stamp on new data so a fresh board is never shown as aged
+
+  // Layer-fault ledger. Every stage layer sits behind an ErrorBoundary keyed on
+  // boardNow, so a crashed layer is retried every 30 s instead of being fenced
+  // off for the rest of the display's uptime — and each crash is recorded here,
+  // because a silently dead background is indistinguishable from a quiet
+  // night. A fault stays "active" (forces the Signal sticker, shows in
+  // Settings) for LAYER_FAULT_SHOW_MS after its LAST crash: a persistent fault
+  // re-crashes on every retry and never ages out; a one-off disappears.
+  const [layerFaults, setLayerFaults] = useState({});   // { [label]: { count, lastAt } }
+  const recordLayerFault = useCallback((label) => {
+    setLayerFaults((prev) => ({ ...prev, [label]: { count: (prev[label]?.count ?? 0) + 1, lastAt: Date.now() } }));
+  }, []);
+  const activeLayerFaults = useMemo(
+    () => Object.keys(layerFaults).filter((l) => boardNow - layerFaults[l].lastAt < LAYER_FAULT_SHOW_MS),
+    [layerFaults, boardNow]
+  );
   const boardDecision = useMemo(() => decideBoard({
     checkout,
     mode: config.checkoutBoardMode,
@@ -438,6 +459,7 @@ export default function App() {
   // with no label is exactly when the operator needs the red count.
   const showStatus = config.showConnectionStatus
     || status === 'off'
+    || activeLayerFaults.length > 0
     || (droppedLong && status === 'disconnected')
     || opsFailures.length > 0
     || Boolean(nameFault)
@@ -602,7 +624,7 @@ export default function App() {
           background or corner widget disappears quietly instead of
           white-screening the whole display mid-club. */}
       {!overlay && (
-        <ErrorBoundary label="background">
+        <ErrorBoundary label="background" eventKey={`${config.backgroundSource}|${boardNow}`} onError={() => recordLayerFault('background')}>
           <BackgroundIframe
             url={config.powerpointEmbedUrl}
             slideshowDelaySec={config.slideshowDelaySec}
@@ -623,12 +645,12 @@ export default function App() {
           OBS overlay feeds) and skipped under reduce-motion / panic. */}
       {!overlay && particleEffect && particleEffect !== 'off'
         && config.reduceMotion !== true && config.panicMode !== true && (
-        <ErrorBoundary label="particles">
+        <ErrorBoundary label="particles" eventKey={boardNow} onError={() => recordLayerFault('particles')}>
           <ParticleLayer effect={particleEffect} />
         </ErrorBoundary>
       )}
 
-      <ErrorBoundary label="banner" eventKey={currentEvent?.id} onError={skipCurrent}>
+      <ErrorBoundary label="banner" eventKey={currentEvent?.id} onError={() => { skipCurrent(); recordLayerFault('banner'); }}>
         <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} clubPhrases={config.clubPhrases} />
       </ErrorBoundary>
 
@@ -636,12 +658,12 @@ export default function App() {
           mode — like the check-in banner above, a genuine cancellation
           notice must reach an OBS/ProPresenter feed too, not just the
           lobby TV. */}
-      <ErrorBoundary label="notice-banner">
+      <ErrorBoundary label="notice-banner" eventKey={`${notice?.at ?? ''}|${boardNow}`} onError={() => recordLayerFault('notice')}>
         <NoticeBanner notice={notice} />
       </ErrorBoundary>
 
       {!overlay && !stickerMode && (
-        <ErrorBoundary label="data-cycle">
+        <ErrorBoundary label="data-cycle" eventKey={boardNow} onError={() => recordLayerFault('corner widgets')}>
           <DataCycle
             count={count}
             weather={weather}
@@ -659,7 +681,7 @@ export default function App() {
           source, banners + confetti only) hides it. Yields to an active
           check-in banner via `active`; see TonightTicker.jsx. */}
       {!overlay && (
-        <ErrorBoundary label="tonight-ticker">
+        <ErrorBoundary label="tonight-ticker" eventKey={boardNow} onError={() => recordLayerFault('tonight strip')}>
           <TonightTicker tonight={tonight} active={!currentEvent} />
         </ErrorBoundary>
       )}
@@ -669,7 +691,7 @@ export default function App() {
           door outranks the pickup list. All the visibility judgement is in the
           pure decideBoard(); see src/lib/checkoutBoard.js for why it is gated. */}
       {!overlay && !currentEvent && (
-        <ErrorBoundary label="checkout-board">
+        <ErrorBoundary label="checkout-board" eventKey={boardNow} onError={() => recordLayerFault('pickup board')}>
           <CheckoutBoard decision={boardDecision} checkout={checkout} calm={config.panicMode === true} />
         </ErrorBoundary>
       )}
@@ -715,6 +737,11 @@ export default function App() {
               {!nameFaultText && countsWithoutNames && (
                 <span className="name-fault" title="The print server may be missing its display key">
                   COUNTS RISING, NO NAMES — CHECK THE PRINTER
+                </span>
+              )}
+              {activeLayerFaults.length > 0 && (
+                <span className="name-fault" title="A screen layer crashed and is being retried — see Settings">
+                  LAYER FAULT: {activeLayerFaults.join(', ')}
                 </span>
               )}
             </StickerChip>
@@ -867,6 +894,7 @@ export default function App() {
             demoActive={demoActive}
             initialTab={settingsTab}
             onTabChange={setSettingsTab}
+            layerFaults={activeLayerFaults}
             lastEventAt={lastEventAt}
             calendar={calendar}
             phase={phase}

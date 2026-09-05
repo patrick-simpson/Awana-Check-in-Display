@@ -36,21 +36,23 @@ export default function ManualSlideshow({ slides, slideshowDelaySec }) {
     setIndex((prev) => (prev + 1) % (slides.length || 1));
   }, [slides.length]);
 
-  useEffect(() => {
-    if (slides.length <= 1) return undefined;
-    const slide = slides[safe];
-    // Video slides with no explicit duration have no timer at all —
-    // their <video> ended event drives the advance instead.
-    const ms = isVideoSlide(slide)
-      ? videoSlideTimerMs(slide)
-      : slideDurationMs(slide, slideshowDelaySec);
-    if (ms == null) return undefined;
-    const timer = setTimeout(advance, ms);
-    return () => clearTimeout(timer);
-  }, [slides, safe, slideshowDelaySec, advance]);
-
-  if (!slides.length) return null;
   const slide = slides[safe];
+  // A NUMBER, not the array: App re-renders on every event and can hand
+  // down an equal-but-new deck; keying the timer on the array restarted the
+  // hold each time, and the show stalled on one slide through a whole
+  // check-in rush. Video slides with no explicit duration have no timer at
+  // all — their <video> ended event drives the advance instead.
+  const holdMs = slides.length <= 1 || !slide
+    ? null
+    : isVideoSlide(slide) ? videoSlideTimerMs(slide) : slideDurationMs(slide, slideshowDelaySec);
+
+  useEffect(() => {
+    if (holdMs == null) return undefined;
+    const timer = setTimeout(advance, holdMs);
+    return () => clearTimeout(timer);
+  }, [holdMs, safe, advance]);
+
+  if (!slides.length || !slide) return null;
 
   return (
     <div className="manual-slideshow">

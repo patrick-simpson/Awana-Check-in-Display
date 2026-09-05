@@ -15,6 +15,10 @@
 //   · Everything else (hashed assets, fonts,
 //     shared/art/*)                         → cache-first, backfilled
 //     from the network on first touch.
+//   · Nothing is cached unless it is a clean same-origin answer — and for
+//     a navigation, an HTML one (see cacheable): a captive portal that
+//     answers the watchdog's reload with a redirected 200 must never
+//     become the offline shell.
 
 const VERSION = '__BUILD_HASH__';
 const PRECACHE = __PRECACHE_MANIFEST__;
@@ -37,11 +41,22 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Only a clean, same-origin answer may be cached — and for a navigation only
+// an HTML one. A captive portal answers the watchdog's reload with a 200
+// (usually via redirect); cached under the app's own URL it would BECOME the
+// offline shell on every later boot until someone cleared site data.
+function cacheable(request, response) {
+  if (!response.ok || response.redirected) return false;
+  if (response.url && new URL(response.url).origin !== self.location.origin) return false;
+  if (request.mode === 'navigate') return (response.headers.get('content-type') || '').includes('text/html');
+  return true;
+}
+
 async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   try {
     const fresh = await fetch(request);
-    if (fresh.ok) cache.put(request, fresh.clone());
+    if (cacheable(request, fresh)) cache.put(request, fresh.clone());
     return fresh;
   } catch (err) {
     const cached = await cache.match(request, { ignoreSearch: request.mode === 'navigate' });
@@ -55,7 +70,7 @@ async function cacheFirst(request) {
   const cached = await cache.match(request);
   if (cached) return cached;
   const fresh = await fetch(request);
-  if (fresh.ok) cache.put(request, fresh.clone());
+  if (cacheable(request, fresh)) cache.put(request, fresh.clone());
   return fresh;
 }
 

@@ -3,7 +3,7 @@ import { getAllClubs } from '../lib/clubs.js';
 import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 
 export default function DebugPanel({
-  onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice,
+  onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice, onClearNotice,
   onSimulateTally, onSimulateCheckout, onClose,
   status, lastEventAt, pending, phase, seenStats, opsFailures, wakeLockStatus,
 }) {
@@ -167,6 +167,10 @@ export default function DebugPanel({
       {onSimulateTonight && <button onClick={tonight}>Show tonight ticker (+40 each press)</button>}
       {onSimulateNotice && <button onClick={noticeCritical}>Show cancellation alert</button>}
       {onSimulateNotice && <button onClick={noticeInfo}>Show info notice</button>}
+      {/* The simulated cancellation bar holds for four hours like a real one
+          would — without this there was no way to take it off a public
+          screen short of a reload. */}
+      {onClearNotice && <button onClick={onClearNotice}>Clear notice banner</button>}
       <button onClick={onClose}>Close</button>
       <span className="close-hint">Toggle with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></span>
     </div>

@@ -46,3 +46,38 @@ describe('normalizeEmbedUrl', () => {
     expect(normalizeEmbedUrl(null)).toBeNull();
   });
 });
+
+// ── Source selection ─────────────────────────────────────────────────────────
+// The typed/published deck is the DEFAULT source now, so a screen with nothing
+// else set plays it; and panic mode's placeholder path (powerpoint + no URL)
+// must keep showing the placeholder, never a deck.
+import { afterEach, vi } from 'vitest';
+import { cleanup, render } from '@testing-library/react';
+
+vi.mock('../lib/videoStore.js', () => ({
+  BACKGROUND_VIDEO_ID: 'background',
+  getVideo: vi.fn(async () => null),
+}));
+
+const BackgroundIframe = (await import('./BackgroundIframe.jsx')).default;
+
+const DECK = [{ id: 's_1', eyebrow: '', text: 'Synced deck', theme: 'sky', durationSec: 0, textSize: 'auto' }];
+
+describe('source selection', () => {
+  afterEach(cleanup);
+
+  it('renders the typed/published deck under the manual source', () => {
+    const { container } = render(
+      <BackgroundIframe backgroundSource="manual" manualSlides={DECK} calendarSlides={[]} url="" slideshowDelaySec={5} />
+    );
+    expect(container.querySelector('.manual-slide-text').textContent).toBe('Synced deck');
+  });
+
+  it('powerpoint with no URL shows the placeholder, never a deck (panic mode relies on this)', () => {
+    const { container } = render(
+      <BackgroundIframe backgroundSource="powerpoint" manualSlides={DECK} calendarSlides={[]} url="" slideshowDelaySec={5} />
+    );
+    expect(container.querySelector('.manual-slide-text')).toBeNull();
+    expect(container.querySelector('.placeholder-copy')).toBeTruthy();
+  });
+});

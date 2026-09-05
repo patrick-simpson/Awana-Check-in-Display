@@ -90,6 +90,9 @@ test('a notice event renders the announcement banner verbatim', async ({ page })
   // `message` is the only free-text field on the channel; it is church-authored
   // and shown as-is, so this asserts the real copy reaches the screen.
   await expect(page.getByText(/CLUB CANCELLED TONIGHT/i)).toBeVisible();
+  // The simulated bar holds for hours like a real one; the Debug panel can take it down.
+  await page.getByRole('button', { name: 'Clear notice banner' }).click();
+  await expect(page.getByText(/CLUB CANCELLED TONIGHT/i)).toHaveCount(0);
 });
 
 test('a tonight event renders the ticker counters', async ({ page }) => {

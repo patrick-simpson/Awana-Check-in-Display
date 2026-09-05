@@ -361,9 +361,21 @@ html, body, #root {
 }
 
 /* ── Typed slides: editor panel ──────────────────────────── */
-.panel--slides {
+/* Same pinned header / scrolling body / pinned actions column as Settings
+   (.panel--tabbed); the compound selector outranks .panel--tabbed's width. */
+.panel--tabbed.panel--slides {
   width: min(860px, 94vw);
 }
+.slide-card-index {
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--awana-blue);
+  margin-bottom: 0.5rem;
+}
+.slide-card-index:focus { outline: 2px solid var(--awana-orange); outline-offset: 2px; border-radius: 4px; }
+.slide-card-fields .slide-counter { display: block; text-align: right; margin-top: 0.2rem; }
 .slide-empty {
   padding: 1.5rem;
   border: 2px dashed rgba(51, 66, 79, 0.25);
@@ -456,10 +468,11 @@ html, body, #root {
 }
 .slide-card-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
 }
 .slide-card-row .field {
-  flex: 1;
+  flex: 1 1 190px;
 }
 .slide-card-controls {
   display: flex;

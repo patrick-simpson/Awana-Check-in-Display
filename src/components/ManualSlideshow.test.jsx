@@ -69,6 +69,19 @@ describe('ManualSlideshow', () => {
     expect(container.innerHTML).toBe('');
   });
 
+  it('keeps its hold timer when re-rendered with an equal-but-new deck', () => {
+    // App re-renders on every event and can hand down a fresh array of the
+    // same slides; that must not restart the hold (the show used to stall on
+    // one slide through a whole check-in rush).
+    const { rerender } = render(<ManualSlideshow slides={deck} slideshowDelaySec={5} />);
+    act(() => vi.advanceTimersByTime(3000));
+    rerender(<ManualSlideshow slides={[...deck]} slideshowDelaySec={5} />);
+    act(() => vi.advanceTimersByTime(1999));
+    expect(screen.getByText('First slide')).toBeTruthy();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByText('Second slide')).toBeTruthy();
+  });
+
   it('survives the deck shrinking below the current index', () => {
     const { rerender } = render(<ManualSlideshow slides={deck} slideshowDelaySec={5} />);
     act(() => vi.advanceTimersByTime(5000)); // → 2

@@ -4,6 +4,13 @@ import { Component } from 'react';
 // gap) so a broken widget simply vanishes instead of taking the whole
 // stage down — on a signage display an empty corner beats a white
 // screen every time. Keep fallbacks dependency-free so they can't fail.
+//
+// Pass `eventKey` to retry after a crash: App keys the long-lived stage
+// layers on its 30 s boardNow tick, so a transient render error fences a
+// layer for at most half a minute instead of for the rest of the display's
+// uptime — and reports each crash through `onError` so the Signal sticker
+// can say which layer is down (a dead background otherwise looks exactly
+// like a quiet night).
 export class ErrorBoundary extends Component {
   constructor(props) {
     super(props);

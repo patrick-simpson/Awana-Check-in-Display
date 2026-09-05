@@ -267,3 +267,30 @@ describe('mergeSyncedDeck', () => {
     expect(merged.filter(isVideoSlide)).toHaveLength(1);
   });
 });
+
+describe('sanitizeSlides trims like the publisher', () => {
+  it('trims text and eyebrow BEFORE slicing to the caps', () => {
+    const [s] = sanitizeSlides([{ text: 'Hello\n', eyebrow: '  Awana  ' }]);
+    expect(s.text).toBe('Hello');
+    expect(s.eyebrow).toBe('Awana');
+    const [long] = sanitizeSlides([{ text: ' '.repeat(5) + 'a'.repeat(MAX_TEXT) }]);
+    expect(long.text).toBe('a'.repeat(MAX_TEXT));
+  });
+});
+
+describe('mergeSyncedDeck compares content, not ids or whitespace', () => {
+  const text = (id, body, eyebrow = '') => ({ id, eyebrow, text: body, theme: 'auto', durationSec: 0, textSize: 'auto' });
+  const video = (id, videoId) => ({ id, type: 'video', videoId, videoName: 'clip.mp4', videoSize: 1000, durationSec: 0 });
+
+  it('honors the local interleave when the publisher normalized whitespace', () => {
+    const local = [text('s_a', 'Hello', 'Awana\nClubs'), video('s_v', 'vid_1'), text('s_b', 'World\n')];
+    const synced = [text('s_a', 'Hello', 'Awana Clubs'), text('s_b', 'World')];
+    expect(mergeSyncedDeck(synced, local).map((s) => s.id)).toEqual(['s_a', 's_v', 's_b']);
+  });
+
+  it('ignores ids when deciding whether the local text matches (the server may assign its own)', () => {
+    const local = [text('s_a', 'Hello'), video('s_v', 'vid_1'), text('s_b', 'World')];
+    const synced = [text('srv_1', 'Hello'), text('srv_2', 'World')];
+    expect(mergeSyncedDeck(synced, local).map((s) => s.id)).toEqual(['s_a', 's_v', 's_b']);
+  });
+});

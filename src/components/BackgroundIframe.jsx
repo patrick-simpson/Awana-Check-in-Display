@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { M } from '../lib/motion.jsx';
 import PptxSlideshow from './PptxSlideshow.jsx';
 import ManualSlideshow from './ManualSlideshow.jsx';
@@ -67,6 +68,11 @@ export default function BackgroundIframe({
   // ongoing JS/paint cost entirely, for weak/kiosk hardware.
   reduceMotion = false,
 }) {
+  // One array identity per (calendarSlides, manualSlides) pair — a fresh
+  // array every render used to restart ManualSlideshow's hold timer on
+  // every App re-render. Unconditional: hooks come before the early returns.
+  const deck = useMemo(() => [...(calendarSlides || []), ...(manualSlides || [])], [calendarSlides, manualSlides]);
+
   // Full-screen looping video (#25): one file uploaded in Settings,
   // stored on this device only. Missing/broken video shows the friendly
   // setup placeholder — the screen is never black.
@@ -118,7 +124,6 @@ export default function BackgroundIframe({
   // lead the rotation; they are generated fresh each render and never
   // stored.
   if (backgroundSource === 'manual') {
-    const deck = [...(calendarSlides || []), ...(manualSlides || [])];
     if (deck.length) {
       return (
         <ManualSlideshow slides={deck} slideshowDelaySec={slideshowDelaySec} />

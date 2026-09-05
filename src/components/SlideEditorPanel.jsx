@@ -24,15 +24,17 @@ const THEME_OPTIONS = [
   { value: 'sunset', label: 'Sunset cream' },
   { value: 'night', label: 'Night blue' },
   { value: 'meadow', label: 'Meadow green' },
-  { value: 'lavender', label: 'Lavender (catalog cover)' },
+  { value: 'lavender', label: 'Lavender' },
 ];
 
 const SIZE_OPTIONS = [
-  { value: 'auto', label: 'Auto (fit to length)' },
+  { value: 'auto', label: 'Auto (fit)' },
   { value: 'xl', label: 'Extra large' },
   { value: 'lg', label: 'Large' },
   { value: 'md', label: 'Medium' },
 ];
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * The typed-slides editor: free-type the text for each background
@@ -42,6 +44,8 @@ const SIZE_OPTIONS = [
  * Video slides: the file is stored in this browser's local storage
  * (IndexedDB) and NEVER uploaded — a deck exported as JSON carries
  * only the video's name, so other devices need the file re-added.
+ *
+ * `config` is the STORED config (never the panic mask or URL flags).
  */
 export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose }) {
   // When this screen follows a published deck, what's on the wall is that
@@ -50,24 +54,48 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
   // opens — otherwise editing would silently start from a stale local copy,
   // or lose the videos. Snapshotted at open: if a new publish lands while
   // this panel is up, the banner must keep describing the deck the editor
-  // actually opened, not drift to a rev it doesn't contain.
+  // actually opened, not drift to a rev it doesn't contain (that case is
+  // surfaced separately, see `newerPublished`).
   const [seededDeck] = useState(() => syncedDeck);
-  const [slides, setSlides] = useState(() => (
+  const [initialSlides] = useState(() => (
     seededDeck ? mergeSyncedDeck(seededDeck.slides, config.manualSlides) : sanitizeSlides(config.manualSlides)
   ));
+  const [slides, setSlides] = useState(initialSlides);
   const [importError, setImportError] = useState('');
   const [videoError, setVideoError] = useState('');
-  const [publishState, setPublishState] = useState({ phase: 'idle', message: '' });
+  // { phase: 'idle'|'busy'|'ok'|'edited'|'err', message, deckRev }
+  const [publishState, setPublishState] = useState({ phase: 'idle', message: '', deckRev: null });
+  // Read once at open: with a token this machine can publish, so Publish is
+  // the loud button; without one it can only fail, so Save leads.
+  const [hasToken] = useState(() => Boolean(loadPublishToken()));
   const fileRef = useRef(null);
   const videoFileRef = useRef(null);
+  const cardRefs = useRef({});
+  // A pending "put focus back on the moved card" request, consumed by the
+  // effect below once the reordered list has rendered.
+  const focusReqRef = useRef(null);
+
+  // Every mutation goes through here so a stale "Published rev N" banner can
+  // never sit above unpublished changes, and an error clears once the
+  // operator starts fixing things.
+  const edit = (fn) => {
+    setSlides(fn);
+    setPublishState((p) => {
+      if (p.phase === 'ok') {
+        return { phase: 'edited', deckRev: p.deckRev, message: `Edited since rev ${p.deckRev} was published — press Publish to all displays again to send these changes.` };
+      }
+      if (p.phase === 'err') return { phase: 'idle', message: '', deckRev: null };
+      return p;
+    });
+  };
 
   const patch = (id, changes) => {
-    setSlides((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
+    edit((prev) => prev.map((s) => (s.id === id ? { ...s, ...changes } : s)));
   };
 
   const move = (from, to) => {
-    setSlides((prev) => {
-      if (to < 0 || to >= prev.length) return prev;
+    edit((prev) => {
+      if (to < 0 || to >= prev.length || from === to) return prev;
       const next = [...prev];
       const [slide] = next.splice(from, 1);
       next.splice(to, 0, slide);
@@ -75,8 +103,24 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     });
   };
 
+  // Keep the keyboard/remote where the operator left it: after a move, focus
+  // the same arrow on the moved card (or its index line if that arrow is now
+  // disabled), so repeated presses keep working.
+  const moveAndFocus = (from, to, id, action) => {
+    focusReqRef.current = { id, action };
+    move(from, to);
+  };
+  useEffect(() => {
+    const req = focusReqRef.current;
+    if (!req) return;
+    focusReqRef.current = null;
+    const card = cardRefs.current[req.id];
+    const btn = card?.querySelector(`[data-move="${req.action}"]`);
+    (btn && !btn.disabled ? btn : card?.querySelector('.slide-card-index'))?.focus();
+  }, [slides]);
+
   const duplicate = (index) => {
-    setSlides((prev) => {
+    edit((prev) => {
       if (prev.length >= MAX_SLIDES) return prev;
       const next = [...prev];
       // A duplicated video slide shares the same stored file on
@@ -86,10 +130,18 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     });
   };
 
-  const remove = (id) => setSlides((prev) => prev.filter((s) => s.id !== id));
+  // A blank slide goes without asking; anything with content asks first.
+  const remove = (id) => {
+    const s = slides.find((x) => x.id === id);
+    const hasContent = s && (isVideoSlide(s) || s.text.trim() || s.eyebrow.trim());
+    if (hasContent && !window.confirm(isVideoSlide(s)
+      ? `Delete the video slide “${s.videoName || 'Video'}”? Its file is removed from this device when you save.`
+      : 'Delete this slide?')) return;
+    edit((prev) => prev.filter((x) => x.id !== id));
+  };
 
   const addSlide = () => {
-    setSlides((prev) => (prev.length >= MAX_SLIDES ? prev : [...prev, makeSlide()]));
+    edit((prev) => (prev.length >= MAX_SLIDES ? prev : [...prev, makeSlide()]));
   };
 
   const onVideoPick = async (e) => {
@@ -103,7 +155,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     const videoId = makeVideoId();
     try {
       await putVideo(videoId, file);
-      setSlides((prev) => [...prev, makeVideoSlide({ videoId, videoName: file.name, videoSize: file.size })]);
+      edit((prev) => [...prev, makeVideoSlide({ videoId, videoName: file.name, videoSize: file.size })]);
       setVideoError('');
     } catch {
       setVideoError("Couldn't store that video on this device — browser storage may be blocked (private window) or full.");
@@ -146,6 +198,17 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     onClose();
   };
 
+  // Someone else published while this editor was open: the live prop moved
+  // past the snapshot the editor opened, and it is not this editor's own
+  // publish echoing back. Publishing now would silently replace their deck.
+  const newerPublished = syncedDeck
+    && syncedDeck.deckRev !== (seededDeck?.deckRev ?? null)
+    && syncedDeck.deckRev !== (publishState.deckRev ?? null)
+    ? syncedDeck
+    : null;
+
+  const calendarOn = config.calendarEnabled !== false;
+
   // Publish to every display, via the print server. Local save happens FIRST,
   // so a failed publish never loses an edit; the deck that goes out is
   // text-only (video bytes exist only in this browser's storage).
@@ -154,9 +217,11 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     const videoCount = next.filter(isVideoSlide).length;
     const textCount = next.length - videoCount;
     if (textCount === 0 && !window.confirm(
-      'Publish an EMPTY deck?\n\nEvery display drops its typed slides and shows the welcome placeholder until something new is published.')) return;
+      'Publish an EMPTY deck?\n\nEvery display drops its typed slides until something new is published — screens with calendar slides on keep showing those; the rest show the welcome placeholder.')) return;
     if (videoCount > 0 && !window.confirm(
       `${videoCount} video slide${videoCount === 1 ? ' stays' : 's stay'} on THIS device — the published deck carries text slides only.\n\nPublish the ${textCount} text slide${textCount === 1 ? '' : 's'} to every display?`)) return;
+    if (newerPublished && !window.confirm(
+      `Someone published rev ${newerPublished.deckRev} while this editor was open. Publish anyway and replace their deck?`)) return;
     // Save-local-first, in BOTH modes: a failed publish never loses an edit,
     // and the locally saved copy is what lets mergeSyncedDeck() keep this
     // device's video slides — in the order arranged here — in the rotation
@@ -166,18 +231,23 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     // deleted them on purpose.
     onChange({ manualSlides: next });
     gcAgainst(next);
-    setPublishState({ phase: 'busy', message: 'Publishing…' });
+    setPublishState({ phase: 'busy', message: 'Publishing…', deckRev: null });
     const result = await publishDeck(next, loadPublishToken());
     if (result.ok) {
       setPublishState({
         phase: 'ok',
-        message: `Published rev ${result.deckRev} (${result.slideCount} slide${result.slideCount === 1 ? '' : 's'}). When this screen shows the new deck, the whole pipe is confirmed — every online display receives the same broadcast, and screens that are off catch up within ~5 minutes of coming back.`,
+        deckRev: result.deckRev,
+        message: `Published rev ${result.deckRev} (${plural(result.slideCount, 'slide')}). When this screen shows the new deck, the whole pipe is confirmed — every online display receives the same broadcast, and screens that are off catch up within ~5 minutes of coming back.`,
       });
     } else {
-      const fallback = result.reason === 'auth' || result.reason === 'rejected'
-        ? ' Fallback that always works: press Export, then paste the file into the print-server dashboard → Lobby Slides → Publish.'
+      // Export-and-paste is a real workaround only when the TOKEN is the
+      // problem (the dashboard needs none). A deck the server rejected as
+      // too large fails identically through the dashboard, so say nothing
+      // extra there — the server's message already says what to shorten.
+      const fallback = result.reason === 'auth'
+        ? ' This machine has no valid publish token — log in under Settings → Connection → Display login, or paste a token under Settings → Background. Or press Export and paste the file into the print-server dashboard → Lobby Slides → Publish.'
         : '';
-      setPublishState({ phase: 'err', message: `${result.message}${fallback}` });
+      setPublishState({ phase: 'err', message: `${result.message}${fallback}`, deckRev: null });
     }
   };
 
@@ -185,6 +255,22 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     gcAgainst(config.manualSlides);
     onClose();
   };
+
+  // Compared after sanitizing, so an added-then-abandoned blank slide is not
+  // "a change" but any real text, order or video edit is.
+  const dirty = JSON.stringify(sanitizeSlides(slides)) !== JSON.stringify(sanitizeSlides(initialSlides));
+  const requestClose = () => {
+    if (!dirty || window.confirm('Discard the changes to these slides?')) cancel();
+  };
+  // Escape goes through the same guard. The latest closure is parked in a
+  // ref (updated after each render) so the listener is attached once.
+  const requestCloseRef = useRef(requestClose);
+  useEffect(() => { requestCloseRef.current = requestClose; });
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') requestCloseRef.current(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // Slides are saved per-device (browser storage), so export/import is
   // how a deck typed at home gets onto the signage machine.
@@ -195,7 +281,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     a.href = url;
     a.download = 'awana-slides.json';
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   const importSlides = (e) => {
@@ -213,7 +299,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
         if (slides.length > 0 && !window.confirm(`Replace the ${slides.length} slide(s) here with the ${imported.length} from the file?`)) {
           return;
         }
-        setSlides(imported);
+        edit(() => imported);
         setImportError('');
       } catch {
         setImportError("Couldn't read that file — it isn't a slides JSON export.");
@@ -224,124 +310,78 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
   };
 
   const blankCount = slides.filter((s) => !isVideoSlide(s) && s.text.trim() === '').length;
+  const counter = (len, max) => (
+    <span className={`hint slide-counter${len >= max * 0.9 ? ' hint--warn' : ''}`}>{len} / {max} characters</span>
+  );
 
   return (
-    <div className="panel-backdrop" onClick={cancel}>
-      <div className="panel panel--slides" onClick={(e) => e.stopPropagation()}>
-        <h2>Typed Slides</h2>
-        <div className="hint" style={{ marginBottom: '1rem' }}>
-          Free-type the background slides — no PowerPoint needed — and mix in local video
-          files. Videos are stored on <strong>this device only</strong> and never uploaded.
-          Pick <strong>Typed slides</strong> as the background source in Settings to put
-          them on screen.
+    <div className="panel-backdrop" onClick={requestClose}>
+      <div className="panel panel--tabbed panel--slides" role="dialog" aria-label="Typed slides" onClick={(e) => e.stopPropagation()}>
+        <div className="panel-header">
+          <h2>Typed Slides</h2>
+          <div className="hint">
+            {slides.length} of {MAX_SLIDES} slides
+            {seededDeck ? ` · opened from published rev ${seededDeck.deckRev}` : ''}
+            {dirty ? ' · unsaved changes' : ''}
+          </div>
         </div>
 
-        {seededDeck && (
+        <div className="panel-body">
           <div className="hint" style={{ marginBottom: '1rem' }}>
-            <strong>This editor opened the published deck (rev {seededDeck.deckRev})</strong> plus
-            this device&rsquo;s own video slides — what this screen is showing.
-            <strong> Save slides</strong> keeps video slides (and their order) showing on this
-            screen; changed <em>text</em> only reaches the wall via
-            <strong> Publish to all displays</strong>, which sends the text slides to every
-            screen — video files never leave the device they were added on.
+            Free-type the background slides — no PowerPoint needed — and mix in local video
+            files. Videos are stored on <strong>this device only</strong> and never uploaded.
+            {config.backgroundSource !== 'manual' && (
+              <> This screen&rsquo;s background source is not <strong>Typed slides</strong> — switch it in
+              Settings → Background to put these on screen.</>
+            )}
           </div>
-        )}
 
-        {slides.length === 0 && (
-          <div className="slide-empty">
-            No slides yet — press <strong>Add slide</strong> below and just start typing,
-            or <strong>Add video</strong> to drop in a local video file.
-          </div>
-        )}
-
-        {slides.map((slide, i) => (
-          <div className="slide-card" key={slide.id}>
-            <div className="slide-card-preview" aria-hidden>
-              <div className="slide-card-frame">
-                {isVideoSlide(slide) ? (
-                  <VideoThumb videoId={slide.videoId} />
-                ) : (
-                  <CatalogScene theme={resolveTheme(slide, i)} still>
-                    <div className="manual-slide-copy">
-                      {slide.eyebrow ? <span className="manual-slide-eyebrow">{slide.eyebrow}</span> : null}
-                      <p className={`manual-slide-text ${resolveSizeClass(slide)}`}>
-                        {slide.text || 'Your text here…'}
-                      </p>
-                    </div>
-                  </CatalogScene>
-                )}
-              </div>
+          {seededDeck && (
+            <div className="hint" style={{ marginBottom: '1rem' }}>
+              <strong>This editor opened the published deck (rev {seededDeck.deckRev})</strong> plus
+              this device&rsquo;s own video slides — what this screen is showing.
+              <strong> Save slides</strong> keeps video slides (and their order) showing on this
+              screen; changed <em>text</em> only reaches the wall via
+              <strong> Publish to all displays</strong>, which sends the text slides to every
+              screen — video files never leave the device they were added on.
             </div>
+          )}
 
-            <div className="slide-card-fields">
-              {isVideoSlide(slide) ? (
-                <>
-                  <div className="slide-card-video-meta">
-                    <strong>{slide.videoName || 'Video'}</strong>
-                    {slide.videoSize > 0 && <span> · {(slide.videoSize / 1e6).toFixed(1)} MB</span>}
-                  </div>
-                  <div className="field">
-                    <label htmlFor={`dur-${slide.id}`}>Seconds on screen</label>
-                    <input
-                      id={`dur-${slide.id}`}
-                      type="number"
-                      min="0"
-                      max="600"
-                      step="1"
-                      value={slide.durationSec}
-                      onChange={(e) => patch(slide.id, { durationSec: Number(e.target.value) })}
-                    />
-                    <span className="hint">0 = play the video to the end, then advance.</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="field">
-                    <label htmlFor={`eyebrow-${slide.id}`}>Small top line (optional)</label>
-                    <input
-                      id={`eyebrow-${slide.id}`}
-                      type="text"
-                      maxLength={MAX_EYEBROW}
-                      value={slide.eyebrow}
-                      onChange={(e) => patch(slide.id, { eyebrow: e.target.value })}
-                      placeholder="Awana Clubs"
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor={`text-${slide.id}`}>Slide text</label>
-                    <textarea
-                      id={`text-${slide.id}`}
-                      rows={3}
-                      maxLength={MAX_TEXT}
-                      value={slide.text}
-                      onChange={(e) => patch(slide.id, { text: e.target.value })}
-                      placeholder={'Welcome to\nAwana!'}
-                    />
-                  </div>
-                  <div className="slide-card-row">
-                    <div className="field">
-                      <label htmlFor={`theme-${slide.id}`}>Look</label>
-                      <select
-                        id={`theme-${slide.id}`}
-                        value={slide.theme}
-                        onChange={(e) => patch(slide.id, { theme: e.target.value })}
-                      >
-                        {THEME_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="field">
-                      <label htmlFor={`size-${slide.id}`}>Text size</label>
-                      <select
-                        id={`size-${slide.id}`}
-                        value={slide.textSize || 'auto'}
-                        onChange={(e) => patch(slide.id, { textSize: e.target.value })}
-                      >
-                        {SIZE_OPTIONS.map((o) => (
-                          <option key={o.value} value={o.value}>{o.label}</option>
-                        ))}
-                      </select>
+          {slides.length === 0 && (
+            <div className="slide-empty">
+              No slides yet — press <strong>Add slide</strong> below and just start typing,
+              or <strong>Add video</strong> to drop in a local video file.
+            </div>
+          )}
+
+          {slides.map((slide, i) => (
+            <div className="slide-card" key={slide.id} ref={(el) => { cardRefs.current[slide.id] = el; }}>
+              <div className="slide-card-preview" aria-hidden>
+                <div className="slide-card-frame">
+                  {isVideoSlide(slide) ? (
+                    <VideoThumb videoId={slide.videoId} />
+                  ) : (
+                    <CatalogScene theme={resolveTheme(slide, i)} still>
+                      <div className="manual-slide-copy">
+                        {slide.eyebrow ? <span className="manual-slide-eyebrow">{slide.eyebrow}</span> : null}
+                        <p className={`manual-slide-text ${resolveSizeClass(slide)}`}>
+                          {slide.text || 'Your text here…'}
+                        </p>
+                      </div>
+                    </CatalogScene>
+                  )}
+                </div>
+              </div>
+
+              <div className="slide-card-fields">
+                <div className="slide-card-index" tabIndex={-1}>
+                  Slide {i + 1} of {slides.length}{isVideoSlide(slide) ? ' · video' : ''}
+                </div>
+                {isVideoSlide(slide) ? (
+                  <>
+                    <div className="slide-card-video-meta">
+                      <strong>{slide.videoName || 'Video'}</strong>
+                      {slide.videoSize > 0 && <span> · {(slide.videoSize / 1e6).toFixed(1)} MB</span>}
                     </div>
                     <div className="field">
                       <label htmlFor={`dur-${slide.id}`}>Seconds on screen</label>
@@ -354,46 +394,124 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
                         value={slide.durationSec}
                         onChange={(e) => patch(slide.id, { durationSec: Number(e.target.value) })}
                       />
-                      <span className="hint">0 = use the global slide delay from Settings.</span>
+                      <span className="hint">0 = play the video to the end, then advance.</span>
                     </div>
-                  </div>
-                </>
-              )}
-              <div className="slide-card-controls">
-                <button className="ghost" onClick={() => move(i, i - 1)} disabled={i === 0} title="Move up">↑</button>
-                <button className="ghost" onClick={() => move(i, i + 1)} disabled={i === slides.length - 1} title="Move down">↓</button>
-                <button className="ghost" onClick={() => duplicate(i)} disabled={slides.length >= MAX_SLIDES}>Duplicate</button>
-                <button className="danger" onClick={() => remove(slide.id)}>Delete</button>
+                  </>
+                ) : (
+                  <>
+                    <div className="field">
+                      <label htmlFor={`eyebrow-${slide.id}`}>Small top line (optional)</label>
+                      <input
+                        id={`eyebrow-${slide.id}`}
+                        type="text"
+                        maxLength={MAX_EYEBROW}
+                        value={slide.eyebrow}
+                        onChange={(e) => patch(slide.id, { eyebrow: e.target.value })}
+                        placeholder="Awana Clubs"
+                      />
+                      {counter(slide.eyebrow.length, MAX_EYEBROW)}
+                    </div>
+                    <div className="field">
+                      <label htmlFor={`text-${slide.id}`}>Slide text</label>
+                      <textarea
+                        id={`text-${slide.id}`}
+                        rows={3}
+                        maxLength={MAX_TEXT}
+                        value={slide.text}
+                        onChange={(e) => patch(slide.id, { text: e.target.value })}
+                        placeholder={'Welcome to\nAwana!'}
+                      />
+                      {counter(slide.text.length, MAX_TEXT)}
+                    </div>
+                    <div className="slide-card-row">
+                      <div className="field">
+                        <label htmlFor={`theme-${slide.id}`}>Look</label>
+                        <select
+                          id={`theme-${slide.id}`}
+                          value={slide.theme}
+                          onChange={(e) => patch(slide.id, { theme: e.target.value })}
+                        >
+                          {THEME_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`size-${slide.id}`}>Text size</label>
+                        <select
+                          id={`size-${slide.id}`}
+                          value={slide.textSize || 'auto'}
+                          onChange={(e) => patch(slide.id, { textSize: e.target.value })}
+                        >
+                          {SIZE_OPTIONS.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`dur-${slide.id}`}>Seconds on screen</label>
+                        <input
+                          id={`dur-${slide.id}`}
+                          type="number"
+                          min="0"
+                          max="600"
+                          step="1"
+                          value={slide.durationSec}
+                          onChange={(e) => patch(slide.id, { durationSec: Number(e.target.value) })}
+                        />
+                        <span className="hint">0 = use the global slide delay from Settings.</span>
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="slide-card-controls">
+                  <button className="ghost" data-move="top" onClick={() => moveAndFocus(i, 0, slide.id, 'top')} disabled={i === 0} aria-label={`Move slide ${i + 1} to the top`}>Top</button>
+                  <button className="ghost" data-move="up" onClick={() => moveAndFocus(i, i - 1, slide.id, 'up')} disabled={i === 0} aria-label={`Move slide ${i + 1} up`}>↑</button>
+                  <button className="ghost" data-move="down" onClick={() => moveAndFocus(i, i + 1, slide.id, 'down')} disabled={i === slides.length - 1} aria-label={`Move slide ${i + 1} down`}>↓</button>
+                  <button className="ghost" data-move="bottom" onClick={() => moveAndFocus(i, slides.length - 1, slide.id, 'bottom')} disabled={i === slides.length - 1} aria-label={`Move slide ${i + 1} to the bottom`}>Bottom</button>
+                  <button className="ghost" onClick={() => duplicate(i)} disabled={slides.length >= MAX_SLIDES}>Duplicate</button>
+                  <button className="danger" onClick={() => remove(slide.id)}>Delete</button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
 
-        {importError && <div className="slide-editor-error">{importError}</div>}
-        {videoError && <div className="slide-editor-error">{videoError}</div>}
-        {blankCount > 0 && (
-          <div className="hint" style={{ marginBottom: '0.75rem' }}>
-            {blankCount} empty slide{blankCount > 1 ? 's' : ''} will be skipped when you save — type something in first.
-          </div>
-        )}
-        {slides.length === 0 && config.backgroundSource === 'manual' && (
-          <div className="hint" style={{ marginBottom: '0.75rem' }}>
-            With no slides saved, the screen shows the welcome placeholder instead.
-          </div>
-        )}
-        {slides.some(isVideoSlide) && (
-          <div className="hint" style={{ marginBottom: '0.75rem' }}>
-            Export carries a video slide's <em>name</em> only — the file stays on this device.
-            After importing a deck on another machine, delete its "missing" video slides and
-            re-add the files there.
+          {importError && <div className="slide-editor-error">{importError}</div>}
+          {videoError && <div className="slide-editor-error">{videoError}</div>}
+          {blankCount > 0 && (
+            <div className="hint" style={{ marginBottom: '0.75rem' }}>
+              {blankCount} empty slide{blankCount > 1 ? 's' : ''} will be skipped when you save — type something in first.
+            </div>
+          )}
+          {slides.length === 0 && config.backgroundSource === 'manual' && (
+            <div className="hint" style={{ marginBottom: '0.75rem' }}>
+              {calendarOn
+                ? 'With no slides saved, the calendar slides play on their own.'
+                : 'With no slides saved, the screen shows the welcome placeholder instead.'}
+            </div>
+          )}
+          {slides.some(isVideoSlide) && (
+            <div className="hint" style={{ marginBottom: '0.75rem' }}>
+              Export carries a video slide's <em>name</em> only — the file stays on this device.
+              After importing a deck on another machine, delete its "missing" video slides and
+              re-add the files there.
+            </div>
+          )}
+        </div>
+
+        {newerPublished && (
+          <div className="slide-editor-error" role="alert" style={{ margin: '0.75rem 2rem 0' }}>
+            Someone published rev {newerPublished.deckRev} ({plural(newerPublished.slides.length, 'slide')}) while this
+            editor was open. Publishing now replaces their deck with this one — press Cancel and reopen the editor
+            to start from theirs.
           </div>
         )}
 
         <div className="actions">
-          <button className="primary" onClick={addSlide} disabled={slides.length >= MAX_SLIDES}>
+          <button className="ghost" onClick={addSlide} disabled={slides.length >= MAX_SLIDES}>
             + Add slide
           </button>
-          <button className="primary" onClick={() => videoFileRef.current?.click()} disabled={slides.length >= MAX_SLIDES}>
+          <button className="ghost" onClick={() => videoFileRef.current?.click()} disabled={slides.length >= MAX_SLIDES}>
             + Add video
           </button>
           <input
@@ -412,13 +530,15 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
             style={{ display: 'none' }}
             onChange={importSlides}
           />
-          <button onClick={cancel}>Cancel</button>
-          <button className="primary" onClick={save}>Save slides</button>
+          <button onClick={requestClose}>Cancel</button>
+          <button className={hasToken ? 'secondary' : 'primary'} onClick={save}>Save slides</button>
           <button
-            className="primary"
+            className={hasToken ? 'primary' : 'secondary'}
             onClick={publishAll}
             disabled={publishState.phase === 'busy'}
-            title="Send this deck to every display, via the print server"
+            title={hasToken
+              ? 'Send this deck to every display, via the print server'
+              : 'Needs a publish token — log in under Settings → Connection → Display login, or paste one under Settings → Background'}
           >
             {publishState.phase === 'busy' ? 'Publishing…' : 'Publish to all displays'}
           </button>
@@ -426,7 +546,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
         {publishState.phase !== 'idle' && publishState.phase !== 'busy' && (
           <div
             className={publishState.phase === 'err' ? 'slide-editor-error' : 'hint'}
-            style={{ marginTop: '0.75rem' }}
+            style={{ margin: '0.75rem 2rem 0' }}
             role="status"
           >
             {publishState.message}

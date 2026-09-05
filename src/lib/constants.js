@@ -6,6 +6,11 @@
 // How many ops (printer telemetry) failures the Signal sticker keeps.
 export const OPS_FAILURES_MAX = 20;
 
+// A stage layer that crashed shows on the Signal sticker for this long after
+// its LAST crash. Every stage ErrorBoundary retries on the 30 s boardNow tick,
+// so a persistent fault re-crashes and never ages out; a one-off disappears.
+export const LAYER_FAULT_SHOW_MS = 10 * 60 * 1000;
+
 // Milestone / club-milestone toast hold time.
 export const MILESTONE_TOAST_MS = 6000;
 

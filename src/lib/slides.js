@@ -110,11 +110,15 @@ export function sanitizeSlides(raw) {
       continue;
     }
 
-    const eyebrow = typeof entry.eyebrow === 'string' ? entry.eyebrow.slice(0, MAX_EYEBROW) : '';
+    // Trim BEFORE slicing, exactly as the print server (events.js slideText)
+    // and eventSanitizers.js cleanString do, so a locally saved deck and its
+    // published echo compare equal (a trailing newline used to demote this
+    // device's video slides to the end of the rotation on every publish).
+    const eyebrow = typeof entry.eyebrow === 'string' ? entry.eyebrow.trim().slice(0, MAX_EYEBROW) : '';
     const theme = SLIDE_THEMES.includes(entry.theme) ? entry.theme : 'auto';
     const textSize = TEXT_SIZES.includes(entry.textSize) ? entry.textSize : 'auto';
 
-    clean.push({ id, eyebrow, text: entry.text.slice(0, MAX_TEXT), theme, durationSec, textSize });
+    clean.push({ id, eyebrow, text: entry.text.trim().slice(0, MAX_TEXT), theme, durationSec, textSize });
   }
   return clean;
 }
@@ -139,7 +143,13 @@ export function mergeSyncedDeck(syncedSlides, localSlides) {
   const local = sanitizeSlides(localSlides);
   const localVideos = local.filter(isVideoSlide);
   if (!localVideos.length) return synced;
-  const textOf = (slides) => JSON.stringify(slides.filter((s) => !isVideoSlide(s)));
+  // Compare CONTENT the way the publisher normalizes it, and WITHOUT ids (the
+  // print server may assign its own — see contract-vectors.json): a trailing
+  // newline or a regenerated id must never demote this device's videos to the
+  // end of the rotation.
+  const textOf = (slides) => JSON.stringify(slides
+    .filter((s) => !isVideoSlide(s))
+    .map((s) => [s.eyebrow.replace(/\s+/g, ' ').trim(), s.text.trim(), s.theme, s.textSize, s.durationSec]));
   if (textOf(local) === textOf(synced)) return local;
   // Re-sanitize the concatenation: it dedupes any id shared across the
   // two sources and re-applies the MAX_SLIDES cap.
