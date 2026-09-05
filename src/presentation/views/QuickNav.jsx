@@ -10,6 +10,9 @@ import { lowPowerPreference, setLowPowerPreference, useLowPower } from '../hooks
 import { useClockDrift } from '../hooks/useClockDrift.js';
 import { useConfig } from '../../hooks/useConfig.js';
 import { useDisplayLogin } from '../../hooks/useDisplayLogin.js';
+import { useDisplayKey } from '../../hooks/useDisplayKey.js';
+import { maskDisplayKey } from '../../lib/displayKey.js';
+import { isPlausibleKey } from '../../lib/envelope.js';
 import { GlassPanel } from '../components/GlassPanel.jsx';
 
 /**
@@ -19,7 +22,7 @@ import { GlassPanel } from '../components/GlassPanel.jsx';
  * `now`'s date (special dates can replace the normal table), and the
  * active probe uses the app clock so it is honest under `?now=` QA.
  */
-export const QuickNav = ({ now, state, isOverride, onSelect, onResume }) => {
+export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketStatus }) => {
   const activeKey = stateKey(state);
   const cfg = useEffectiveSchedule();
   const windows = windowsForDate(now, cfg) ?? cfg.windows;
@@ -66,7 +69,7 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume }) => {
           <SkipWeeks now={now} cfg={cfg} />
           <BirthdayStatus />
           <TogglesRow />
-          <DisplaySettings />
+          <DisplaySettings socketStatus={socketStatus} />
           <p
             className="mt-2 pt-2 border-t border-white/10 px-3 pb-1 text-[0.55rem] uppercase text-gray-500 text-right leading-relaxed"
             style={{ fontFamily: 'var(--font-condensed)', fontWeight: 700, letterSpacing: '0.1em' }}
@@ -273,19 +276,28 @@ const BirthdayStatus = () => {
  * Settings panel writes — and the sanctioned socket picks changes up
  * immediately (no reload needed).
  */
-const DisplaySettings = () => {
+const DisplaySettings = ({ socketStatus }) => {
   const { config, updateConfig } = useConfig();
   const [open, setOpen] = useState(false);
-  const [advanced, setAdvanced] = useState(false);
+  // The by-hand fold opens itself when it IS the fix: no Pusher key yet.
+  const [advanced, setAdvanced] = useState(() => socketStatus === 'off');
   const [key, setKey] = useState(config.pusherAppKey || '');
   const [cluster, setCluster] = useState(config.pusherCluster || 'us2');
   const [saved, setSaved] = useState(false);
   // Display login: one passphrase provisions the display key + publish token
   // (the sealed birthday list needs the key). Same store the signage page's
   // Settings uses — src/lib/displayLogin.js.
-  const { frameStatus, loginStatus, kid, login, logout } = useDisplayLogin();
+  const { frameStatus, loginStatus, kid, pendingLogin, login, logout } = useDisplayLogin();
   const [passphrase, setPassphrase] = useState('');
+  const [reveal, setReveal] = useState(false);
   const [loginNote, setLoginNote] = useState('');
+  const [loginTone, setLoginTone] = useState('muted');
+  // The display key by hand — the same slot the signage Settings writes.
+  const secure = Boolean(globalThis.crypto?.subtle);
+  const { displayKey, setDisplayKey } = useDisplayKey();
+  const [editingKey, setEditingKey] = useState(false);
+  const [keyDraft, setKeyDraft] = useState('');
+  const [keyNote, setKeyNote] = useState('');
 
   const save = () => {
     updateConfig({ pusherAppKey: key.trim(), pusherCluster: cluster.trim() });
@@ -293,31 +305,57 @@ const DisplaySettings = () => {
     setTimeout(() => setSaved(false), 4000);
   };
 
+  const busy = loginStatus === 'busy';
+  const canLogin = secure && !busy && passphrase.trim().length > 0;
+
   const doLogin = async () => {
     const p = passphrase.trim();
-    if (!p) return;
+    if (!p || !canLogin) return;
     const result = await login(p);
-    setPassphrase(result === 'logged-in' ? '' : passphrase);
-    setLoginNote(
-      result === 'logged-in' ? 'Logged in — birthdays + names unlocked'
-        : result === 'wrong' ? 'Wrong passphrase'
-          : result === 'no-frame' ? 'Print server not heard from yet'
-            : result === 'unsupported' ? 'No secure crypto here — use Advanced'
-              : 'Could not save (storage blocked)',
-    );
+    if (result === 'logged-in') setPassphrase('');
+    const notes = {
+      'logged-in': ['Logged in — birthdays + names unlocked', 'ok'],
+      wrong: ['Wrong passphrase — check the dashboard (Settings → Display login)', 'bad'],
+      'no-frame': ['Waiting for the print server — will log in when its frame arrives', 'muted'],
+      unsupported: ['Insecure page — open this page over https:// to log in', 'bad'],
+      storage: ['Could not save (storage blocked)', 'bad'],
+    };
+    const [note, tone] = notes[result] || ['', 'muted'];
+    setLoginNote(note);
+    setLoginTone(tone);
   };
 
-  const loginLine = loginStatus === 'logged-in' ? `Logged in${kid ? ` · key ${kid}` : ''}`
-    : loginStatus === 'stale' ? 'Passphrase changed — log in again'
-      : loginStatus === 'busy' ? 'Checking…'
-        : loginStatus === 'unsupported' ? 'No secure crypto — use Advanced'
-          : frameStatus === 'received' ? 'Type the display passphrase'
-            : frameStatus === 'miss' ? 'Print server has not published lately'
-              : 'Waiting for the print server…';
-  const canLogin = frameStatus === 'received' && loginStatus !== 'busy' && loginStatus !== 'logged-in';
+  // Status first: the print server is usually fine and the screen is simply
+  // not connected yet — the old line blamed the server for every wait.
+  let loginLine;
+  let lineTone = 'muted';
+  if (!secure) { loginLine = 'Insecure page — open over https:// to log in'; lineTone = 'bad'; }
+  else if (loginStatus === 'logged-in') { loginLine = `Logged in${kid ? ` · key ${kid}` : ''}`; lineTone = 'ok'; }
+  else if (loginStatus === 'stale') { loginLine = 'Passphrase changed — log in again'; lineTone = 'bad'; }
+  else if (busy) loginLine = 'Checking…';
+  else if (socketStatus === 'off') { loginLine = 'Not connected — add the live data key under Advanced first'; lineTone = 'bad'; }
+  else if (socketStatus === 'disconnected') { loginLine = 'Not connected — check the network, then the key under Advanced'; lineTone = 'bad'; }
+  else if (socketStatus === 'connecting') loginLine = 'Connecting…';
+  else if (loginStatus === 'wrong') { loginLine = 'Wrong passphrase'; lineTone = 'bad'; }
+  else if (pendingLogin) loginLine = 'Will log in when the print server is heard';
+  else if (frameStatus === 'received') loginLine = 'Type the display passphrase';
+  else if (frameStatus === 'miss') loginLine = 'Print server has not published lately';
+  else loginLine = 'Waiting for the print server…';
+  const tone = loginNote ? loginTone : lineTone;
+  const toneClass = tone === 'ok' ? 'text-emerald-400' : tone === 'bad' ? 'text-red-400' : 'text-gray-400';
 
   const inputStyle =
-    'px-2 py-1 text-xs rounded bg-white/10 border border-white/15 text-white placeholder-gray-500 outline-none focus:border-white/40 w-40';
+    'px-2 py-1 text-xs rounded bg-white/10 border border-white/15 text-white placeholder-gray-500 outline-none focus:border-white/40 w-40 disabled:opacity-40';
+  const pillGrey = 'px-3 py-1 text-xs uppercase text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all border border-white/15';
+  const pillGreen = 'px-3 py-1 text-xs uppercase text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all border border-emerald-400/20 disabled:opacity-40';
+
+  const saveKey = () => {
+    const next = keyDraft.trim();
+    if (!isPlausibleKey(next)) return;
+    const ok = setDisplayKey(next);
+    setKeyNote(ok ? 'Saved — applies immediately' : 'Could not save (storage blocked)');
+    if (ok) { setKeyDraft(''); setEditingKey(false); }
+  };
 
   return (
     <div
@@ -339,21 +377,32 @@ const DisplaySettings = () => {
           </label>
           {loginStatus !== 'logged-in' ? (
             <>
-              <input
-                className={inputStyle}
-                type="password"
-                value={passphrase}
-                onChange={(e) => setPassphrase(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && canLogin) doLogin(); }}
-                placeholder="display passphrase"
-                spellCheck={false}
-                autoComplete="off"
-                disabled={!canLogin && loginStatus !== 'stale' && loginStatus !== 'wrong'}
-              />
+              <div className="flex items-center gap-1.5">
+                <input
+                  className={inputStyle}
+                  type={reveal ? 'text' : 'password'}
+                  value={passphrase}
+                  onChange={(e) => setPassphrase(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && canLogin) doLogin(); }}
+                  placeholder="display passphrase"
+                  spellCheck={false}
+                  autoComplete="off"
+                  disabled={!secure || busy}
+                  aria-label="Display passphrase"
+                />
+                <button
+                  onClick={() => setReveal((v) => !v)}
+                  aria-pressed={reveal}
+                  className="px-2 py-0.5 text-[0.6rem] uppercase text-gray-400 hover:text-white rounded"
+                  style={{ fontWeight: 700 }}
+                >
+                  {reveal ? 'Hide' : 'Show'}
+                </button>
+              </div>
               <button
                 onClick={doLogin}
-                disabled={!canLogin || !passphrase.trim()}
-                className="px-3 py-1 text-xs uppercase text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all border border-emerald-400/20 disabled:opacity-40"
+                disabled={!canLogin}
+                className={pillGreen}
                 style={{ fontWeight: 800 }}
               >
                 Log in
@@ -364,13 +413,13 @@ const DisplaySettings = () => {
               onClick={() => {
                 if (window.confirm('Log this screen out? It forgets the display key and publish token too.')) { logout(); setLoginNote(''); }
               }}
-              className="px-3 py-1 text-xs uppercase text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all border border-white/15"
+              className={pillGrey}
               style={{ fontWeight: 800 }}
             >
               Log out
             </button>
           )}
-          <p className="text-[0.6rem] uppercase text-gray-500 text-right" style={{ fontWeight: 700 }}>
+          <p className={`text-xs uppercase text-right ${toneClass}`} style={{ fontWeight: 700 }}>
             {loginNote || loginLine}
           </p>
 
@@ -392,6 +441,7 @@ const DisplaySettings = () => {
                 onChange={(e) => setKey(e.target.value)}
                 placeholder="public key — blank = off"
                 spellCheck={false}
+                aria-label="Pusher app key"
               />
               <input
                 className={inputStyle}
@@ -399,6 +449,7 @@ const DisplaySettings = () => {
                 onChange={(e) => setCluster(e.target.value)}
                 placeholder="cluster (us2)"
                 spellCheck={false}
+                aria-label="Pusher cluster"
               />
               <button
                 onClick={save}
@@ -410,6 +461,56 @@ const DisplaySettings = () => {
               <p className="text-[0.6rem] uppercase text-gray-500 text-right" style={{ fontWeight: 700 }}>
                 {saved ? 'Saved — applies immediately' : 'Powers live counts + birthday sync'}
               </p>
+
+              <label className="text-[0.6rem] uppercase text-gray-500 mt-1" style={{ fontWeight: 700 }}>
+                Display key (names + birthdays)
+              </label>
+              {!secure ? (
+                <p className="text-xs text-red-400 text-right" style={{ fontWeight: 700 }}>
+                  Insecure page — encrypted names cannot be read here. Open this page over https://
+                </p>
+              ) : displayKey && !editingKey ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-300" style={{ fontFamily: 'monospace', letterSpacing: 0 }}>
+                    {maskDisplayKey(displayKey)}
+                  </span>
+                  <button onClick={() => setEditingKey(true)} className={pillGrey} style={{ fontWeight: 800 }}>Replace</button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Remove the display key from THIS screen? Names and birthdays stop here until it is set again.')) setDisplayKey('');
+                    }}
+                    className={pillGrey}
+                    style={{ fontWeight: 800 }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    className={inputStyle}
+                    type="password"
+                    value={keyDraft}
+                    onChange={(e) => setKeyDraft(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') saveKey(); }}
+                    placeholder="paste the 44-character key"
+                    spellCheck={false}
+                    autoComplete="off"
+                    aria-label="Display key"
+                  />
+                  <button disabled={!isPlausibleKey(keyDraft.trim())} onClick={saveKey} className={pillGreen} style={{ fontWeight: 800 }}>
+                    Save key
+                  </button>
+                  {editingKey && (
+                    <button onClick={() => { setEditingKey(false); setKeyDraft(''); }} className={pillGrey} style={{ fontWeight: 800 }}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              )}
+              {keyNote && (
+                <p className="text-[0.65rem] uppercase text-gray-400 text-right" style={{ fontWeight: 700 }}>{keyNote}</p>
+              )}
             </>
           )}
         </div>

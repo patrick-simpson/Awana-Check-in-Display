@@ -33,3 +33,17 @@ test('quick-nav hover affordance exists', async ({ page }) => {
   const hoverZone = page.locator('body');
   await hoverZone.hover({ position: { x: 1900, y: 20 } });
 });
+
+// Display Settings on the projector page: the passphrase box is typeable
+// before any frame arrives, and — with no live-data key yet — the Advanced
+// fold is open and carries a display-key row, so the projector can be keyed
+// by hand without a second copy of the key slot.
+test('display settings: passphrase typeable, advanced fold holds the display key', async ({ page }) => {
+  await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
+  await page.goto('/countdown.html?now=2026-09-15T18:30:00');
+  await page.locator('body').hover({ position: { x: 1900, y: 20 } });
+  await page.getByRole('button', { name: /Display Settings/ }).click();
+  await expect(page.getByLabel('Display passphrase')).toBeEnabled();
+  await expect(page.getByText(/add the live data key under Advanced first/i)).toBeVisible();
+  await expect(page.getByPlaceholder('paste the 44-character key')).toBeVisible();
+});

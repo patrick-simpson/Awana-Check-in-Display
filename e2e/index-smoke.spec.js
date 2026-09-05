@@ -20,7 +20,10 @@ test('signage stage boots with no errors and no external network', async ({ page
   await page.goto('/index.html');
   await expect(page.locator('.stage')).toBeVisible();
   // The placeholder background ("screen is never blank") should render
-  // since no PowerPoint embed URL is configured.
+  // since no PowerPoint embed URL is configured — and a brand-new screen
+  // offers a volunteer a way in.
+  await expect(page.locator('.setup-card')).toBeVisible();
+  await expect(page.locator('.setup-card')).toContainText('Two quick setup steps');
   await page.waitForTimeout(1500);
 
   expect(pageErrors).toEqual([]);
@@ -31,6 +34,8 @@ test('overlay mode renders a transparent stage', async ({ page }) => {
   await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
   await page.goto('/index.html?overlay=1');
   await expect(page.locator('.stage.overlay')).toBeVisible();
+  // Operator chrome never reaches an OBS/ProPresenter feed.
+  await expect(page.locator('.setup-card')).toHaveCount(0);
 });
 
 // Slide sync, end to end from the cache: a screen that received a published

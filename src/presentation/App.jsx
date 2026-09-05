@@ -31,7 +31,7 @@ export const App = () => {
   // before useSchedule() so the `schedule` broadcast can be folded in
   // as an advisory layer over shared/schedule.json (never a
   // replacement — see lib/scheduleAdvisory.js).
-  const { tally, schedule: scheduleAdvisory } = useRealtime();
+  const { tally, schedule: scheduleAdvisory, socketStatus } = useRealtime();
   const { state, isOverride, resumeAt, select, resume, stay } = useSchedule(now, scheduleAdvisory);
 
   // Advancing past the opening deck's final blackout jumps straight into
@@ -99,7 +99,7 @@ export const App = () => {
         </motion.div>
       </AnimatePresence>
 
-      <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} />
+      <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} socketStatus={socketStatus} />
       {isOverride && <ResumePill now={now} resumeAt={resumeAt} onStay={stay} />}
       <SetupChecklist />
     </div>

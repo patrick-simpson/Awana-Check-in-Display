@@ -13,6 +13,7 @@ import WeatherChip from './components/WeatherChip.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import SlideEditorPanel from './components/SlideEditorPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
+import SetupCard from './components/SetupCard.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { Mark } from './components/Doodles.jsx';
 import StickerChip from './components/StickerChip.jsx';
@@ -260,7 +261,7 @@ export default function App() {
     onSlides,
   }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice, onSlides]);
 
-  const { status, lastEventAt, lastCheckinAt, retry, nameStatus, slidesStatus } = useSocket(socketHandlers);
+  const { status, lastEventAt, lastCheckinAt, retry, nameStatus, slidesStatus, hasDisplayKey } = useSocket(socketHandlers);
 
   // Which typed deck actually renders: the published one wherever this device
   // follows it (the default), else this device's own. An EMPTY published deck
@@ -870,6 +871,17 @@ export default function App() {
         <div className="demo-pill" title="A simulated event has been fired on this screen. Reload to clear.">
           demo mode — not real check-ins
         </div>
+      )}
+
+      {/* First-run card: an unconfigured TV must offer a volunteer a way in.
+          Never on an OBS/ProPresenter overlay feed; hidden while a panel is
+          up; hides itself once the screen is connected and keyed. */}
+      {!overlay && !settingsOpen && !slideEditorOpen && (
+        <SetupCard
+          status={status}
+          hasDisplayKey={hasDisplayKey}
+          onOpenSettings={() => { setSettingsTab('connection'); setSettingsOpen(true); }}
+        />
       )}
 
       {!overlay && (

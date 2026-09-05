@@ -364,7 +364,7 @@ html, body, #root {
 /* Same pinned header / scrolling body / pinned actions column as Settings
    (.panel--tabbed); the compound selector outranks .panel--tabbed's width. */
 .panel--tabbed.panel--slides {
-  width: min(860px, 94vw);
+  width: min(53.75rem, 94vw);
 }
 .slide-card-index {
   font-size: 0.8rem;
@@ -1240,7 +1240,7 @@ html, body, #root {
   z-index: 100;
 }
 .panel {
-  width: min(580px, 92vw);
+  width: min(36.25rem, 92vw);
   max-height: 88vh;
   overflow-y: auto;
   background: linear-gradient(180deg, #fffdf7 0%, var(--awana-cream) 100%);
@@ -1284,8 +1284,8 @@ html, body, #root {
    top, fields scrolling in the middle, Save/Cancel always visible at
    the bottom — crucial when driving a TV from a couch. */
 .panel--tabbed {
-  width: min(760px, 94vw);
-  height: min(680px, 88vh);
+  width: min(47.5rem, 94vw);
+  height: min(42.5rem, 88vh);
   max-height: 88vh;
   display: flex;
   flex-direction: column;
@@ -2570,8 +2570,63 @@ input:focus-visible {
 .stage.april-fools .debug { transform: rotate(180deg); }
 .stage.april-fools .settings-gear:hover { transform: rotate(225deg) scale(1.05); }
 
+/* ── First-run card (signage): a .panel parked above the gear ─────── */
+.panel.setup-card {
+  position: absolute;
+  left: var(--safe-inset);
+  bottom: calc(var(--safe-inset) + 64px);
+  width: min(26rem, 90vw);
+  max-height: none;
+  overflow: visible;
+  padding: 1.1rem 1.25rem;
+  z-index: 45;
+}
+.setup-card h3 {
+  margin: 0 0 0.5rem;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--awana-orange-deep);
+}
+.setup-card ol {
+  margin: 0 0 0.6rem;
+  padding-left: 1.2rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.setup-card li + li { margin-top: 0.35rem; }
+.setup-card li.done { color: var(--ink-soft); text-decoration: line-through; }
+.setup-card kbd {
+  font: inherit;
+  font-size: 0.8em;
+  padding: 0 0.35em;
+  border: 1px solid rgba(51, 66, 79, 0.25);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: #fff;
+}
+.setup-card .actions { margin-top: 0.75rem; justify-content: flex-start; }
+.stage.april-fools .setup-card { transform: rotate(180deg); }
+
 /* Settings → Connection: the by-hand key fields fold away behind the login. */
 details.advanced-fields { margin-top: 0.75rem; border-top: 2px dashed rgba(51, 66, 79, 0.15); padding-top: 0.75rem; }
 details.advanced-fields > summary { cursor: pointer; font-weight: 700; opacity: 0.8; padding: 0.25rem 0; }
 details.advanced-fields > summary:hover { opacity: 1; }
 details.advanced-fields[open] > summary { margin-bottom: 0.5rem; }
+
+/* ── Large canvases: 1440p / 4K at 100% OS scaling ──────────────────
+   Every headline ceiling in this file is a rem clamp, so lifting the root
+   size lifts them all together (same blanket strategy as
+   .zero-animation-mode). 1920-wide TVs — the design and Playwright
+   baseline viewport — are untouched: 2400px only reaches 1440p boxes, and
+   32px at 3840 reproduces the 1080p proportions exactly. The panels are
+   sized in rem above for the same reason; the gear (touch target) and the
+   slide-card thumbnail (locked to its 0.15 frame scale) stay in px. */
+@media (min-width: 2400px) {
+  html { font-size: 21px; }
+}
+@media (min-width: 3600px) {
+  html { font-size: 32px; }
+}
