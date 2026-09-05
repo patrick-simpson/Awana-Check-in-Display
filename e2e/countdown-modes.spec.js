@@ -40,6 +40,8 @@ test('quick-nav hover affordance exists', async ({ page }) => {
 // by hand without a second copy of the key slot.
 test('display settings: passphrase typeable, advanced fold holds the display key', async ({ page }) => {
   await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
+  // A deployed build may carry a baked Pusher key; this test wants a screen with none.
+  await page.addInitScript(() => localStorage.setItem('awanaConfig.v1', JSON.stringify({ pusherAppKey: '' })));
   await page.goto('/countdown.html?now=2026-09-15T18:30:00');
   await page.locator('body').hover({ position: { x: 1900, y: 20 } });
   await page.getByRole('button', { name: /Display Settings/ }).click();

@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
 
+// A deployed build may carry a baked Pusher key (repository variables), so
+// tests that need a screen with NO key seed an empty override rather than
+// assuming one. Overrides win over the baked default; '' is a valid value.
+const NO_KEY = () => localStorage.setItem('awanaConfig.v1', JSON.stringify({ pusherAppKey: '' }));
+
 // The signage page must boot cleanly with no Pusher key (socket status
 // 'off' by design) and no network beyond its own origin. Cross-origin
 // fetches (weather, calendar scrape) are aborted so the test is
@@ -16,6 +21,7 @@ test('signage stage boots with no errors and no external network', async ({ page
     }
   });
   await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
+  await page.addInitScript(NO_KEY);
 
   await page.goto('/index.html');
   await expect(page.locator('.stage')).toBeVisible();
@@ -55,7 +61,8 @@ test('a cached synced deck renders in place of local slides', async ({ page }) =
     }));
   });
   await page.goto('/index.html');
-  await expect(page.locator('.manual-slide-text')).toHaveText('Synced from the check-in desk');
+  // getByText, not the class: the calendar slide crossfades with the deck, so two slides coexist briefly.
+  await expect(page.getByText('Synced from the check-in desk')).toBeVisible();
 });
 
 // The published deck is the DEFAULT background: a freshly logged-in screen
@@ -74,7 +81,7 @@ test('a published deck shows on a screen with no background setting saved', asyn
     }));
   });
   await page.goto('/index.html');
-  await expect(page.locator('.manual-slide-text')).toHaveText('Published with nothing else set');
+  await expect(page.getByText('Published with nothing else set')).toBeVisible();
 });
 
 // ?key= must reach the socket (an OBS/ProPresenter embed has no localStorage).
@@ -83,7 +90,7 @@ test('a published deck shows on a screen with no background setting saved', asyn
 test('the ?key= URL flag reaches the socket', async ({ page }) => {
   await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
   await page.addInitScript(() => {
-    localStorage.setItem('awanaConfig.v1', JSON.stringify({ showConnectionStatus: true }));
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ showConnectionStatus: true, pusherAppKey: '' }));
   });
   await page.goto('/index.html');
   await expect(page.locator('.status-dot')).toContainText('not set up');
@@ -98,7 +105,7 @@ test('saving the Pusher key in Settings connects without a reload', async ({ pag
   // Keep the sticker visible once the screen leaves 'off' (it auto-shows
   // only for 'off' and for long drops).
   await page.addInitScript(() => {
-    localStorage.setItem('awanaConfig.v1', JSON.stringify({ showConnectionStatus: true }));
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ showConnectionStatus: true, pusherAppKey: '' }));
   });
   await page.goto('/index.html');
   await expect(page.locator('.status-dot')).toContainText('not set up');
