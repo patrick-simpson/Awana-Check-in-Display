@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, waitFor, act, cleanup } from '@testing-library/react';
 
 // ORDERING UNDER ASYNC DECRYPT — its own file because it needs the envelope
 // module mocked, which is module-wide.
@@ -53,6 +53,7 @@ vi.mock('../lib/envelope.js', async (importOriginal) => {
 });
 
 const { useSocket } = await import('./useSocket.js');
+const cfg = await import('./useConfig.js');
 const { saveDisplayKey } = await import('../lib/displayKey.js');
 
 beforeEach(() => {
@@ -60,10 +61,11 @@ beforeEach(() => {
   latency = {};
   throwFor = new Set();
   localStorage.clear();
+  cfg._resetForTest(); // one config store per page — start each case clean
   vi.spyOn(console, 'warn').mockImplementation(() => {});
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); /* no global RTL cleanup in this repo — hooks share one config store */ vi.restoreAllMocks(); });
 
 describe('arrival order survives out-of-order decrypts', () => {
   it('greets children in the order they arrived, not the order they decrypted', async () => {

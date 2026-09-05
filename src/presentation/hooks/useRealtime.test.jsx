@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, cleanup } from '@testing-library/react';
 
 // useRealtime's only socket-adjacent dependency — stub it so this test
 // drives the handlers directly instead of standing up real Pusher.
@@ -12,13 +12,15 @@ vi.mock('../../hooks/useSocket.js', () => ({
 }));
 
 import { useRealtime } from './useRealtime.js';
+import { _resetForTest as resetConfigStore } from '../../hooks/useConfig.js';
 
-afterEach(() => {
+afterEach(() => { cleanup(); /* no global RTL cleanup in this repo — hooks share one config store */
   localStorage.clear();
   socketHandlers.current = null;
 });
 
 beforeEach(() => {
+  resetConfigStore();
   // Clean querystring between tests (the ?key=/&cluster= adoption chore).
   window.history.replaceState({}, '', '/');
 });

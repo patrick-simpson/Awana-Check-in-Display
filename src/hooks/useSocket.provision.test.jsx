@@ -29,6 +29,7 @@ vi.mock('pusher-js', () => ({
 }));
 
 const { useSocket } = await import('./useSocket.js');
+const cfg = await import('./useConfig.js');
 const login = await import('./../lib/displayLogin.js');
 const { sealForTest, fromBase64 } = await import('./../lib/envelope.js');
 const { loadDisplayKey } = await import('./../lib/displayKey.js');
@@ -48,6 +49,7 @@ beforeEach(() => {
   subscribed = [];
   unsubscribed = [];
   localStorage.clear();
+  cfg._resetForTest(); // one config store per page — start each case clean
   login._resetForTest();
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});

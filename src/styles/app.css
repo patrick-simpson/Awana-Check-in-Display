@@ -478,7 +478,8 @@ html, body, #root {
 }
 .radio-row {
   display: flex;
-  gap: 1.25rem;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.25rem;
 }
 .radio-option {
   display: flex;
@@ -1211,7 +1212,8 @@ html, body, #root {
   z-index: 50;
 }
 .settings-gear:hover { background: rgba(255, 255, 255, 0.25); transform: rotate(45deg) scale(1.05); }
-.settings-gear.idle { opacity: 0; pointer-events: none; }
+/* Faint, not gone: a volunteer at an unconfigured TV must be able to find the way in. */
+.settings-gear.idle { opacity: 0.12; pointer-events: auto; }
 
 /* ── Panels: catalog paper — cream, charcoal ink, orange CTAs ── */
 .panel-backdrop {
@@ -1373,7 +1375,7 @@ html, body, #root {
   font-weight: 700;
   color: var(--ink);
 }
-.panel .calendar-preview button.small {
+.panel button.small {
   padding: 0.35rem 0.8rem;
   font-size: 0.8rem;
 }
@@ -1391,7 +1393,8 @@ html, body, #root {
   gap: 0.35rem;
   margin-bottom: 1.15rem;
 }
-.panel label {
+.panel label,
+.panel .field-label {
   font-size: 0.9rem;
   font-weight: 800;
   color: var(--ink);
@@ -1411,6 +1414,7 @@ html, body, #root {
   font-size: 0.9em;
 }
 .panel input[type='text'],
+.panel input[type='password'],
 .panel input[type='number'],
 .panel input[type='url'],
 .panel input[type='time'],
@@ -1454,6 +1458,46 @@ html, body, #root {
   border-top: 1px solid rgba(51, 66, 79, 0.1);
 }
 .panel .toggle:first-of-type { border-top: 0; }
+.panel h3.section + .toggle { border-top: 0; }
+/* The toggle row is a real <label>: whole row clickable, checkbox named. */
+.panel label.toggle {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+.panel .toggle-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.panel .toggle-copy .hint { display: block; }
+/* Disabled controls must LOOK disabled — the login button a volunteer meets
+   first on a new screen used to render exactly like a live one. */
+.panel button:disabled,
+.panel input:disabled,
+.panel select:disabled,
+.panel textarea:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.panel button:disabled:hover { background: #ffffff; }
+.panel button.primary:disabled:hover { filter: none; }
+.panel .hint.hint--warn { color: var(--awana-red); font-weight: 700; }
+/* Connection tab summary: three short lines, one fact each. */
+.panel .conn-summary > div + div { margin-top: 0.3rem; }
+/* "A published deck arrived but this screen is set to X": amber, not red — nothing is broken. */
+.panel .notice-warn {
+  margin-bottom: 1rem;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(247, 164, 28, 0.12);
+  border: 1px solid rgba(247, 164, 28, 0.35);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
 .panel .status-line {
   display: flex;
   align-items: center;
@@ -1495,9 +1539,6 @@ html, body, #root {
 .panel .actions label:hover { background: rgba(51, 66, 79, 0.06); }
 .panel button:active,
 .panel .actions label:active { transform: scale(0.97); }
-/* The action-row "Import" control is a <label> wrapping a hidden file
-   input; without this it rendered as bare text between the buttons. */
-.panel .actions label.ghost { border-style: dashed; }
 
 /* The Save control is a <jelly-button> web component. Custom properties
    pierce the shadow boundary — and outer-document rules on the host win
@@ -1527,6 +1568,12 @@ html, body, #root {
 .panel button.ghost {
   border-style: dashed;
 }
+/* Second-rank action: outlined in the CTA orange (Save slides when Publish is primary). */
+.panel button.secondary {
+  border-color: var(--awana-orange-deep);
+  color: var(--awana-orange-deep);
+}
+.panel button.secondary:hover { background: rgba(242, 107, 33, 0.08); }
 
 /* ── Debug panel ───────────────────────────────────────── */
 .debug {
@@ -2511,7 +2558,7 @@ input:focus-visible {
 .stage.april-fools .settings-gear:hover { transform: rotate(225deg) scale(1.05); }
 
 /* Settings → Connection: the by-hand key fields fold away behind the login. */
-details.advanced-fields { margin-top: 0.75rem; border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 0.5rem; }
+details.advanced-fields { margin-top: 0.75rem; border-top: 2px dashed rgba(51, 66, 79, 0.15); padding-top: 0.75rem; }
 details.advanced-fields > summary { cursor: pointer; font-weight: 700; opacity: 0.8; padding: 0.25rem 0; }
 details.advanced-fields > summary:hover { opacity: 1; }
 details.advanced-fields[open] > summary { margin-bottom: 0.5rem; }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, waitFor, act, cleanup } from '@testing-library/react';
 
 // The socket layer's encrypted-transport behaviour. Three things here are the
 // genuinely new bug surface introduced by sealing the name-bearing events, and
@@ -45,6 +45,7 @@ vi.mock('pusher-js', () => ({
 }));
 
 const { useSocket } = await import('./useSocket.js');
+const cfg = await import('./useConfig.js');
 const { sealForTest, fromBase64 } = await import('./../lib/envelope.js');
 const { saveDisplayKey } = await import('./../lib/displayKey.js');
 const fixture = (await import('./../lib/__fixtures__/envelope-vectors.json')).default;
@@ -69,10 +70,11 @@ beforeEach(() => {
   bound = {};
   connectionHandlers = {};
   localStorage.clear();
+  cfg._resetForTest(); // one config store per page — start each case clean
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
-afterEach(() => { vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); /* no global RTL cleanup in this repo — hooks share one config store */ vi.restoreAllMocks(); });
 
 describe('with no display key (rollout mode)', () => {
   it('accepts plaintext check-ins exactly as before', async () => {

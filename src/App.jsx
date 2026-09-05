@@ -34,7 +34,7 @@ import { decideBoard } from './lib/checkoutBoard.js';
 import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
 import { crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight } from './lib/milestones.js';
-import { sanitizeOverrides } from './hooks/useConfig.js';
+import { setRemoteDefaults } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
 import { mergeSyncedDeck } from './lib/slides.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
@@ -52,7 +52,6 @@ export default function App() {
   // Failures are remembered so the Settings panel can tell the operator
   // their central config isn't being applied — silently falling back
   // looks identical to working until club night.
-  const [remoteDefaults, setRemoteDefaults] = useState({});
   const [remoteConfigError, setRemoteConfigError] = useState(null);
   useEffect(() => {
     if (!FLAGS.configUrl) return undefined;
@@ -62,7 +61,7 @@ export default function App() {
       .then((raw) => {
         if (cancelled) return;
         if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-          setRemoteDefaults(sanitizeOverrides(raw));
+          setRemoteDefaults(raw);
           setRemoteConfigError(null);
         } else {
           setRemoteConfigError('remote config is not a JSON settings object');
@@ -74,31 +73,16 @@ export default function App() {
     return () => { cancelled = true; };
   }, []);
 
-  const { config: storedConfig, overrides, updateConfig, resetConfig } = useConfig(remoteDefaults);
+  const { config: effectiveConfig, storedConfig, overrides, updateConfig, resetConfig } = useConfig();
 
-  // ?key=/&cluster= let an embedded browser (OBS source, ProPresenter web
-  // page) connect without localStorage access; they win over saved config.
-  // ?lowPower=1 forces confetti/motion down for a specific weak-hardware
-  // embed (e.g. the Journey Display kiosk's Raspberry Pi Zero) the same
-  // way — winning over this device's saved Settings — WITHOUT touching
-  // confettiLevel/reduceMotion's own defaults, which stay full-strength
-  // for every other, more powerful device that loads this page directly.
-  // Panic mode last, so it can strip whatever the flags/overrides built.
-  // Memoized so `config` keeps a stable identity between renders —
-  // effects and children that depend on it don't re-fire spuriously.
-  const config = useMemo(() => {
-    let merged = FLAGS.pusherAppKey
-      ? {
-          ...storedConfig,
-          pusherAppKey: FLAGS.pusherAppKey,
-          pusherCluster: FLAGS.pusherCluster || storedConfig.pusherCluster,
-        }
-      : storedConfig;
-    if (FLAGS.lowPower) {
-      merged = { ...merged, confettiLevel: 'off', reduceMotion: true };
-    }
-    return applyPanicMode(merged);
-  }, [storedConfig]);
+  // Layering — baked defaults < ?config= remote < this device's overrides <
+  // ?key=/?cluster=/?lowPower=1 URL flags — lives in useConfig.js so EVERY
+  // consumer (the socket included) sees the same effective config. Only the
+  // panic mask is applied here, last, because the stage is the only thing that
+  // renders it: Settings edits `storedConfig`, and the socket reads the
+  // flagged-but-unmasked `effectiveConfig` straight from the store. Memoized so
+  // `config` keeps a stable identity per store snapshot.
+  const config = useMemo(() => applyPanicMode(effectiveConfig), [effectiveConfig]);
   const { currentEvent, enqueue, skipCurrent, pending } = useCheckInQueue(config);
   const { count, bump, reset: resetTally, sync: syncTally } = useTally();
   // Set (synchronously, before the reconciled `count` even commits) whenever
@@ -379,6 +363,11 @@ export default function App() {
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [slideEditorOpen, setSlideEditorOpen] = useState(false);
+  // Settings remembers its tab for the session, and the slide editor knows
+  // whether it was opened from Settings → Background (so closing it goes back
+  // there) or straight from the keyboard (so closing it returns to the stage).
+  const [settingsTab, setSettingsTab] = useState('connection');
+  const [editorFromSettings, setEditorFromSettings] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [gearIdle, setGearIdle] = useState(true);
 
@@ -448,6 +437,7 @@ export default function App() {
   // Printer trouble also forces the sticker visible — a kid at the door
   // with no label is exactly when the operator needs the red count.
   const showStatus = config.showConnectionStatus
+    || status === 'off'
     || (droppedLong && status === 'disconnected')
     || opsFailures.length > 0
     || Boolean(nameFault)
@@ -511,20 +501,29 @@ export default function App() {
   }, []);
 
   // Keyboard shortcuts for the hidden panels. Ctrl+Shift+X is the panic
-  // switch — S/E/D were taken.
+  // switch — S/E/D were taken. Settings and the slide editor are OPEN-only:
+  // both hold unsaved edits, so their own (guarded) Cancel/Escape is the one
+  // way out — a second press of the chord must never throw work away. The
+  // Debug panel holds nothing, so it stays a toggle. Nothing fires while the
+  // operator is typing in a field (Ctrl+Shift+X inside a slide textarea used
+  // to flip panic mode).
   useEffect(() => {
     const onKey = (e) => {
       if (!e.ctrlKey || !e.shiftKey) return;
-      if (e.key.toLowerCase() === 'd') {
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+      const k = e.key.toLowerCase();
+      if (k === 'd') {
         e.preventDefault();
         setDebugOpen((v) => !v);
-      } else if (e.key.toLowerCase() === 's') {
+      } else if (k === 's') {
         e.preventDefault();
-        setSettingsOpen((v) => !v);
-      } else if (e.key.toLowerCase() === 'e') {
+        setSettingsOpen(true);
+      } else if (k === 'e') {
         e.preventDefault();
-        setSlideEditorOpen((v) => !v);
-      } else if (e.key.toLowerCase() === 'x') {
+        setEditorFromSettings(false);
+        setSlideEditorOpen(true);
+      } else if (k === 'x') {
         e.preventDefault();
         updateConfig({ panicMode: !storedConfig.panicMode });
       }
@@ -861,8 +860,13 @@ export default function App() {
         <ErrorBoundary label="settings-panel" onError={() => setSettingsOpen(false)}>
           <SettingsPanel
             config={config}
+            savedConfig={storedConfig}
             overrides={overrides}
             status={status}
+            nameStatus={nameStatus}
+            demoActive={demoActive}
+            initialTab={settingsTab}
+            onTabChange={setSettingsTab}
             lastEventAt={lastEventAt}
             calendar={calendar}
             phase={phase}
@@ -880,6 +884,7 @@ export default function App() {
             onResetTally={resetTally}
             onOpenSlideEditor={() => {
               setSettingsOpen(false);
+              setEditorFromSettings(true);
               setSlideEditorOpen(true);
             }}
             onOpenDebug={() => { setSettingsOpen(false); setDebugOpen(true); }}
@@ -890,10 +895,17 @@ export default function App() {
       {slideEditorOpen && (
         <ErrorBoundary label="slide-editor" onError={() => setSlideEditorOpen(false)}>
           <SlideEditorPanel
-            config={config}
+            config={storedConfig}
             syncedDeck={followPublishedSlides ? syncedDeck : null}
             onChange={updateConfig}
-            onClose={() => setSlideEditorOpen(false)}
+            onClose={() => {
+              setSlideEditorOpen(false);
+              if (editorFromSettings) {
+                setEditorFromSettings(false);
+                setSettingsTab('background');
+                setSettingsOpen(true);
+              }
+            }}
           />
         </ErrorBoundary>
       )}
@@ -908,6 +920,7 @@ export default function App() {
             onSimulateCheckout={(p) => simulate('checkout', p)}
             onSimulateTonight={(p) => simulate('tonight', p)}
             onSimulateNotice={(p) => simulate('notice', p)}
+            onClearNotice={() => setNotice(null)}
             onClose={() => setDebugOpen(false)}
             status={status}
             lastEventAt={lastEventAt}

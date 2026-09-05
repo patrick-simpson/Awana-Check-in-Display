@@ -243,8 +243,37 @@ describe('the store: frames, login, logout', () => {
     expect(loadDisplayKey()).toBe('');
   });
 
-  it('no frame yet → no-frame', async () => {
+  it('no frame yet → no-frame, and the passphrase is parked for when one lands', async () => {
     expect(await loginWithPassphrase(P.testPassphrase)).toBe('no-frame');
+    expect(getSnapshot().pendingLogin).toBe(true);
+    expect(getSnapshot().loginStatus).toBe('logged-out');
+    // Parked in MEMORY: nothing about it reaches storage (leak paths stay closed).
+    expect(JSON.stringify(localStorage)).not.toContain(P.testPassphrase);
+    receiveProvisionFrame(P.frame);
+    await _settleForTest();
+    expect(getSnapshot().loginStatus).toBe('logged-in');
+    expect(getSnapshot().pendingLogin).toBe(false);
+    expect(loadDisplayKey()).toBe(P.bundle.displayKey);
+  });
+
+  it('a wrong parked passphrase ends as wrong and writes nothing', async () => {
+    expect(await loginWithPassphrase('wrong-wrong-wrong')).toBe('no-frame');
+    receiveProvisionFrame(P.frame);
+    await _settleForTest();
+    expect(getSnapshot().loginStatus).toBe('wrong');
+    expect(getSnapshot().pendingLogin).toBe(false);
+    expect(loadLoginKey()).toBe('');
+    expect(loadDisplayKey()).toBe('');
+  });
+
+  it('logout clears a parked passphrase', async () => {
+    await loginWithPassphrase(P.testPassphrase);
+    logout();
+    expect(getSnapshot().pendingLogin).toBe(false);
+    receiveProvisionFrame(P.frame);
+    await _settleForTest();
+    expect(getSnapshot().loginStatus).toBe('logged-out');
+    expect(loadDisplayKey()).toBe('');
   });
 
   it('a logged-in screen applies the next frame automatically (rotation follows)', async () => {

@@ -32,21 +32,26 @@ const config = {
   // The app key is Pusher's PUBLIC subscribe key — it ships in every
   // display's bundle regardless — so a variable, not a secret, is the
   // right home; a fork that sets neither starts blank, exactly as before.
-  // Per-device Settings and ?key= still override these (useConfig merge
-  // order, then App.jsx's URL flags).
+  // Per-device Settings, a ?config= file and ?key= still override these —
+  // all of that layering happens in src/hooks/useConfig.js.
   pusherAppKey: import.meta.env.VITE_PUSHER_APP_KEY || '',
   pusherCluster: import.meta.env.VITE_PUSHER_CLUSTER || 'us2',
 
   // What plays behind the check-in banners:
-  //   'powerpoint' — the OneDrive PowerPoint embed below (the default)
-  //   'manual'     — slides you free-type in the on-screen editor
-  //                  (Settings → Typed slides, or Ctrl+Shift+E)
+  //   'manual'     — the typed/published slide deck plus the calendar
+  //                  slides. THE DEFAULT: a freshly logged-in screen shows
+  //                  the deck published from the check-in machine with
+  //                  nothing else set. (Settings → Background, or Ctrl+Shift+E)
+  //   'powerpoint' — the OneDrive PowerPoint embed URL below. A saved URL
+  //                  with no source chosen still means this, for screens set
+  //                  up before 'manual' became the default — see
+  //                  resolveStoredConfig in src/hooks/useConfig.js.
   //   'pptx'       — a .pptx you upload in Settings, rendered locally
   //                  on this device (no OneDrive, no iframe)
   //   'video'      — one video file you upload in Settings, playing
   //                  full-screen on a loop (muted). Stored on this
   //                  device only, never uploaded anywhere.
-  backgroundSource: 'powerpoint',
+  backgroundSource: 'manual',
 
   // Typed slides live here when you use the 'manual' source. Edit them
   // with the on-screen editor rather than by hand — they're saved per

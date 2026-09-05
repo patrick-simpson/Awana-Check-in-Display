@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import defaults from '../config.js';
+import { sanitizeOverrides } from '../hooks/useConfig.js';
 import { deleteDeck, getDeck, putDeck } from '../lib/pptxStore.js';
 import { BACKGROUND_VIDEO_ID, deleteVideo, getVideo, putVideo } from '../lib/videoStore.js';
 import { BACKGROUND_VIDEO_CHANGED_EVENT } from './VideoBackground.jsx';
@@ -7,6 +9,7 @@ import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
 import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 import { NIGHT_THEME_VALUES, skinOptions } from '../lib/skins.js';
+import { getAllClubs } from '../lib/clubs.js';
 import { useDisplayKey } from '../hooks/useDisplayKey.js';
 import { useDisplayLogin } from '../hooks/useDisplayLogin.js';
 import { maskDisplayKey } from '../lib/displayKey.js';
@@ -17,71 +20,130 @@ import { loadPublishToken, maskPublishToken, savePublishToken } from '../lib/pub
 const TABS = [
   { id: 'connection', label: 'Connection' },
   { id: 'background', label: 'Background' },
-  { id: 'banners', label: 'Banners' },
+  { id: 'banners', label: 'Banners & celebrations' },
   { id: 'display', label: 'Display' },
   { id: 'calendar', label: 'Calendar & Weather' },
 ];
 
+// Radio order = the setup journey: the typed/published deck is the default
+// and the one the print server can drive; the others are per-device choices.
+const SOURCE_LABELS = {
+  manual: 'Typed slides',
+  powerpoint: 'Looping PowerPoint',
+  pptx: 'Uploaded PowerPoint',
+  video: 'Looping video',
+};
+
+// One string for the one situation nothing on this page can fix: without
+// crypto.subtle neither login nor a hand-pasted key can decrypt anything.
+const INSECURE_CONTEXT_COPY = (
+  <>
+    <strong>This page is not in a secure context</strong>, so this browser cannot read encrypted names at
+    all — logging in or pasting a key by hand will not help. Open the display over <code>https://</code>{' '}
+    (or <code>http://localhost</code>).
+  </>
+);
+
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-export default function SettingsPanel({
-  config, overrides, status, lastEventAt, calendar, phase, scheduleSource, opsFailures,
-  remoteConfigError, wakeLockStatus,
-  onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug,
-  syncedDeck, slidesStatus, onForgetSyncedDeck,
-}) {
-  const [form, setForm] = useState({
-    pusherAppKey: config.pusherAppKey || '',
-    pusherCluster: config.pusherCluster || 'us2',
-    backgroundSource: ['manual', 'pptx', 'video'].includes(config.backgroundSource) ? config.backgroundSource : 'powerpoint',
-    powerpointEmbedUrl: config.powerpointEmbedUrl || '',
-    slideshowDelaySec: config.slideshowDelaySec ?? 5,
-    countdownTargetTime: config.countdownTargetTime || '',
-    standardDisplayMs: config.standardDisplayMs ?? 6000,
-    specialDisplayMs: config.specialDisplayMs ?? 8000,
-    audioMuted: !!config.audioMuted,
-    showConnectionStatus: !!config.showConnectionStatus,
-    showTally: config.showTally !== false,
-    keepScreenAwake: config.keepScreenAwake !== false,
-    panicMode: !!config.panicMode,
-    showClock: !!config.showClock,
-    widgetDisplayMode: config.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
+// The form is seeded from the STORED config (savedConfig): never the
+// panic-masked or URL-flagged one the stage renders, so a Save while
+// simplified mode is on cannot write the placeholder values into storage.
+function seedForm(c) {
+  return {
+    pusherAppKey: c.pusherAppKey || '',
+    pusherCluster: c.pusherCluster || 'us2',
+    backgroundSource: ['powerpoint', 'pptx', 'video'].includes(c.backgroundSource) ? c.backgroundSource : 'manual',
+    powerpointEmbedUrl: c.powerpointEmbedUrl || '',
+    slideshowDelaySec: c.slideshowDelaySec ?? 5,
+    standardDisplayMs: c.standardDisplayMs ?? 6000,
+    specialDisplayMs: c.specialDisplayMs ?? 8000,
+    audioMuted: !!c.audioMuted,
+    showConnectionStatus: !!c.showConnectionStatus,
+    showTally: c.showTally !== false,
+    keepScreenAwake: c.keepScreenAwake !== false,
+    panicMode: !!c.panicMode,
+    showClock: !!c.showClock,
+    widgetDisplayMode: c.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
     // Reads the one skin table. When this repeated the ids by hand, a saved
     // skin the list had never heard of (thanksgiving, easter, vbs) was silently
     // reset to 'none' the moment Settings was opened.
-    nightTheme: NIGHT_THEME_VALUES.includes(config.nightTheme) ? config.nightTheme : 'none',
-    followPrinterTheme: config.followPrinterTheme !== false,
-    followPublishedSlides: config.followPublishedSlides !== false,
-    aprilFools: config.aprilFools === true,
-    particleEffect: ['auto', 'snow', 'rain', 'sparkle', 'off'].includes(config.particleEffect)
-      ? config.particleEffect
+    nightTheme: NIGHT_THEME_VALUES.includes(c.nightTheme) ? c.nightTheme : 'none',
+    followPrinterTheme: c.followPrinterTheme !== false,
+    followPublishedSlides: c.followPublishedSlides !== false,
+    aprilFools: c.aprilFools === true,
+    particleEffect: ['auto', 'snow', 'rain', 'sparkle', 'off'].includes(c.particleEffect)
+      ? c.particleEffect
       : 'auto',
-    weatherTheme: config.weatherTheme === true,
-    confettiLevel: ['reduced', 'off'].includes(config.confettiLevel) ? config.confettiLevel : 'full',
-    burstFloorMs: config.burstFloorMs ?? 2500,
-    clubMilestoneEvery: config.clubMilestoneEvery ?? 10,
-    checkoutBoardMode: ['pickup', 'always'].includes(config.checkoutBoardMode) ? config.checkoutBoardMode : 'off',
-    checkoutBoardNamesAbove: config.checkoutBoardNamesAbove ?? 3,
-    checkoutBoardStaleMin: config.checkoutBoardStaleMin ?? 8,
-    cycleIntervalSec: config.cycleIntervalSec ?? 3,
-    milestoneEvery: config.milestoneEvery ?? 25,
-    calendarEnabled: config.calendarEnabled !== false,
-    calendarUrl: config.calendarUrl || '',
-    calendarWelcomeText: config.calendarWelcomeText || 'Welcome to Awana!',
-    calendarShowWelcome: config.calendarShowWelcome !== false,
-    calendarShowNextWeek: config.calendarShowNextWeek !== false,
-    calendarShowRemaining: config.calendarShowRemaining !== false,
-    showWeatherChip: config.showWeatherChip !== false,
-    weatherLocationName: config.weatherLocationName || '',
-    weatherLat: config.weatherLat ?? 44.552,
-    weatherLon: config.weatherLon ?? -69.6317,
-    weatherUnits: config.weatherUnits === 'celsius' ? 'celsius' : 'fahrenheit',
-  });
+    weatherTheme: c.weatherTheme === true,
+    confettiLevel: ['reduced', 'off'].includes(c.confettiLevel) ? c.confettiLevel : 'full',
+    reduceMotion: c.reduceMotion === true,
+    burstFloorMs: c.burstFloorMs ?? 2500,
+    clubMilestoneEvery: c.clubMilestoneEvery ?? 10,
+    clubPhrases: { ...(c.clubPhrases || {}) },
+    checkoutBoardMode: ['pickup', 'always'].includes(c.checkoutBoardMode) ? c.checkoutBoardMode : 'off',
+    checkoutBoardNamesAbove: c.checkoutBoardNamesAbove ?? 3,
+    checkoutBoardStaleMin: c.checkoutBoardStaleMin ?? 8,
+    cycleIntervalSec: c.cycleIntervalSec ?? 3,
+    milestoneEvery: c.milestoneEvery ?? 25,
+    calendarEnabled: c.calendarEnabled !== false,
+    calendarUrl: c.calendarUrl || '',
+    calendarWelcomeText: c.calendarWelcomeText || 'Welcome to Awana!',
+    calendarShowWelcome: c.calendarShowWelcome !== false,
+    calendarShowNextWeek: c.calendarShowNextWeek !== false,
+    calendarShowRemaining: c.calendarShowRemaining !== false,
+    showWeatherChip: c.showWeatherChip !== false,
+    weatherLocationName: c.weatherLocationName || '',
+    weatherLat: c.weatherLat ?? 44.552,
+    weatherLon: c.weatherLon ?? -69.6317,
+    weatherUnits: c.weatherUnits === 'celsius' ? 'celsius' : 'fahrenheit',
+  };
+}
 
-  const [tab, setTab] = useState('connection');
+// The clamp table Save has always applied — now applied to the seed too, so
+// the diff below compares like with like.
+function normalize(f) {
+  return {
+    ...f,
+    standardDisplayMs: clamp(f.standardDisplayMs, 2000, 20000),
+    specialDisplayMs: clamp(f.specialDisplayMs, 3000, 25000),
+    slideshowDelaySec: clamp(f.slideshowDelaySec, 0, 120),
+    milestoneEvery: clamp(Math.round(f.milestoneEvery) || 0, 0, 10000),
+    clubMilestoneEvery: clamp(Math.round(f.clubMilestoneEvery) || 0, 0, 1000),
+    checkoutBoardNamesAbove: clamp(Math.round(f.checkoutBoardNamesAbove) || 0, 0, 200),
+    checkoutBoardStaleMin: clamp(Math.round(f.checkoutBoardStaleMin) || 8, 1, 120),
+    burstFloorMs: clamp(Math.round(f.burstFloorMs) || 2500, 1000, 10000),
+    cycleIntervalSec: clamp(Math.round(f.cycleIntervalSec) || 3, 2, 120),
+    calendarUrl: f.calendarUrl.trim(),
+    calendarWelcomeText: f.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
+    weatherLocationName: f.weatherLocationName.trim().slice(0, 80),
+    weatherLat: clamp(Number(f.weatherLat) || 0, -90, 90),
+    weatherLon: clamp(Number(f.weatherLon) || 0, -180, 180),
+  };
+}
+
+export default function SettingsPanel({
+  config, savedConfig, status, nameStatus, demoActive, lastEventAt, calendar, phase, scheduleSource,
+  opsFailures, remoteConfigError, wakeLockStatus, layerFaults,
+  initialTab = 'connection', onTabChange,
+  onChange, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug,
+  syncedDeck, slidesStatus, onForgetSyncedDeck,
+}) {
+  const seed = savedConfig ?? config;
+  const [initial] = useState(() => seedForm(seed));
+  const [form, setForm] = useState(initial);
+
+  const [tab, setTabState] = useState(() => (TABS.some((t) => t.id === initialTab) ? initialTab : 'connection'));
+  const setTab = (id) => { setTabState(id); onTabChange?.(id); };
   // Snapshot at open — the header line doesn't need to tick live.
   const [openedAt] = useState(() => Date.now());
   const tabRefs = useRef({});
+  const importRef = useRef(null);
+
+  const { displayKey } = useDisplayKey();
+  const login = useDisplayLogin();
+  const secure = Boolean(globalThis.crypto?.subtle);
+  const keyed = Boolean(displayKey) || login.loginStatus === 'logged-in';
 
   // One shared form across all tabs: switching tabs never loses edits,
   // and Save writes everything in a single clamped patch.
@@ -94,69 +156,93 @@ export default function SettingsPanel({
     setForm((f) => ({ ...f, [key]: value }));
   };
 
-  const save = () => {
-    onChange({
-      ...form,
-      standardDisplayMs: clamp(form.standardDisplayMs, 2000, 20000),
-      specialDisplayMs: clamp(form.specialDisplayMs, 3000, 25000),
-      slideshowDelaySec: clamp(form.slideshowDelaySec, 0, 120),
-      milestoneEvery: clamp(Math.round(form.milestoneEvery) || 0, 0, 10000),
-      clubMilestoneEvery: clamp(Math.round(form.clubMilestoneEvery) || 0, 0, 1000),
-      checkoutBoardNamesAbove: clamp(Math.round(form.checkoutBoardNamesAbove) || 0, 0, 200),
-      checkoutBoardStaleMin: clamp(Math.round(form.checkoutBoardStaleMin) || 8, 1, 120),
-      burstFloorMs: clamp(Math.round(form.burstFloorMs) || 2500, 1000, 10000),
-      cycleIntervalSec: clamp(Math.round(form.cycleIntervalSec) || 3, 2, 120),
-      calendarUrl: form.calendarUrl.trim(),
-      calendarWelcomeText: form.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
-      weatherLocationName: form.weatherLocationName.trim().slice(0, 80),
-      weatherLat: clamp(Number(form.weatherLat) || 0, -90, 90),
-      weatherLon: clamp(Number(form.weatherLon) || 0, -180, 180),
-    });
-    onClose();
+  // Only what changed since the panel opened. An untouched key is never
+  // written, so a baked build key or a ?config= fleet value is never pinned
+  // as a device override by someone who only turned the confetti down — and
+  // an untouched Save is a guaranteed no-op. JSON compare so the one object
+  // value (clubPhrases) behaves like the scalars.
+  const buildPatch = () => {
+    const next = normalize(form);
+    const base = normalize(initial);
+    return Object.fromEntries(
+      Object.entries(next).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(base[k]))
+    );
+  };
+  const dirty = Object.keys(buildPatch()).length > 0;
+  const commit = () => {
+    const patch = buildPatch();
+    if (Object.keys(patch).length) onChange(patch);
   };
 
+  const save = () => { commit(); onClose(); };
+
+  // Escape, the backdrop and Cancel all go through here: a stray click on a
+  // TV with a trackpad must not throw away edits on five tabs.
+  const requestClose = useCallback(() => {
+    if (!dirty || window.confirm('Discard the settings changes you have not saved?')) onClose();
+  }, [dirty, onClose]);
+
   const reset = () => {
-    if (window.confirm('Clear all saved overrides and go back to the defaults in config.js? This also deletes any typed slides saved on this device.')) {
+    if (window.confirm('Clear every setting saved on this screen and go back to the defaults? This also deletes any typed slides saved on this device.')) {
       onReset();
       onClose();
     }
   };
 
   // #35: move a display's whole setup between machines as a JSON file.
-  // Exports the OVERRIDES (what differs from defaults), so importing on
-  // a fresh install reproduces this screen. Local video/deck bytes stay
-  // on their device — only the slide metadata travels.
+  // Exports what differs from the baked defaults — device overrides plus any
+  // ?config= values — so importing on a fresh install reproduces this screen
+  // even when it was configured centrally and `overrides` is empty. Never
+  // URL flags, never the panic mask, and structurally never the display key,
+  // publish token or login key: sanitizeOverrides is VALIDATORS-bound and
+  // none of the three is a config key (see src/lib/displayKey.js).
   const exportSettings = () => {
-    const blob = new Blob(
-      [JSON.stringify(overrides || {}, null, 2)],
-      { type: 'application/json' }
+    const baseline = { ...defaults, audioMuted: !defaults.audioEnabledByDefault };
+    const payload = Object.fromEntries(
+      Object.entries(sanitizeOverrides(seed)).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(baseline[k]))
     );
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'awana-display-settings.json';
     a.click();
-    URL.revokeObjectURL(a.href);
+    setTimeout(() => URL.revokeObjectURL(a.href), 0);
   };
 
   const importSettings = (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
+      let raw;
       try {
-        const raw = JSON.parse(reader.result);
-        onChange(raw); // updateConfig sanitizes key-by-key
-        window.alert('Settings imported. Note: video files and uploaded decks do not travel — re-add those on this device.');
-        onClose();
+        raw = JSON.parse(reader.result);
       } catch {
         window.alert('That file is not a valid settings export.');
+        return;
       }
+      // Count what would actually apply — a slides export is valid JSON and
+      // used to be greeted with "Settings imported." while changing nothing.
+      const clean = sanitizeOverrides(raw);
+      const n = Object.keys(clean).length;
+      if (!n) {
+        window.alert('That file has no display settings in it — is it a slides export? (Slide decks are imported from the slide editor’s Import button.)');
+        return;
+      }
+      if (!window.confirm(`Import ${n} setting${n === 1 ? '' : 's'} from this file? Matching settings on this display are replaced; anything not in the file is left as it is.`)) return;
+      onChange(clean);
+      window.alert(`Imported ${n} setting${n === 1 ? '' : 's'}. Video files and uploaded decks do not travel — re-add those on this device.`);
+      onClose();
     };
+    reader.onerror = () => window.alert('Could not read that file.');
     reader.readAsText(file);
-    e.target.value = '';
   };
 
+  // "Save, then show me": the preview must reflect the banner settings the
+  // operator just tuned, not the ones from before they opened the panel.
   const sendTest = () => {
+    commit();
     onTest?.({
       firstName: pick(SAMPLE_NAMES),
       club: 'Sparks',
@@ -179,24 +265,28 @@ export default function SettingsPanel({
     }
   };
 
-  // Escape closes from anywhere in the panel.
+  // Escape closes from anywhere in the panel (through the unsaved-edits guard).
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') requestClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [requestClose]);
 
+  // Names the step the tab actually leads with for each state: logging in
+  // cannot work before Pusher is connected, so 'off' points at Advanced.
   const statusText = {
-    connected: 'Connected — check-ins will appear instantly',
+    connected: keyed
+      ? 'Connected — check-ins will appear instantly'
+      : 'Connected — not logged in yet (Connection → Display login)',
     connecting: 'Connecting to Pusher…',
-    disconnected: 'Disconnected — check the App Key and Cluster',
-    off: 'Not set up yet — add your Pusher App Key',
+    disconnected: 'Disconnected — check the network, then the App Key and Cluster under Connection → Advanced',
+    off: 'Not set up yet — add the Pusher App Key under Connection → Advanced',
   }[status] || status;
 
   return (
-    <div className="panel-backdrop" onClick={onClose}>
+    <div className="panel-backdrop" onClick={requestClose}>
       <div className="panel panel--tabbed" role="dialog" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
         <div className="panel-header">
           <h2>Settings</h2>
@@ -223,6 +313,12 @@ export default function SettingsPanel({
               — check the print server dashboard.
             </div>
           )}
+          {layerFaults?.length > 0 && (
+            <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
+              A screen layer crashed and is being retried every 30 s: {layerFaults.join(', ')}. If it keeps
+              failing, reload the page (F5) — and report it.
+            </div>
+          )}
           {remoteConfigError && (
             <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
               The central config from this page's <code>?config=</code> URL could not be
@@ -235,6 +331,23 @@ export default function SettingsPanel({
               {wakeLockStatus === 'unsupported'
                 ? 'This browser has no Screen Wake Lock — the TV may sleep mid-club; disable sleep in the device settings instead.'
                 : 'The browser refused the screen wake lock (battery saver?) — the TV may sleep mid-club.'}
+            </div>
+          )}
+          {demoActive && (
+            <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
+              Demo mode — a sample or simulated check-in was fired on this screen, so the red “not real
+              check-ins” badge stays up until the page reloads.{' '}
+              <button
+                type="button"
+                className="ghost small"
+                onClick={() => {
+                  if (!dirty || window.confirm('Reload now and discard the settings changes you have not saved?')) {
+                    window.location.reload();
+                  }
+                }}
+              >
+                Reload display
+              </button>
             </div>
           )}
         </div>
@@ -266,17 +379,29 @@ export default function SettingsPanel({
           tabIndex={-1}
         >
           {tab === 'connection' && (
-            <ConnectionTab form={form} set={set} lastEventAt={lastEventAt} />
+            <ConnectionTab
+              form={form}
+              set={set}
+              status={status}
+              nameStatus={nameStatus}
+              lastEventAt={lastEventAt}
+              secure={secure}
+              displayKey={displayKey}
+              login={login}
+            />
           )}
           {tab === 'background' && (
             <BackgroundTab
               form={form}
               set={set}
-              config={config}
+              setForm={setForm}
+              config={seed}
+              commit={commit}
               onOpenSlideEditor={onOpenSlideEditor}
               syncedDeck={syncedDeck}
               slidesStatus={slidesStatus}
               onForgetSyncedDeck={onForgetSyncedDeck}
+              loggedIn={login.loginStatus === 'logged-in'}
             />
           )}
           {tab === 'banners' && (
@@ -291,18 +416,37 @@ export default function SettingsPanel({
         </div>
 
         <div className="actions">
-          <button className="ghost" onClick={sendTest} title="Show a sample welcome banner">
+          <button
+            className="ghost"
+            onClick={sendTest}
+            title="Save, then show a sample welcome banner. This marks the screen ‘demo mode’ (red badge at the top) until it is reloaded."
+          >
             Preview a check-in
           </button>
           <button className="ghost" onClick={exportSettings} title="Download this display's settings as a JSON file">
             Export
           </button>
-          <label className="ghost" style={{ cursor: 'pointer' }} title="Import a settings JSON exported from another display">
+          <button
+            className="ghost"
+            onClick={() => importRef.current?.click()}
+            title="Import a settings JSON exported from another display"
+          >
             Import
-            <input type="file" accept=".json,application/json" style={{ display: 'none' }} onChange={importSettings} />
-          </label>
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            data-testid="import-settings-file"
+            onChange={importSettings}
+          />
           {onOpenDebug && (
-            <button className="ghost" onClick={onOpenDebug} title="Simulate check-ins, view connection stats">
+            <button
+              className="ghost"
+              onClick={() => { commit(); onOpenDebug(); }}
+              title="Save, then simulate check-ins and view connection stats"
+            >
               Debug panel
             </button>
           )}
@@ -315,7 +459,7 @@ export default function SettingsPanel({
             </button>
           )}
           <button className="danger" onClick={reset}>Reset to defaults</button>
-          <button onClick={onClose}>Cancel</button>
+          <button onClick={requestClose}>Cancel</button>
           <jelly-button variant="mint" onClick={save}>Save</jelly-button>
         </div>
         <div className="hint" style={{ marginTop: '0.6rem', opacity: 0.8 }}>
@@ -328,38 +472,84 @@ export default function SettingsPanel({
   );
 }
 
-function Toggle({ checked, onChange, title, hint }) {
+// A real <label>: the whole row — title and hint — is the hit target, and
+// the checkbox gets an accessible name (getByRole('checkbox', { name })).
+function Toggle({ checked, onChange, title, hint, disabled }) {
+  const id = useId();
   return (
-    <div className="toggle">
-      <div>
-        <div className="toggle-title">{title}</div>
-        {hint ? <div className="hint">{hint}</div> : null}
-      </div>
-      <input type="checkbox" checked={checked} onChange={onChange} />
-    </div>
+    <label className="toggle">
+      <span className="toggle-copy">
+        <span className="toggle-title" id={`${id}-t`}>{title}</span>
+        {hint ? <span className="hint" id={`${id}-h`}>{hint}</span> : null}
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        disabled={disabled}
+        aria-labelledby={`${id}-t`}
+        aria-describedby={hint ? `${id}-h` : undefined}
+      />
+    </label>
   );
 }
 
-function ConnectionTab({ form, set, lastEventAt }) {
+function ConnectionTab({ form, set, status, nameStatus, lastEventAt, secure, displayKey, login }) {
+  // The by-hand fields fold away behind the login — unless they are the
+  // fix: no Pusher connection, or no secure crypto.
+  const [advancedOpen, setAdvancedOpen] = useState(() => status === 'off' || status === 'disconnected' || !secure);
+
+  const realtime = {
+    connected: 'connected',
+    connecting: 'connecting…',
+    disconnected: 'disconnected',
+    off: 'not set up — no Pusher App Key',
+  }[status] || status;
+  const lastSeen = lastEventAt
+    ? new Date(lastEventAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : 'none yet this session';
+
+  let loginLine;
+  if (login.loginStatus === 'logged-in') {
+    loginLine = `logged in${login.kid ? ` (key ${login.kid})` : ''} — display key and publish token filled in automatically`;
+  } else if (login.loginStatus === 'stale') {
+    loginLine = 'passphrase changed on the print server — log in again below (names keep working meanwhile)';
+  } else if (login.loginStatus === 'busy') {
+    loginLine = 'checking…';
+  } else if (displayKey) {
+    loginLine = `not logged in — display key pasted by hand (${maskDisplayKey(displayKey)})`;
+  } else {
+    loginLine = 'not logged in — no display key on this screen, so names will not appear';
+  }
+
+  const namesLine = {
+    'no-key': 'encrypted names are arriving but this screen has no key — log in below',
+    'bad-key': 'encrypted names are arriving but will not open with this screen’s key — log in again, or paste the current key under Advanced',
+    downgraded: 'the print server is sending names unencrypted and this keyed screen refuses them — set the display key on the print server',
+  }[nameStatus] ?? (displayKey
+    ? 'this screen can read encrypted names'
+    : 'no key yet — encrypted names will not open here until you log in');
+
   return (
     <>
-      <div className="hint tab-intro">
-        The display listens for check-ins from the label print server over Pusher Channels.
-        Last check-in received:{' '}
-        <strong>
-          {lastEventAt
-            ? new Date(lastEventAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-            : 'none yet this session'}
-        </strong>
+      <div className="hint tab-intro conn-summary" role="status">
+        <div><strong>Realtime:</strong> {realtime} · last check-in {lastSeen}</div>
+        <div><strong>Display login:</strong> {loginLine}</div>
+        {status !== 'off' && <div><strong>Names:</strong> {namesLine}</div>}
       </div>
 
-      <DisplayLoginField />
+      <DisplayLoginField status={status} secure={secure} login={login} />
 
-      <details className="advanced-fields">
+      <details
+        className="advanced-fields"
+        open={advancedOpen}
+        onToggle={(e) => setAdvancedOpen(e.currentTarget.open)}
+      >
         <summary>Advanced — paste keys by hand</summary>
         <span className="hint">
-          Only needed when this screen cannot log in (no print server on this network, or a browser without
-          secure crypto). A logged-in screen fills the display key and publish token in by itself.
+          Only needed when this screen cannot log in — no Pusher App Key yet, no print server on this network,
+          or a page not served over https. A logged-in screen fills the display key and publish token in by
+          itself.
         </span>
 
         <div className="field">
@@ -389,7 +579,7 @@ function ConnectionTab({ form, set, lastEventAt }) {
           </span>
         </div>
 
-        <DisplayKeyField />
+        <DisplayKeyField secure={secure} />
       </details>
     </>
   );
@@ -404,81 +594,109 @@ function ConnectionTab({ form, set, lastEventAt }) {
  * own storage slot (src/lib/displayLogin.js) so it never rides the settings
  * export, a `?config=` file, or a URL.
  */
-function DisplayLoginField() {
-  const { frameStatus, loginStatus, kid, login, logout } = useDisplayLogin();
+function DisplayLoginField({ status, secure, login }) {
+  const { frameStatus, loginStatus, kid, pendingLogin } = login;
   const [draft, setDraft] = useState('');
+  const [reveal, setReveal] = useState(false);
   const [note, setNote] = useState('');
+
+  const busy = loginStatus === 'busy';
+  const canSubmit = secure && !busy && draft.trim().length > 0;
 
   const submit = async () => {
     const p = draft.trim();
-    if (!p) return;
+    if (!p || !canSubmit) return;
     setNote('');
-    const result = await login(p);
+    const result = await login.login(p);
     if (result === 'logged-in') { setDraft(''); setNote('Logged in. Names and published slides now work on this screen.'); }
-    else if (result === 'wrong') setNote('That passphrase does not match the print server’s. Check the dashboard → Settings → Display login.');
-    else if (result === 'no-frame') setNote('Nothing to log in to yet — the print server has not published a login frame.');
     else if (result === 'storage') setNote('This screen cannot save the keys — browser storage is blocked.');
-    else if (result === 'unsupported') setNote('This browser cannot derive the login key (no secure crypto). Paste the keys under Advanced instead.');
+    // 'wrong', 'no-frame' and 'unsupported' are described by the status line below.
   };
 
-  const canType = frameStatus === 'received' && loginStatus !== 'busy';
-  let status;
-  if (loginStatus === 'logged-in') {
-    status = <><strong>Logged in</strong>{kid ? <> · key <code>{kid}</code></> : null} — the display key and publish token were filled in automatically and will follow rotations on the print server.</>;
+  // In the order a volunteer needs them: the one thing nothing here can fix,
+  // then the settled states, then whatever is standing between them and
+  // logging in — starting with the socket, because the print server is
+  // usually fine and the screen simply is not connected yet.
+  let statusCopy;
+  if (!secure || loginStatus === 'unsupported') {
+    statusCopy = INSECURE_CONTEXT_COPY;
+  } else if (loginStatus === 'logged-in') {
+    statusCopy = <><strong>Logged in</strong>{kid ? <> · key <code>{kid}</code></> : null} — the display key and publish token were filled in automatically and will follow rotations on the print server.</>;
   } else if (loginStatus === 'stale') {
-    status = <><strong>The display passphrase was changed on the print server.</strong> Names keep working with the key this screen already holds until you log in again.</>;
-  } else if (loginStatus === 'busy') {
-    status = <>Checking… (this takes a few seconds on a small TV stick — it only happens once)</>;
-  } else if (loginStatus === 'unsupported') {
-    status = <><strong>This browser cannot derive the login key</strong> (no secure crypto) — paste the keys under Advanced.</>;
+    statusCopy = <><strong>The display passphrase was changed on the print server.</strong> Names keep working with the key this screen already holds until you log in again.</>;
+  } else if (busy) {
+    statusCopy = <>Checking… (this takes a few seconds on a small TV stick — it only happens once)</>;
+  } else if (status === 'off') {
+    statusCopy = <><strong>This screen is not connected to Pusher yet.</strong> Open <em>Advanced</em> below, add the App Key and Cluster from the print-server dashboard (Settings → Pusher Integration) and press Save — then log in here.</>;
+  } else if (status === 'disconnected') {
+    statusCopy = <><strong>Not connected to Pusher</strong> — check the network, then the App Key and Cluster under <em>Advanced</em>. The print server is probably fine.</>;
+  } else if (status === 'connecting') {
+    statusCopy = <>Connecting to Pusher… the login frame arrives as soon as the connection is up.</>;
+  } else if (loginStatus === 'wrong') {
+    statusCopy = <><strong>That passphrase does not match the print server’s.</strong> Check the dashboard → Settings → Display login and try again.</>;
+  } else if (pendingLogin) {
+    statusCopy = <><strong>Waiting for the print server’s login frame</strong> — this passphrase will be tried automatically the moment it arrives.</>;
   } else if (frameStatus === 'waiting') {
-    status = <>Waiting for the print server… It must be running, with a display key <em>and</em> a display passphrase set (dashboard → Settings → Display login).</>;
+    statusCopy = <>Connected — waiting for the print server’s login frame. It must be running, with a display key <em>and</em> a display passphrase set (dashboard → Settings → Display login). You can type the passphrase now; it is tried as soon as the frame lands.</>;
   } else if (frameStatus === 'miss') {
-    status = <><strong>The print server has not published a login frame in the last 30 minutes.</strong> Start it (or check its Pusher settings), then try again.</>;
+    statusCopy = <><strong>The print server has not published a login frame in the last 30 minutes.</strong> Start it (or check its Pusher settings), then try again.</>;
   } else {
-    status = <>Type the church’s display passphrase from the print-server dashboard (Settings → Display login). This screen then receives the display key and publish token by itself.</>;
+    statusCopy = <>Type the church’s display passphrase from the print-server dashboard (Settings → Display login). This screen then receives the display key and publish token by itself.</>;
   }
 
   const loggedIn = loginStatus === 'logged-in';
   return (
     <div className="field">
-      <label htmlFor="dlogin">Display login</label>
-      {!loggedIn && (
-        <div className="display-key-row">
-          <input
-            id="dlogin"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && canType && draft.trim()) submit(); }}
-            placeholder="display passphrase"
-            disabled={!canType && loginStatus !== 'stale' && loginStatus !== 'wrong'}
-          />
-          <button type="button" className="ghost" disabled={!canType || !draft.trim()} onClick={submit}>Log in</button>
-        </div>
-      )}
-      {loggedIn && (
-        <div className="display-key-row">
-          <code className="display-key-value" id="dlogin">logged in{kid ? ` · key ${kid}` : ''}</code>
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => {
-              if (window.confirm('Log this screen out? It forgets the login key, the display key and the publish token — names and published slides stop here until someone logs in again.')) {
-                logout();
-                setNote('');
-              }
-            }}
-          >
-            Log out
-          </button>
-        </div>
+      {!loggedIn ? (
+        <>
+          <label htmlFor="dlogin">Display login</label>
+          <div className="display-key-row">
+            <input
+              id="dlogin"
+              type={reveal ? 'text' : 'password'}
+              autoComplete="off"
+              spellCheck={false}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) submit(); }}
+              placeholder="display passphrase"
+              disabled={!secure || busy}
+            />
+            <button
+              type="button"
+              className="ghost"
+              aria-pressed={reveal}
+              aria-label={reveal ? 'Hide passphrase' : 'Show passphrase'}
+              onClick={() => setReveal((v) => !v)}
+            >
+              {reveal ? 'Hide' : 'Show'}
+            </button>
+            <button type="button" className="ghost" disabled={!canSubmit} onClick={submit}>Log in</button>
+          </div>
+        </>
+      ) : (
+        <>
+          <span className="field-label" id="dlogin-label">Display login</span>
+          <div className="display-key-row" role="group" aria-labelledby="dlogin-label">
+            <code className="display-key-value">logged in{kid ? ` · key ${kid}` : ''}</code>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                if (window.confirm('Log this screen out? It forgets the login key, the display key and the publish token — names and published slides stop here until someone logs in again.')) {
+                  login.logout();
+                  setNote('');
+                }
+              }}
+            >
+              Log out
+            </button>
+          </div>
+        </>
       )}
       <span className="hint">
         {note && <><strong>{note}</strong> </>}
-        {status}
+        {statusCopy}
       </span>
     </div>
   );
@@ -494,7 +712,7 @@ function DisplayLoginField() {
  * it through two workflows the docs actively recommend. See the long comment in
  * src/lib/displayKey.js; src/lib/displayKey.test.js asserts both stay closed.
  */
-function DisplayKeyField() {
+function DisplayKeyField({ secure }) {
   const { displayKey, setDisplayKey } = useDisplayKey();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState(false);
@@ -515,55 +733,63 @@ function DisplayKeyField() {
 
   return (
     <div className="field">
-      <label htmlFor="dkey">Display key</label>
-      {!editing ? (
-        <div className="display-key-row">
-          <code className="display-key-value">
-            {configured ? maskDisplayKey(displayKey) : 'not set — names will not appear'}
-          </code>
-          <button type="button" className="ghost" onClick={() => { setEditing(true); setSaved(false); }}>
-            {configured ? 'Replace' : 'Paste key'}
-          </button>
-          {configured && (
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => {
-                if (window.confirm('Remove the display key from THIS screen? Names will stop appearing here until you paste it again.')) {
-                  setDisplayKey('');
-                }
-              }}
-            >
-              Remove
-            </button>
-          )}
-        </div>
+      {editing ? (
+        <>
+          <label htmlFor="dkey">Display key</label>
+          <div className="display-key-row">
+            <input
+              id="dkey"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (valid || !draft.trim())) commit(); }}
+              placeholder="paste the 44-character key"
+            />
+            <button type="button" className="ghost" disabled={!valid} onClick={commit}>Save</button>
+            <button type="button" className="ghost" onClick={() => { setEditing(false); setDraft(''); }}>Cancel</button>
+          </div>
+        </>
       ) : (
-        <div className="display-key-row">
-          <input
-            id="dkey"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (valid || !draft.trim())) commit(); }}
-            placeholder="paste the 44-character key"
-          />
-          <button type="button" className="ghost" disabled={!valid} onClick={commit}>Save</button>
-          <button type="button" className="ghost" onClick={() => { setEditing(false); setDraft(''); }}>Cancel</button>
-        </div>
+        <>
+          <span className="field-label" id="dkey-label">Display key</span>
+          <div className="display-key-row" role="group" aria-labelledby="dkey-label">
+            <code className="display-key-value">
+              {configured ? maskDisplayKey(displayKey) : (secure ? 'not set — names will not appear' : 'not set')}
+            </code>
+            {secure && (
+              <button type="button" className="ghost" onClick={() => { setEditing(true); setSaved(false); }}>
+                {configured ? 'Replace' : 'Paste key'}
+              </button>
+            )}
+            {configured && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  if (window.confirm('Remove the display key from THIS screen? Names will stop appearing here until you paste it again.')) {
+                    setDisplayKey('');
+                  }
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </>
       )}
       <span className="hint">
+        {!secure && <>{INSECURE_CONTEXT_COPY} </>}
         {editing && draft.trim() && !valid && (
           <><strong>That does not look like a display key.</strong> It should be 44 characters ending in <code>=</code>. </>
         )}
         {saved && <><strong>Saved.</strong> Press <em>Night Test</em> on the print-server dashboard to confirm. </>}
         Children&apos;s names travel <strong>encrypted</strong>, because the realtime channel itself is public.
-        Generate this key once on the print-server dashboard (its front page says whether names are
-        encrypted; the button there opens <code>Settings → Realtime privacy</code>) and paste
-        the same value into every screen. Without it the clock, weather, counts, countdown and slides all still
-        work — only the welcome banners stop.
+        Normally filled in by Display login above. To do it by hand: generate the key once on the print-server
+        dashboard (its front page says whether names are encrypted; the button there opens
+        <code>Settings → Realtime privacy</code>) and paste the same value into every screen. Without it the
+        clock, weather, counts and slides all still work — only the welcome banners stop.
         {' '}<strong>Never</strong> email it, put it in a URL, or include it in a settings export — it is the one
         secret here that is worth something.
       </span>
@@ -571,130 +797,108 @@ function DisplayKeyField() {
   );
 }
 
-function BackgroundTab({ form, set, config, onOpenSlideEditor, syncedDeck, slidesStatus, onForgetSyncedDeck }) {
+function BackgroundTab({
+  form, set, setForm, config, commit, onOpenSlideEditor, syncedDeck, slidesStatus, onForgetSyncedDeck, loggedIn,
+}) {
+  const n = config.manualSlides?.length || 0;
+  const typedLine = form.backgroundSource === 'manual'
+    ? (n === 0
+      ? 'No slides typed yet — the calendar slides (if enabled) play on their own until you add some.'
+      : `${n} slide${n === 1 ? '' : 's'} saved on this device.`)
+    : (n === 0
+      ? 'No typed slides on this device yet. Typed slides (and any published deck) only show while Background source is Typed slides.'
+      : `${n} typed slide${n === 1 ? '' : 's'} saved on this device — shown only while Background source is Typed slides.`);
+
   return (
     <>
       <div className="field">
         <label>Background source</label>
         <div className="radio-row">
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="backgroundSource"
-              value="powerpoint"
-              checked={form.backgroundSource === 'powerpoint'}
-              onChange={set('backgroundSource')}
-            />
-            Looping PowerPoint
-          </label>
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="backgroundSource"
-              value="manual"
-              checked={form.backgroundSource === 'manual'}
-              onChange={set('backgroundSource')}
-            />
-            Typed slides
-          </label>
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="backgroundSource"
-              value="pptx"
-              checked={form.backgroundSource === 'pptx'}
-              onChange={set('backgroundSource')}
-            />
-            Uploaded PowerPoint
-          </label>
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="backgroundSource"
-              value="video"
-              checked={form.backgroundSource === 'video'}
-              onChange={set('backgroundSource')}
-            />
-            Looping video
-          </label>
+          {Object.entries(SOURCE_LABELS).map(([value, label]) => (
+            <label className="radio-option" key={value}>
+              <input
+                type="radio"
+                name="backgroundSource"
+                value={value}
+                checked={form.backgroundSource === value}
+                onChange={set('backgroundSource')}
+              />
+              {label}
+            </label>
+          ))}
         </div>
         <span className="hint">
           Typed slides are free-typed right here in the app — no PowerPoint needed — and get
-          the joyful catalog look automatically. They can also include local video files
-          (kept on this device), and the calendar slides join their rotation.
+          the joyful catalog look automatically. Publish them from the check-in computer and every
+          screen shows the same deck; each screen can also add local video files (kept on that
+          device), and the calendar slides join the rotation.
         </span>
       </div>
 
-      {form.backgroundSource === 'manual' && (
-        <div className="field">
-          <span className="hint">
-            {(config.manualSlides?.length || 0) === 0
-              ? 'No slides typed yet — the calendar slides (if enabled) play on their own until you add some.'
-              : `${config.manualSlides.length} slide${config.manualSlides.length === 1 ? '' : 's'} saved on this device.`}
-          </span>
-          <button
-            type="button"
-            className="ghost"
-            style={{ alignSelf: 'flex-start' }}
-            onClick={onOpenSlideEditor}
-          >
-            Edit slides… (Ctrl+Shift+E)
-          </button>
-        </div>
-      )}
+      {/* Reachable from every source, and it saves first: the "Typed slides"
+          radio the volunteer just clicked used to be discarded on the way to
+          the editor, so they typed a deck and the screen kept its placeholder. */}
+      <div className="field">
+        <span className="hint">{typedLine}</span>
+        <button
+          type="button"
+          className="ghost"
+          style={{ alignSelf: 'flex-start' }}
+          onClick={() => { commit(); onOpenSlideEditor(); }}
+        >
+          Edit slides… (Ctrl+Shift+E)
+        </button>
+      </div>
 
-      {form.backgroundSource === 'manual' && (
-        <SlideSyncSection
-          form={form}
-          set={set}
-          syncedDeck={syncedDeck}
-          slidesStatus={slidesStatus}
-          onForgetSyncedDeck={onForgetSyncedDeck}
-        />
-      )}
+      <SlideSyncSection
+        form={form}
+        set={set}
+        backgroundSource={form.backgroundSource}
+        onUseTypedSlides={() => setForm((f) => ({ ...f, backgroundSource: 'manual' }))}
+        syncedDeck={syncedDeck}
+        slidesStatus={slidesStatus}
+        onForgetSyncedDeck={onForgetSyncedDeck}
+        loggedIn={loggedIn}
+      />
 
       {form.backgroundSource === 'pptx' && <PptxUploadField />}
 
       {form.backgroundSource === 'video' && <VideoUploadField />}
 
-      <div className="field">
-        <label htmlFor="iframe">OneDrive PowerPoint embed URL</label>
-        <input
-          id="iframe" type="url" value={form.powerpointEmbedUrl}
-          onChange={set('powerpointEmbedUrl')}
-          placeholder="https://onedrive.live.com/embed?…"
-        />
-        <span className="hint">
-          In OneDrive, open your <code>.pptx</code> → File → Share → Embed, then paste the
-          URL from the <code>&lt;iframe src="…"&gt;</code> snippet here.
-        </span>
-      </div>
+      {(form.backgroundSource === 'powerpoint' || form.backgroundSource === 'pptx') && (
+        <div className="field">
+          <label htmlFor="iframe">
+            {form.backgroundSource === 'pptx'
+              ? 'OneDrive PowerPoint embed URL (fallback if the uploaded deck cannot render)'
+              : 'OneDrive PowerPoint embed URL'}
+          </label>
+          <input
+            id="iframe" type="url" value={form.powerpointEmbedUrl}
+            onChange={set('powerpointEmbedUrl')}
+            placeholder="https://onedrive.live.com/embed?…"
+          />
+          <span className="hint">
+            In OneDrive, open your <code>.pptx</code> → File → Share → Embed, then paste the
+            URL from the <code>&lt;iframe src="…"&gt;</code> snippet here.
+          </span>
+        </div>
+      )}
 
-      <div className="field">
-        <label htmlFor="slideDelay">Slide auto-advance (seconds)</label>
-        <input
-          id="slideDelay" type="number" min="0" max="120" step="1"
-          value={form.slideshowDelaySec}
-          onChange={set('slideshowDelaySec')}
-        />
-        <span className="hint">
-          How long each slide stays on screen — for typed slides too, unless a slide sets its
-          own time. 0 = let the PowerPoint file control its own timing (typed slides fall back
-          to 8 seconds).
-        </span>
-      </div>
-
-      <div className="field">
-        <label htmlFor="countdown">Club start time (24-hour)</label>
-        <input
-          id="countdown" type="time" value={form.countdownTargetTime}
-          onChange={set('countdownTargetTime')}
-        />
-        <span className="hint">
-          The corner countdown ticks down to this time on club nights
-          (every day if the calendar is off). Leave blank to hide it.
-        </span>
-      </div>
+      {form.backgroundSource !== 'video' && (
+        <div className="field">
+          <label htmlFor="slideDelay">Slide auto-advance (seconds)</label>
+          <input
+            id="slideDelay" type="number" min="0" max="120" step="1"
+            value={form.slideshowDelaySec}
+            onChange={set('slideshowDelaySec')}
+          />
+          <span className="hint">
+            How long each slide stays on screen — for typed slides too, unless a slide sets its
+            own time. 0 = let the PowerPoint file control its own timing (typed slides fall back
+            to 8 seconds).
+          </span>
+        </div>
+      )}
     </>
   );
 }
@@ -703,12 +907,16 @@ function BackgroundTab({ form, set, config, onOpenSlideEditor, syncedDeck, slide
 /**
  * Slide sync — the per-display view of the PUBLISHED deck: whether this screen
  * follows it, what it last received, why it might not be receiving, and the
- * recovery lever. The publish side (token + button) lives with the editor on
+ * recovery lever. Rendered on every background source, because a published
+ * deck that this screen is set to ignore is exactly the thing the operator
+ * needs told. The publish side (token + button) lives with the editor on
  * whichever machine does the editing; this section carries the token field so
  * that machine has somewhere to paste it.
  */
-function SlideSyncSection({ form, set, syncedDeck, slidesStatus, onForgetSyncedDeck }) {
-  const hasKey = Boolean(loadDisplayKey());
+function SlideSyncSection({
+  form, set, backgroundSource, onUseTypedSlides, syncedDeck, slidesStatus, onForgetSyncedDeck, loggedIn,
+}) {
+  const hasKey = Boolean(loadDisplayKey()) || loggedIn;
   const following = form.followPublishedSlides !== false;
   // Snapshot at open — the age line doesn't need to tick live.
   const [nowAt] = useState(() => Date.now());
@@ -723,20 +931,32 @@ function SlideSyncSection({ form, set, syncedDeck, slidesStatus, onForgetSyncedD
     statusLine = 'Never received a published deck on this screen.';
   }
 
-  // Why frames might not be opening — worded by fix, not by mechanism.
+  // Why frames might not be opening — worded by fix, not by mechanism, and
+  // leading with the login (pasting the key by hand is the fallback).
   let hintLine = null;
   if (following && !hasKey) {
-    hintLine = 'This screen has no display key, so it cannot read published decks — paste the key under Connection → Display key.';
+    hintLine = 'This screen is not logged in, so it cannot read published decks — type the church’s display passphrase under Connection → Display login (or paste the display key by hand under Connection → Advanced).';
   } else if (slidesStatus === 'bad-key') {
-    hintLine = 'Published decks are arriving but will not open with this screen’s key — re-paste the current display key from the print-server dashboard.';
+    hintLine = 'Published decks are arriving but will not open with this screen’s key — log in again under Connection → Display login to pick up the current key (or re-paste it under Advanced).';
   } else if (slidesStatus === 'no-key') {
-    hintLine = 'Published decks are arriving but this screen has no usable key — paste the display key under Connection.';
+    hintLine = 'Published decks are arriving but this screen has no usable key — log in under Connection → Display login.';
   } else if (slidesStatus === 'refused-plaintext') {
     hintLine = 'The print server is publishing slides UNENCRYPTED (no display key set there); this keyed screen refuses them. Set the display key on the print server.';
   }
 
+  const ignored = syncedDeck && backgroundSource !== 'manual';
+
   return (
     <div className="field">
+      {ignored && (
+        <div className="notice-warn" role="status">
+          A published deck has arrived (rev {syncedDeck.deckRev}, {syncedDeck.slides.length} slide
+          {syncedDeck.slides.length === 1 ? '' : 's'}) but this screen is set to{' '}
+          {SOURCE_LABELS[backgroundSource] || backgroundSource}, so it is not showing.{' '}
+          <button type="button" className="ghost small" onClick={onUseTypedSlides}>Use Typed slides</button>
+          {' '}<span className="hint">then press Save.</span>
+        </div>
+      )}
       <Toggle
         checked={following}
         onChange={set('followPublishedSlides')}
@@ -789,48 +1009,54 @@ function PublishTokenField() {
 
   return (
     <div className="field" style={{ marginTop: '0.5rem' }}>
-      <label htmlFor="ptoken">Publish token (only needed on the machine that edits slides — filled in automatically on a logged-in screen)</label>
-      {!editing ? (
-        <div className="display-key-row">
-          <code className="display-key-value">
-            {token ? maskPublishToken(token) : 'not set — the Publish button will explain how to get one'}
-          </code>
-          <button type="button" className="ghost" onClick={() => setEditing(true)}>
-            {token ? 'Replace' : 'Paste token'}
-          </button>
-          {token && (
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => {
-                if (window.confirm('Remove the publish token from this machine? Its Publish button will stop working; other screens are unaffected.')) {
-                  savePublishToken('');
-                  setToken('');
-                }
-              }}
-            >
-              Remove
-            </button>
-          )}
-        </div>
+      {editing ? (
+        <>
+          <label htmlFor="ptoken">Publish token</label>
+          <div className="display-key-row">
+            <input
+              id="ptoken"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
+              placeholder="paste the token from the printer dashboard"
+            />
+            <button type="button" className="ghost" disabled={!draft.trim()} onClick={commit}>Save</button>
+            <button type="button" className="ghost" onClick={() => { setEditing(false); setDraft(''); }}>Cancel</button>
+          </div>
+        </>
       ) : (
-        <div className="display-key-row">
-          <input
-            id="ptoken"
-            type="password"
-            autoComplete="off"
-            spellCheck={false}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
-            placeholder="paste the token from the printer dashboard"
-          />
-          <button type="button" className="ghost" disabled={!draft.trim()} onClick={commit}>Save</button>
-          <button type="button" className="ghost" onClick={() => { setEditing(false); setDraft(''); }}>Cancel</button>
-        </div>
+        <>
+          <span className="field-label" id="ptoken-label">Publish token</span>
+          <div className="display-key-row" role="group" aria-labelledby="ptoken-label">
+            <code className="display-key-value">
+              {token ? maskPublishToken(token) : 'not set — the Publish button will explain how to get one'}
+            </code>
+            <button type="button" className="ghost" onClick={() => setEditing(true)}>
+              {token ? 'Replace' : 'Paste token'}
+            </button>
+            {token && (
+              <button
+                type="button"
+                className="ghost"
+                onClick={() => {
+                  if (window.confirm('Remove the publish token from this machine? Its Publish button will stop working; other screens are unaffected.')) {
+                    savePublishToken('');
+                    setToken('');
+                  }
+                }}
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </>
       )}
       <span className="hint">
-        From the print-server dashboard → <strong>Lobby Slides</strong> → Generate. It stays on this machine —
+        Only needed on the machine that edits slides, and filled in automatically on a logged-in screen.
+        By hand: print-server dashboard → <strong>Lobby Slides</strong> → Generate. It stays on this machine —
         never in a settings export, a <code>?config=</code> file, or a URL.
       </span>
     </div>
@@ -864,12 +1090,89 @@ function BannersTab({ form, set, setForm }) {
         </span>
       </div>
 
+      <div className="field">
+        <label htmlFor="burstFloor">Rush-mode minimum banner time (ms)</label>
+        <input
+          id="burstFloor" type="number" min="1000" max="10000" step="250"
+          value={form.burstFloorMs}
+          onChange={set('burstFloorMs')}
+        />
+        <span className="hint">
+          During a check-in rush banners shrink to keep up with the door — but never below this.
+          Lower drains a backlog faster; higher keeps every name readable longer.
+        </span>
+      </div>
+
       <Toggle
         checked={!form.audioMuted}
         onChange={(e) => setForm((f) => ({ ...f, audioMuted: !e.target.checked }))}
         title="Sound on"
         hint="Play a short chime alongside each welcome animation."
       />
+
+      <h3 className="section">Celebrations</h3>
+
+      <div className="field">
+        <label htmlFor="confettiLevel">Confetti intensity</label>
+        <select id="confettiLevel" value={form.confettiLevel} onChange={set('confettiLevel')}>
+          <option value="full">Full celebration</option>
+          <option value="reduced">Reduced (half the particles)</option>
+          <option value="off">Off (banners and chimes only)</option>
+        </select>
+        <span className="hint">
+          Room-wide setting for every burst — welcomes, birthdays, milestones. "Reduced" helps
+          weak signage sticks keep 60fps on busy nights.
+        </span>
+      </div>
+
+      <div className="field">
+        <label htmlFor="milestone">Milestone celebration (every N check-ins)</label>
+        <input
+          id="milestone" type="number" min="0" max="10000" step="5"
+          value={form.milestoneEvery}
+          onChange={set('milestoneEvery')}
+        />
+        <span className="hint">
+          {form.milestoneEvery > 0
+            ? <>Every {form.milestoneEvery} check-ins, a room-wide confetti moment with a &ldquo;{form.milestoneEvery} kids checked in tonight!&rdquo; toast.</>
+            : <>Milestone celebrations are off. Set a number (25 is typical) to turn them on.</>}
+        </span>
+      </div>
+
+      <div className="field">
+        <label htmlFor="clubMilestone">Club milestone celebration (every N per club)</label>
+        <input
+          id="clubMilestone" type="number" min="0" max="1000" step="5"
+          value={form.clubMilestoneEvery}
+          onChange={set('clubMilestoneEvery')}
+        />
+        <span className="hint">
+          Uses the printer's live per-club counts — "Sparks 20 kids strong!". 0 turns it off.
+        </span>
+      </div>
+
+      <h3 className="section">Club phrases</h3>
+      <span className="hint" style={{ display: 'block', marginBottom: '0.75rem' }}>
+        A short line under the child’s name on their welcome banner, one per club. Leave a club blank for no
+        line. Up to 80 characters.
+      </span>
+      {getAllClubs().map((name) => {
+        const key = name.toLowerCase();
+        const id = `phrase-${key.replace(/[^a-z0-9]/g, '-')}`;
+        return (
+          <div className="field" key={key}>
+            <label htmlFor={id}>{name} phrase</label>
+            <input
+              id={id}
+              type="text"
+              maxLength={80}
+              value={form.clubPhrases[key] || ''}
+              onChange={(e) => setForm((f) => ({ ...f, clubPhrases: { ...f.clubPhrases, [key]: e.target.value } }))}
+              placeholder="Shine bright tonight!"
+            />
+          </div>
+        );
+      })}
     </>
   );
 }
@@ -879,6 +1182,76 @@ function DisplayTab({ form, set }) {
   const boardOn = form.checkoutBoardMode !== 'off';
   return (
     <>
+      <h3 className="section">Corner widgets</h3>
+
+      <div className="field">
+        <label>Corner widgets</label>
+        <div className="radio-row">
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="widgetDisplayMode"
+              value="cycle"
+              checked={cycleMode}
+              onChange={set('widgetDisplayMode')}
+            />
+            Animated cycle (recommended)
+          </label>
+          <label className="radio-option">
+            <input
+              type="radio"
+              name="widgetDisplayMode"
+              value="stickers"
+              checked={!cycleMode}
+              onChange={set('widgetDisplayMode')}
+            />
+            Classic corner stickers
+          </label>
+        </div>
+        <span className="hint">
+          The animated cycle shows one big data point at a time in the bottom-right corner —
+          time, tonight's tally and the weather — each tumbling in and out playfully. Classic
+          stickers pin them to the corners all at once.
+        </span>
+      </div>
+
+      {cycleMode && (
+        <div className="field">
+          <label htmlFor="cycleInterval">Seconds per item</label>
+          <input
+            id="cycleInterval" type="number" min="2" max="120" step="1"
+            value={form.cycleIntervalSec}
+            onChange={set('cycleIntervalSec')}
+          />
+          <span className="hint">
+            How long each data point holds the corner before the next one takes over.
+          </span>
+        </div>
+      )}
+
+      <Toggle
+        checked={form.showTally}
+        onChange={set('showTally')}
+        title="Tonight's check-in counter"
+        hint='A "checked in tonight" tally — joins the cycle, or sits top-left as a sticker. Counts only a number, resets daily.'
+      />
+
+      <Toggle
+        checked={form.showClock}
+        onChange={set('showClock')}
+        title="Wall clock"
+        hint="The current time of day — joins the cycle, or sits top-right as a sticker."
+      />
+
+      <Toggle
+        checked={form.showConnectionStatus}
+        onChange={set('showConnectionStatus')}
+        title="Show connection status dot"
+        hint="Tiny corner indicator. Even when off, it appears by itself if the connection drops or the screen is not set up."
+      />
+
+      <h3 className="section">Who&apos;s still here</h3>
+
       <div className="field">
         <label htmlFor="cbmode">Who&apos;s still here board</label>
         <select id="cbmode" value={form.checkoutBoardMode} onChange={set('checkoutBoardMode')}>
@@ -907,7 +1280,7 @@ function DisplayTab({ form, set }) {
               onChange={set('checkoutBoardNamesAbove')}
             />
             <span className="hint">
-              Below this many children, the board hides the names and shows
+              At or below this many children, the board hides the names and shows
               &ldquo;almost everyone has been picked up&rdquo; instead.
               {' '}<strong>This is the setting that matters.</strong> A long list is anonymous —
               one name among forty tells a passer-by nothing. A list of two names, late in the
@@ -931,57 +1304,7 @@ function DisplayTab({ form, set }) {
         </>
       )}
 
-      <div className="field">
-        <label>Corner widgets</label>
-        <div className="radio-row">
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="widgetDisplayMode"
-              value="cycle"
-              checked={cycleMode}
-              onChange={set('widgetDisplayMode')}
-            />
-            Animated cycle (recommended)
-          </label>
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="widgetDisplayMode"
-              value="stickers"
-              checked={!cycleMode}
-              onChange={set('widgetDisplayMode')}
-            />
-            Classic corner stickers
-          </label>
-        </div>
-        <span className="hint">
-          The animated cycle shows one big data point at a time in the bottom-right corner —
-          time, tonight's tally, weather, and the pre-club countdown — each tumbling in and
-          out playfully. Classic stickers pin them to the corners all at once.
-        </span>
-      </div>
-
-      {cycleMode && (
-        <div className="field">
-          <label htmlFor="cycleInterval">Seconds per item</label>
-          <input
-            id="cycleInterval" type="number" min="2" max="120" step="1"
-            value={form.cycleIntervalSec}
-            onChange={set('cycleIntervalSec')}
-          />
-          <span className="hint">
-            How long each data point holds the corner before the next one takes over.
-          </span>
-        </div>
-      )}
-
-      <Toggle
-        checked={form.showTally}
-        onChange={set('showTally')}
-        title="Tonight's check-in counter"
-        hint='A "checked in tonight" tally — joins the cycle, or sits top-left as a sticker. Counts only a number, resets daily.'
-      />
+      <h3 className="section">Look &amp; atmosphere</h3>
 
       <div className="field">
         <label htmlFor="nightTheme">Themed night skin</label>
@@ -1032,17 +1355,21 @@ function DisplayTab({ form, set }) {
         hint="A rainy or snowy night cools and dims the background scene. The season still picks the colors, so a chosen skin never disappears in bad weather. Needs a weather location set under Calendar & Weather."
       />
 
-      <div className="field">
-        <label htmlFor="clubMilestone">Club milestone celebration (every N per club)</label>
-        <input
-          id="clubMilestone" type="number" min="0" max="1000" step="5"
-          value={form.clubMilestoneEvery}
-          onChange={set('clubMilestoneEvery')}
-        />
-        <span className="hint">
-          Uses the printer's live per-club counts — "Sparks 20 kids strong!". 0 turns it off.
-        </span>
-      </div>
+      <h3 className="section">Screen</h3>
+
+      <Toggle
+        checked={form.keepScreenAwake}
+        onChange={set('keepScreenAwake')}
+        title="Keep screen awake"
+        hint="Ask the browser to stop the TV/monitor from sleeping while the display is open."
+      />
+
+      <Toggle
+        checked={form.reduceMotion}
+        onChange={set('reduceMotion')}
+        title="Reduce motion on this screen"
+        hint="Freezes every animation on this screen — banners still appear, just instantly. For weak TV sticks, or when the movement is distracting."
+      />
 
       <Toggle
         checked={form.aprilFools === true}
@@ -1056,66 +1383,6 @@ function DisplayTab({ form, set }) {
         onChange={set('panicMode')}
         title="Simplified mode (panic switch)"
         hint="Strips the screen to a placeholder background and the clock while banners keep working. Also toggles live with Ctrl+Shift+X."
-      />
-
-      <div className="field" style={{ marginTop: '1rem' }}>
-        <label htmlFor="milestone">Milestone celebration (every N check-ins)</label>
-        <input
-          id="milestone" type="number" min="0" max="10000" step="5"
-          value={form.milestoneEvery}
-          onChange={set('milestoneEvery')}
-        />
-        <span className="hint">
-          Every Nth kid triggers a room-wide confetti moment with a "{form.milestoneEvery || 25} kids
-          checked in tonight!" toast. Set to 0 to turn it off.
-        </span>
-      </div>
-
-      <div className="field">
-        <label htmlFor="confettiLevel">Confetti intensity</label>
-        <select id="confettiLevel" value={form.confettiLevel} onChange={set('confettiLevel')}>
-          <option value="full">Full celebration</option>
-          <option value="reduced">Reduced (half the particles)</option>
-          <option value="off">Off (banners and chimes only)</option>
-        </select>
-        <span className="hint">
-          Room-wide setting for every burst — welcomes, birthdays, milestones. "Reduced" helps
-          weak signage sticks keep 60fps on busy nights.
-        </span>
-      </div>
-
-      <div className="field">
-        <label htmlFor="burstFloor">Rush-mode minimum banner time (ms)</label>
-        <input
-          id="burstFloor" type="number" min="1000" max="10000" step="250"
-          value={form.burstFloorMs}
-          onChange={set('burstFloorMs')}
-        />
-        <span className="hint">
-          During a check-in rush banners shrink to keep up with the door — but never below this.
-          Lower drains a backlog faster; higher keeps every name readable longer.
-        </span>
-      </div>
-
-      <Toggle
-        checked={form.showClock}
-        onChange={set('showClock')}
-        title="Wall clock"
-        hint="The current time of day — joins the cycle, or sits top-right as a sticker."
-      />
-
-      <Toggle
-        checked={form.keepScreenAwake}
-        onChange={set('keepScreenAwake')}
-        title="Keep screen awake"
-        hint="Ask the browser to stop the TV/monitor from sleeping while the display is open."
-      />
-
-      <Toggle
-        checked={form.showConnectionStatus}
-        onChange={set('showConnectionStatus')}
-        title="Show connection status dot"
-        hint="Tiny corner indicator. Even when off, it appears by itself if the connection drops."
       />
     </>
   );
@@ -1172,7 +1439,7 @@ function CalendarTab({ form, set, setForm, calendar }) {
         checked={form.calendarEnabled}
         onChange={set('calendarEnabled')}
         title="Calendar-aware slides"
-        hint='Auto-generate "Welcome to…", "Next week is…", and nights-remaining slides from the church calendar. They join the typed-slides rotation.'
+        hint='Auto-generate "Welcome to…", "Next week…", and nights-remaining slides from the church calendar. They join the typed-slides rotation.'
       />
 
       {preview && form.calendarEnabled ? (
@@ -1215,7 +1482,7 @@ function CalendarTab({ form, set, setForm, calendar }) {
       <Toggle checked={form.calendarShowWelcome} onChange={set('calendarShowWelcome')}
         title="Welcome slide" hint="Tonight's greeting — or a pointer to the next club night." />
       <Toggle checked={form.calendarShowNextWeek} onChange={set('calendarShowNextWeek')}
-        title="Next-week slide" hint='"Next week is…!" announcements and break-week notices.' />
+        title="Next-week slide" hint='"Next week…!" announcements and break-week notices.' />
       <Toggle checked={form.calendarShowRemaining} onChange={set('calendarShowRemaining')}
         title="Nights-remaining slide" hint="A countdown nudge once fewer than 10 club nights remain." />
       <Toggle checked={form.showWeatherChip} onChange={set('showWeatherChip')}
@@ -1310,6 +1577,7 @@ function PptxUploadField() {
   };
 
   const remove = async () => {
+    if (!window.confirm(`Remove ${stored?.name || 'the uploaded deck'} from this device? The file is not stored anywhere else — you would need the original .pptx to upload it again.`)) return;
     await deleteDeck();
     setStored(null);
     setStatus(null);
@@ -1380,6 +1648,7 @@ function VideoUploadField() {
   };
 
   const remove = async () => {
+    if (!window.confirm(`Remove ${stored?.name || 'the video'} from this device? The file is not stored anywhere else — you would need the original to upload it again.`)) return;
     await deleteVideo(BACKGROUND_VIDEO_ID);
     setStored(null);
     setStatus(null);

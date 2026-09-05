@@ -208,11 +208,15 @@ export function applyProvisionBundle(bundle) {
 //                             the passphrase was changed; log in again
 //                'wrong'      the passphrase just typed did not open the frame
 //                'busy'       deriving (the one-time PBKDF2 cost)
-//                'unsupported' no WebCrypto here — paste keys under Advanced
+//                'unsupported' no WebCrypto here (the page is not a secure
+//                             context) — nothing on this page can decrypt
+//   pendingLogin true while a passphrase typed BEFORE any frame arrived is
+//                parked in memory; it is tried automatically the moment a
+//                frame lands. Memory only — never stored, never exported.
 
 /** @typedef {'waiting'|'received'|'miss'} FrameStatus */
 /** @typedef {'logged-out'|'logged-in'|'stale'|'wrong'|'busy'|'unsupported'} LoginStatus */
-/** @typedef {{frameStatus: FrameStatus, loginStatus: LoginStatus, kid: string|null, lastAppliedAt: number|null}} LoginSnapshot */
+/** @typedef {{frameStatus: FrameStatus, loginStatus: LoginStatus, kid: string|null, lastAppliedAt: number|null, pendingLogin: boolean}} LoginSnapshot */
 
 /** @type {LoginSnapshot} */
 let snapshot = {
@@ -220,9 +224,13 @@ let snapshot = {
   loginStatus: loadLoginKey() ? 'logged-in' : 'logged-out',
   kid: null,
   lastAppliedAt: loadIssuedAt(),
+  pendingLogin: false,
 };
 /** @type {unknown} */
 let lastFrame = null;
+/** A passphrase typed before any frame arrived — tried when one lands. Memory only. */
+/** @type {string|null} */
+let pendingPassphrase = null;
 /** @type {Set<() => void>} */
 const listeners = new Set();
 /** @type {Promise<unknown>} */
@@ -264,6 +272,15 @@ export function receiveProvisionFrame(frame) {
   if (!isProvisionFrame(frame)) return;
   lastFrame = frame;
   update({ frameStatus: 'received' });
+  // A volunteer who typed the passphrase while the print server was still
+  // starting up should not have to type it again: try it now, on the same
+  // serializer the automatic path uses.
+  if (pendingPassphrase !== null) {
+    const p = pendingPassphrase;
+    pendingPassphrase = null;
+    chain = chain.then(() => loginWithPassphrase(p)).catch(() => {});
+    return;
+  }
   const key = loadLoginKey();
   if (!key) return;
   chain = chain.then(async () => {
@@ -289,14 +306,20 @@ export function noteCacheMiss() {
 }
 
 /**
- * The volunteer typed the passphrase. Requires a received frame.
+ * The volunteer typed the passphrase. Without a received frame the passphrase
+ * is parked (pendingLogin) and tried automatically when one arrives.
  * @param {string} passphrase
  * @returns {Promise<'logged-in'|'wrong'|'no-frame'|'unsupported'|'storage'>}
  */
 export async function loginWithPassphrase(passphrase) {
   const frame = lastFrame;
-  if (!isProvisionFrame(frame)) return 'no-frame';
-  update({ loginStatus: 'busy' });
+  if (!isProvisionFrame(frame)) {
+    pendingPassphrase = passphrase;
+    update({ pendingLogin: true });
+    return 'no-frame';
+  }
+  pendingPassphrase = null;
+  update({ loginStatus: 'busy', pendingLogin: false });
   const derived = await deriveLoginKey(passphrase, frame.kdf.salt, frame.kdf.iterations);
   if (!derived) {
     update({ loginStatus: 'unsupported' });
@@ -325,18 +348,21 @@ export function logout() {
   saveIssuedAt(null);
   saveDisplayKey('');
   savePublishToken('');
-  update({ loginStatus: 'logged-out', kid: null, lastAppliedAt: null });
+  pendingPassphrase = null;
+  update({ loginStatus: 'logged-out', kid: null, lastAppliedAt: null, pendingLogin: false });
 }
 
 /** Test seam. */
 export function _resetForTest() {
   lastFrame = null;
+  pendingPassphrase = null;
   chain = Promise.resolve();
   snapshot = {
     frameStatus: 'waiting',
     loginStatus: loadLoginKey() ? 'logged-in' : 'logged-out',
     kid: null,
     lastAppliedAt: loadIssuedAt(),
+    pendingLogin: false,
   };
   listeners.forEach((fn) => fn());
 }

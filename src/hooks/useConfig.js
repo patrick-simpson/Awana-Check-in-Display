@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import defaults from '../config.js';
 import { sanitizeSlides } from '../lib/slides.js';
 import { NIGHT_THEME_VALUES } from '../lib/skins.js';
+import { parseUrlFlags } from '../lib/urlFlags.js';
 
 const STORAGE_KEY = 'awanaConfig.v1';
 
@@ -118,45 +119,147 @@ function saveOverrides(overrides) {
   }
 }
 
+// ── One store for the whole page ─────────────────────────────────────────────
+// Every useConfig() call used to own its own useState(loadOverrides) slot and
+// only heard about changes through the cross-tab `storage` event — which never
+// fires in the tab that made the change. So saving the Pusher key in Settings
+// did not reach the socket's copy until someone reloaded, and the ?config= layer
+// (fetched in App) never reached the socket at all. A single module-level store
+// read through useSyncExternalStore gives every hook the same snapshot the
+// instant anything changes, in this tab and (via `storage`) in others, and keeps
+// working when localStorage is blocked because the overrides live in memory.
+//
+// Layers, lowest to highest:
+//   1. src/config.js baked defaults (incl. VITE_PUSHER_* from the build)
+//   2. ?config=<url> remote JSON — App fetches it and calls setRemoteDefaults()
+//   3. this device's saved overrides (awanaConfig.v1)
+//      ⇒ storedConfig: what Settings edits and Export writes
+//   4. URL flags — ?key=/&cluster= and ?lowPower=1 (src/lib/urlFlags.js) — in
+//      memory only: never saved, never shown as a saved setting, never exported
+//      ⇒ config: what the socket and the stage consume
+// The panic mask (src/lib/panic.js) is applied by App on top of `config` and
+// nowhere else — it is a rendering concern, not a setting.
+
+let flags = null;           // parsed lazily once per page (tests reset it)
+let overrides = null;       // null = not yet read from localStorage
+let remoteDefaults = {};    // the ?config= layer
+let snapshot = null;        // cached { config, storedConfig, overrides }
+const listeners = new Set();
+
+const getFlags = () => flags ?? (flags = parseUrlFlags());
+const getOverrides = () => overrides ?? (overrides = loadOverrides());
+
 /**
- * Merges the defaults from src/config.js with any per-device overrides
- * the user has set via the runtime Settings panel. Overrides win.
- * `remoteDefaults` (from ?config=<url>, already sanitized) slot between
- * the baked defaults and this device's overrides.
+ * Layers 1–3: baked defaults < ?config= remote < this device's overrides.
+ * Pure and exported so the compatibility rule below is unit-testable.
  */
-export function useConfig(remoteDefaults) {
-  const [overrides, setOverrides] = useState(loadOverrides);
-
-  // Keep multiple open tabs in sync.
-  useEffect(() => {
-    const onStorage = (e) => {
-      if (e.key === STORAGE_KEY) setOverrides(loadOverrides());
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
-
-  // Stable identity between renders so consumers can use it (or values
-  // derived from it) in dependency arrays without re-firing every render.
-  const config = useMemo(() => ({
+export function resolveStoredConfig(remote, device) {
+  const stored = {
     ...defaults,
     audioMuted: !defaults.audioEnabledByDefault,
-    ...(remoteDefaults || {}),
-    ...overrides,
-  }), [remoteDefaults, overrides]);
+    ...remote,
+    ...device,
+  };
+  // backgroundSource now defaults to 'manual' (the typed/published deck). A
+  // screen — or a fleet file — set up before that saved only a PowerPoint URL
+  // and relied on 'powerpoint' being the default. A URL with no explicit source
+  // at either layer still means PowerPoint, so nothing already on a wall changes.
+  const explicit = 'backgroundSource' in remote || 'backgroundSource' in device;
+  if (!explicit && (device.powerpointEmbedUrl || remote.powerpointEmbedUrl)) {
+    stored.backgroundSource = 'powerpoint';
+  }
+  return stored;
+}
 
-  const updateConfig = useCallback((patch) => {
-    setOverrides((prev) => {
-      const next = sanitizeOverrides({ ...prev, ...patch });
-      saveOverrides(next);
-      return next;
-    });
-  }, []);
+// Layer 4: URL flags. ?cluster= is honoured only alongside ?key= (an embed
+// URL names a whole Pusher app or nothing); ?lowPower=1 forces the two
+// motion keys down for THIS embed only — confettiLevel/reduceMotion's own
+// defaults stay full-strength for every other device (see CLAUDE.md).
+function applyFlags(stored, f) {
+  let out = stored;
+  if (f.pusherAppKey) {
+    out = { ...out, pusherAppKey: f.pusherAppKey, pusherCluster: f.pusherCluster || out.pusherCluster };
+  }
+  if (f.lowPower) out = { ...out, confettiLevel: 'off', reduceMotion: true };
+  return out;
+}
 
-  const resetConfig = useCallback(() => {
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
-    setOverrides({});
-  }, []);
+function getSnapshot() {
+  if (!snapshot) {
+    const storedConfig = resolveStoredConfig(remoteDefaults, getOverrides());
+    snapshot = {
+      config: applyFlags(storedConfig, getFlags()),
+      storedConfig,
+      overrides: getOverrides(),
+    };
+  }
+  return snapshot;
+}
 
-  return { config, overrides, updateConfig, resetConfig };
+function invalidate() {
+  snapshot = null;
+  for (const fn of listeners) fn();
+}
+
+// Other tabs announce their saves through `storage` (key null = a clear).
+const onStorage = (e) => {
+  if (e.key === STORAGE_KEY || e.key === null) {
+    overrides = loadOverrides();
+    invalidate();
+  }
+};
+
+function subscribe(fn) {
+  if (listeners.size === 0) window.addEventListener('storage', onStorage);
+  listeners.add(fn);
+  return () => {
+    listeners.delete(fn);
+    if (listeners.size === 0) window.removeEventListener('storage', onStorage);
+  };
+}
+
+/** Merge a patch into this device's overrides (sanitized key by key) and persist. */
+export function updateConfig(patch) {
+  overrides = sanitizeOverrides({ ...getOverrides(), ...patch });
+  saveOverrides(overrides);
+  invalidate();
+}
+
+/** Drop every device override — back to defaults (+ the remote layer, if any). */
+export function resetConfig() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  overrides = {};
+  invalidate();
+}
+
+/** The ?config=<url> layer, already fetched by App. Sanitized like overrides. */
+export function setRemoteDefaults(raw) {
+  remoteDefaults = sanitizeOverrides(raw);
+  invalidate();
+}
+
+/** Tests only: forget flags, overrides and the remote layer so each case starts clean. */
+export function _resetForTest() {
+  flags = null;
+  overrides = null;
+  remoteDefaults = {};
+  snapshot = null;
+}
+
+/**
+ * The page's config, from the one store above.
+ *  - `config`       effective: defaults < remote < overrides < URL flags
+ *  - `storedConfig` the same without URL flags — what Settings edits/exports
+ *  - `overrides`    this device's saved layer alone
+ * `updateConfig` / `resetConfig` are stable module functions, safe in deps.
+ */
+export function useConfig() {
+  const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  return {
+    config: snap.config,
+    storedConfig: snap.storedConfig,
+    overrides: snap.overrides,
+    updateConfig,
+    resetConfig,
+  };
 }
