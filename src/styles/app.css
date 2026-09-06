@@ -1114,11 +1114,15 @@ html, body, #root {
   line-height: 1.05;
 }
 /* Chrome drops a background-clip:text background from any descendant
-   that carries its own transform (the pop span framer-motion animates),
-   leaving invisible glyphs — so every text-holding span paints its own
-   clipped gradient instead of inheriting the value's. */
+   that carries its own transform, leaving invisible glyphs — so every
+   text-holding span paints its own clipped gradient instead of
+   inheriting the value's.
+   `.data-cycle-pop` is deliberately NOT in this list: it is the span
+   framer-motion transforms, and an element that is both composited and
+   background-clip:text is exactly what ghosted the clock colon below.
+   Its static child `.data-cycle-digits` wears the gradient instead. */
 .data-cycle-value,
-.data-cycle-pop {
+.data-cycle-digits {
   background: linear-gradient(180deg, var(--awana-gold-pale) 10%, var(--awana-orange) 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -1136,7 +1140,8 @@ html, body, #root {
   -webkit-text-fill-color: currentColor;
 }
 .data-cycle-colon,
-.data-cycle-pop {
+.data-cycle-pop,
+.data-cycle-digits {
   display: inline-block;
 }
 .data-cycle-unit {

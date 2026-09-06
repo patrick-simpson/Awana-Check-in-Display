@@ -1,6 +1,5 @@
-import { useCallback, useState } from 'react';
-import { isFresh } from '../lib/freshness.js';
-import { TALLY_STALE_MS } from '../lib/constants.js';
+import { useCallback, useRef, useState } from 'react';
+import { TALLY_REORDER_MS } from '../lib/constants.js';
 
 const STORAGE_KEY = 'awanaTally.v1';
 
@@ -34,6 +33,8 @@ function save(count) {
 
 export function useTally() {
   const [count, setCount] = useState(load);
+  // `at` of the last broadcast this display adopted, for ordering only.
+  const lastAtRef = useRef(null);
 
   const bump = useCallback(() => {
     setCount(() => {
@@ -60,9 +61,22 @@ export function useTally() {
   // App.jsx's every-Nth-kid milestone effect, which watches `count` rather
   // than `bump()` calls) can tell a reconciliation jump apart from a real,
   // one-at-a-time increment and skip celebrating it.
-  const sync = useCallback((total, at, now = Date.now()) => {
+  const sync = useCallback((total, at) => {
     if (!Number.isInteger(total) || total < 0) return false;
-    if (!isFresh(at, TALLY_STALE_MS, now)) return false;
+    // Order broadcasts against EACH OTHER — never against this device's
+    // clock. See TALLY_REORDER_MS: comparing the printer's `at` to our
+    // Date.now() silently rejected every broadcast on a screen whose
+    // clock drifted, which is exactly how the corner counter could run
+    // high all evening with no way back. A broadcast stamped older than
+    // the last one we adopted is out of order and ignored; one older by
+    // more than the reorder window means the printer's clock moved, so
+    // we re-baseline on it instead of ignoring the printer forever.
+    // sanitizeTally() drops any payload without a real `at`, so a missing
+    // one here means something upstream is wrong — stay defensive.
+    if (typeof at !== 'number' || !Number.isFinite(at)) return false;
+    const last = lastAtRef.current;
+    if (last !== null && at < last && last - at <= TALLY_REORDER_MS) return false;
+    lastAtRef.current = at;
     const current = load();
     if (current === total) return false; // already in sync
     save(total);

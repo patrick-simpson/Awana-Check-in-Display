@@ -100,6 +100,24 @@ describe('DataCycle', () => {
     expect(screen.queryByText(/tonight/i)).toBeNull();
   });
 
+  // Regression guard for the ghosted-digits bug: the span framer-motion
+  // transforms must never be the span carrying the clipped gradient.
+  // Putting both on one element is what double-drew the clock colon on
+  // real GPUs, and the tally is the biggest glyph on the screen.
+  it('animates a wrapper, never the gradient-clipped digits themselves', () => {
+    const { container } = renderCycle({ showTally: true, count: 42 });
+    const pop = container.querySelector('.data-cycle-pop');
+    const digits = container.querySelector('.data-cycle-digits');
+    expect(pop).not.toBeNull();
+    expect(digits).not.toBeNull();
+    // The digits are INSIDE the animated span, not the animated span.
+    expect(pop.contains(digits)).toBe(true);
+    expect(digits).not.toBe(pop);
+    expect(digits.textContent).toBe('42');
+    // The animated span holds no text of its own to mis-rasterize.
+    expect(pop.childElementCount).toBe(1);
+  });
+
   it('has no countdown card (retired in favor of the presentation tool)', () => {
     // Legacy countdown props are simply ignored — old saved settings
     // must not resurrect the card.

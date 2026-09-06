@@ -197,7 +197,19 @@ function TallyFace({ count }) {
       <span className="data-cycle-value">
         {/* Remounting on every increment gives the number a joyful
             little pop-and-twist as each kid checks in — one-shot, so it
-            settles (see the compositing note above the faces). */}
+            settles (see the compositing note above the faces).
+
+            The animated span carries the transform and NOTHING else; the
+            digits' clipped gradient lives on the static child inside it.
+            Keeping the two on one element is what ghosted the clock colon
+            (see .data-cycle-colon in app.css): a composited, transformed
+            span that is ALSO background-clip:text rasterizes its clip
+            texture at the wrong offset, and the item's drop-shadow filter
+            then draws a stale silhouette beside the faded glyph. Splitting
+            them keeps both the gradient and the pop with nothing left to
+            mis-render — and matters most on a busy night, when check-ins
+            land faster than the spring settles and the layer never goes
+            static between them. */}
         <M.span
           key={count}
           className="data-cycle-pop"
@@ -205,7 +217,7 @@ function TallyFace({ count }) {
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 420, damping: 15 }}
         >
-          {count}
+          <span className="data-cycle-digits">{count}</span>
         </M.span>
       </span>
       <span className="data-cycle-sub">checked in</span>

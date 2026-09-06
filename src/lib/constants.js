@@ -59,12 +59,20 @@ export const WATCHDOG_MAX_RELOADS_PER_HOUR = 2;
 export const TONIGHT_STALE_MS = 10 * 60 * 1000;
 
 // Corner "Tonight" counter reconciliation (the `tally` event, numbers-only
-// per-club counts + total): a broadcast older than this is ignored rather
-// than trusted to overwrite the locally-tracked count — an undo/catch-up
-// only makes sense against a FRESH snapshot. Same window as
-// TONIGHT_STALE_MS (same printer broadcast cadence) — kept as its own
-// name because it gates a different event.
-export const TALLY_STALE_MS = TONIGHT_STALE_MS;
+// per-club counts + total). This used to be a wall-clock freshness window
+// (`now - at <= TALLY_STALE_MS`), which was wrong in a way that only shows
+// up on real hardware: `tally` rides the plain public `awana-channel`,
+// which Pusher never replays, so a broadcast that arrives HAS just been
+// sent — while a signage TV's clock can sit minutes or hours off the
+// check-in laptop's. On such a screen every broadcast looked stale, the
+// counter never reconciled, and bump() drifted it high all night with
+// nothing to pull it back. Broadcasts are now ordered against EACH OTHER
+// instead: one stamped older than the last adopted broadcast is genuinely
+// out of order and dropped. That is a seconds-scale phenomenon, so a
+// broadcast older by MORE than this window is read as the printer's own
+// clock having moved (a restart, an NTP correction) and re-baselines
+// rather than deadlocking the counter forever.
+export const TALLY_REORDER_MS = 60 * 1000;
 
 // Church-authored announcements (onNotice) expire after this long so a
 // forgotten "CLUB CANCELLED TONIGHT" can never haunt the screen into

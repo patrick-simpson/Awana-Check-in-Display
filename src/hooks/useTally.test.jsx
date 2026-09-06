@@ -41,7 +41,7 @@ describe('useTally', () => {
     expect(api.current.count).toBe(5);
 
     const now = Date.now();
-    act(() => { api.current.sync(2, now, now); });
+    act(() => { api.current.sync(2, now); });
     expect(api.current.count).toBe(2);
     expect(JSON.parse(localStorage.getItem('awanaTally.v1')).count).toBe(2);
   });
@@ -52,30 +52,53 @@ describe('useTally', () => {
     expect(api.current.count).toBe(1);
 
     const now = Date.now();
-    act(() => { api.current.sync(30, now, now); });
+    act(() => { api.current.sync(30, now); });
     expect(api.current.count).toBe(30);
   });
 
-  it('ignores a stale broadcast', () => {
+  // The counter is ordered against the PRINTER's clock, never this
+  // device's — a signage TV whose clock has drifted must still reconcile.
+  it('adopts a broadcast the local clock thinks is hours old (clock skew)', () => {
     const { api } = setup();
     act(() => { for (let i = 0; i < 5; i++) api.current.bump(); });
 
-    const now = Date.now();
-    const staleAt = now - TEN_MIN_MS - 1;
+    // This screen's clock runs hours ahead of the check-in laptop's, so
+    // every broadcast looks ancient locally. It is still the truth.
+    const skewedAt = Date.now() - 6 * 60 * 60 * 1000;
     let changed;
-    act(() => { changed = api.current.sync(999, staleAt, now); });
-    expect(changed).toBe(false);
-    expect(api.current.count).toBe(5); // unchanged
+    act(() => { changed = api.current.sync(3, skewedAt); });
+    expect(changed).toBe(true);
+    expect(api.current.count).toBe(3);
   });
 
-  it('accepts a broadcast right at the freshness boundary', () => {
+  it('ignores a broadcast delivered out of order', () => {
     const { api } = setup();
-    const now = Date.now();
-    const boundaryAt = now - TEN_MIN_MS;
+    const t = Date.now();
+    act(() => { api.current.sync(20, t); });
+
     let changed;
-    act(() => { changed = api.current.sync(7, boundaryAt, now); });
+    act(() => { changed = api.current.sync(19, t - 5000); });
+    expect(changed).toBe(false);
+    expect(api.current.count).toBe(20); // the newer broadcast still stands
+  });
+
+  it('re-baselines when the printer\'s own clock moves backwards', () => {
+    const { api } = setup();
+    const t = Date.now();
+    act(() => { api.current.sync(20, t); });
+
+    // Further back than out-of-order delivery can explain: the printer
+    // restarted or NTP corrected it. Ignoring it forever would strand the
+    // counter, so the next broadcast becomes the new baseline.
+    let changed;
+    act(() => { changed = api.current.sync(12, t - TEN_MIN_MS); });
     expect(changed).toBe(true);
-    expect(api.current.count).toBe(7);
+    expect(api.current.count).toBe(12);
+
+    // ...and ordering continues from the new baseline.
+    act(() => { changed = api.current.sync(13, t - TEN_MIN_MS + 1000); });
+    expect(changed).toBe(true);
+    expect(api.current.count).toBe(13);
   });
 
   it('is a no-op when the broadcast total already matches', () => {
@@ -84,7 +107,7 @@ describe('useTally', () => {
 
     const now = Date.now();
     let changed;
-    act(() => { changed = api.current.sync(4, now, now); });
+    act(() => { changed = api.current.sync(4, now); });
     expect(changed).toBe(false);
     expect(api.current.count).toBe(4);
   });
@@ -96,7 +119,7 @@ describe('useTally', () => {
 
     for (const bad of [-1, 1.5, NaN, Infinity, '5', null, undefined]) {
       let changed;
-      act(() => { changed = api.current.sync(bad, now, now); });
+      act(() => { changed = api.current.sync(bad, now); });
       expect(changed).toBe(false);
     }
     expect(api.current.count).toBe(1);
@@ -104,9 +127,8 @@ describe('useTally', () => {
 
   it('rejects a broadcast with a missing/invalid timestamp', () => {
     const { api } = setup();
-    const now = Date.now();
     let changed;
-    act(() => { changed = api.current.sync(9, undefined, now); });
+    act(() => { changed = api.current.sync(9, undefined); });
     expect(changed).toBe(false);
     expect(api.current.count).toBe(0);
   });
@@ -120,7 +142,7 @@ describe('useTally', () => {
     expect(api.current.count).toBe(0);
 
     const now = Date.now();
-    act(() => { api.current.sync(11, now, now); });
+    act(() => { api.current.sync(11, now); });
     expect(api.current.count).toBe(11);
   });
 
@@ -134,7 +156,7 @@ describe('useTally', () => {
 
     const now = Date.now();
     let changed;
-    act(() => { changed = api.current.sync(5, now, now); });
+    act(() => { changed = api.current.sync(5, now); });
     expect(changed).toBe(true);
     expect(api.current.count).toBe(5);
     const stored = JSON.parse(localStorage.getItem('awanaTally.v1'));
