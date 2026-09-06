@@ -9,8 +9,8 @@ import { motion } from 'framer-motion';
 //
 // This is the enforcement mechanism for "zero animations in the Journey
 // embed, guaranteed for future components too": `M.div`/`M.span`/etc.
-// below read this context directly and override `transition`
-// unconditionally, so a component built with `M.*` instead of importing
+// below read this context directly and override BOTH `transition` and
+// `initial` unconditionally, so a component built with `M.*` instead of importing
 // `motion` from 'framer-motion' directly is automatically covered — no
 // per-component opt-in, and no way to forget it when adding a new
 // animation later. `MotionConfig`'s own `reducedMotion="always"` prop
@@ -28,9 +28,26 @@ export const ZeroAnimationContext = createContext(false);
 const INSTANT_TRANSITION = { type: false };
 
 function makeZeroAnimationAware(Component, displayName) {
-  const Wrapped = forwardRef(function ZeroAnimationAware({ transition, ...props }, ref) {
+  const Wrapped = forwardRef(function ZeroAnimationAware({ transition, initial, ...props }, ref) {
     const zeroAnimation = useContext(ZeroAnimationContext);
-    return <Component ref={ref} {...props} transition={zeroAnimation ? INSTANT_TRANSITION : transition} />;
+    // `initial` has to go too, not just the transition. An instant transition
+    // still MOUNTS the element at its `initial` value and only reaches
+    // `animate` on a later frame — so a crossfade inside <AnimatePresence>
+    // (typed slides, pptx slides, the data cycle) leaves one frame where the
+    // outgoing element has already exited to opacity 0 and the incoming one
+    // is still at opacity 0: nothing painted. On a desktop that frame is
+    // ~16ms and invisible; on the Journey kiosk's Pi Zero it was reported as
+    // "a black screen for about a half second" between slides (2026-09-06).
+    // `initial={false}` is framer-motion's own "render at the animate value
+    // straight away", which is what zero animation should have meant all along.
+    return (
+      <Component
+        ref={ref}
+        {...props}
+        initial={zeroAnimation ? false : initial}
+        transition={zeroAnimation ? INSTANT_TRANSITION : transition}
+      />
+    );
   });
   Wrapped.displayName = displayName;
   return Wrapped;

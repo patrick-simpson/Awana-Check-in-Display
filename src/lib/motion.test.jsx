@@ -18,9 +18,13 @@ vi.mock('framer-motion', () => ({
     {
       get: (_t, tag) => {
         const Tag = tag === 'div' ? 'div' : tag;
-        return function MockMotionTag({ transition, children, ...rest }) {
+        return function MockMotionTag({ transition, initial, children, ...rest }) {
           return (
-            <Tag data-transition={JSON.stringify(transition ?? null)} {...rest}>
+            <Tag
+              data-transition={JSON.stringify(transition ?? null)}
+              data-initial={JSON.stringify(initial ?? null)}
+              {...rest}
+            >
               {children}
             </Tag>
           );
@@ -68,6 +72,42 @@ describe('M (zero-animation-aware motion wrapper)', () => {
     );
     const el = container.querySelector('path[data-transition]');
     expect(JSON.parse(el.dataset.transition)).toEqual({ type: false });
+  });
+
+  /* The half-second of black between slides on the kiosk (2026-09-06).
+     An instant transition alone is not enough: framer-motion still mounts an
+     element at its `initial` value and only reaches `animate` a frame later,
+     so inside <AnimatePresence> the outgoing element has already exited to
+     opacity 0 while the incoming one is still at opacity 0 — one frame with
+     nothing painted, which a Pi Zero stretches into a visible black flash. */
+  it('drops `initial` when zero-animation is on, so elements mount at their final state', () => {
+    const { container } = render(
+      <ZeroAnimationContext.Provider value>
+        <M.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>hi</M.div>
+      </ZeroAnimationContext.Provider>
+    );
+    const el = container.querySelector('div[data-initial]');
+    expect(JSON.parse(el.dataset.initial)).toBe(false);
+  });
+
+  it('leaves `initial` untouched when zero-animation is off (the church\'s other screens keep their fades)', () => {
+    const { container } = render(
+      <ZeroAnimationContext.Provider value={false}>
+        <M.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>hi</M.div>
+      </ZeroAnimationContext.Provider>
+    );
+    const el = container.querySelector('div[data-initial]');
+    expect(JSON.parse(el.dataset.initial)).toEqual({ opacity: 0 });
+  });
+
+  it('drops a variant-name `initial` too, not just an object', () => {
+    const { container } = render(
+      <ZeroAnimationContext.Provider value>
+        <M.div initial="hidden" animate="show">hi</M.div>
+      </ZeroAnimationContext.Provider>
+    );
+    const el = container.querySelector('div[data-initial]');
+    expect(JSON.parse(el.dataset.initial)).toBe(false);
   });
 
   it('resolves arbitrary tags through the proxy (svg elements, etc.)', () => {
