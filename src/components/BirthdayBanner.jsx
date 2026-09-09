@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { M } from '../lib/motion.jsx';
 import { fireBirthday } from '../lib/confetti.js';
 import { playBirthdayChime } from '../lib/audio.js';
+import { nameAccent } from '../lib/nameAccent.js';
 import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import BannerShell, { Eyebrow, bannerItem, bannerNameStagger } from './BannerShell.jsx';
 import AnimatedName from './AnimatedName.jsx';
@@ -197,7 +198,11 @@ export default function BirthdayBanner({ event, audioEnabled, ribbon }) {
           {/* The glow pulse is plain CSS, so zero-animation mode's blanket
               rule kills it automatically; calm arrivals skip the class. */}
           <M.h1 variants={bannerNameStagger} className={calm ? undefined : 'birthday-glow'}>
-            <AnimatedName name={`${event.firstName}!`} />
+            {/* Only the seeded ENTRANCE is taken from nameAccent here (#336): the
+                tilt, twinkle phase and sparkle are the standard welcome banner's
+                look, but every kid should recognise their own letter entrance
+                whichever banner mode they get. */}
+            <AnimatedName name={`${event.firstName}!`} entrance={nameAccent(event.firstName).entrance} />
           </M.h1>
           {/* The printer's `isBirthday` flag covers the whole ISO week, so
               this banner also greets a child whose birthday is still a few

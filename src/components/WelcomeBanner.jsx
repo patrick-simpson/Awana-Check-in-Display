@@ -15,8 +15,9 @@ import { Mark } from './Doodles.jsx';
  * sticker, for clubs that have one) popping in on the right.
  *
  * Each name gets a deterministic accent (gentle tilt, twinkle phase,
- * maybe an extra sparkle) seeded from the name itself — the same kid
- * sees the same flourish every week (#8). An optional per-club phrase
+ * maybe an extra sparkle, and which of the three letter entrances the
+ * name flies in with) seeded from the name itself — the same kid sees
+ * the same flourish every week (#8, #336). An optional per-club phrase
  * from config renders under the name (#15).
  *
  * `ribbon` is the optional "Birthday this Friday!" label from
@@ -47,7 +48,7 @@ export default function WelcomeBanner({ event, audioEnabled, clubPhrases, ribbon
       <div className="banner-text">
         <Eyebrow>{event.presentation === 'replay' ? 'Also joined us tonight' : 'Welcome'}</Eyebrow>
         <M.h1 variants={bannerNameStagger} style={{ rotate: accent.tilt }}>
-          <AnimatedName name={`${event.firstName}!`} />
+          <AnimatedName name={`${event.firstName}!`} entrance={accent.entrance} />
           {accent.sparkle && (
             <M.span
               className="name-sparkle"

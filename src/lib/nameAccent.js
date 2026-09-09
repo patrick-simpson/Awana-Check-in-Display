@@ -24,11 +24,29 @@ function hashName(name) {
 }
 
 /**
+ * The letter entrance styles a name can be dealt (#336). Order is part of the
+ * contract: the id is chosen by index from the seeded stream, so reordering
+ * this array would re-deal every child in the church. Consumed by
+ * src/components/AnimatedName.jsx, which holds the actual variants.
+ */
+export const NAME_ENTRANCES = ['pop', 'wave', 'drop'];
+
+/**
  * Accent recipe for a first name:
  *   tilt        — gentle name rotation, −1.6°…+1.6°
  *   doodlePhase — seconds added to the doodle twinkle delays, so each
  *                 kid's banner glitters on its own rhythm
  *   sparkle     — whether the name gets an extra wandering sparkle
+ *   entrance    — which of NAME_ENTRANCES the letters fly in with
+ *
+ * THE DRAW ORDER IS THE CONTRACT. Each field consumes the next value from one
+ * mulberry32 stream, so a new field may only ever be APPENDED — inserting one
+ * above would shift every field below it and every kid in the church would
+ * find their banner had changed. `entrance` was appended for exactly this
+ * reason, and nameAccent.test.js pins the pre-existing tilt / doodlePhase /
+ * sparkle values for a spread of real names so the next append has to prove
+ * the same thing. (Object literals evaluate their properties top to bottom,
+ * which is what makes the order below the draw order.)
  */
 export function nameAccent(firstName) {
   const rand = mulberry32(hashName(firstName));
@@ -36,5 +54,7 @@ export function nameAccent(firstName) {
     tilt: Math.round((rand() * 3.2 - 1.6) * 10) / 10,
     doodlePhase: Math.round(rand() * 20) / 10,
     sparkle: rand() > 0.5,
+    // ── Appended below this line only. See the note above. ──
+    entrance: NAME_ENTRANCES[Math.floor(rand() * NAME_ENTRANCES.length)],
   };
 }
