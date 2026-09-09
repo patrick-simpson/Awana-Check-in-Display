@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CLUBS } from '../config.js';
 import { THEME, artUrl } from '../lib/shared-config.js';
@@ -8,11 +8,17 @@ import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ClubWave } from '../components/ClubWave.jsx';
 import { ConfettiBurst } from '../components/ConfettiBurst.jsx';
 import { Badge } from '../components/Badge.jsx';
-import { BigTimer } from '../components/BigTimer.jsx';
+import { BigTimer, URGENT_COLOR } from '../components/BigTimer.jsx';
 import { GlowText } from '../components/GlowText.jsx';
 import { useLowPower } from '../hooks/useLowPower.js';
 import { CakeArt } from '../../components/BirthdayArt.jsx';
 import { secondsUntil } from '../lib/schedule.js';
+import {
+  WARNING_LABELS,
+  WARNING_STINGER_INTENSITY,
+  warningFor,
+} from '../lib/gameWarning.js';
+import { playStinger } from '../lib/stingers.js';
 import { birthdaysThisWeek, listNames } from '../lib/birthdays.js';
 import { countForClub } from '../lib/tally.js';
 import { mulberry32 } from '../lib/color.js';
@@ -21,6 +27,13 @@ import { useBirthdays } from '../hooks/useBirthdays.js';
 
 /** Tally older than this is treated as gone (print server offline). */
 const TALLY_STALE_MS = 10 * 60 * 1000;
+
+/** Amber for the two-minute heads-up; the final call reuses the timer's
+ *  own urgent red so the two screens speak one colour language. */
+const WARNING_COLORS = {
+  'two-minute': '#FFB627',
+  'final-thirty': URGENT_COLOR,
+};
 
 /**
  * Per-club game-time screen: catalog waves in the club color(s), the
@@ -53,6 +66,27 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
     .filter((c) => c.count !== null);
 
   const seconds = secondsUntil(endsAt, now);
+
+  // Wrap-up warning for the rotation boundary (lib/gameWarning.js). The
+  // treatment is deliberately restrained — a recoloured clock and one
+  // small badge, in the same register as the countdown screen, which no
+  // longer pops milestone cards at all.
+  const warning = warningFor(seconds);
+  const warnColor = WARNING_COLORS[warning];
+
+  // The last state we ANNOUNCED, not the last state rendered: a
+  // re-render (a tally arriving, a birthday resolving) must never
+  // re-fire the cue, and the clock re-renders every second.
+  const announced = useRef('none');
+  useEffect(() => {
+    if (warning === announced.current) return;
+    announced.current = warning;
+    const intensity = WARNING_STINGER_INTENSITY[warning];
+    // No-op unless the operator armed countdown sounds in QuickNav —
+    // a projector in a quiet room must never surprise anyone.
+    if (intensity != null) playStinger(intensity);
+  }, [warning]);
+
   const endTimeStr = endsAt.toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
@@ -101,7 +135,24 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
           GAME TIME!
         </GlowText>
 
-        <BigTimer seconds={seconds} color={primary.color} />
+        {warning !== 'none' && (
+          <motion.div
+            key={warning}
+            data-warning={warning}
+            initial={lowPower ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: DUR.base, ease: EASE.pop }}
+          >
+            {/* Motionless under low power (?vr=1 / reduced motion): the
+                warning is content, so it still renders — it just doesn't
+                animate in. No pulse or repeat loop in either case. */}
+            <Badge color={warnColor} size="md">
+              {WARNING_LABELS[warning]}
+            </Badge>
+          </motion.div>
+        )}
+
+        <BigTimer seconds={seconds} color={primary.color} warnColor={warnColor} />
 
         <GlowText
           as="p"

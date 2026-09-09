@@ -1,7 +1,9 @@
 import React from 'react';
 import { DigitReel } from './DigitReel.jsx';
 
-const URGENT_COLOR = '#E8192C';
+/** The countdown's urgent red — exported so other screens' warning
+ *  treatments can reuse the exact colour instead of re-typing it. */
+export const URGENT_COLOR = '#E8192C';
 
 /**
  * The huge projector timer. Owns d/h/m/s decomposition, per-digit
@@ -12,6 +14,7 @@ export const BigTimer = ({
   seconds,
   color = '#FFFFFF',
   urgencyEnabled = false,
+  warnColor,
   onClick,
 }) => {
   const days = Math.floor(seconds / 86400);
@@ -20,7 +23,10 @@ export const BigTimer = ({
   const secs = seconds % 60;
 
   const isUrgent = urgencyEnabled && seconds > 0 && seconds < 60;
-  const activeColor = isUrgent ? URGENT_COLOR : color;
+  // `warnColor` is the caller's own urgency treatment (the game screen's
+  // wrap-up warning): it recolours the digits and nothing else — no
+  // pulse rings, which stay tied to `urgencyEnabled`.
+  const activeColor = isUrgent ? URGENT_COLOR : (warnColor ?? color);
   const sizeVar = days > 0 ? 'var(--text-timer-days)' : 'var(--text-timer)';
 
   const digitStyle = {
