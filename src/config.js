@@ -125,6 +125,14 @@ const config = {
   // "25 kids tonight!" toast. Set to 0 to turn milestones off.
   milestoneEvery: 25,
 
+  // When the check-in desk's broadcast moves the corner counter by more than
+  // one — an operator undo, or a catch-up after this screen was offline — show
+  // a short "synced with the check-in desk" note under the number, so a jump
+  // (or a count going DOWN) reads as a correction rather than a glitch. A
+  // delta of exactly one is always silent; ordinary broadcast ordering
+  // produces those constantly.
+  showTallySyncNote: true,
+
   // Show the current time of day (the countdown shows time-until-start;
   // this is a plain wall clock). A headline item in 'cycle' mode, a
   // top-right sticker in 'stickers' mode.

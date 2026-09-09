@@ -65,9 +65,9 @@ describe('useTally', () => {
     // This screen's clock runs hours ahead of the check-in laptop's, so
     // every broadcast looks ancient locally. It is still the truth.
     const skewedAt = Date.now() - 6 * 60 * 60 * 1000;
-    let changed;
-    act(() => { changed = api.current.sync(3, skewedAt); });
-    expect(changed).toBe(true);
+    let delta;
+    act(() => { delta = api.current.sync(3, skewedAt); });
+    expect(delta).toBe(-2);
     expect(api.current.count).toBe(3);
   });
 
@@ -76,9 +76,9 @@ describe('useTally', () => {
     const t = Date.now();
     act(() => { api.current.sync(20, t); });
 
-    let changed;
-    act(() => { changed = api.current.sync(19, t - 5000); });
-    expect(changed).toBe(false);
+    let delta;
+    act(() => { delta = api.current.sync(19, t - 5000); });
+    expect(delta).toBe(0);
     expect(api.current.count).toBe(20); // the newer broadcast still stands
   });
 
@@ -90,14 +90,15 @@ describe('useTally', () => {
     // Further back than out-of-order delivery can explain: the printer
     // restarted or NTP corrected it. Ignoring it forever would strand the
     // counter, so the next broadcast becomes the new baseline.
-    let changed;
-    act(() => { changed = api.current.sync(12, t - TEN_MIN_MS); });
-    expect(changed).toBe(true);
+    let delta;
+    act(() => { delta = api.current.sync(12, t - TEN_MIN_MS); });
+    expect(delta).toBe(-8);
     expect(api.current.count).toBe(12);
 
-    // ...and ordering continues from the new baseline.
-    act(() => { changed = api.current.sync(13, t - TEN_MIN_MS + 1000); });
-    expect(changed).toBe(true);
+    // ...and ordering continues from the new baseline. This one moved by
+    // exactly one, which the corner note (#351) stays silent about.
+    act(() => { delta = api.current.sync(13, t - TEN_MIN_MS + 1000); });
+    expect(delta).toBe(1);
     expect(api.current.count).toBe(13);
   });
 
@@ -106,9 +107,9 @@ describe('useTally', () => {
     act(() => { for (let i = 0; i < 4; i++) api.current.bump(); });
 
     const now = Date.now();
-    let changed;
-    act(() => { changed = api.current.sync(4, now); });
-    expect(changed).toBe(false);
+    let delta;
+    act(() => { delta = api.current.sync(4, now); });
+    expect(delta).toBe(0);
     expect(api.current.count).toBe(4);
   });
 
@@ -118,18 +119,18 @@ describe('useTally', () => {
     const now = Date.now();
 
     for (const bad of [-1, 1.5, NaN, Infinity, '5', null, undefined]) {
-      let changed;
-      act(() => { changed = api.current.sync(bad, now); });
-      expect(changed).toBe(false);
+      let delta;
+      act(() => { delta = api.current.sync(bad, now); });
+      expect(delta).toBe(0);
     }
     expect(api.current.count).toBe(1);
   });
 
   it('rejects a broadcast with a missing/invalid timestamp', () => {
     const { api } = setup();
-    let changed;
-    act(() => { changed = api.current.sync(9, undefined); });
-    expect(changed).toBe(false);
+    let delta;
+    act(() => { delta = api.current.sync(9, undefined); });
+    expect(delta).toBe(0);
     expect(api.current.count).toBe(0);
   });
 
@@ -155,12 +156,90 @@ describe('useTally', () => {
     expect(api.current.count).toBe(0); // mounted before the stale entry existed
 
     const now = Date.now();
-    let changed;
-    act(() => { changed = api.current.sync(5, now); });
-    expect(changed).toBe(true);
+    let delta;
+    act(() => { delta = api.current.sync(5, now); });
+    expect(delta).toBe(5);
     expect(api.current.count).toBe(5);
     const stored = JSON.parse(localStorage.getItem('awanaTally.v1'));
     expect(stored.count).toBe(5);
     expect(stored.date).not.toBe('2000-01-01');
+  });
+
+  // ── The delta sync() reports (#351) ──────────────────────────────────────
+  // App.jsx reads it twice: any non-zero delta suppresses the every-Nth
+  // milestone (a reconciliation is not an arrival), and a delta bigger than
+  // one puts "synced with the check-in desk" under the corner counter.
+  describe('sync() reports the signed delta it applied', () => {
+    it('reports a positive delta on a catch-up jump', () => {
+      const { api } = setup();
+      act(() => { for (let i = 0; i < 38; i++) api.current.bump(); });
+
+      let delta;
+      act(() => { delta = api.current.sync(45, Date.now()); });
+      // The jump the note exists for: 38 → 45 looks like a bug on a wall.
+      expect(delta).toBe(7);
+      expect(api.current.count).toBe(45);
+    });
+
+    it('reports a NEGATIVE delta when an operator undo drops the total', () => {
+      const { api } = setup();
+      act(() => { for (let i = 0; i < 12; i++) api.current.bump(); });
+
+      let delta;
+      act(() => { delta = api.current.sync(9, Date.now()); });
+      expect(delta).toBe(-3);
+      expect(api.current.count).toBe(9);
+    });
+
+    it('reports exactly ±1 for the ordinary one-step difference', () => {
+      // These happen constantly — our bump() and the printer's total crossing
+      // paths — and are precisely the case the note must stay quiet about.
+      const { api } = setup();
+      const t = Date.now();
+      act(() => { for (let i = 0; i < 5; i++) api.current.bump(); });
+
+      let delta;
+      act(() => { delta = api.current.sync(6, t); });
+      expect(delta).toBe(1);
+      act(() => { delta = api.current.sync(5, t + 1000); });
+      expect(delta).toBe(-1);
+    });
+
+    it('keeps the old truthiness contract: 0 means nothing changed', () => {
+      // App.jsx guards with `if (delta)`, so a changed count must never
+      // report a falsy value and an unchanged one must never report truthy.
+      const { api } = setup();
+      const t = Date.now();
+      let delta;
+      act(() => { delta = api.current.sync(7, t); });
+      expect(Boolean(delta)).toBe(true);
+      act(() => { delta = api.current.sync(7, t + 1000); });
+      expect(Boolean(delta)).toBe(false);
+    });
+
+    it('reports 0 — not a stale delta — for a broadcast rejected as out of order', () => {
+      const { api } = setup();
+      const t = Date.now();
+      act(() => { api.current.sync(30, t); });
+
+      let delta;
+      act(() => { delta = api.current.sync(20, t - 5000); });
+      expect(delta).toBe(0);
+      expect(api.current.count).toBe(30);
+    });
+
+    it('reports the delta against the RE-BASELINED count when the printer clock moves', () => {
+      // The TALLY_REORDER_MS path: far enough back that it is the printer's
+      // clock, not delivery order. The counter adopts it, and the note must
+      // describe the move that actually happened (20 → 4), not the rejection.
+      const { api } = setup();
+      const t = Date.now();
+      act(() => { api.current.sync(20, t); });
+
+      let delta;
+      act(() => { delta = api.current.sync(4, t - TEN_MIN_MS); });
+      expect(delta).toBe(-16);
+      expect(api.current.count).toBe(4);
+    });
   });
 });

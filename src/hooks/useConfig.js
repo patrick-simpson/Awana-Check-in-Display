@@ -31,6 +31,7 @@ const VALIDATORS = {
   showTally: isBool,
   keepScreenAwake: isBool,
   milestoneEvery: numberBetween(0, 10000),
+  showTallySyncNote: isBool,
   showClock: isBool,
   showWeatherChip: isBool,
   showBirthdayWeekRibbon: isBool,

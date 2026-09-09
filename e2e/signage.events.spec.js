@@ -140,6 +140,11 @@ test('a tally broadcast reconciles the corner counter, including counting DOWN',
 
   await page.getByRole('button', { name: 'Simulate club tally (counts)' }).click();
   await expect(tallyCount).toHaveText('78');
+
+  // #351 — an 80 → 78 correction is a two-step move, so the counter says
+  // where it came from. Without this the room reads a counter that drops as
+  // a broken screen.
+  await expect(page.locator('.tally .tally-sync-note')).toHaveText(/synced with the check-in desk/i);
 });
 
 test('simulated events do not raise page errors', async ({ page }) => {

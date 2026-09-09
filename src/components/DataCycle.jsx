@@ -76,6 +76,7 @@ export function nextActiveId(ids, activeId) {
 // see MIGRATION.md. The clock/tally/weather rotation is unchanged.
 export default function DataCycle({
   count,
+  syncNote = false,
   weather,
   showClock,
   showTally,
@@ -135,7 +136,7 @@ export default function DataCycle({
           exit="exit"
         >
           {active === 'clock' && <ClockFace now={now} />}
-          {active === 'tally' && <TallyFace count={count} />}
+          {active === 'tally' && <TallyFace count={count} syncNote={syncNote} />}
           {active === 'weather' && <WeatherFace weather={weather} />}
           {/* One sparkle winks just after each item lands. */}
           <M.span
@@ -190,7 +191,7 @@ function ClockFace({ now }) {
   );
 }
 
-function TallyFace({ count }) {
+function TallyFace({ count, syncNote }) {
   return (
     <>
       <span className="data-cycle-eyebrow">Tonight</span>
@@ -221,6 +222,20 @@ function TallyFace({ count }) {
         </M.span>
       </span>
       <span className="data-cycle-sub">checked in</span>
+      {/* A reconciliation moved the number by more than one (#351): say the
+          check-in desk did it, or a jump from 38 to 45 reads as a glitch.
+          One-shot fade only — the faces hold no looping animation, see the
+          compositing note above. */}
+      {syncNote && (
+        <M.span
+          className="data-cycle-note"
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
+        >
+          synced with the check-in desk
+        </M.span>
+      )}
     </>
   );
 }

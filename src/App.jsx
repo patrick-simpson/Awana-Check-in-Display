@@ -44,7 +44,7 @@ import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
-import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
+import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, TALLY_SYNC_NOTE_MS } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -94,6 +94,15 @@ export default function App() {
   // celebrating it — an undo or an offline catch-up must never fire a
   // "you just hit 50!" toast.
   const tallySyncedRef = useRef(false);
+  // …and the visible half of the same event (#351): when a broadcast moves the
+  // counter by MORE than one, say so under the number. A wall that jumps 38 →
+  // 45, or counts down after an operator undo, otherwise looks broken to
+  // everyone standing in the lobby. { from, to } for the wording; cleared by a
+  // plain timeout, deliberately NOT the celebration queue — an explanation must
+  // never be able to displace a milestone toast.
+  const [tallySync, setTallySync] = useState(/** @type {{from: number, to: number}|null} */ (null));
+  const tallySyncTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(tallySyncTimerRef.current), []);
   const { hasSeen, markSeen, stats: seenStats } = useSeenEvents();
   const { phase, source: scheduleSource } = useSchedule(config);
   const phaseRef = useRef(phase);
@@ -175,7 +184,18 @@ export default function App() {
     // the fix for both an operator UNDO on the print server (total drops)
     // and ordinary drift (missed events while offline, a doubled banner).
     // See useTally.js's sync() for the freshness/no-op rules.
-    if (syncTally(tally.total, tally.at)) tallySyncedRef.current = true;
+    const delta = syncTally(tally.total, tally.at);
+    if (delta) {
+      tallySyncedRef.current = true;
+      // One-step deltas are ordinary broadcast ordering (our bump() and the
+      // printer's total crossing paths) and happen constantly — narrating
+      // those would be noise, and would teach the room to ignore the note.
+      if (Math.abs(delta) > 1) {
+        setTallySync({ from: tally.total - delta, to: tally.total });
+        clearTimeout(tallySyncTimerRef.current);
+        tallySyncTimerRef.current = setTimeout(() => setTallySync(null), TALLY_SYNC_NOTE_MS);
+      }
+    }
   }, [config.clubMilestoneEvery, enqueueCelebration, syncTally]);
 
   // Operator telemetry from the printer (ops events): a red count on the
@@ -507,6 +527,11 @@ export default function App() {
   // never be silent, so it can't wait its turn in a rotation.
   const stickerMode = config.widgetDisplayMode === 'stickers';
 
+  // The sync note is opt-out (#351). Gated at RENDER, not at capture, so
+  // turning it off in Settings hides one that is already up rather than
+  // leaving a stuck note behind.
+  const syncNote = config.showTallySyncNote !== false && tallySync != null;
+
   // Themed skin — 'auto' resolves by season, and because it derives
   // from todayStr it rolls over at midnight without a reload, like
   // everything else date-derived. Noon avoids TZ edge cases.
@@ -717,6 +742,7 @@ export default function App() {
         <ErrorBoundary label="data-cycle" eventKey={boardNow} onError={() => recordLayerFault('corner widgets')}>
           <DataCycle
             count={count}
+            syncNote={syncNote}
             weather={weather}
             showClock={config.showClock}
             showTally={config.showTally}
@@ -821,6 +847,19 @@ export default function App() {
             {count}
           </M.span>
           <span className="tally-label">checked in</span>
+          {/* Why the number just moved. See handleTally: only a jump of more
+              than one earns this, and it fades on its own timeout. */}
+          {syncNote && (
+            <M.span
+              className="tally-sync-note"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              title={`${tallySync.from} → ${tallySync.to}`}
+            >
+              synced with the check-in desk
+            </M.span>
+          )}
         </StickerChip>
       )}
 

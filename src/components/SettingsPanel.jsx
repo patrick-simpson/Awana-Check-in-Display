@@ -61,6 +61,7 @@ function seedForm(c) {
     audioMuted: !!c.audioMuted,
     showConnectionStatus: !!c.showConnectionStatus,
     showTally: c.showTally !== false,
+    showTallySyncNote: c.showTallySyncNote !== false,
     keepScreenAwake: c.keepScreenAwake !== false,
     panicMode: !!c.panicMode,
     showClock: !!c.showClock,
@@ -1152,6 +1153,17 @@ function BannersTab({ form, set, setForm }) {
           Uses the printer's live per-club counts — "Sparks 20 kids strong!". 0 turns it off.
         </span>
       </div>
+
+      <Toggle
+        checked={form.showTallySyncNote !== false}
+        onChange={set('showTallySyncNote')}
+        title="Explain corrections to the corner counter"
+        hint={<>
+          When the check-in desk's count jumps by more than one — or goes down after an undo — the corner
+          counter says &ldquo;synced with the check-in desk&rdquo; for a few seconds, so it reads as a
+          correction instead of a glitch. Single-step differences are always silent.
+        </>}
+      />
 
       <Toggle
         checked={form.showBirthdayWeekRibbon !== false}
