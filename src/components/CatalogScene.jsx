@@ -272,7 +272,11 @@ function SceneWinks({ color }) {
  * the projector's AmbientOrbs has applied to cool weather all along.
  */
 export default function CatalogScene({
-  theme = 'sky', still = false, cozy = false, dim = 1, children,
+  theme = 'sky', still = false, cozy = false, dim = 1,
+  // The arriving child's club accent while their banner holds the stage, or
+  // null the rest of the time (#349) — see src/lib/clubTint.js for the rules.
+  clubTint = null,
+  children,
 }) {
   // Editor thumbnails and the fullscreen slideshow render many scenes at
   // once; SVG gradient ids are document-global, so a shared id would
@@ -280,14 +284,26 @@ export default function CatalogScene({
   const gradientId = useId();
   const t = THEMES[theme] || THEMES.sky;
 
+  // The colour outlives the tint itself. `clubTint` goes null the instant the
+  // banner leaves, and the wash needs something to fade OUT to the club's own
+  // colour — if the custom property were dropped at the same moment, the layer
+  // would snap to transparent and there would be no fade at all.
+  // Adjusted during render, not in an effect, deliberately: React re-renders
+  // before committing, so the class and the custom property land in the SAME
+  // paint. Set in an effect instead, there would be one frame carrying the
+  // "tinted" class with no colour behind it, and the wash would jump.
+  const [heldTint, setHeldTint] = useState(clubTint);
+  if (clubTint && clubTint !== heldTint) setHeldTint(clubTint);
+
   return (
     <div
-      className={`catalog-scene catalog-scene--${THEMES[theme] ? theme : 'sky'}${cozy ? ' catalog-scene--cozy' : ''}`}
+      className={`catalog-scene catalog-scene--${THEMES[theme] ? theme : 'sky'}${cozy ? ' catalog-scene--cozy' : ''}${clubTint ? ' catalog-scene--club-tinted' : ''}`}
       style={{
         background: t.background,
         // Clamped so a bad value can never black out the room; 1 is a no-op, so
         // an unthemed install renders exactly as before.
         '--scene-dim': String(Math.max(0.6, Math.min(1, Number(dim) || 1))),
+        ...(heldTint ? { '--club-tint': heldTint } : null),
       }}
     >
       {/* Tone-on-tone blobs behind everything — the catalog dividers float
@@ -361,6 +377,12 @@ export default function CatalogScene({
           high enough to swallow bottom-anchored text (the setup hint),
           and words are never allowed to hide behind decoration. */}
       <SceneWave gradientId={gradientId} colors={t.wave} still={still} />
+
+      {/* The arriving club's wash (#349). Always mounted, opacity-only, so the
+          fade has both directions to play; it sits over the scene art but
+          UNDER the children, because slide copy must never go pastel. Plain
+          CSS, so the .zero-animation-mode blanket rule kills the fade. */}
+      <div className="scene-club-tint" aria-hidden />
 
       {children}
     </div>

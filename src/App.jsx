@@ -42,6 +42,7 @@ import {
 } from './lib/milestones.js';
 import { setRemoteDefaults } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
+import { clubTintFor } from './lib/clubTint.js';
 import { mergeSyncedDeck } from './lib/slides.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
@@ -714,6 +715,22 @@ export default function App() {
     return () => document.documentElement.classList.remove('overlay-mode');
   }, [overlay]);
 
+  // While a child's banner holds the stage, the background scene breathes that
+  // child's own club colour (#349) — so a Cubbies arrival and a T&T arrival no
+  // longer paint the same wall. Off unless the operator asked for it, and every
+  // "don't" (overlay feed, panic mode, a video or uploaded PowerPoint that is
+  // not ours to tint) lives in the pure clubTintFor(). The fade back out is a
+  // plain CSS transition in app.css, so .zero-animation-mode already reduces it
+  // to an instant snap on the low-power kiosk.
+  const clubTint = useMemo(() => clubTintFor({
+    enabled: config.clubTintBackground === true,
+    active: currentEvent != null,
+    overlay,
+    panicMode: config.panicMode,
+    backgroundSource: config.backgroundSource,
+    club: currentEvent?.club,
+  }), [config.clubTintBackground, config.panicMode, config.backgroundSource, currentEvent, overlay]);
+
   // Zero-animation mode (config.reduceMotion — see ?lowPower=1 in
   // urlFlags.js): ZeroAnimationContext above only reaches framer-motion
   // components built with M.* from src/lib/motion.jsx. Plain CSS
@@ -772,6 +789,7 @@ export default function App() {
             sceneTheme={sceneTheme ?? 'sky'}
             cozy={mood.cozy}
             dim={mood.dim}
+            clubTint={clubTint}
             reduceMotion={config.reduceMotion}
           />
         </ErrorBoundary>

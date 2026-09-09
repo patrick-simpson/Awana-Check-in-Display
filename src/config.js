@@ -213,6 +213,16 @@ const config = {
   // entirely on a screen that boots mid-program (see lib/firstOfNight.js).
   firstArrivalMoment: true,
 
+  // While a child's banner is on screen, briefly wash the background scene in
+  // that child's own club colour, so the whole display belongs to the arriving
+  // kid for a few seconds instead of only the banner doing.
+  //
+  // OFF by default on purpose: it competes with a themed night skin, which is
+  // a look somebody chose deliberately. Skipped automatically in overlay and
+  // panic mode, and over a video/uploaded-PowerPoint background (there is
+  // nothing of ours to tint there). See src/lib/clubTint.js.
+  clubTintBackground: false,
+
   // A small "Birthday this Friday!" ribbon on an arriving child's banner
   // when the printer's weekly `birthdays` roster says their birthday falls
   // later this week (never on the day itself — that day's banner already

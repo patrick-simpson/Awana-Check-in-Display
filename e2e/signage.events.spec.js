@@ -302,3 +302,35 @@ test('the night’s first check-in raises the doors-are-open flourish, exactly o
   await page.waitForTimeout(1500);
   await expect(page.locator('.milestone-toast.first-milestone')).toHaveCount(0);
 });
+
+test('a check-in washes the background in the arriving club’s color, then clears it', async ({ page }) => {
+  // #349 is opt-in, so seed it on. Sticker mode keeps the corner widgets out
+  // of the way; 'manual' with nothing typed renders the placeholder scene,
+  // which is a CatalogScene — one of ours to tint.
+  await page.addInitScript(() => {
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({
+      clubTintBackground: true,
+      backgroundSource: 'manual',
+      calendarEnabled: false,
+      standardDisplayMs: 2000,
+    }));
+  });
+  await goSignage(page);
+  await openDebug(page);
+
+  const scene = page.locator('.catalog-scene').first();
+  await expect(scene).toBeVisible();
+  await expect(scene).not.toHaveClass(/catalog-scene--club-tinted/);
+
+  await page.getByRole('button', { name: 'Standard welcome' }).click();
+  await expect(page.locator('.banner').first()).toBeVisible();
+  await expect(scene).toHaveClass(/catalog-scene--club-tinted/);
+  // A real colour, taken from the club palette — not white, not empty.
+  const color = await scene.evaluate((el) => el.style.getPropertyValue('--club-tint'));
+  expect(color).toMatch(/^#[0-9a-fA-F]{6}$/);
+  // It is a wash behind everything, never something a click can land on.
+  await expect(page.locator('.scene-club-tint')).toHaveCSS('pointer-events', 'none');
+
+  // Once the banner retires, the wash goes with it.
+  await expect(scene).not.toHaveClass(/catalog-scene--club-tinted/, { timeout: 15000 });
+});

@@ -2548,6 +2548,34 @@ input:focus-visible {
   .catalog-scene--cozy { transition: none; }
 }
 
+/* ── The arriving club's wash (#349) ───────────────────────────────────
+   While a child's banner holds the stage the scene behind it breathes that
+   child's own club accent, then fades back out when the banner leaves. Opt-in
+   (config.clubTintBackground), because a themed night skin is a look somebody
+   chose on purpose and this competes with it.
+
+   Deliberately opacity-only over a solid colour, with no blend mode: the layer
+   is always mounted so the fade has both directions to play, and a compositing
+   blend would cost real frames on the Raspberry Pi Zero kiosk that embeds this
+   page. It sits over the scene art and UNDER the scene's children, so slide
+   copy and the setup headline never go pastel.
+
+   No @keyframes and nothing framer-motion touches — just a transition, which
+   is exactly what the blanket .zero-animation-mode rule above already kills,
+   so under reduceMotion / ?lowPower=1 the tint snaps instead of fading. */
+.scene-club-tint {
+  position: absolute;
+  inset: 0;
+  background: var(--club-tint, transparent);
+  opacity: 0;
+  transition: opacity 1.1s ease;
+  pointer-events: none;
+}
+.catalog-scene--club-tinted .scene-club-tint { opacity: 0.34; }
+@media (prefers-reduced-motion: reduce) {
+  .scene-club-tint { transition: none; }
+}
+
 /* Display key field — the key is masked and the buttons sit inline, because a
    TV screenshot during setup must not hand over the one secret that matters. */
 .display-key-row {

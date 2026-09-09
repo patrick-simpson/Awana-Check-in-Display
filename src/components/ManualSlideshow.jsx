@@ -25,7 +25,7 @@ export const MISSING_VIDEO_SKIP_MS = 4000;
  * unmuted autoplay is blocked). durationSec 0 = play to the end, then
  * advance; >0 = hold that long with the video looping underneath.
  */
-export default function ManualSlideshow({ slides, slideshowDelaySec }) {
+export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = null }) {
   const [index, setIndex] = useState(0);
 
   // The deck can shrink mid-show (editor save); keep the index valid
@@ -76,7 +76,7 @@ export default function ManualSlideshow({ slides, slideshowDelaySec }) {
               onFinished={slides.length > 1 ? advance : undefined}
             />
           ) : (
-            <CatalogScene theme={resolveTheme(slide, safe)}>
+            <CatalogScene theme={resolveTheme(slide, safe)} clubTint={clubTint}>
               <div className="manual-slide-copy">
                 {slide.eyebrow ? <span className="manual-slide-eyebrow">{slide.eyebrow}</span> : null}
                 <p className={`manual-slide-text ${resolveSizeClass(slide)}`}>{slide.text}</p>

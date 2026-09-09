@@ -82,6 +82,7 @@ function seedForm(c) {
     reduceMotion: c.reduceMotion === true,
     burstFloorMs: c.burstFloorMs ?? 2500,
     clubMilestoneEvery: c.clubMilestoneEvery ?? 10,
+    clubTintBackground: c.clubTintBackground === true,
     firstArrivalMoment: c.firstArrivalMoment !== false,
     showBirthdayWeekRibbon: c.showBirthdayWeekRibbon !== false,
     clubPhrases: { ...(c.clubPhrases || {}) },
@@ -1451,6 +1452,13 @@ function DisplayTab({ form, set }) {
         onChange={set('weatherTheme')}
         title="Let the weather set the mood"
         hint="A rainy or snowy night cools and dims the background scene. The season still picks the colors, so a chosen skin never disappears in bad weather. Needs a weather location set under Calendar & Weather."
+      />
+
+      <Toggle
+        checked={form.clubTintBackground === true}
+        onChange={set('clubTintBackground')}
+        title="Wash the background in the arriving club's color"
+        hint="While a child's banner is up, the background scene briefly breathes that child's own club color, so the whole screen belongs to them for a few seconds. Off by default because it competes with a themed skin you chose on purpose. Skipped over a video or uploaded PowerPoint background, and in panic mode."
       />
 
       <h3 className="section">Screen</h3>

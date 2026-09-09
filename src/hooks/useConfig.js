@@ -50,6 +50,7 @@ const VALIDATORS = {
   panicMode: isBool,
   clubMilestoneEvery: numberBetween(0, 1000),
   firstArrivalMoment: isBool,
+  clubTintBackground: isBool,
   // Who's-still-here board. OFF by default and deliberately so — see
   // CheckoutBoard.jsx for why this one needs an operator decision rather than a
   // sensible default.
