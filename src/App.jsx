@@ -107,7 +107,11 @@ export default function App() {
   const tallySyncTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(tallySyncTimerRef.current), []);
   const { hasSeen, markSeen, stats: seenStats } = useSeenEvents();
-  const { phase, source: scheduleSource } = useSchedule(config);
+  // `specialDates` is the shared schedule's break-week table (#342) — the same
+  // file the projector reads. resolvePhase already applies it (a cancelled
+  // night is 'off'); the calendar slides need it too, so nights-remaining and
+  // the heads-up slide agree with the projector.
+  const { phase, specialDates, source: scheduleSource } = useSchedule(config);
   const phaseRef = useRef(phase);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useTheme(config);
@@ -413,9 +417,9 @@ export default function App() {
   // every App re-render (i.e. every event), stalling the show on one slide.
   const { calendarEnabled, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining } = config;
   const calendarSlides = useMemo(() => (calendarEnabled
-    ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr),
+    ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr, specialDates),
       { calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining })
-    : []), [calendarEnabled, calendar.events, todayStr, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining]);
+    : []), [calendarEnabled, calendar.events, todayStr, specialDates, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining]);
 
   // Thin the confetti while a rush is draining so cheap signage sticks
   // hold 60fps with banners firing back-to-back.
@@ -561,9 +565,14 @@ export default function App() {
   // Tonight's calendar title lets 'auto' pick Easter / VBS / Thanksgiving,
   // none of which a month table can express (floating, lunar, or
   // church-scheduled). Falls back to the month when nothing matches.
+  // `.tonight`, not `.today` — deriveClubInfo has never returned a `today`
+  // key, so this read was always undefined and the calendar half of 'auto'
+  // (Easter / VBS / Thanksgiving by title) silently never fired. Passing
+  // specialDates too means a cancelled night can't dress the room for an
+  // event that isn't happening.
   const tonightTitle = useMemo(
-    () => deriveClubInfo(calendar.events, todayStr)?.today?.title ?? null,
-    [calendar.events, todayStr],
+    () => deriveClubInfo(calendar.events, todayStr, specialDates)?.tonight?.title ?? null,
+    [calendar.events, todayStr, specialDates],
   );
   // April Fools (#21): screens only, and only does anything on April 1st —
   // a toggle left on all year is inert 364 days. The settings panel and gear
