@@ -91,12 +91,25 @@ export default function DebugPanel({
   // payload is only a baseline by design, so a fixed number could never
   // demonstrate a night milestone; and walking it upward is the only way to
   // watch the 100-kid celebration actually fire before club night.
+  //
+  // Books and awards ramp for the same reason (#358): they drive their own
+  // milestone toasts off the same baseline-then-crossing rule, and a fixed
+  // `booksCompleted: 4` could never demonstrate one. Each press adds 4 books
+  // and 8 awards, so the second press crosses the default 5-book threshold
+  // and the room can be checked before club night.
   const tonightCount = useRef(23);
+  const tonightBooks = useRef(0);
+  const tonightAwards = useRef(3);
   const tonight = () => {
     tonightCount.current += 40;
+    tonightBooks.current += 4;
+    tonightAwards.current += 8;
     onSimulateTonight?.({
       checkedIn: tonightCount.current,
-      booksCompleted: 4, awardsEarned: 11, friendsBrought: 2, at: Date.now(),
+      booksCompleted: tonightBooks.current,
+      awardsEarned: tonightAwards.current,
+      friendsBrought: 2,
+      at: Date.now(),
     });
   };
 
@@ -194,7 +207,7 @@ export default function DebugPanel({
           <button onClick={checkoutEmpty}>Still-here board: everyone picked up</button>
         </>
       )}
-      {onSimulateTonight && <button onClick={tonight}>Show tonight ticker (+40 each press)</button>}
+      {onSimulateTonight && <button onClick={tonight}>Show tonight ticker (+40 kids, +4 books each press)</button>}
       {onSimulateNotice && <button onClick={noticeCritical}>Show cancellation alert</button>}
       {onSimulateNotice && <button onClick={noticeInfo}>Show info notice</button>}
       {/* The simulated cancellation bar holds for four hours like a real one

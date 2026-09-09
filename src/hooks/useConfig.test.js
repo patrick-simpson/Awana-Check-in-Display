@@ -36,6 +36,20 @@ describe('sanitizeOverrides', () => {
     })).toEqual({});
   });
 
+  // #358 — the handbook threshold lists are the first array-of-numbers keys.
+  it('repairs the handbook milestone lists rather than dropping them', () => {
+    expect(sanitizeOverrides({ bookMilestones: [25, 5, '10', 5, 1.5, -2] }))
+      .toEqual({ bookMilestones: [5, 10, 25] });
+    // An empty list is a real choice ("off"), not corruption.
+    expect(sanitizeOverrides({ awardMilestones: [] })).toEqual({ awardMilestones: [] });
+  });
+
+  it('drops a handbook list that is not an array at all', () => {
+    // Same reason as every other validator here: crossedMilestones must never
+    // be handed something it cannot filter, from localStorage or ?config=.
+    expect(sanitizeOverrides({ bookMilestones: '5,10', awardMilestones: 25 })).toEqual({});
+  });
+
   it('drops the retired calendarCorsProxy key from stored overrides', () => {
     // The allorigins proxy fallback was removed; a value persisted by an
     // older version must be silently discarded, not resurrected.

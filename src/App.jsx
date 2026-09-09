@@ -36,7 +36,10 @@ import { decideBoard } from './lib/checkoutBoard.js';
 import { birthdayRibbon } from './lib/birthdayWeek.js';
 import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
-import { crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight } from './lib/milestones.js';
+import {
+  AWARD_MILESTONES, BOOK_MILESTONES, awardMilestoneCopy, bookMilestoneCopy,
+  crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight,
+} from './lib/milestones.js';
 import { setRemoteDefaults } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
 import { mergeSyncedDeck } from './lib/slides.js';
@@ -222,19 +225,39 @@ export default function App() {
   // the count bounces (a reconnect re-delivering an older snapshot, say).
   const prevCheckedInRef = useRef(null);
   const firedNightMilestonesRef = useRef(new Set());
+  // Handbook progress rides the same broadcast (#358). Awana is about the
+  // handbook, but attendance was the only thing the screen ever cheered — and
+  // these two counters have been on the wire all along with nothing rendering
+  // them. Same baseline-then-crossing rule, one prev-ref and one fired-Set
+  // each, so a screen booting at 8pm never replays the evening and a counter
+  // that bounces (a reconnect re-delivering an older snapshot) never re-fires.
+  const prevBooksRef = useRef(null);
+  const firedBookMilestonesRef = useRef(new Set());
+  const prevAwardsRef = useRef(null);
+  const firedAwardMilestonesRef = useRef(new Set());
   const handleTonight = useCallback((payload) => {
     setTonight(payload);
-    const next = payload?.checkedIn;
-    if (typeof next !== 'number') return;
-    const prev = prevCheckedInRef.current;
-    prevCheckedInRef.current = next;
-    if (prev == null) return;                       // first sight = baseline
-    for (const threshold of crossedMilestones(prev, next)) {
-      if (firedNightMilestonesRef.current.has(threshold)) continue;
-      firedNightMilestonesRef.current.add(threshold);
-      enqueueCelebration({ kind: 'night', count: threshold, ...nightMilestoneCopy(threshold) });
-    }
-  }, [enqueueCelebration]);
+    // One helper for all three counters: baseline the first payload, then
+    // celebrate each threshold at most once tonight.
+    const crossings = (value, prevRef, firedRef, thresholds, copy, kind) => {
+      if (typeof value !== 'number') return;
+      const prev = prevRef.current;
+      prevRef.current = value;
+      if (prev == null) return;                     // first sight = baseline
+      for (const threshold of crossedMilestones(prev, value, thresholds)) {
+        if (firedRef.current.has(threshold)) continue;
+        firedRef.current.add(threshold);
+        enqueueCelebration({ kind, count: threshold, ...copy(threshold) });
+      }
+    };
+    const list = (value, fallback) => (Array.isArray(value) ? value : fallback);
+    crossings(payload?.checkedIn, prevCheckedInRef, firedNightMilestonesRef,
+      undefined, nightMilestoneCopy, 'night');
+    crossings(payload?.booksCompleted, prevBooksRef, firedBookMilestonesRef,
+      list(config.bookMilestones, BOOK_MILESTONES), bookMilestoneCopy, 'books');
+    crossings(payload?.awardsEarned, prevAwardsRef, firedAwardMilestonesRef,
+      list(config.awardMilestones, AWARD_MILESTONES), awardMilestoneCopy, 'awards');
+  }, [config.bookMilestones, config.awardMilestones, enqueueCelebration]);
 
   // Church-authored announcements (#onNotice): latest one wins, same as
   // the tally/ops widgets above. NoticeBanner judges staleness and picks
@@ -878,7 +901,12 @@ export default function App() {
                   ? 'milestone-toast night-milestone'
                   : celebration.kind === 'kid'
                     ? 'milestone-toast kid-milestone'
-                    : 'milestone-toast'
+                    : celebration.kind === 'books' || celebration.kind === 'awards'
+                      // Handbook progress (#358) is a room-wide occasion like a
+                      // night threshold, plus a green edge of its own so the
+                      // room can tell "ten books" from "a hundred kids".
+                      ? `milestone-toast night-milestone handbook-milestone ${celebration.kind}-milestone`
+                      : 'milestone-toast'
             }
             style={celebrationClub
               ? { rotate: 1.1, '--club-primary': celebrationClub.primary }
@@ -909,16 +937,20 @@ export default function App() {
               </M.span>
             )}
             <div className="milestone-lines">
+              {/* `night`, `books` and `awards` all carry their own copy (see
+                  lib/milestones.js), so they read off label/headline rather
+                  than growing a branch each; `club`, `kid` and the every-Nth
+                  `tally` toast compose theirs from the payload. */}
               <span className="milestone-label">
                 {celebration.kind === 'club' ? celebration.club
-                  : celebration.kind === 'night' ? celebration.label
-                    : celebration.kind === 'kid' ? `${celebration.firstName}’s`
+                  : celebration.kind === 'kid' ? `${celebration.firstName}’s`
+                    : celebration.label ? celebration.label
                       : 'Checked in tonight'}
               </span>
               <span className="milestone-count">
                 {celebration.kind === 'club' ? `${celebration.count} kids strong!`
-                  : celebration.kind === 'night' ? celebration.headline
-                    : celebration.kind === 'kid' ? `${ordinalNight(celebration.count)} club night!`
+                  : celebration.kind === 'kid' ? `${ordinalNight(celebration.count)} club night!`
+                    : celebration.headline ? celebration.headline
                       : `${celebration.count} kids!`}
               </span>
             </div>

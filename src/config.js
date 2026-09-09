@@ -133,6 +133,16 @@ const config = {
   // produces those constantly.
   showTallySyncNote: true,
 
+  // Handbook milestones (#358): the `tonight` broadcast already carries how
+  // many books were finished and awards earned this evening, and nothing
+  // rendered them — so the only thing the screen ever cheered was heads
+  // through the door. These are the thresholds that earn their own toast.
+  // Smaller than the attendance ones on purpose: ten books finished in one
+  // night is a bigger deal than the hundredth kid arriving. An empty list
+  // turns that half off.
+  bookMilestones: [5, 10, 25],
+  awardMilestones: [10, 25, 50],
+
   // Show the current time of day (the countdown shows time-until-start;
   // this is a plain wall clock). A headline item in 'cycle' mode, a
   // top-right sticker in 'stickers' mode.

@@ -211,6 +211,31 @@ test('a birthday later this week rides a ribbon instead of claiming today', asyn
   await expect(cake).not.toContainText(/special day/i);
 });
 
+test('books finished tonight get their own toast, one at a time', async ({ page }) => {
+  await goSignage(page);
+  await openDebug(page);
+
+  // #358 — the tonight simulator ramps books by 4 a press. The first payload
+  // is only a baseline (a screen booting at 8pm must not replay the evening),
+  // so it takes two presses to cross the default 5-book threshold.
+  const tonight = page.getByRole('button', { name: 'Show tonight ticker' });
+  await tonight.click();
+  await tonight.click();
+
+  // That second press also crosses the 100-kid night threshold, which is
+  // exactly the pile-up useCelebrationQueue exists for: whatever is showing,
+  // there is never more than ONE toast on screen.
+  await expect(page.locator('.milestone-toast')).toHaveCount(1);
+
+  // The handbook toast gets its own copy and its green handbook edge — it may
+  // be queued behind the night milestone's hold, hence the longer wait.
+  const books = page.locator('.milestone-toast.handbook-milestone');
+  await expect(books).toBeVisible({ timeout: 20000 });
+  await expect(books).toContainText(/Handbooks/i);
+  await expect(books).toContainText(/5 books finished tonight!/i);
+  await expect(page.locator('.milestone-toast')).toHaveCount(1);
+});
+
 test('a club milestone toast wears that club’s wordmark', async ({ page }) => {
   await goSignage(page);
   await openDebug(page);

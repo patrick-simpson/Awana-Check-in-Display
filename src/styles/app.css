@@ -2494,6 +2494,21 @@ input:focus-visible {
   font-size: 2.1rem;
 }
 
+/* Handbook milestones (#358) — books finished / awards earned tonight. The
+   night-milestone treatment (this IS a room-wide occasion) with a green edge,
+   so "10 books finished tonight!" is distinguishable at a glance from "100
+   kids tonight!" on a wall nobody is reading closely. */
+/* #4caf50 literal rather than a new token: it is the same green already in
+   the house milestone confetti palette (lib/confetti.js MILESTONE_COLORS),
+   and the token block above holds the catalog brand colours only. */
+.milestone-toast.handbook-milestone {
+  border-color: #4caf50;
+  box-shadow: 0 10px 30px rgba(76, 175, 80, 0.28);
+}
+.milestone-toast.handbook-milestone .milestone-label {
+  color: #4caf50;
+}
+
 /* ── Weather mood over the season's scene ──────────────────────────────
    The season picks the scene (background, waves, doodles); the weather only
    cools and dims it. Implemented as a filter on the scene container rather

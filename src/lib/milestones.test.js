@@ -107,3 +107,110 @@ describe('ordinalNight (#10)', () => {
     expect(ordinalNight(21)).toBe('21st');
   });
 });
+
+// ── Handbook milestones (#358) ───────────────────────────────────────────────
+import {
+  AWARD_MILESTONES, BOOK_MILESTONES, awardMilestoneCopy, bookMilestoneCopy,
+  parseMilestoneList, sanitizeMilestoneList,
+} from './milestones.js';
+
+describe('handbook milestone copy (#358)', () => {
+  it('names the handbook, and says TONIGHT', () => {
+    // "10 books!" on a lobby wall reads as a club-year total; this counter is
+    // the evening's own, so the copy has to say so.
+    expect(bookMilestoneCopy(10)).toEqual({
+      label: 'Handbooks', headline: '10 books finished tonight!',
+    });
+    expect(awardMilestoneCopy(25)).toEqual({
+      label: 'Awards earned', headline: '25 awards earned tonight!',
+    });
+  });
+
+  it('reads correctly for a threshold of one', () => {
+    // An operator may well set 1 for a small club, and "1 books" would be the
+    // first thing anyone noticed on the wall.
+    expect(bookMilestoneCopy(1).headline).toBe('1 book finished tonight!');
+    expect(awardMilestoneCopy(1).headline).toBe('1 award earned tonight!');
+  });
+
+  it('gives every helper the same shape the toast reads', () => {
+    for (const copy of [bookMilestoneCopy(5), awardMilestoneCopy(50), nightMilestoneCopy(100)]) {
+      expect(typeof copy.label).toBe('string');
+      expect(typeof copy.headline).toBe('string');
+      expect(copy.label.length).toBeGreaterThan(0);
+      expect(copy.headline.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('ships defaults smaller than the attendance thresholds', () => {
+    // Ten books finished in one night is a bigger deal than the hundredth kid
+    // arriving; defaults that mirrored NIGHT_MILESTONES would never fire.
+    expect(BOOK_MILESTONES).toEqual([5, 10, 25]);
+    expect(AWARD_MILESTONES).toEqual([10, 25, 50]);
+    expect(Math.max(...BOOK_MILESTONES)).toBeLessThan(Math.min(...NIGHT_MILESTONES));
+  });
+});
+
+describe('crossedMilestones against the handbook thresholds', () => {
+  it('crosses a book threshold from the tonight broadcast', () => {
+    expect(crossedMilestones(4, 6, BOOK_MILESTONES)).toEqual([5]);
+    expect(crossedMilestones(4, 11, BOOK_MILESTONES)).toEqual([5, 10]);
+  });
+
+  it('never fires on a bounce back down or a re-delivered snapshot', () => {
+    expect(crossedMilestones(12, 8, BOOK_MILESTONES)).toEqual([]);
+    expect(crossedMilestones(10, 10, BOOK_MILESTONES)).toEqual([]);
+  });
+
+  it('an empty threshold list is simply off', () => {
+    expect(crossedMilestones(0, 500, [])).toEqual([]);
+  });
+});
+
+describe('sanitizeMilestoneList', () => {
+  it('keeps whole numbers, sorted and de-duplicated', () => {
+    expect(sanitizeMilestoneList([25, 5, 10, 5])).toEqual([5, 10, 25]);
+  });
+
+  it('drops anything that could reach crossedMilestones as a NaN', () => {
+    expect(sanitizeMilestoneList([5, 1.5, NaN, Infinity, -3, 0, null, undefined, {}, 'x']))
+      .toEqual([5]);
+  });
+
+  it('coerces numeric strings, since Settings and JSON both produce them', () => {
+    expect(sanitizeMilestoneList(['5', '10'])).toEqual([5, 10]);
+  });
+
+  it('caps the list so a hostile ?config= file cannot queue a hundred toasts', () => {
+    const many = Array.from({ length: 40 }, (_, i) => i + 1);
+    expect(sanitizeMilestoneList(many)).toHaveLength(12);
+    expect(sanitizeMilestoneList(many)[0]).toBe(1);
+  });
+
+  it('rejects non-arrays and empty input as "off"', () => {
+    expect(sanitizeMilestoneList(null)).toEqual([]);
+    expect(sanitizeMilestoneList('5,10')).toEqual([]);
+    expect(sanitizeMilestoneList({ 0: 5 })).toEqual([]);
+    expect(sanitizeMilestoneList([])).toEqual([]);
+  });
+
+  it('refuses absurd thresholds rather than storing them', () => {
+    expect(sanitizeMilestoneList([10001, 99999])).toEqual([]);
+    expect(sanitizeMilestoneList([10000])).toEqual([10000]);
+  });
+});
+
+describe('parseMilestoneList', () => {
+  it('reads the Settings text field the operator actually types', () => {
+    expect(parseMilestoneList('5, 10, 25')).toEqual([5, 10, 25]);
+    expect(parseMilestoneList('25 10 5')).toEqual([5, 10, 25]);
+    // Mid-typing states must not throw or reorder into nonsense.
+    expect(parseMilestoneList('5, ')).toEqual([5]);
+    expect(parseMilestoneList('')).toEqual([]);
+    expect(parseMilestoneList(null)).toEqual([]);
+  });
+
+  it('ignores stray words and punctuation instead of failing the field', () => {
+    expect(parseMilestoneList('5 books, 10 books')).toEqual([5, 10]);
+  });
+});

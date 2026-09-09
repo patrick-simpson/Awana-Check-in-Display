@@ -77,6 +77,32 @@ describe('useCelebrationQueue', () => {
     expect(seen).toEqual([1, 2, 3, 4]);
   });
 
+  // #358 — handbook progress adds two more kinds that fire off the SAME
+  // `tonight` broadcast as the night thresholds, so all three can land in one
+  // instant. The queue is the only thing keeping them from stacking up in one
+  // corner with three confetti bursts on top of each other.
+  it('shows three simultaneous kinds one at a time, in arrival order', () => {
+    const { api } = setup();
+    act(() => {
+      api.current.enqueue({ kind: 'night', count: 100, label: 'Triple digits', headline: '100 kids tonight!' });
+      api.current.enqueue({ kind: 'books', count: 10, label: 'Handbooks', headline: '10 books finished tonight!' });
+      api.current.enqueue({ kind: 'awards', count: 25, label: 'Awards earned', headline: '25 awards earned tonight!' });
+    });
+    expect(api.current.current).toMatchObject({ kind: 'night' });
+    expect(api.current.depth()).toBe(2);
+
+    act(() => { vi.advanceTimersByTime(HOLD + 10); });
+    expect(api.current.current).toMatchObject({ kind: 'books', headline: '10 books finished tonight!' });
+    expect(api.current.depth()).toBe(1);
+
+    act(() => { vi.advanceTimersByTime(HOLD + 10); });
+    expect(api.current.current).toMatchObject({ kind: 'awards', headline: '25 awards earned tonight!' });
+    expect(api.current.depth()).toBe(0);
+
+    act(() => { vi.advanceTimersByTime(HOLD + 10); });
+    expect(api.current.current).toBeNull();
+  });
+
   it('ignores null enqueues', () => {
     const { api } = setup();
     act(() => { api.current.enqueue(null); api.current.enqueue(undefined); });
