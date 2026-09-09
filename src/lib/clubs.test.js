@@ -49,6 +49,17 @@ describe('getClubPalette', () => {
     expect(getClubPalette(undefined).mascot).toBeNull();
   });
 
+  // The milestone toast bursts in these exact values (#332), so pin them.
+  it('exposes a confetti palette for every club, and a default for a typo', () => {
+    expect(getClubPalette('Sparks').confetti[0]).toBe('#E14B4B');
+    for (const club of getAllClubs()) {
+      const { confetti } = getClubPalette(club);
+      expect(Array.isArray(confetti)).toBe(true);
+      expect(confetti.length).toBeGreaterThan(0);
+    }
+    expect(getClubPalette('Sparkles!!').confetti).toEqual(['#F7A41C', '#FFB300', '#FFFFFF']);
+  });
+
   it('no longer carries taglines or age ranges — banners show titles only', () => {
     for (const club of getAllClubs()) {
       expect(getClubPalette(club).tagline).toBeUndefined();

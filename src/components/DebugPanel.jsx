@@ -110,15 +110,23 @@ export default function DebugPanel({
 
   // A tally is what drives the per-club milestone path and the corner counter.
   // Numbers only — this event structurally cannot carry a name.
+  //
+  // Every press after the first RAMPS each club by 10, for the same reason the
+  // tonight button ramps: a club milestone fires on a CROSSING, and the first
+  // tally of the night is only a baseline (App.jsx handleTally), so repeating
+  // one fixed set of counts could never demonstrate a club celebration. The
+  // first press deliberately still sends 9 / 16 / 23 / 30 (total 78).
+  const tallyBumps = useRef(0);
   const tally = () => {
     const clubs = getAllClubs().slice(0, 4);
     const counts = {};
     let total = 0;
     clubs.forEach((club, i) => {
-      const n = 9 + i * 7;
+      const n = 9 + i * 7 + tallyBumps.current * 10;
       counts[club] = n;
       total += n;
     });
+    tallyBumps.current += 1;
     onSimulateTally?.({ counts, total, at: Date.now() });
   };
 

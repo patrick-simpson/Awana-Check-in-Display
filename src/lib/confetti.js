@@ -21,6 +21,11 @@ export function setConfettiLevel(level) {
 const off = () => levelFactor === 0;
 const scaled = (count) => Math.max(1, Math.round(count * loadFactor * levelFactor));
 
+// The house milestone palette: Awana gold plus the club colors. Used for
+// milestones that belong to the whole room (a night threshold, the
+// every-Nth toast) rather than to one club.
+const MILESTONE_COLORS = ['#F7A41C', '#FFD257', '#FFFFFF', '#4CAF50', '#2979FF', '#E53935'];
+
 // Standard celebration: two side cannons using the club's colors.
 export function fireStandard(colors) {
   if (off()) return;
@@ -91,12 +96,19 @@ export function fireFirstTimer() {
  * win. A milestone is never a reason to override someone's accessibility
  * preference.
  *
- * @param {{ big?: boolean }} [opts]
+ * `colors` tints the WHOLE burst — every wave, not just the first — so a
+ * club's own milestone can burst in its own colors (#332). Omitted (or
+ * empty, e.g. a malformed shared-theme override) it falls back to the house
+ * MILESTONE_COLORS, so night and tally milestones are unchanged.
+ *
+ * @param {{ big?: boolean, colors?: string[] }} [opts]
  */
 export function fireMilestone(opts) {
   if (off()) return;
   const big = !!(opts && opts.big);
-  const colors = ['#F7A41C', '#FFD257', '#FFFFFF', '#4CAF50', '#2979FF', '#E53935'];
+  const colors = (opts && Array.isArray(opts.colors) && opts.colors.length)
+    ? opts.colors
+    : MILESTONE_COLORS;
   confetti({
     ...BASE,
     particleCount: scaled(big ? 260 : 160),

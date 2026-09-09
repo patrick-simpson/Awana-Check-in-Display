@@ -17,6 +17,7 @@ import SetupCard from './components/SetupCard.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { Mark } from './components/Doodles.jsx';
 import StickerChip from './components/StickerChip.jsx';
+import ClubBadge from './components/ClubBadge.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useSocket, simulateEvent } from './hooks/useSocket.js';
@@ -112,8 +113,24 @@ export default function App() {
   // queued — otherwise a burst would go off for a toast nobody can see yet.
   useEffect(() => {
     if (celebration == null) return;
-    fireMilestone(isBigMilestone(celebration.count) ? { big: true } : undefined);
+    // A club's own milestone bursts in that club's colors (#332) — club
+    // identity is the strongest signal these kids respond to. The room-wide
+    // night/tally milestones keep the house palette, and `off()`/`scaled()`
+    // inside fireMilestone still gate everything exactly as before.
+    const ofOneClub = celebration.kind === 'club' || celebration.kind === 'kid';
+    fireMilestone({
+      big: isBigMilestone(celebration.count) || undefined,
+      colors: ofOneClub ? getClubPalette(celebration.club).confetti : undefined,
+    });
   }, [celebration]);
+
+  // The palette behind the toast's club colors and its wordmark — null for
+  // the room-wide 'night' and 'tally' kinds, which carry no club at all.
+  const celebrationClub = useMemo(() => (
+    (celebration && (celebration.kind === 'club' || celebration.kind === 'kid'))
+      ? getClubPalette(celebration.club)
+      : null
+  ), [celebration]);
 
   // Club milestones (#36): the printer's live tally broadcasts carry
   // per-club counts; when one club crosses a multiple of
@@ -798,7 +815,9 @@ export default function App() {
       )}
 
       {/* One toast, three sources — see useCelebrationQueue. `kind` picks the
-          copy and styling; the queue guarantees only one is ever on screen. */}
+          copy and styling; the queue guarantees only one is ever on screen.
+          A club's own milestone ('club' / 'kid') wears that club's palette
+          and wordmark (#332); the room-wide ones stay Awana gold. */}
       <AnimatePresence>
         {celebration != null && (
           <M.div
@@ -812,8 +831,8 @@ export default function App() {
                     ? 'milestone-toast kid-milestone'
                     : 'milestone-toast'
             }
-            style={celebration.kind === 'club' || celebration.kind === 'kid'
-              ? { rotate: 1.1, '--club-primary': getClubPalette(celebration.club).primary }
+            style={celebrationClub
+              ? { rotate: 1.1, '--club-primary': celebrationClub.primary }
               : { rotate: -1.2 }}
             initial={{ opacity: 0, y: 46, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 280, damping: 16 } }}
@@ -828,6 +847,18 @@ export default function App() {
             >
               <Mark kind="sparkle" size={30} />
             </M.span>
+            {/* The club's own wordmark. `rawName` is deliberately NOT passed:
+                an unknown club would otherwise render ClubBadge's title pill,
+                duplicating the text already in .milestone-label. A typo club
+                gets no badge and the warm-orange default confetti — the toast
+                stays exactly as it was. The label wrapper supplies the
+                variant orchestration ClubBadge's own variants expect, which
+                the toast's object animate/initial cannot. */}
+            {celebrationClub?.logo && (
+              <M.span className="milestone-badge" initial="hidden" animate="show">
+                <ClubBadge club={celebrationClub} />
+              </M.span>
+            )}
             <div className="milestone-lines">
               <span className="milestone-label">
                 {celebration.kind === 'club' ? celebration.club

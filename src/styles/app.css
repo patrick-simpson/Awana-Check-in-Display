@@ -1811,6 +1811,35 @@ html, body, #root {
   opacity: 0.9;
 }
 
+/* Club wordmark inside the milestone toast (#332). The `.banner`-scoped
+   club rules above are deliberately NOT reused: this is a 640px pill, not
+   a lower-third band, and the wordmark art runs up to 800px wide — dropped
+   in unstyled it would render at intrinsic size and blow the toast apart. */
+.milestone-toast .milestone-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.milestone-toast .club-logo-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: clamp(34px, 5.2vh, 58px);
+  flex-shrink: 0;
+}
+.milestone-toast .club-logo {
+  height: 100%;
+  width: auto;
+  max-width: clamp(96px, 13vw, 180px);
+  object-fit: contain;
+  filter:
+    drop-shadow(0 3px 0 rgba(0, 0, 0, 0.14))
+    drop-shadow(0 8px 18px rgba(0, 0, 0, 0.26));
+}
+/* Wordmark only here — the mascot sticker is banner-scale art and would
+   crowd a pill that already carries two sparkles and two lines of text. */
+.milestone-toast .club-mascot { display: none; }
+
 /* ── "More coming" queue chip ──────────────────────────── */
 .up-next {
   position: absolute;
@@ -1945,6 +1974,8 @@ input:focus-visible {
     gap: 0.5rem;
   }
   .milestone-toast .milestone-count { font-size: clamp(1.6rem, 7vw, 2.4rem); }
+  .milestone-toast .club-logo-slot { height: clamp(26px, 6vw, 40px); }
+  .milestone-toast .club-logo { max-width: clamp(72px, 22vw, 130px); }
 
   .tonight-ticker {
     max-width: 92vw;

@@ -205,3 +205,29 @@ test('a birthday later this week rides a ribbon instead of claiming today', asyn
   // "It's your special day" is simply wrong three days early.
   await expect(cake).not.toContainText(/special day/i);
 });
+
+test('a club milestone toast wears that club’s wordmark', async ({ page }) => {
+  await goSignage(page);
+  await openDebug(page);
+
+  // The first tally of the night is only a baseline, so it takes two presses
+  // to produce a crossing: 9 / 16 / 23 / 30, then +10 per club. With the
+  // default clubMilestoneEvery of 10 several clubs cross at once and the
+  // queue plays their toasts one at a time.
+  const tally = page.getByRole('button', { name: 'Simulate club tally (counts)' });
+  await tally.click();
+  await tally.click();
+
+  const toast = page.locator('.milestone-toast.club-milestone');
+  await expect(toast).toBeVisible();
+  // The badge is the club's own wordmark art, sized by the toast-scoped CSS.
+  const logo = toast.locator('.club-logo');
+  await expect(logo).toBeVisible();
+  const box = await logo.boundingBox();
+  expect(box.width).toBeGreaterThan(0);
+  // Whatever the art's intrinsic size, it must stay inside the pill.
+  const toastBox = await toast.boundingBox();
+  expect(box.width).toBeLessThan(toastBox.width);
+  // The mascot sticker is banner-scale art and is deliberately hidden here.
+  await expect(toast.locator('.club-mascot')).toBeHidden();
+});
