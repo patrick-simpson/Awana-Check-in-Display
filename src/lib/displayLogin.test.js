@@ -23,6 +23,7 @@ import {
 } from './displayLogin.js';
 import { DISPLAY_KEY_STORAGE, loadDisplayKey } from './displayKey.js';
 import { PUBLISH_TOKEN_STORAGE, loadPublishToken } from './publishToken.js';
+import { FLEET_CONFIG_URL_STORAGE, loadFleetConfigUrl, saveFleetConfigUrl } from './fleetConfigUrl.js';
 import { importDisplayKey, sealForTest, fromBase64 } from './envelope.js';
 import { sanitizeOverrides } from '../hooks/useConfig.js';
 import { parseUrlFlags } from './urlFlags.js';
@@ -85,6 +86,19 @@ describe('leak path 1: a remote ?config= JSON cannot carry a login key or passph
     });
     expect(Object.keys(out)).toEqual([]);
   });
+
+  // ...nor the NON-secret third thing the same bundle now carries (#394). It
+  // is an address, not a credential, but a remote config able to set it could
+  // repoint the screen at a different remote config with no operator in the
+  // loop — so it stays out of VALIDATORS for the same structural reason.
+  it('drops the fleet-config URL the bundle delivers, however it is spelled', () => {
+    const out = sanitizeOverrides({
+      configUrl: P.bundle.configUrl, fleetConfigUrl: P.bundle.configUrl,
+      awanaFleetConfigUrl: P.bundle.configUrl, settingsUrl: P.bundle.configUrl,
+    });
+    expect(Object.keys(out)).toEqual([]);
+    expect(JSON.stringify(out)).not.toContain('example.org');
+  });
 });
 
 describe('leak path 2: Settings export/import never sees it', () => {
@@ -93,12 +107,33 @@ describe('leak path 2: Settings export/import never sees it', () => {
     expect(localStorage.getItem('awanaConfig.v1')).toBeNull();
     expect(sanitizeOverrides({ awanaLoginKey: P.derivedKey })).toEqual({});
   });
+
+  it('applying a whole bundle leaves the config object untouched, URL included', () => {
+    applyProvisionBundle(P.bundle);
+    expect(localStorage.getItem('awanaConfig.v1')).toBeNull();
+    // What exportSettings() actually writes out is this object.
+    const exported = JSON.stringify(sanitizeOverrides({ nightTheme: 'snowday' }), null, 2);
+    expect(exported).not.toContain(P.bundle.displayKey);
+    expect(exported).not.toContain(P.bundle.slidesPublishToken);
+    expect(exported).not.toContain(P.bundle.configUrl);
+    expect(exported).toContain('snowday');
+  });
 });
 
 describe('leak path 3: URL flags never carry it', () => {
   it('parseUrlFlags ignores ?passphrase= and ?loginKey=', () => {
     const flags = parseUrlFlags('?key=pk&cluster=us2&passphrase=abcd-efgh-ijkm-npqr&loginKey=zzz&displayKey=zzz');
     expect(JSON.stringify(flags)).not.toMatch(/abcd-efgh|zzz/);
+  });
+
+  it('a provisioned settings URL is not a URL flag, and an explicit ?config= outranks it', () => {
+    applyProvisionBundle(P.bundle);
+    expect(parseUrlFlags('?key=pk').configUrl).toBeNull();
+    // App.jsx resolves FLAGS.configUrl || the provisioned one, in that order:
+    // the person standing at the screen outranks the print server.
+    expect(parseUrlFlags('?key=pk').configUrl || loadFleetConfigUrl()).toBe(P.bundle.configUrl);
+    expect(parseUrlFlags('?config=https://typed.example/x.json').configUrl || loadFleetConfigUrl())
+      .toBe('https://typed.example/x.json');
   });
 });
 
@@ -179,12 +214,50 @@ describe('strict shapes', () => {
 });
 
 describe('applying a bundle', () => {
-  it('writes exactly the display key + publish token slots, never config', () => {
+  it('writes exactly the display key + publish token + settings-URL slots, never config', () => {
     expect(applyProvisionBundle(P.bundle)).toBe(true);
     expect(localStorage.getItem(DISPLAY_KEY_STORAGE)).toBe(P.bundle.displayKey);
     expect(localStorage.getItem(PUBLISH_TOKEN_STORAGE)).toBe(P.bundle.slidesPublishToken);
+    expect(localStorage.getItem(FLEET_CONFIG_URL_STORAGE)).toBe(P.bundle.configUrl);
     expect(localStorage.getItem('awanaConfig.v1')).toBeNull();
     expect(Number(localStorage.getItem(LOGIN_ISSUED_STORAGE))).toBe(Date.parse(P.bundle.issuedAt));
+    // Exactly four entries, all of them named here — no fifth slot appeared.
+    expect(Object.keys(localStorage).sort()).toEqual(
+      [DISPLAY_KEY_STORAGE, PUBLISH_TOKEN_STORAGE, FLEET_CONFIG_URL_STORAGE, LOGIN_ISSUED_STORAGE].sort());
+  });
+
+  // The fleet-config URL (#394). Non-secret, own slot, and deploy-order safe:
+  // ABSENT means "this publisher predates the field" (keep what we have),
+  // '' means "the operator cleared it" (drop it).
+  it('an ABSENT configUrl is no news — a screen keeps the URL it already had', () => {
+    saveFleetConfigUrl(P.bundle.configUrl);
+    const { configUrl, ...older } = P.bundle;
+    expect(configUrl).toBeTruthy();
+    applyProvisionBundle(older);
+    expect(loadFleetConfigUrl()).toBe(P.bundle.configUrl);
+  });
+
+  it('an EMPTY configUrl clears it — that is how a cleared URL propagates', () => {
+    saveFleetConfigUrl(P.bundle.configUrl);
+    applyProvisionBundle({ ...P.bundle, configUrl: '' });
+    expect(loadFleetConfigUrl()).toBe('');
+    // ...and the secrets still landed.
+    expect(loadDisplayKey()).toBe(P.bundle.displayKey);
+  });
+
+  it('a bundle with a non-https configUrl is rejected WHOLE — nothing is written', () => {
+    expect(isProvisionBundle({ ...P.bundle, configUrl: 'http://example.org/a.json' })).toBe(false);
+    expect(isProvisionBundle({ ...P.bundle, configUrl: 'javascript:alert(1)' })).toBe(false);
+    expect(isProvisionBundle({ ...P.bundle, configUrl: 42 })).toBe(false);
+    expect(isProvisionBundle({ ...P.bundle, configUrl: '' })).toBe(true);
+    expect(loadDisplayKey()).toBe('');
+    expect(loadFleetConfigUrl()).toBe('');
+  });
+
+  it('logout forgets the settings URL along with the secrets', () => {
+    applyProvisionBundle(P.bundle);
+    logout();
+    expect(loadFleetConfigUrl()).toBe('');
   });
 
   it('an empty token clears the slot (a revoked token must not linger)', () => {

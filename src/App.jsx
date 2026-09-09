@@ -41,6 +41,7 @@ import {
   crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight,
 } from './lib/milestones.js';
 import { setRemoteDefaults } from './hooks/useConfig.js';
+import { FLEET_CONFIG_URL_CHANGE_EVENT, loadFleetConfigUrl, resolveRemoteConfigUrl } from './lib/fleetConfigUrl.js';
 import { getClubPalette } from './lib/clubs.js';
 import { clubTintFor } from './lib/clubTint.js';
 import { mergeSyncedDeck, visibleSlides } from './lib/slides.js';
@@ -63,10 +64,29 @@ export default function App() {
   // their central config isn't being applied — silently falling back
   // looks identical to working until club night.
   const [remoteConfigError, setRemoteConfigError] = useState(null);
+  // The display login can deliver that same URL (#394), so a replacement
+  // screen is set up by one passphrase instead of by hand. It lives in its own
+  // storage slot — never in the config object, which `?config=` and Settings →
+  // Export both operate on — and is applied HERE, through the one remote-config
+  // path that already existed. An explicit `?config=` still wins: someone
+  // standing at the screen with a URL in their hand outranks what the print
+  // server last handed it. Tracked as state so a screen that logs in for the
+  // first time picks its fleet settings up without a reload.
+  const [provisionedConfigUrl, setProvisionedConfigUrl] = useState(loadFleetConfigUrl);
   useEffect(() => {
-    if (!FLAGS.configUrl) return undefined;
+    const sync = () => setProvisionedConfigUrl(loadFleetConfigUrl());
+    window.addEventListener(FLEET_CONFIG_URL_CHANGE_EVENT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(FLEET_CONFIG_URL_CHANGE_EVENT, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+  const remoteConfigUrl = resolveRemoteConfigUrl(FLAGS.configUrl, provisionedConfigUrl);
+  useEffect(() => {
+    if (!remoteConfigUrl) return undefined;
     let cancelled = false;
-    fetch(FLAGS.configUrl, { cache: 'no-cache' })
+    fetch(remoteConfigUrl, { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((raw) => {
         if (cancelled) return;
@@ -81,7 +101,7 @@ export default function App() {
         if (!cancelled) setRemoteConfigError(err?.message || 'fetch failed');
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [remoteConfigUrl]);
 
   const { config: effectiveConfig, storedConfig, overrides, updateConfig, resetConfig } = useConfig();
 
@@ -1128,7 +1148,7 @@ export default function App() {
             phase={phase}
             scheduleSource={scheduleSource}
             opsFailures={opsFailures}
-            remoteConfigError={FLAGS.configUrl ? remoteConfigError : null}
+            remoteConfigError={remoteConfigUrl ? remoteConfigError : null}
             wakeLockStatus={wakeLockStatus}
             syncedDeck={syncedDeck}
             slidesStatus={slidesStatus}

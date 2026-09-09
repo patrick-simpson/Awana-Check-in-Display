@@ -332,7 +332,8 @@ export default function SettingsPanel({
           )}
           {remoteConfigError && (
             <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
-              The central config from this page's <code>?config=</code> URL could not be
+              The central config for this screen &mdash; from this page&rsquo;s <code>?config=</code> URL,
+              or from the address the display login handed it &mdash; could not be
               applied ({remoteConfigError}) — this display is running on its baked
               defaults and local overrides instead.
             </div>

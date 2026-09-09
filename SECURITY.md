@@ -135,6 +135,12 @@ The easy way — **display login**:
    the passphrase → **Log in**. The screen receives the display key (and the
    slide-publish token) and keeps following rotations made on the dashboard.
    The print server must be running while a screen logs in.
+   Optional: fill in **Screen settings URL** on the dashboard beside the
+   passphrase and the login hands each screen its display-settings JSON too —
+   the same address `?config=` takes — so weather, calendar and corner widgets
+   set themselves up instead of being typed in screen by screen. https only,
+   never a secret, and never child data. Clearing it there clears it on every
+   logged-in screen.
 3. Back on the dashboard, press **Night Test**. Each screen confirms it can read
    names.
 4. Write the passphrase on a card and keep it where the church keeps the WiFi
@@ -148,7 +154,8 @@ in (no print server on the network, or a browser without secure crypto).
 **How the login works, and what it costs.** The print server derives a
 wrapping key from the passphrase with PBKDF2-SHA256 (600,000 iterations, a
 random salt minted whenever the passphrase changes) and publishes the display
-key + publish token sealed under it — the same AES-256-GCM envelope as the
+key + publish token (and, optionally, the non-secret fleet-config URL) sealed
+under it — the same AES-256-GCM envelope as the
 name events — as a `provision` frame on a Pusher *cache* channel, so a screen
 switched on later receives the latest frame at once. The screen derives the
 same key from what you type (`src/lib/displayLogin.js`), opens the frame with
@@ -250,6 +257,21 @@ assertions were verified to fail when the key is added to `VALIDATORS`.
 The same rule covers the slide publish token (`src/lib/publishToken.js`) and
 the display-login key (`src/lib/displayLogin.js`, `awanaLoginKey.v1`) — each
 in its own entry, each with the same three tests.
+
+It also covers the **fleet-config URL** the display login can deliver
+(`src/lib/fleetConfigUrl.js`, `awanaFleetConfigUrl.v1`), and that one is worth
+being precise about because it is **not a secret**: it is an address, and the
+JSON it points at holds display preferences, never child data. What the
+separate entry protects is the *settings object's meaning*. Anything in
+`VALIDATORS` is settable by `?config=` and written out by Settings → Export, so
+putting the URL there would let one remote config file repoint a screen at
+another remote config file with no operator in the loop, and would put the URL
+into every exported settings file. It is applied through the same remote-config
+path `?config=` already uses, and an explicit `?config=` on the URL still wins —
+the person standing at the screen outranks what the print server last handed it.
+It is https-only and length-capped on both sides, and re-validated on the way
+out of storage, so a hand-edited entry cannot point a screen at plain http.
+`src/lib/fleetConfigUrl.test.js` carries the same three leak-path tests.
 
 ## What lives on the device
 
