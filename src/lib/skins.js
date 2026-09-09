@@ -15,6 +15,10 @@
 //     skin stays VBS on a wet night instead of silently disappearing.
 //   • Club colours are never touched. Banners keep their catalog colour, per
 //     the standing rule: the skin dresses the room, not the kids.
+//   • The optional `confetti` profile follows the same rule (#340): it dresses
+//     the ROOM-wide bursts (the milestone toast, a birthday) in the season's
+//     colours and shapes, and a club's own milestone still bursts in that
+//     club's colours — see fireMilestone in lib/confetti.js.
 
 /**
  * @typedef {Object} Skin
@@ -24,24 +28,40 @@
  * @property {ReadonlyArray<string>} [titles] Lowercase calendar-title keywords
  *   that select this skin (see skinForCalendarTitle).
  * @property {string} label Human label for the Settings dropdown.
+ * @property {{ colors: ReadonlyArray<string>, shapes: ReadonlyArray<string> }} [confetti]
+ *   Season-shaped confetti for the room-wide bursts (see
+ *   setConfettiSkin in lib/confetti.js). Shapes are canvas-confetti's
+ *   BUILT-IN names only — the list lives in confetti.js's
+ *   CONFETTI_SHAPES and skins.test.js cross-checks every entry against
+ *   it, so a typo fails the suite instead of silently rendering squares.
  */
 
 /** @type {Record<string, Skin>} */
 export const SKIN_TABLE = {
-  autumn:       { a: '#d97706', b: '#7c2d12', scene: 'sunset',   label: 'Autumn' },
-  harvest:      { a: '#b45309', b: '#4d7c0f', scene: 'sunset',   label: 'Harvest' },
-  thanksgiving: { a: '#b45309', b: '#7c2d12', scene: 'sunset',   label: 'Thanksgiving', titles: ['thanksgiving', 'harvest festival'] },
-  christmas:    { a: '#dc2626', b: '#14532d', scene: 'night',    label: 'Christmas',    titles: ['christmas', 'nativity', 'advent'] },
-  snowday:      { a: '#38bdf8', b: '#e0f2fe', scene: 'lavender', label: 'Snow day' },
-  spring:       { a: '#22c55e', b: '#f472b6', scene: 'meadow',   label: 'Spring' },
-  easter:       { a: '#a78bfa', b: '#fde68a', scene: 'lavender', label: 'Easter',       titles: ['easter', 'resurrection'] },
-  summer:       { a: '#0ea5e9', b: '#fbbf24', scene: 'sky',      label: 'Summer' },
-  vbs:          { a: '#f97316', b: '#0ea5e9', scene: 'sky',      label: 'VBS',          titles: ['vbs', 'vacation bible school'] },
+  autumn:       { a: '#d97706', b: '#7c2d12', scene: 'sunset',   label: 'Autumn',
+    confetti: { colors: ['#d97706', '#b45309', '#7c2d12', '#fbbf24'], shapes: ['square'] } },
+  harvest:      { a: '#b45309', b: '#4d7c0f', scene: 'sunset',   label: 'Harvest',
+    confetti: { colors: ['#b45309', '#4d7c0f', '#d97706', '#fde68a'], shapes: ['square'] } },
+  thanksgiving: { a: '#b45309', b: '#7c2d12', scene: 'sunset',   label: 'Thanksgiving', titles: ['thanksgiving', 'harvest festival'],
+    confetti: { colors: ['#b45309', '#7c2d12', '#d97706', '#fef3c7'], shapes: ['square'] } },
+  christmas:    { a: '#dc2626', b: '#14532d', scene: 'night',    label: 'Christmas',    titles: ['christmas', 'nativity', 'advent'],
+    confetti: { colors: ['#dc2626', '#14532d', '#ffffff', '#f59e0b'], shapes: ['star'] } },
+  snowday:      { a: '#38bdf8', b: '#e0f2fe', scene: 'lavender', label: 'Snow day',
+    confetti: { colors: ['#ffffff', '#e0f2fe', '#38bdf8', '#bae6fd'], shapes: ['circle'] } },
+  spring:       { a: '#22c55e', b: '#f472b6', scene: 'meadow',   label: 'Spring',
+    confetti: { colors: ['#22c55e', '#f472b6', '#fde68a', '#ffffff'], shapes: ['circle', 'square'] } },
+  easter:       { a: '#a78bfa', b: '#fde68a', scene: 'lavender', label: 'Easter',       titles: ['easter', 'resurrection'],
+    confetti: { colors: ['#a78bfa', '#fde68a', '#f9a8d4', '#ffffff'], shapes: ['circle'] } },
+  summer:       { a: '#0ea5e9', b: '#fbbf24', scene: 'sky',      label: 'Summer',
+    confetti: { colors: ['#0ea5e9', '#fbbf24', '#ffffff', '#22d3ee'], shapes: ['circle', 'star'] } },
+  vbs:          { a: '#f97316', b: '#0ea5e9', scene: 'sky',      label: 'VBS',          titles: ['vbs', 'vacation bible school'],
+    confetti: { colors: ['#f97316', '#0ea5e9', '#facc15', '#22c55e', '#ec4899'], shapes: ['star', 'circle', 'square'] } },
   // Keywords are deliberately SPECIFIC. Generic words ("kickoff", "first
   // night") collide with other seasons — a "VBS Kickoff Night" resolved to
   // back-to-school before they were removed — and an ambiguous skin is worse
   // than none, because nobody can predict what the screen will do.
-  backtoschool: { a: '#2563eb', b: '#f59e0b', scene: 'meadow',   label: 'Back to school', titles: ['back to school', 'back-to-school'] },
+  backtoschool: { a: '#2563eb', b: '#f59e0b', scene: 'meadow',   label: 'Back to school', titles: ['back to school', 'back-to-school'],
+    confetti: { colors: ['#2563eb', '#f59e0b', '#ffffff', '#ef4444'], shapes: ['square', 'circle'] } },
 };
 
 /**

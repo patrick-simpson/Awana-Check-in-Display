@@ -30,7 +30,7 @@ import { useTheme } from './hooks/useTheme.js';
 import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
-import { fireMilestone, setConfettiLevel, setConfettiLoad } from './lib/confetti.js';
+import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { decideBoard } from './lib/checkoutBoard.js';
 import { birthdayRibbon } from './lib/birthdayWeek.js';
@@ -535,6 +535,16 @@ export default function App() {
   // deliberately-chosen VBS skin doesn't vanish because it started raining.
   const sceneTheme = sceneForSkin(skin);
   const skinAccents = SKIN_TABLE[skin] ?? null;
+
+  // Season-shaped confetti (#340) — the sibling of the setConfettiLevel effect
+  // above, keyed on the RESOLVED skin so 'auto' seasons and the printer's
+  // season broadcast both reach the bursts. A skin with no profile (or 'none')
+  // clears it, so the room-wide milestones go back to the house palette. Level
+  // 'off', the rush thinner and reduced-motion all still gate every burst
+  // inside fireMilestone — a season is never a reason to override those.
+  useEffect(() => {
+    setConfettiSkin(SKIN_TABLE[skin]?.confetti ?? null);
+  }, [skin]);
   const mood = useMemo(
     () => (weatherTheme ? weatherMood(weather) : { cozy: false, dim: 1, reason: 'off' }),
     [weatherTheme, weather],

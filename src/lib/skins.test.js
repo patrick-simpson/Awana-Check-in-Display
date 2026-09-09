@@ -4,6 +4,7 @@ import {
   skinOptions, NIGHT_THEME_VALUES, SKINS, SKIN_TABLE,
 } from './skins.js';
 import { THEMES } from '../components/CatalogScene.jsx';
+import { CONFETTI_SHAPES } from './confetti.js';
 
 describe('autoSkin', () => {
   it('maps each month to a seasonal skin', () => {
@@ -171,5 +172,48 @@ describe('printer season mapping (#18)', () => {
     expect(resolveSkin('auto', june, null, null)).not.toBe('christmas');
     expect(resolveSkin('easter', june, null, 'christmas')).toBe('easter');
     expect(resolveSkin('none', june, null, 'christmas')).toBe('none');
+  });
+});
+
+// Season-shaped confetti (#340): the profile is data, so the only thing that
+// can go wrong is a typo — an unknown shape name would silently render as a
+// square, and a bad colour as an odd colour. Both are caught here.
+describe('seasonal confetti profiles (#340)', () => {
+  it('gives every skin a profile with real colours and drawable shapes', () => {
+    for (const [id, skin] of Object.entries(SKIN_TABLE)) {
+      const profile = skin.confetti;
+      expect(profile, `${id}.confetti`).toBeTruthy();
+      expect(Array.isArray(profile.colors), `${id}.confetti.colors`).toBe(true);
+      expect(profile.colors.length, `${id}.confetti.colors`).toBeGreaterThan(0);
+      for (const color of profile.colors) {
+        expect(color, `${id} colour`).toMatch(/^#[0-9a-f]{6}$/i);
+      }
+      expect(Array.isArray(profile.shapes), `${id}.confetti.shapes`).toBe(true);
+      expect(profile.shapes.length, `${id}.confetti.shapes`).toBeGreaterThan(0);
+      for (const shape of profile.shapes) {
+        expect(CONFETTI_SHAPES, `${id} → ${shape}`).toContain(shape);
+      }
+    }
+  });
+
+  it('keeps the seasons visibly different from one another', () => {
+    // Two seasons sharing a palette would make the feature invisible on the
+    // night it matters (November reading as December, say).
+    const seen = new Set();
+    for (const [id, skin] of Object.entries(SKIN_TABLE)) {
+      const key = skin.confetti.colors.join(',');
+      expect(seen.has(key), `${id} duplicates another season's palette`).toBe(false);
+      seen.add(key);
+    }
+  });
+
+  it('dresses Christmas in red and green stars and a snow day in white circles', () => {
+    // The two the idea was written around, pinned by name so a well-meaning
+    // palette tidy-up has to be deliberate.
+    expect(SKIN_TABLE.christmas.confetti.shapes).toEqual(['star']);
+    expect(SKIN_TABLE.christmas.confetti.colors).toContain('#dc2626');
+    expect(SKIN_TABLE.christmas.confetti.colors).toContain('#14532d');
+    expect(SKIN_TABLE.snowday.confetti.shapes).toEqual(['circle']);
+    expect(SKIN_TABLE.snowday.confetti.colors).toContain('#ffffff');
   });
 });
