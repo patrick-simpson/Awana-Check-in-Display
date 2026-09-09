@@ -375,6 +375,27 @@ html, body, #root {
   margin-bottom: 0.5rem;
 }
 .slide-card-index:focus { outline: 2px solid var(--awana-orange); outline-offset: 2px; border-radius: 4px; }
+/* Show-window badges (#345) on the editor's index line. The row itself is
+   never hidden when a window closes — the operator has to be able to find
+   and fix the slide that stopped showing. */
+.slide-window-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+}
+.slide-window-badge.is-expired {
+  background: rgba(220, 38, 38, 0.14);
+  color: #b42318;
+}
+.slide-window-badge.is-scheduled {
+  background: rgba(245, 158, 11, 0.18);
+  color: #8a5300;
+}
 .slide-card-fields .slide-counter { display: block; text-align: right; margin-top: 0.2rem; }
 .slide-empty {
   padding: 1.5rem;

@@ -6,6 +6,11 @@
 //   { id, eyebrow, text, theme, durationSec, textSize }
 //
 // text     the free-typed body (required, multi-line, ≤ MAX_TEXT)
+// showFrom  optional first day this slide may show (YYYY-MM-DD, local)
+// showUntil optional last day, inclusive — an outdated announcement
+//           retires itself instead of advertising last month's store
+//           night. Both are BARE LOCAL dates and are compared against
+//           the screen's own local date key, never toISOString()
 // eyebrow  optional small-caps line above the text (≤ MAX_EYEBROW)
 // theme    'auto' rotates through SLIDE_THEMES by position
 // textSize 'auto' picks a size from the text length; 'xl'/'lg'/'md'
@@ -36,6 +41,86 @@ export const DEFAULT_DURATION_SEC = 8;
 // Above this the picker asks "are you sure" (large files are slow to
 // store and decode on signage sticks) — it warns, never blocks.
 export const VIDEO_SIZE_WARN_BYTES = 200 * 1024 * 1024;
+
+// ── The optional per-slide show window (#345) ──────────────────────────
+// A bare local calendar date, exactly as the operator typed it. NEVER
+// toISOString(): in a US-Eastern evening UTC has already rolled over to
+// tomorrow, which is precisely club hours — the house rule this repo has
+// been bitten by before (see calendarLogic.js). Anything that is not a
+// real calendar date is DROPPED, so a slide with a junk window shows
+// ALWAYS, which is the same as no window and strictly better than a
+// slide that silently never appears.
+const SHOW_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * The date string a slide may keep, or null.
+ * @param {unknown} value
+ * @returns {string|null}
+ */
+export function showDate(value) {
+  const m = SHOW_DATE_RE.exec(typeof value === 'string' ? value.trim() : '');
+  if (!m) return null;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  // Date.UTC only answers "does this calendar date exist" (leap years,
+  // month lengths). Nothing derived from it is ever stored or compared.
+  const probe = new Date(Date.UTC(y, mo - 1, d));
+  if (probe.getUTCFullYear() !== y || probe.getUTCMonth() !== mo - 1 || probe.getUTCDate() !== d) return null;
+  return `${m[1]}-${m[2]}-${m[3]}`;
+}
+
+/**
+ * Is this slide inside its show window on `todayStr`? A plain STRING
+ * comparison of two YYYY-MM-DD keys — lexicographic order is calendar
+ * order for that format, so no Date object (and no timezone) is involved
+ * at all. Both bounds are INCLUSIVE: a slide dated showUntil today is
+ * still shown tonight and gone tomorrow, which is what an operator
+ * typing "the store night is on the 16th" means.
+ * @param {{showFrom?: string, showUntil?: string}} slide
+ * @param {string} todayStr local YYYY-MM-DD (see calendarLogic.localDateStr)
+ */
+export function slideInWindow(slide, todayStr) {
+  const today = showDate(todayStr);
+  // No usable "today" (a caller mid-boot) must never blank the screen.
+  if (!today) return true;
+  const from = showDate(slide?.showFrom);
+  if (from && today < from) return false;
+  const until = showDate(slide?.showUntil);
+  if (until && today > until) return false;
+  return true;
+}
+
+/** True when this slide's window has ALREADY closed (the editor's badge). */
+export function slideExpired(slide, todayStr) {
+  const today = showDate(todayStr);
+  const until = showDate(slide?.showUntil);
+  return Boolean(today && until && today > until);
+}
+
+/** True when this slide's window has not opened yet (the editor's badge). */
+export function slideScheduled(slide, todayStr) {
+  const today = showDate(todayStr);
+  const from = showDate(slide?.showFrom);
+  return Boolean(today && from && today < from);
+}
+
+/**
+ * The slides a screen may actually rotate today. Pure filter — the
+ * editor keeps showing every slide (with an "expired" badge), because
+ * an operator has to be able to see and fix the one that stopped.
+ *
+ * A deck whose every slide has expired returns [], and App.jsx hands
+ * that to the background as an empty MANUAL deck: the calendar slides
+ * are concatenated separately, so the screen falls back to those (or,
+ * with the calendar off, to the welcome placeholder) — never to black.
+ * @param {Array<any>} slides
+ * @param {string} todayStr
+ */
+export function visibleSlides(slides, todayStr) {
+  if (!Array.isArray(slides)) return [];
+  return slides.filter((s) => slideInWindow(s, todayStr));
+}
 
 export function makeSlideId() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -118,7 +203,15 @@ export function sanitizeSlides(raw) {
     const theme = SLIDE_THEMES.includes(entry.theme) ? entry.theme : 'auto';
     const textSize = TEXT_SIZES.includes(entry.textSize) ? entry.textSize : 'auto';
 
-    clean.push({ id, eyebrow, text: entry.text.trim().slice(0, MAX_TEXT), theme, durationSec, textSize });
+    /** @type {Record<string, unknown>} */
+    const slide = { id, eyebrow, text: entry.text.trim().slice(0, MAX_TEXT), theme, durationSec, textSize };
+    // Omitted (not null, not '') when absent or unparseable, so a deck
+    // with no dates round-trips byte-identically to the published one.
+    const showFrom = showDate(entry.showFrom);
+    if (showFrom) slide.showFrom = showFrom;
+    const showUntil = showDate(entry.showUntil);
+    if (showUntil) slide.showUntil = showUntil;
+    clean.push(slide);
   }
   return clean;
 }
@@ -149,7 +242,8 @@ export function mergeSyncedDeck(syncedSlides, localSlides) {
   // end of the rotation.
   const textOf = (slides) => JSON.stringify(slides
     .filter((s) => !isVideoSlide(s))
-    .map((s) => [s.eyebrow.replace(/\s+/g, ' ').trim(), s.text.trim(), s.theme, s.textSize, s.durationSec]));
+    .map((s) => [s.eyebrow.replace(/\s+/g, ' ').trim(), s.text.trim(), s.theme, s.textSize, s.durationSec,
+      s.showFrom || '', s.showUntil || '']));
   if (textOf(local) === textOf(synced)) return local;
   // Re-sanitize the concatenation: it dedupes any id shared across the
   // two sources and re-applies the MAX_SLIDES cap.

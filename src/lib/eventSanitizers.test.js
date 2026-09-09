@@ -50,7 +50,7 @@ const ALLOWED_KEYS = {
   slides: ['deckRev', 'publishedAt', 'seq', 'total', 'slides'],
 };
 
-const SLIDE_ENTRY_KEYS = ['id', 'eyebrow', 'text', 'theme', 'textSize', 'durationSec'];
+const SLIDE_ENTRY_KEYS = ['id', 'eyebrow', 'text', 'theme', 'textSize', 'durationSec', 'showFrom', 'showUntil'];
 
 describe('contract vectors are the v5 contract', () => {
   it('is contract version 5 on awana-channel', () => {
@@ -186,6 +186,46 @@ describe('slides chunk specifics (contract v5)', () => {
   it('keeps multi-line slide text', () => {
     const out = sanitizeSlidesChunk({ ...base, slides: [{ text: 'Welcome to\nAwana!' }] });
     expect(out.slides[0].text).toBe('Welcome to\nAwana!');
+  });
+
+  // The optional show window (#345). Text only, still: the two new fields are
+  // bare dates, and a typed entry is dropped whatever it carries.
+  it('keeps a valid show window verbatim', () => {
+    const out = sanitizeSlidesChunk({
+      ...base,
+      slides: [{ text: 'Store night', showFrom: '2026-09-09', showUntil: '2026-09-16' }],
+    });
+    expect(out.slides[0]).toMatchObject({ showFrom: '2026-09-09', showUntil: '2026-09-16' });
+  });
+
+  it('drops a window that is not a real calendar date, keeping the slide', () => {
+    const out = sanitizeSlidesChunk({
+      ...base,
+      slides: [{ text: 'Kept', showFrom: '2026-02-30', showUntil: 'next Wednesday' }],
+    });
+    expect(out.slides).toHaveLength(1);
+    expect('showFrom' in out.slides[0]).toBe(false);
+    expect('showUntil' in out.slides[0]).toBe(false);
+    expect(JSON.stringify(out)).not.toContain('Wednesday');
+  });
+
+  it('a dated VIDEO entry is still dropped — dates do not buy a type a ride', () => {
+    const out = sanitizeSlidesChunk({
+      ...base,
+      slides: [
+        { type: 'video', videoId: 'v_x', showFrom: '2026-09-09', showUntil: '2026-09-16' },
+        { type: 'hologram', text: 'future', showUntil: '2026-09-16' },
+        { text: 'Kept' },
+      ],
+    });
+    expect(out.slides).toHaveLength(1);
+    expect(out.slides[0].text).toBe('Kept');
+    expect(JSON.stringify(out)).not.toContain('v_x');
+  });
+
+  it('a chunk with no dates has exactly the pre-#345 entry shape', () => {
+    const out = sanitizeSlidesChunk(base);
+    expect(Object.keys(out.slides[0]).sort()).toEqual(['durationSec', 'eyebrow', 'text', 'textSize', 'theme']);
   });
 
   it('clamps durations and falls back on junk theme/size', () => {

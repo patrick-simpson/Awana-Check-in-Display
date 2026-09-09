@@ -120,6 +120,7 @@ import {
   MIN_DURATION_SEC,
   SLIDE_THEMES,
   TEXT_SIZES,
+  showDate,
 } from './slides.js';
 
 const NAME_MAX = 40;
@@ -496,6 +497,8 @@ export function sanitizeSchedule(payload) {
  * @property {string} theme
  * @property {string} textSize
  * @property {number} durationSec
+ * @property {string} [showFrom] Optional bare local date, YYYY-MM-DD.
+ * @property {string} [showUntil] Optional bare local date, YYYY-MM-DD.
  */
 
 /**
@@ -506,6 +509,11 @@ export function sanitizeSchedule(payload) {
  * is therefore required; `deckRev` is an operator-facing counter used only to
  * group chunks. slides:[] is legal only on a single-chunk publish — an
  * explicitly cleared deck propagates, a multi-chunk deck has no empty pieces.
+ * An entry may carry an optional showFrom/showUntil window (#345): bare local
+ * calendar dates, kept verbatim and validated with the SAME showDate() the
+ * local editor uses, so a published deck and a typed one can never disagree
+ * about what a date is. Filtering happens at render time against the screen's
+ * own local date key — never toISOString() — see slides.js visibleSlides().
  * @typedef {Object} SlidesChunkEvent
  * @property {number} deckRev int ≥ 1
  * @property {number} publishedAt Epoch ms.
@@ -556,6 +564,12 @@ export function sanitizeSlidesChunk(payload) {
     if (typeof entry.durationSec === 'number' && Number.isFinite(entry.durationSec) && entry.durationSec > 0) {
       safe.durationSec = Math.min(MAX_DURATION_SEC, Math.max(MIN_DURATION_SEC, Math.round(entry.durationSec)));
     }
+    // The optional show window. Dropped when it is not a real calendar date:
+    // a slide with a junk window shows ALWAYS, never never.
+    const showFrom = showDate(entry.showFrom);
+    if (showFrom) safe.showFrom = showFrom;
+    const showUntil = showDate(entry.showUntil);
+    if (showUntil) safe.showUntil = showUntil;
     const id = cleanString(entry.id, ID_MAX);
     if (id) safe.id = id;
     slides.push(safe);

@@ -238,3 +238,57 @@ describe('follow mode', () => {
     expect(publish.publishDeck.mock.calls[0][0].map((s) => s.id)).toEqual(['s_1', 's_v']);
   });
 });
+
+describe('the show window (#345)', () => {
+  // The editor NEVER hides a slide whose window has closed: the operator has
+  // to be able to find and fix the one that stopped showing. It badges it.
+  // Pinned to a club night in 2027, deliberately far from whatever "today"
+  // really is, so a badge can never pass by accident.
+  beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date(2027, 1, 10, 19, 30));
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  const dated = () => [
+    text('s_1', 'Always on'),
+    text('s_2', 'Store night', { showUntil: '2027-02-09' }),
+    text('s_3', 'Grand Prix', { showFrom: '2027-02-11' }),
+  ];
+
+  it('shows every slide, badging the expired and the not-yet-started one', () => {
+    render(<SlideEditorPanel {...baseProps({ config: { manualSlides: dated(), backgroundSource: 'manual', calendarEnabled: true } })} />);
+    expect(textareas()).toHaveLength(3);
+    expect(screen.getAllByText('Expired')).toHaveLength(1);
+    expect(screen.getAllByText('Starts later')).toHaveLength(1);
+  });
+
+  it('edits a date and saves it onto the slide', () => {
+    const props = baseProps({ config: { manualSlides: [text('s_1', 'Store night')], backgroundSource: 'manual' } });
+    render(<SlideEditorPanel {...props} />);
+    fireEvent.change(screen.getByLabelText('Show until (optional)'), { target: { value: '2026-09-16' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save slides' }));
+    expect(props.onChange).toHaveBeenCalledWith({ manualSlides: [expect.objectContaining({ showUntil: '2026-09-16' })] });
+  });
+
+  it('a junk date is dropped on save rather than saved as a window nothing matches', () => {
+    const props = baseProps({ config: { manualSlides: [text('s_1', 'Store night')], backgroundSource: 'manual' } });
+    render(<SlideEditorPanel {...props} />);
+    fireEvent.change(screen.getByLabelText('Show from (optional)'), { target: { value: 'not-a-date' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save slides' }));
+    const [saved] = props.onChange.mock.calls[0][0].manualSlides;
+    expect('showFrom' in saved).toBe(false);
+  });
+
+  it('a video slide gets no date fields — the window is a text-slide idea', () => {
+    render(<SlideEditorPanel {...baseProps({ config: { manualSlides: [vid('s_v', 'vid_1')], backgroundSource: 'manual' } })} />);
+    expect(screen.queryByLabelText('Show until (optional)')).toBeNull();
+  });
+
+  it('says what the screens fall back to when every slide has expired', () => {
+    render(<SlideEditorPanel {...baseProps({
+      config: { manualSlides: [text('s_1', 'Old news', { showUntil: '2027-02-01' })], backgroundSource: 'manual', calendarEnabled: true },
+    })} />);
+    expect(screen.getByText(/playing the calendar slides instead/)).toBeTruthy();
+  });
+});

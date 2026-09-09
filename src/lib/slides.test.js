@@ -13,10 +13,16 @@ import {
   resolveSizeClass,
   resolveTheme,
   sanitizeSlides,
+  showDate,
   slideDurationMs,
+  slideExpired,
+  slideInWindow,
+  slideScheduled,
   slideSizeClass,
   videoSlideTimerMs,
+  visibleSlides,
 } from './slides.js';
+import { localDateStr } from './calendarLogic.js';
 
 describe('sanitizeSlides', () => {
   it('tolerates garbage roots from corrupt localStorage or bad imports', () => {
@@ -292,5 +298,156 @@ describe('mergeSyncedDeck compares content, not ids or whitespace', () => {
     const local = [text('s_a', 'Hello'), video('s_v', 'vid_1'), text('s_b', 'World')];
     const synced = [text('srv_1', 'Hello'), text('srv_2', 'World')];
     expect(mergeSyncedDeck(synced, local).map((s) => s.id)).toEqual(['s_a', 's_v', 's_b']);
+  });
+});
+
+// ── The optional per-slide show window (#345) ───────────────────────────────
+// A dated announcement retires itself. Everything here is a BARE LOCAL date:
+// the whole point of the feature is that it never touches toISOString(),
+// which in a US-Eastern evening has already rolled over to tomorrow — i.e.
+// exactly club hours (the trap calendarLogic.js documents).
+
+describe('showDate: strict YYYY-MM-DD, real calendar dates only', () => {
+  it('accepts a real date and returns exactly what was typed', () => {
+    expect(showDate('2026-09-09')).toBe('2026-09-09');
+    expect(showDate('  2026-12-25  ')).toBe('2026-12-25');
+    expect(showDate('2024-02-29')).toBe('2024-02-29');
+  });
+
+  it('drops anything that is not a real calendar date', () => {
+    for (const bad of [
+      '2026-02-29', '2026-13-01', '2026-00-10', '2026-09-31', '2026-09-00',
+      '2026-9-1', '26-09-09', '2026/09/09', '2026-09-09T00:00:00Z',
+      'next Wednesday', '', '   ', null, undefined, 20260909, {}, [],
+    ]) {
+      expect(showDate(bad)).toBeNull();
+    }
+  });
+});
+
+describe('sanitizeSlides keeps a valid window and drops a junk one', () => {
+  it('round-trips both dates', () => {
+    const [s] = sanitizeSlides([{ id: 's_1', text: 'Store night', showFrom: '2026-09-09', showUntil: '2026-09-16' }]);
+    expect(s.showFrom).toBe('2026-09-09');
+    expect(s.showUntil).toBe('2026-09-16');
+  });
+
+  it('omits the field entirely rather than storing null or an empty string', () => {
+    const [s] = sanitizeSlides([{ text: 'x', showFrom: '', showUntil: 'whenever' }]);
+    expect('showFrom' in s).toBe(false);
+    expect('showUntil' in s).toBe(false);
+  });
+
+  it('a deck with no dates is byte-identical to what shipped before the field', () => {
+    expect(sanitizeSlides([{ id: 's_1', eyebrow: '', text: 'Plain', theme: 'auto', durationSec: 0, textSize: 'auto' }]))
+      .toEqual([{ id: 's_1', eyebrow: '', text: 'Plain', theme: 'auto', durationSec: 0, textSize: 'auto' }]);
+  });
+
+  it('an impossible date does not take the slide with it', () => {
+    const out = sanitizeSlides([{ text: 'Bring a friend', showFrom: '2026-02-30' }]);
+    expect(out).toHaveLength(1);
+    expect(out[0].text).toBe('Bring a friend');
+  });
+
+  it('a video slide is unaffected — the window is a text-slide idea', () => {
+    const [v] = sanitizeSlides([{ type: 'video', videoId: 'v_1', showUntil: '2026-09-16' }]);
+    expect('showUntil' in v).toBe(false);
+  });
+});
+
+describe('slideInWindow / visibleSlides: inclusive local boundaries', () => {
+  const slide = (extra) => ({ text: 'x', ...extra });
+
+  it('no window means always visible', () => {
+    expect(slideInWindow(slide({}), '2026-09-09')).toBe(true);
+  });
+
+  it('both bounds are INCLUSIVE — the last day still shows', () => {
+    const s = slide({ showFrom: '2026-09-09', showUntil: '2026-09-16' });
+    expect(slideInWindow(s, '2026-09-08')).toBe(false);
+    expect(slideInWindow(s, '2026-09-09')).toBe(true);
+    expect(slideInWindow(s, '2026-09-16')).toBe(true);
+    expect(slideInWindow(s, '2026-09-17')).toBe(false);
+  });
+
+  it('a one-day window shows on exactly that day', () => {
+    const s = slide({ showFrom: '2026-09-16', showUntil: '2026-09-16' });
+    expect(slideInWindow(s, '2026-09-15')).toBe(false);
+    expect(slideInWindow(s, '2026-09-16')).toBe(true);
+    expect(slideInWindow(s, '2026-09-17')).toBe(false);
+  });
+
+  it('crosses a year and a month boundary correctly', () => {
+    const s = slide({ showFrom: '2026-12-30', showUntil: '2027-01-02' });
+    expect(slideInWindow(s, '2026-12-29')).toBe(false);
+    expect(slideInWindow(s, '2026-12-31')).toBe(true);
+    expect(slideInWindow(s, '2027-01-02')).toBe(true);
+    expect(slideInWindow(s, '2027-01-03')).toBe(false);
+  });
+
+  it('a junk window never hides a slide — always, never never', () => {
+    expect(slideInWindow(slide({ showUntil: '2026-02-30' }), '2026-09-09')).toBe(true);
+    expect(slideInWindow(slide({ showFrom: 'yesterday' }), '2026-09-09')).toBe(true);
+  });
+
+  it('an unusable "today" shows everything rather than blanking the screen', () => {
+    expect(slideInWindow(slide({ showUntil: '2020-01-01' }), '')).toBe(true);
+    expect(visibleSlides([slide({ showUntil: '2020-01-01' })], null)).toHaveLength(1);
+  });
+
+  it('filters a deck and tolerates a garbage root', () => {
+    const deck = [
+      slide({ text: 'always' }),
+      slide({ text: 'expired', showUntil: '2026-09-08' }),
+      slide({ text: 'future', showFrom: '2026-09-10' }),
+      slide({ text: 'today', showFrom: '2026-09-09', showUntil: '2026-09-09' }),
+    ];
+    expect(visibleSlides(deck, '2026-09-09').map((s) => s.text)).toEqual(['always', 'today']);
+    expect(visibleSlides(null, '2026-09-09')).toEqual([]);
+  });
+
+  it('an all-expired deck filters to nothing — App falls back to the calendar slides', () => {
+    const deck = [slide({ showUntil: '2026-08-01' }), slide({ showUntil: '2026-09-08' })];
+    expect(visibleSlides(deck, '2026-09-09')).toEqual([]);
+  });
+
+  it('is fed the LOCAL date key, and one day off is the whole bug', () => {
+    // The trap this feature must not fall into: at 23:59 local on Sep 9 in a
+    // US-Eastern evening (exactly club hours) toISOString() already reads
+    // Sep 10, which would retire tonight's slide an evening early. localDateStr
+    // is what App.jsx passes in, and it stays on Sep 9 — pinned in
+    // calendarLogic.test.js. The consequence of the two keys differing:
+    expect(slideInWindow(slide({ showUntil: '2026-09-09' }), '2026-09-09')).toBe(true);
+    expect(slideInWindow(slide({ showUntil: '2026-09-09' }), '2026-09-10')).toBe(false);
+    expect(localDateStr(new Date(2026, 8, 9, 23, 59))).toBe('2026-09-09');
+  });
+});
+
+describe('slideExpired / slideScheduled drive the editor badges, not the filter', () => {
+  it('expired is only about a window that has already closed', () => {
+    expect(slideExpired({ showUntil: '2026-09-08' }, '2026-09-09')).toBe(true);
+    expect(slideExpired({ showUntil: '2026-09-09' }, '2026-09-09')).toBe(false);
+    expect(slideExpired({ showFrom: '2026-09-10' }, '2026-09-09')).toBe(false);
+    expect(slideExpired({}, '2026-09-09')).toBe(false);
+    expect(slideExpired({ showUntil: 'junk' }, '2026-09-09')).toBe(false);
+  });
+
+  it('scheduled is only about a window that has not opened yet', () => {
+    expect(slideScheduled({ showFrom: '2026-09-10' }, '2026-09-09')).toBe(true);
+    expect(slideScheduled({ showFrom: '2026-09-09' }, '2026-09-09')).toBe(false);
+    expect(slideScheduled({ showUntil: '2026-09-01' }, '2026-09-09')).toBe(false);
+  });
+});
+
+describe('mergeSyncedDeck notices a changed show window', () => {
+  const dated = (id, body, extra) => ({ id, eyebrow: '', text: body, theme: 'auto', durationSec: 0, textSize: 'auto', ...extra });
+
+  it('a locally re-dated slide is NOT treated as identical to the published one', () => {
+    const local = [dated('s_a', 'Store night', { showUntil: '2026-10-01' }), { id: 's_v', type: 'video', videoId: 'v_1', videoName: '', videoSize: 0, durationSec: 0 }];
+    const synced = [dated('srv_1', 'Store night', { showUntil: '2026-09-16' })];
+    const out = mergeSyncedDeck(synced, local);
+    // The published text wins; this device's video joins at the end.
+    expect(out.map((s) => s.id)).toEqual(['srv_1', 's_v']);
+    expect(out[0].showUntil).toBe('2026-09-16');
   });
 });

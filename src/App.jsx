@@ -43,7 +43,7 @@ import {
 import { setRemoteDefaults } from './hooks/useConfig.js';
 import { getClubPalette } from './lib/clubs.js';
 import { clubTintFor } from './lib/clubTint.js';
-import { mergeSyncedDeck } from './lib/slides.js';
+import { mergeSyncedDeck, visibleSlides } from './lib/slides.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
@@ -456,6 +456,22 @@ export default function App() {
       { calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining })
     : []), [calendarEnabled, calendar.events, todayStr, specialDates, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining]);
 
+  // Per-slide show windows (#345): a dated announcement retires itself. The
+  // filter runs on the LOCAL date key (`todayStr`, which already ticks over at
+  // midnight without a reload) — never a toISOString()-derived one, which in a
+  // US-Eastern evening is already tomorrow, i.e. exactly club hours.
+  //
+  // A deck whose every slide has expired becomes [], and the background
+  // concatenates the calendar slides SEPARATELY, so the screen falls back to
+  // those (or to the welcome placeholder with the calendar off) — never to a
+  // blank background. The editor is deliberately NOT filtered: it shows every
+  // slide with an "expired" badge, because the operator has to be able to see
+  // and fix the one that stopped showing.
+  const visibleManualSlides = useMemo(
+    () => visibleSlides(effectiveManualSlides, todayStr),
+    [effectiveManualSlides, todayStr]
+  );
+
   // Thin the confetti while a rush is draining so cheap signage sticks
   // hold 60fps with banners firing back-to-back.
   useEffect(() => {
@@ -784,7 +800,7 @@ export default function App() {
             slideshowDelaySec={config.slideshowDelaySec}
             useLocalSlideshow={config.useLocalSlideshow}
             backgroundSource={config.backgroundSource}
-            manualSlides={effectiveManualSlides}
+            manualSlides={visibleManualSlides}
             calendarSlides={calendarSlides}
             sceneTheme={sceneTheme ?? 'sky'}
             cozy={mood.cozy}
