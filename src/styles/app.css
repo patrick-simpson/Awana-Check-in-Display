@@ -2509,6 +2509,25 @@ input:focus-visible {
   color: #4caf50;
 }
 
+/* First-arrival flourish (#335) — the night's opening moment, which happens
+   exactly once. Deliberately NOT carried on border-color: the skin rule
+   `.stage[data-skin] .milestone-toast` above has higher specificity and would
+   repaint it on any themed night. The shadow and the label colour are ours
+   alone. No @keyframes either — the entrance already comes from the M.div
+   toast, so reduceMotion zeroes it with nothing extra to remember. */
+.milestone-toast.first-milestone {
+  box-shadow:
+    0 10px 34px rgba(247, 164, 28, 0.34),
+    0 0 0 3px rgba(255, 210, 87, 0.4);
+}
+.milestone-toast.first-milestone .milestone-label {
+  color: var(--awana-gold, #f7a41c);
+  letter-spacing: 0.12em;
+}
+.milestone-toast.first-milestone .milestone-count {
+  font-size: 2rem;
+}
+
 /* ── Weather mood over the season's scene ──────────────────────────────
    The season picks the scene (background, waves, doodles); the weather only
    cools and dims it. Implemented as a filter on the scene container rather

@@ -206,6 +206,13 @@ const config = {
   // broadcasts) crosses a multiple of this. 0 disables.
   clubMilestoneEvery: 10,
 
+  // Give the very first child checked in each night a one-time "Doors are
+  // open" flourish instead of an ordinary banner-only arrival — the cue that
+  // tells volunteers check-in has actually started. Only a screen that was
+  // already awake before doors can know who was first, so this is skipped
+  // entirely on a screen that boots mid-program (see lib/firstOfNight.js).
+  firstArrivalMoment: true,
+
   // A small "Birthday this Friday!" ribbon on an arriving child's banner
   // when the printer's weekly `birthdays` roster says their birthday falls
   // later this week (never on the day itself — that day's banner already

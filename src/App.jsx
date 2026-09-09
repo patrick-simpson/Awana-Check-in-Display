@@ -46,6 +46,9 @@ import { mergeSyncedDeck } from './lib/slides.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
+import {
+  clearFirstOfNight, firstOfNightCopy, hasFiredToday, isFirstOfNight, markFiredToday,
+} from './lib/firstOfNight.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
 import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, TALLY_SYNC_NOTE_MS } from './lib/constants.js';
 
@@ -155,6 +158,10 @@ export default function App() {
   // Same once-per-night rule the night milestones have: a tally that bounces
   // down (an operator undo) and back up must not re-fire the same threshold.
   const firedClubMilestonesRef = useRef(new Set());
+  // Once-per-session latch for the "Doors are open" flourish (#335). The
+  // per-day localStorage key is the durable half; this is the half that holds
+  // inside a single batched burst and on a device with storage blocked.
+  const firstOfNightFiredRef = useRef(false);
   // The printer's season broadcast, null until (or unless) one arrives.
   const [printerSeason, setPrinterSeason] = useState(/** @type {string|null} */ (null));
   // Rehearsal mode (#19): true while the printer's tallies carry the
@@ -274,14 +281,38 @@ export default function App() {
   // the calm 'late' treatment (no confetti cannon, ducked chime).
   const handleCheckIn = useCallback((payload) => {
     if (payload.id) markSeen(payload.id, payload.at ?? Date.now());
-    enqueue({
-      ...payload,
-      presentation: isLatePhase(phaseRef.current) ? 'late' : 'live',
-    });
+    const late = isLatePhase(phaseRef.current);
+    const presentation = late ? 'late' : 'live';
+    enqueue({ ...payload, presentation });
+    // "Doors are open" (#335): the night's FIRST arrival gets a one-time
+    // flourish riding behind their ordinary banner. Gated BEFORE bump(),
+    // because the gate is "this device has counted nobody yet". All of the
+    // judgement — including the phase gate that stops a screen booting at
+    // 6:40pm from crowning whoever it sees first — is in lib/firstOfNight.js.
+    if (config.firstArrivalMoment !== false
+        && isFirstOfNight({
+          count,
+          phase: phaseRef.current,
+          presentation,
+          // The in-memory latch matters as much as the day key: `count` is
+          // React state, so two check-ins delivered in one batch would both
+          // read zero, and storage can be blocked outright.
+          alreadyFired: firstOfNightFiredRef.current || hasFiredToday(),
+        })) {
+      firstOfNightFiredRef.current = true;
+      markFiredToday();
+      enqueueCelebration({
+        kind: 'first',
+        firstName: payload.firstName,
+        club: payload.club,
+        count: 1,
+        ...firstOfNightCopy(payload.firstName),
+      });
+    }
     // Milestone wall (#10): the sealed `milestone` flag marks the same nights
     // the label's milestone line fires (5/10/25/50). Live check-ins only —
     // a late-phase arrival gets a quiet banner, not a wall celebration.
-    if (payload.milestone && !isLatePhase(phaseRef.current)) {
+    if (payload.milestone && !late) {
       enqueueCelebration({
         kind: 'kid',
         firstName: payload.firstName,
@@ -290,7 +321,10 @@ export default function App() {
       });
     }
     bump();
-  }, [enqueue, bump, markSeen, enqueueCelebration]);
+    // `count` and the config flag are read above, so they belong in the deps.
+    // Re-identifying this handler is free: useSocket keeps handlers in a ref
+    // it re-points every render, so the Pusher subscription never churns.
+  }, [enqueue, bump, markSeen, enqueueCelebration, count, config.firstArrivalMoment]);
 
   // Recap replay: after a reconnect, celebrate the kids this display
   // missed — quiet variant, skipping ids already seen live and anything
@@ -915,7 +949,11 @@ export default function App() {
                       // night threshold, plus a green edge of its own so the
                       // room can tell "ten books" from "a hundred kids".
                       ? `milestone-toast night-milestone handbook-milestone ${celebration.kind}-milestone`
-                      : 'milestone-toast'
+                      : celebration.kind === 'first'
+                        // The night's opening moment (#335) — see app.css for
+                        // why its identity rides the shadow, not the border.
+                        ? 'milestone-toast first-milestone'
+                        : 'milestone-toast'
             }
             style={celebrationClub
               ? { rotate: 1.1, '--club-primary': celebrationClub.primary }
@@ -1065,7 +1103,13 @@ export default function App() {
             onReset={resetConfig}
             onClose={() => setSettingsOpen(false)}
             onTest={(p) => simulate('checkin', p)}
-            onResetTally={resetTally}
+            onResetTally={() => {
+              // Resetting the counter is also the documented way to give back a
+              // "Doors are open" flourish an afternoon rehearsal consumed (#335).
+              clearFirstOfNight();
+              firstOfNightFiredRef.current = false;
+              resetTally();
+            }}
             onOpenSlideEditor={() => {
               setSettingsOpen(false);
               setEditorFromSettings(true);

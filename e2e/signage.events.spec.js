@@ -261,3 +261,44 @@ test('a club milestone toast wears that club’s wordmark', async ({ page }) => 
   // The mascot sticker is banner-scale art and is deliberately hidden here.
   await expect(toast.locator('.club-mascot')).toBeHidden();
 });
+
+test('the night’s first check-in raises the doors-are-open flourish, exactly once', async ({ page }) => {
+  // #335 is phase-gated, and resolvePhase reads the real wall clock — a CI run
+  // on a Wednesday evening would otherwise resolve 'game-time' and see no
+  // flourish at all. So pin the phase hermetically: blank the shared-schedule
+  // URL (so nothing is fetched) and seed the cache with today marked no-club,
+  // which resolvePhase turns into 'off' at any hour on any day.
+  await page.addInitScript(() => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const d = new Date();
+    const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ sharedScheduleUrl: '' }));
+    localStorage.setItem('awanaSchedule.v1', JSON.stringify({
+      fetchedAt: d.toISOString(),
+      raw: {
+        meeting: { day: d.getDay() },
+        windows: [{ start: '18:00', end: '19:30', kind: 'game' }],
+        specialDates: { [today]: { noClub: true } },
+      },
+    }));
+  });
+  await goSignage(page);
+  await openDebug(page);
+
+  await page.getByRole('button', { name: 'Standard welcome' }).click();
+
+  const flourish = page.locator('.milestone-toast.first-milestone');
+  await expect(flourish).toBeVisible();
+  await expect(flourish).toContainText(/Doors are open/i);
+  await expect(flourish).toContainText(/is first in tonight!/i);
+  // Only a first name reaches it — the same name the banner itself shows.
+  await expect(flourish).toContainText(FAKE_NAME);
+
+  // It retires after MILESTONE_TOAST_MS, and the SECOND child of the night
+  // gets a banner and no flourish: the whole point is that it happens once.
+  await expect(flourish).toHaveCount(0, { timeout: 15000 });
+  await page.getByRole('button', { name: 'Standard welcome' }).click();
+  await expect(page.locator('.banner').first()).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect(page.locator('.milestone-toast.first-milestone')).toHaveCount(0);
+});

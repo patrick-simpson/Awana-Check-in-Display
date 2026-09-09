@@ -82,6 +82,7 @@ function seedForm(c) {
     reduceMotion: c.reduceMotion === true,
     burstFloorMs: c.burstFloorMs ?? 2500,
     clubMilestoneEvery: c.clubMilestoneEvery ?? 10,
+    firstArrivalMoment: c.firstArrivalMoment !== false,
     showBirthdayWeekRibbon: c.showBirthdayWeekRibbon !== false,
     clubPhrases: { ...(c.clubPhrases || {}) },
     checkoutBoardMode: ['pickup', 'always'].includes(c.checkoutBoardMode) ? c.checkoutBoardMode : 'off',
@@ -1194,6 +1195,17 @@ function BannersTab({ form, set, setForm }) {
           Uses the printer's live per-club counts — "Sparks 20 kids strong!". 0 turns it off.
         </span>
       </div>
+
+      <Toggle
+        checked={form.firstArrivalMoment}
+        onChange={set('firstArrivalMoment')}
+        title="First arrival of the night"
+        hint={<>
+          The very first child checked in each night gets a one-time &ldquo;Doors are open&rdquo;
+          flourish &mdash; the cue that tells volunteers check-in has actually started. Skipped on a
+          screen that boots after the program is already underway, since it cannot know who was first.
+        </>}
+      />
 
       <MilestoneListField
         id="bookMilestones"
