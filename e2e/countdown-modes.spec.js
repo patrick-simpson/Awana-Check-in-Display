@@ -25,6 +25,19 @@ for (const { now, mode, deck, label } of CASES) {
   });
 }
 
+// The shutdown screen's idle blackout (src/presentation/lib/idleBlackout.js)
+// only arms after 20 minutes of no key or mouse activity, and the idle
+// clock starts at mount — so a freshly loaded shutdown screen is always
+// the full screen, never black. (The blackout is also skipped outright
+// under ?vr=1, which is what keeps the visual baseline valid.)
+test('shutdown shows the full screen immediately after load, not a blackout', async ({ page }) => {
+  await page.goto('/countdown.html?now=2026-09-16T19:40:00');
+  const view = page.locator('[data-mode="shutdown"]');
+  await expect(view).toBeVisible();
+  await expect(view.getByText(/SEE YOU NEXT WEEK/i)).toBeVisible();
+  await expect(page.locator('[data-blackout]')).toHaveCount(0);
+});
+
 // The game clock's wrap-up warning (src/presentation/lib/gameWarning.js).
 // 18:28:30 leaves 90s of the 18:05-18:30 T&T window, so the amber
 // two-minute heads-up is on screen (and stays up for a full minute,
