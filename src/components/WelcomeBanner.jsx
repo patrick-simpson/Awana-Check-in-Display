@@ -18,8 +18,12 @@ import { Mark } from './Doodles.jsx';
  * maybe an extra sparkle) seeded from the name itself — the same kid
  * sees the same flourish every week (#8). An optional per-club phrase
  * from config renders under the name (#15).
+ *
+ * `ribbon` is the optional "Birthday this Friday!" label from
+ * src/lib/birthdayWeek.js — see Overlay.jsx for why it rides this banner
+ * as well as the birthday one.
  */
-export default function WelcomeBanner({ event, audioEnabled, clubPhrases }) {
+export default function WelcomeBanner({ event, audioEnabled, clubPhrases, ribbon }) {
   const club = getClubPalette(event.club);
   const calm = event.presentation === 'replay' || event.presentation === 'late';
   const accent = nameAccent(event.firstName);
@@ -55,6 +59,11 @@ export default function WelcomeBanner({ event, audioEnabled, clubPhrases }) {
             </M.span>
           )}
         </M.h1>
+        {ribbon && (
+          <M.span className="birthday-week-ribbon" variants={bannerItem}>
+            {ribbon}
+          </M.span>
+        )}
         {phrase && (
           <M.span className="club-phrase" variants={bannerItem}>
             {phrase}

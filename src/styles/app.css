@@ -2245,6 +2245,29 @@ input:focus-visible {
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
 }
 
+/* "Birthday this Friday!" ribbon (#331) — a small pill on the arriving
+   child's banner when the weekly roster puts their birthday later this
+   week. Deliberately no animation or transition of its own: it rides the
+   banner's own `bannerItem` variant, and the blanket .zero-animation-mode
+   rule would kill anything added here anyway. */
+.banner .birthday-week-ribbon {
+  /* Scoped to `.banner` on purpose: on the birthday banner this class
+     rides alongside `.tagline` (0-2-0), so a bare `.birthday-week-ribbon`
+     would lose the pill shape to it. */
+  display: inline-block;
+  margin-top: 0.25em;
+  padding: 0.14em 0.8em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--club-accent, #ffd257) 30%, transparent);
+  border: 2px solid color-mix(in srgb, var(--club-accent, #ffd257) 70%, white);
+  font-family: var(--font-hand, inherit);
+  font-size: clamp(1.05rem, 2.2vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--awana-cream);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
 /* ── Tonight ticker (onTonight): lobby stat strip ─────────────────── */
 /* A persistent low-profile strip, bottom-center, well clear of the
    bottom-left settings gear and bottom-right DataCycle corner. Sits

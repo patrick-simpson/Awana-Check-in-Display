@@ -32,6 +32,7 @@ import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calenda
 import { fireMilestone, setConfettiLevel, setConfettiLoad } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { decideBoard } from './lib/checkoutBoard.js';
+import { birthdayRibbon } from './lib/birthdayWeek.js';
 import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
 import { crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight } from './lib/milestones.js';
@@ -246,6 +247,12 @@ export default function App() {
   // decideBoard() in src/lib/checkoutBoard.js.
   const [checkout, setCheckout] = useState(null);
 
+  // This week's birthday roster (the sealed `birthdays` broadcast). Latest
+  // payload wins. The sanitizer emits ONLY { entries } — the wire's `at` is
+  // stripped — so there is deliberately no staleness judgement here; the
+  // printer rebroadcasts every ten minutes on club night.
+  const [birthdays, setBirthdays] = useState(null);
+
   // The synced slide deck — published once at the check-in machine, mirrored
   // to every screen over the sealed `slides` event, cached for reboots.
   const { deck: syncedDeck, onSlides, forget: forgetSyncedDeck } = useSyncedDeck();
@@ -258,6 +265,7 @@ export default function App() {
     onTonight: handleTonight,
     onNotice: handleNotice,
     onCheckout: setCheckout,
+    onBirthdays: setBirthdays,
     onSlides,
   }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice, onSlides]);
 
@@ -313,6 +321,16 @@ export default function App() {
     }, 60000);
     return () => clearInterval(timer);
   }, []);
+
+  // "Birthday this Friday!" for an arriving child the roster says has a
+  // birthday later this week. Pure matcher — see src/lib/birthdayWeek.js for
+  // the fail-safe rules (ambiguity, or a birthday today, means no ribbon).
+  const today = useMemo(() => new Date(`${todayStr}T00:00:00`), [todayStr]);
+  const birthdayWeekRibbon = useMemo(() => {
+    if (config.showBirthdayWeekRibbon === false) return null;
+    if (!currentEvent || !birthdays) return null;
+    return birthdayRibbon(currentEvent.firstName, currentEvent.club, birthdays.entries, today);
+  }, [config.showBirthdayWeekRibbon, currentEvent, birthdays, today]);
 
   const calendar = useCalendar(config);
   // The corner chip works over any background source — it's an overlay
@@ -652,7 +670,12 @@ export default function App() {
       )}
 
       <ErrorBoundary label="banner" eventKey={currentEvent?.id} onError={() => { skipCurrent(); recordLayerFault('banner'); }}>
-        <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} clubPhrases={config.clubPhrases} />
+        <Overlay
+          currentEvent={currentEvent}
+          audioEnabled={!config.audioMuted}
+          clubPhrases={config.clubPhrases}
+          birthdayRibbon={birthdayWeekRibbon}
+        />
       </ErrorBoundary>
 
       {/* Church-authored announcements. Rendered regardless of overlay
@@ -958,6 +981,7 @@ export default function App() {
             onSimulateOps={(p) => simulate('ops', p)}
             onSimulateTally={(p) => simulate('tally', p)}
             onSimulateCheckout={(p) => simulate('checkout', p)}
+            onSimulateBirthdays={(p) => simulate('birthdays', p)}
             onSimulateTonight={(p) => simulate('tonight', p)}
             onSimulateNotice={(p) => simulate('notice', p)}
             onClearNotice={() => setNotice(null)}

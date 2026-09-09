@@ -180,3 +180,28 @@ test('simulated events do not raise page errors', async ({ page }) => {
 // deliberately NOT duplicated here: these specs run against the built bundle,
 // where a raw module import doesn't resolve, and a permanently-skipped test
 // reads as coverage that doesn't exist.
+
+test('a birthday later this week rides a ribbon instead of claiming today', async ({ page }) => {
+  // The weekly `birthdays` roster now reaches the signage page too. Both
+  // simulators name the same fixed child/club pair on purpose — the ribbon
+  // only fires on a unique name+club match, so a random pick could never
+  // drive this path.
+  await goSignage(page);
+  await openDebug(page);
+
+  await page.getByRole('button', { name: /Seed birthday-week roster/ }).click();
+  await page.getByRole('button', { name: /Welcome the birthday-week kid/ }).click();
+
+  const banner = page.locator('.banner').first();
+  await expect(banner).toBeVisible();
+  await expect(banner.locator('.birthday-week-ribbon')).toContainText(/Birthday this \w+!/);
+
+  // Let the queue drain, as the other multi-banner tests here do.
+  await page.waitForTimeout(6000);
+
+  await page.getByRole('button', { name: /Birthday banner for that kid/ }).click();
+  const cake = page.locator('.banner.birthday');
+  await expect(cake.locator('.birthday-week-ribbon')).toContainText(/Birthday this \w+!/);
+  // "It's your special day" is simply wrong three days early.
+  await expect(cake).not.toContainText(/special day/i);
+});

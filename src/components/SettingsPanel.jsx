@@ -80,6 +80,7 @@ function seedForm(c) {
     reduceMotion: c.reduceMotion === true,
     burstFloorMs: c.burstFloorMs ?? 2500,
     clubMilestoneEvery: c.clubMilestoneEvery ?? 10,
+    showBirthdayWeekRibbon: c.showBirthdayWeekRibbon !== false,
     clubPhrases: { ...(c.clubPhrases || {}) },
     checkoutBoardMode: ['pickup', 'always'].includes(c.checkoutBoardMode) ? c.checkoutBoardMode : 'off',
     checkoutBoardNamesAbove: c.checkoutBoardNamesAbove ?? 3,
@@ -1151,6 +1152,17 @@ function BannersTab({ form, set, setForm }) {
           Uses the printer's live per-club counts — "Sparks 20 kids strong!". 0 turns it off.
         </span>
       </div>
+
+      <Toggle
+        checked={form.showBirthdayWeekRibbon !== false}
+        onChange={set('showBirthdayWeekRibbon')}
+        title="Birthday-this-week ribbon"
+        hint={<>
+          When the check-in system says a child’s birthday falls later this week, their banner names the day
+          (&ldquo;Birthday this Friday!&rdquo;) instead of claiming today. Needs a display key — the birthday
+          roster arrives encrypted.
+        </>}
+      />
 
       <h3 className="section">Club phrases</h3>
       <span className="hint" style={{ display: 'block', marginBottom: '0.75rem' }}>

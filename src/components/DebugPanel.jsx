@@ -4,7 +4,7 @@ import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 
 export default function DebugPanel({
   onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice, onClearNotice,
-  onSimulateTally, onSimulateCheckout, onClose,
+  onSimulateTally, onSimulateCheckout, onSimulateBirthdays, onClose,
   status, lastEventAt, pending, phase, seenStats, opsFailures, wakeLockStatus,
 }) {
   const standard = () => onSimulate({
@@ -122,13 +122,28 @@ export default function DebugPanel({
     onSimulateTally?.({ counts, total, at: Date.now() });
   };
 
-  // NOTE: there is deliberately no `birthdays` simulator here. That event is
-  // the weekly ROSTER broadcast, consumed only by the projector page
-  // (countdown.html); the signage banners' birthday mode comes from the
-  // `isBirthday` flag on a checkin event, which the birthday button above
-  // already covers. A button that provably renders nothing is worse than no
-  // button. The projector page still has no simulator UI at all — that belongs
-  // with the projector work, not here.
+  // The weekly `birthdays` ROSTER broadcast. The projector page has always
+  // consumed it; the signage page does too now, for the "Birthday this
+  // Friday!" ribbon (src/lib/birthdayWeek.js). The ribbon needs the roster
+  // entry and the arriving check-in to name the SAME child and club, so these
+  // three buttons use one fixed pair rather than the random picks above —
+  // otherwise the path could never be driven end to end from here.
+  const RIBBON_KID = SAMPLE_NAMES[0];
+  const RIBBON_CLUB = 'Sparks';
+  const birthdayWeekRoster = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    onSimulateBirthdays?.({
+      entries: [{
+        firstName: RIBBON_KID, club: RIBBON_CLUB, month: d.getMonth() + 1, day: d.getDate(),
+      }],
+      at: new Date().toISOString(),
+    });
+  };
+  const birthdayWeekWelcome = () => onSimulate({ firstName: RIBBON_KID, club: RIBBON_CLUB });
+  const birthdayWeekCake = () => onSimulate({
+    firstName: RIBBON_KID, club: RIBBON_CLUB, isBirthday: true,
+  });
 
   const seen = seenStats?.() ?? { size: 0 };
 
@@ -157,6 +172,13 @@ export default function DebugPanel({
       {onSimulateRecap && <button onClick={recap}>Simulate recap replay (quiet banners)</button>}
       {onSimulateOps && <button onClick={printFailure}>Simulate print failure (ops)</button>}
       {onSimulateTally && <button onClick={tally}>Simulate club tally (counts)</button>}
+      {onSimulateBirthdays && (
+        <>
+          <button onClick={birthdayWeekRoster}>Seed birthday-week roster (Test Kid · Sparks)</button>
+          <button onClick={birthdayWeekWelcome}>Welcome the birthday-week kid (ribbon)</button>
+          <button onClick={birthdayWeekCake}>Birthday banner for that kid (ribbon)</button>
+        </>
+      )}
       {onSimulateCheckout && (
         <>
           <button onClick={checkoutBoard(9)}>Still-here board: 9 children (names)</button>

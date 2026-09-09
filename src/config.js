@@ -188,6 +188,13 @@ const config = {
   // broadcasts) crosses a multiple of this. 0 disables.
   clubMilestoneEvery: 10,
 
+  // A small "Birthday this Friday!" ribbon on an arriving child's banner
+  // when the printer's weekly `birthdays` roster says their birthday falls
+  // later this week (never on the day itself — that day's banner already
+  // says the right thing). The roster arrives sealed, so a screen with no
+  // display key simply never shows one.
+  showBirthdayWeekRibbon: true,
+
   // ── Who's still here board ────────────────────────────────────────────
   // Shows which children have not been checked out yet, from the printer's
   // `checkout` broadcast.

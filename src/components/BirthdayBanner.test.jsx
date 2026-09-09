@@ -81,6 +81,27 @@ describe('BirthdayBanner', () => {
     expect(container.querySelector('h1.birthday-glow')).not.toBeNull();
   });
 
+  // The printer's `isBirthday` flag covers the whole ISO week, so this banner
+  // also greets a child whose birthday is still days away. Where the roster
+  // resolves the day, the ribbon must replace the day-claiming tagline.
+  it('names the day instead of claiming today when a ribbon is supplied', () => {
+    const { container } = render(
+      <BirthdayBanner event={event} audioEnabled={false} ribbon="Birthday this Friday!" />,
+    );
+    expect(container.querySelector('.birthday-week-ribbon')).not.toBeNull();
+    expect(container.textContent).toContain('Birthday this Friday!');
+    expect(container.textContent).not.toMatch(/special day/i);
+    // The rest of the celebration is untouched — it is a week-long party.
+    expect(container.textContent).toContain('Happy Birthday');
+    expect(container.querySelector('.cake svg')).not.toBeNull();
+  });
+
+  it('keeps the original tagline with no ribbon', () => {
+    const { container } = render(<BirthdayBanner event={event} audioEnabled={false} />);
+    expect(container.querySelector('.birthday-week-ribbon')).toBeNull();
+    expect(container.textContent).toMatch(/special day/i);
+  });
+
   it('still shows a variety of falling pieces after the art expansion', () => {
     const { container } = render(<BirthdayBanner event={event} audioEnabled={false} />);
     const pieces = container.querySelectorAll('.gift-rain .gift svg');

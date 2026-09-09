@@ -33,6 +33,7 @@ const VALIDATORS = {
   milestoneEvery: numberBetween(0, 10000),
   showClock: isBool,
   showWeatherChip: isBool,
+  showBirthdayWeekRibbon: isBool,
   widgetDisplayMode: (v) => v === 'cycle' || v === 'stickers',
   cycleIntervalSec: numberBetween(2, 120),
   calendarEnabled: isBool,
