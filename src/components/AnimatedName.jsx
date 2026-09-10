@@ -1,4 +1,5 @@
 import { M } from '../lib/motion.jsx';
+import { NAME_ENTRANCES } from '../lib/nameAccent.js';
 
 /**
  * The kid's name with a joyful staggered bounce — each letter springs in
@@ -23,10 +24,46 @@ const PER_LETTER_MAX = 14;
 // overshoot never collides with the loop.
 const BOB_START_DELAY = 1.1;
 
-const letterVariant = {
-  hidden: { opacity: 0, y: 34, rotate: -8 },
-  show: { opacity: 1, y: 0, rotate: 0, transition: { type: 'spring', stiffness: 500, damping: 18 } },
+/**
+ * Per-letter entrance styles, keyed by the ids in lib/nameAccent.js (#336).
+ * Each child is dealt one from their own seeded stream, so "their" banner
+ * flies in the same way every week — the same personal touch the tilt and the
+ * sparkle already were, but visible from across the lobby.
+ *
+ * `hidden` may be a function of the letter's index (framer-motion passes the
+ * `custom` prop), which is what lets `wave` shape its start heights along a
+ * sine instead of starting every letter from the same place.
+ */
+const ENTRANCES = {
+  // The original entrance, unchanged — up from below with a little overshoot
+  // and a twist. Still the default for any caller that passes no entrance.
+  pop: {
+    hidden: { opacity: 0, y: 34, rotate: -8 },
+    show: { opacity: 1, y: 0, rotate: 0, transition: { type: 'spring', stiffness: 500, damping: 18 } },
+  },
+  // A rolling wave: neighbouring letters start at different heights (some
+  // above the line, some below), so the name unfurls rather than arriving as
+  // one row. Softer spring, because the offsets are already doing the work.
+  wave: {
+    hidden: (index = 0) => ({ opacity: 0, y: 26 * Math.sin(index * 0.9 + 0.4), rotate: 0 }),
+    show: { opacity: 1, y: 0, rotate: 0, transition: { type: 'spring', stiffness: 330, damping: 20 } },
+  },
+  // Straight down from above and heavily damped, so the letters LAND rather
+  // than bounce — the calmest of the three.
+  drop: {
+    hidden: { opacity: 0, y: -46, rotate: 0 },
+    show: { opacity: 1, y: 0, rotate: 0, transition: { type: 'spring', stiffness: 420, damping: 30 } },
+  },
 };
+
+// Belt and braces: the id list lives in nameAccent.js (it is the seeded draw's
+// contract) and the variants live here, so a new id added there without a
+// variant here would silently fall back to `pop`. Fail loudly in dev instead.
+if (import.meta.env?.DEV) {
+  for (const id of NAME_ENTRANCES) {
+    if (!ENTRANCES[id]) console.warn(`AnimatedName: no variant for entrance '${id}'`);
+  }
+}
 
 const wordVariant = {
   hidden: { opacity: 0, y: 26 },
@@ -51,10 +88,13 @@ function Bob({ index, amount, children }) {
   );
 }
 
-export default function AnimatedName({ name }) {
+export default function AnimatedName({ name, entrance = 'pop' }) {
   const text = typeof name === 'string' ? name : '';
   const words = text.split(' ').filter(Boolean);
   const perLetter = text.length <= PER_LETTER_MAX;
+  // An unknown id (an old cached accent, a typo) reads as the original
+  // entrance rather than as a name that never appears.
+  const letterVariant = ENTRANCES[entrance] ?? ENTRANCES.pop;
 
   // Letters are staggered by their position in the whole name, not the
   // word, so the bob rolls across the name as one continuous wave.
@@ -65,11 +105,17 @@ export default function AnimatedName({ name }) {
     // preserves natural line wrapping for long names.
     <span key={w} className="name-word">
       {perLetter
-        ? Array.from(word).map((ch, i) => (
-            <M.span key={i} className="name-letter" variants={letterVariant}>
-              <Bob index={letterIndex++} amount={4}>{ch}</Bob>
-            </M.span>
-          ))
+        ? Array.from(word).map((ch, i) => {
+            // Captured before the increment: `custom` and the bob's phase are
+            // the same position in the whole name, so the entrance wave and
+            // the idle bob roll in the same direction.
+            const at = letterIndex++;
+            return (
+              <M.span key={i} className="name-letter" variants={letterVariant} custom={at}>
+                <Bob index={at} amount={4}>{ch}</Bob>
+              </M.span>
+            );
+          })
         : (
             <M.span className="name-letter" variants={wordVariant}>
               <Bob index={w * 2} amount={3}>{word}</Bob>

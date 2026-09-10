@@ -2,6 +2,7 @@ import { M } from '../lib/motion.jsx';
 import { getClubPalette } from '../lib/clubs.js';
 import { fireStandard } from '../lib/confetti.js';
 import { playChime } from '../lib/audio.js';
+import { nameAccent } from '../lib/nameAccent.js';
 import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import BannerShell, { Eyebrow, bannerItem, bannerNameStagger } from './BannerShell.jsx';
 import AnimatedName from './AnimatedName.jsx';
@@ -58,7 +59,11 @@ export default function WelcomeBackBanner({ event, audioEnabled }) {
       <div className="banner-text">
         <Eyebrow>Great to see you again</Eyebrow>
         <M.h1 variants={bannerNameStagger}>
-          <AnimatedName name={`${event.firstName}!`} />
+          {/* Only the seeded ENTRANCE is taken from nameAccent here (#336): the
+              tilt, twinkle phase and sparkle are the standard welcome banner's
+              look, but every kid should recognise their own letter entrance
+              whichever banner mode they get. */}
+          <AnimatedName name={`${event.firstName}!`} entrance={nameAccent(event.firstName).entrance} />
         </M.h1>
         <M.span variants={bannerItem} className="tagline">
           Welcome back for a brand-new season!

@@ -10,6 +10,15 @@
 // the two secrets into their own storage slots (src/lib/displayKey.js,
 // src/lib/publishToken.js) — never into `awanaConfig.v1`.
 //
+// The bundle also carries a NON-secret `configUrl` (#394): where this screen
+// fetches its display-settings JSON from, so one passphrase sets a replacement
+// screen up completely instead of leaving weather/calendar/widgets to be typed
+// in by hand. It lands in its own slot too (src/lib/fleetConfigUrl.js) and is
+// applied through the exact remote-config path `?config=` already uses — it
+// must never enter `VALIDATORS`, because that table backs both the Settings
+// export and `?config=`, so a remote config could otherwise repoint the screen
+// at another remote config with no operator in the loop.
+//
 // THE DERIVED LOGIN KEY IS STORED APART FROM EVERY OTHER SETTING, for exactly
 // the three documented reasons displayKey.js enumerates: `?config=<url>`,
 // Settings → Export and the URL flags all operate on the config object, and a
@@ -25,6 +34,7 @@
 import { fromBase64, importDisplayKey, isEnvelope, isPlausibleKey, openEnvelope, toBase64 } from './envelope.js';
 import { saveDisplayKey } from './displayKey.js';
 import { savePublishToken } from './publishToken.js';
+import { isValidFleetConfigUrl, saveFleetConfigUrl } from './fleetConfigUrl.js';
 
 /** localStorage keys — exported so tests can assert neither is `awanaConfig.v1`. */
 export const LOGIN_KEY_STORAGE = 'awanaLoginKey.v1';
@@ -121,7 +131,11 @@ export function isProvisionFrame(x) {
  * rejected whole — nothing is written — because a half-applied bundle (key but
  * junk token, or vice versa) is worse than none.
  * @param {unknown} x
- * @returns {x is {v: 1, displayKey: string, slidesPublishToken: string, issuedAt: string}}
+ * `configUrl` is OPTIONAL for deploy-order safety: a publisher that predates
+ * it simply omits the field, and that means "no news", not "clear it". Present,
+ * it must be a string — '' (the operator cleared it) or a URL that passes the
+ * same https/length rule the publisher applied before sealing.
+ * @returns {x is {v: 1, displayKey: string, slidesPublishToken: string, issuedAt: string, configUrl?: string}}
  */
 export function isProvisionBundle(x) {
   if (!x || typeof x !== 'object') return false;
@@ -131,6 +145,10 @@ export function isProvisionBundle(x) {
   if (typeof b.slidesPublishToken !== 'string') return false;
   if (b.slidesPublishToken !== '' && !TOKEN_RE.test(b.slidesPublishToken)) return false;
   if (typeof b.issuedAt !== 'string' || !Number.isFinite(Date.parse(b.issuedAt))) return false;
+  if (b.configUrl !== undefined) {
+    if (typeof b.configUrl !== 'string') return false;
+    if (b.configUrl !== '' && !isValidFleetConfigUrl(b.configUrl)) return false;
+  }
   return true;
 }
 
@@ -185,13 +203,22 @@ export async function openProvisionFrame(frame, loginKeyB64, opts = {}) {
 }
 
 /**
- * Write a bundle into the two secret slots. Returns false if either write
+ * Write a bundle into the two secret slots (and, when the publisher sent one,
+ * the non-secret fleet-config slot). Returns false if either SECRET write
  * failed (storage blocked) — the caller reports, nothing else is retried.
- * @param {{displayKey: string, slidesPublishToken: string, issuedAt: string}} bundle
+ *
+ * NOTHING here is ever written into the config object, dispatched through
+ * dispatchEvent, or rendered: a provision frame is transport, not a display
+ * event, and it never touches the event sanitizers.
+ * @param {{displayKey: string, slidesPublishToken: string, issuedAt: string, configUrl?: string}} bundle
  */
 export function applyProvisionBundle(bundle) {
   const okKey = saveDisplayKey(bundle.displayKey);
   const okTok = savePublishToken(bundle.slidesPublishToken);
+  // ABSENT means "this publisher does not know about the field" — keep what
+  // this screen already has. '' means the operator cleared it, which must
+  // reach screens that already applied one. Its own slot, never config.
+  if (typeof bundle.configUrl === 'string') saveFleetConfigUrl(bundle.configUrl);
   if (okKey && okTok) saveIssuedAt(Date.parse(bundle.issuedAt));
   return okKey && okTok;
 }
@@ -342,12 +369,16 @@ export async function loginWithPassphrase(passphrase) {
   return 'logged-in';
 }
 
-/** Forget the login key AND the two secrets it provisioned on this screen. */
+/** Forget the login key AND everything it provisioned on this screen. */
 export function logout() {
   saveLoginKey('');
   saveIssuedAt(null);
   saveDisplayKey('');
   savePublishToken('');
+  // The fleet-config URL came from the same login, so it goes with it: a
+  // screen being un-provisioned must not keep following a fleet it has just
+  // been removed from.
+  saveFleetConfigUrl('');
   pendingPassphrase = null;
   update({ loginStatus: 'logged-out', kid: null, lastAppliedAt: null, pendingLogin: false });
 }

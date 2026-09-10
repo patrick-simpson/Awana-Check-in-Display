@@ -152,7 +152,9 @@ const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex 
         />
       );
     case AppMode.SHUTDOWN:
-      return <ShutdownView onRestart={() => onSelect({ type: 'countdown' })} />;
+      // `now` feeds the shutdown screen's idle blackout (it runs until
+      // midnight, mostly to an empty room) — see lib/idleBlackout.js.
+      return <ShutdownView now={now} onRestart={() => onSelect({ type: 'countdown' })} />;
   }
 };
 

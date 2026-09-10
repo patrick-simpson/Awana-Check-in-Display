@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { M } from '../lib/motion.jsx';
 import { fireBirthday } from '../lib/confetti.js';
 import { playBirthdayChime } from '../lib/audio.js';
+import { nameAccent } from '../lib/nameAccent.js';
 import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import BannerShell, { Eyebrow, bannerItem, bannerNameStagger } from './BannerShell.jsx';
 import AnimatedName from './AnimatedName.jsx';
@@ -41,8 +42,11 @@ function seededRandom(seed) {
  * Birthday banner: coral→raspberry band, a wiggling three-tier cake,
  * and a full-screen rain of gifts, balloons and stars. The rain lives
  * outside the band so it can fall over the whole display.
+ *
+ * `ribbon` is the optional "Birthday this Friday!" label from
+ * src/lib/birthdayWeek.js; where present it replaces the tagline.
  */
-export default function BirthdayBanner({ event, audioEnabled }) {
+export default function BirthdayBanner({ event, audioEnabled, ribbon }) {
   const calm = event.presentation === 'replay' || event.presentation === 'late';
   useCelebration(event.id, audioEnabled, celebrationProfile(event.presentation, {
     confetti: fireBirthday,
@@ -194,10 +198,24 @@ export default function BirthdayBanner({ event, audioEnabled }) {
           {/* The glow pulse is plain CSS, so zero-animation mode's blanket
               rule kills it automatically; calm arrivals skip the class. */}
           <M.h1 variants={bannerNameStagger} className={calm ? undefined : 'birthday-glow'}>
-            <AnimatedName name={`${event.firstName}!`} />
+            {/* Only the seeded ENTRANCE is taken from nameAccent here (#336): the
+                tilt, twinkle phase and sparkle are the standard welcome banner's
+                look, but every kid should recognise their own letter entrance
+                whichever banner mode they get. */}
+            <AnimatedName name={`${event.firstName}!`} entrance={nameAccent(event.firstName).entrance} />
           </M.h1>
-          <M.span variants={bannerItem} className="tagline">
-            Hip hip hooray &mdash; it&rsquo;s your special day!
+          {/* The printer's `isBirthday` flag covers the whole ISO week, so
+              this banner also greets a child whose birthday is still a few
+              days off. Where the roster tells us which day that is, the
+              ribbon replaces the tagline — "it's your special day" is
+              simply wrong on Wednesday for a Friday birthday. The cake, the
+              gift rain and the eyebrow stay: the celebration is week-long,
+              only the day-claiming line changes. */}
+          <M.span
+            variants={bannerItem}
+            className={ribbon ? 'tagline birthday-week-ribbon' : 'tagline'}
+          >
+            {ribbon ?? <>Hip hip hooray &mdash; it&rsquo;s your special day!</>}
           </M.span>
         </div>
       </BannerShell>

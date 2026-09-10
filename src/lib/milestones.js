@@ -60,6 +60,87 @@ export function nightMilestoneCopy(count) {
 }
 
 /**
+ * Handbook progress thresholds (#358). Awana is about the handbook, but the
+ * only thing the screen ever cheered was attendance — so these ride the same
+ * `tonight` broadcast's booksCompleted / awardsEarned counters, which the
+ * printer has been sending all along with nothing rendering them.
+ *
+ * Smaller numbers than the attendance thresholds on purpose: finishing ten
+ * books in one night is a bigger deal than the hundredth kid through the door.
+ * @type {ReadonlyArray<number>}
+ */
+export const BOOK_MILESTONES = [5, 10, 25];
+
+/** @type {ReadonlyArray<number>} */
+export const AWARD_MILESTONES = [10, 25, 50];
+
+/**
+ * Repair an operator-supplied threshold list: whole numbers 1–10000 only,
+ * de-duplicated, ascending, and capped at twelve entries.
+ *
+ * Used by BOTH the config validator (so a corrupt localStorage entry or a
+ * hostile ?config= file can never hand crossedMilestones a NaN or a
+ * thousand-entry list) and the Settings field, so the two agree on what a
+ * threshold list even is. Order matters downstream: crossedMilestones sorts
+ * its output, but a caller reading thresholds directly should not have to.
+ *
+ * @param {unknown} raw
+ * @returns {number[]}
+ */
+export function sanitizeMilestoneList(raw) {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set();
+  for (const value of raw) {
+    const n = typeof value === 'number' ? value : Number(value);
+    if (!Number.isInteger(n) || n < 1 || n > 10000) continue;
+    seen.add(n);
+  }
+  return [...seen].sort((a, b) => a - b).slice(0, 12);
+}
+
+/**
+ * Parse a Settings text field ("5, 10, 25") into a threshold list.
+ * Anything unparseable is simply dropped — an operator mid-typing must never
+ * see the field fight them, and an empty result means "off".
+ *
+ * @param {string} text
+ * @returns {number[]}
+ */
+export function parseMilestoneList(text) {
+  return sanitizeMilestoneList(String(text ?? '').split(/[^0-9]+/).filter(Boolean).map(Number));
+}
+
+/**
+ * Copy for a "books finished tonight" celebration.
+ *
+ * Says *tonight* explicitly, and "finished" rather than "completed", because
+ * this counter is the evening's own total from the check-in system — not a
+ * running club-year figure, which is what a bare "10 books!" would imply on a
+ * lobby wall.
+ *
+ * @param {number} count
+ * @returns {{ label: string, headline: string }}
+ */
+export function bookMilestoneCopy(count) {
+  return {
+    label: 'Handbooks',
+    headline: `${count} book${count === 1 ? '' : 's'} finished tonight!`,
+  };
+}
+
+/**
+ * Copy for an "awards earned tonight" celebration.
+ * @param {number} count
+ * @returns {{ label: string, headline: string }}
+ */
+export function awardMilestoneCopy(count) {
+  return {
+    label: 'Awards earned',
+    headline: `${count} award${count === 1 ? '' : 's'} earned tonight!`,
+  };
+}
+
+/**
  * Is this milestone big enough for the escalated confetti burst?
  * @param {number} count
  * @returns {boolean}

@@ -375,6 +375,27 @@ html, body, #root {
   margin-bottom: 0.5rem;
 }
 .slide-card-index:focus { outline: 2px solid var(--awana-orange); outline-offset: 2px; border-radius: 4px; }
+/* Show-window badges (#345) on the editor's index line. The row itself is
+   never hidden when a window closes — the operator has to be able to find
+   and fix the slide that stopped showing. */
+.slide-window-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+}
+.slide-window-badge.is-expired {
+  background: rgba(220, 38, 38, 0.14);
+  color: #b42318;
+}
+.slide-window-badge.is-scheduled {
+  background: rgba(245, 158, 11, 0.18);
+  color: #8a5300;
+}
 .slide-card-fields .slide-counter { display: block; text-align: right; margin-top: 0.2rem; }
 .slide-empty {
   padding: 1.5rem;
@@ -1159,6 +1180,15 @@ html, body, #root {
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.8);
 }
+/* The cycle-mode twin of .tally-sync-note. Smaller than .data-cycle-sub and
+   not uppercased: it is a sentence, not a label. */
+.data-cycle-note {
+  font-family: var(--font-condensed);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.72);
+}
 .data-cycle-row {
   display: flex;
   align-items: center;
@@ -1188,6 +1218,7 @@ html, body, #root {
   top: calc(var(--safe-inset) + 10px);
   left: var(--safe-inset);
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: 0.6rem;
   padding: 0.55rem 1.2rem;
@@ -1206,6 +1237,19 @@ html, body, #root {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-on-glass-muted);
+}
+/* "synced with the check-in desk" (#351) — its own row under the number
+   (flex-basis: 100% against .tally's wrap), quiet enough that it explains
+   the jump without competing with the count itself. */
+.tally .tally-sync-note {
+  flex-basis: 100%;
+  margin-top: 0.15rem;
+  font-family: var(--font-condensed);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-on-glass-muted);
+  opacity: 0.85;
 }
 
 /* ── Settings gear button ──────────────────────────────── */
@@ -1811,6 +1855,35 @@ html, body, #root {
   opacity: 0.9;
 }
 
+/* Club wordmark inside the milestone toast (#332). The `.banner`-scoped
+   club rules above are deliberately NOT reused: this is a 640px pill, not
+   a lower-third band, and the wordmark art runs up to 800px wide — dropped
+   in unstyled it would render at intrinsic size and blow the toast apart. */
+.milestone-toast .milestone-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.milestone-toast .club-logo-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: clamp(34px, 5.2vh, 58px);
+  flex-shrink: 0;
+}
+.milestone-toast .club-logo {
+  height: 100%;
+  width: auto;
+  max-width: clamp(96px, 13vw, 180px);
+  object-fit: contain;
+  filter:
+    drop-shadow(0 3px 0 rgba(0, 0, 0, 0.14))
+    drop-shadow(0 8px 18px rgba(0, 0, 0, 0.26));
+}
+/* Wordmark only here — the mascot sticker is banner-scale art and would
+   crowd a pill that already carries two sparkles and two lines of text. */
+.milestone-toast .club-mascot { display: none; }
+
 /* ── "More coming" queue chip ──────────────────────────── */
 .up-next {
   position: absolute;
@@ -1922,6 +1995,8 @@ input:focus-visible {
   .wall-clock { padding: 0.4rem 0.85rem; }
   .tally .tally-count { font-size: 1.3rem; }
   .tally .tally-label { font-size: 0.7rem; }
+  .tally .tally-sync-note { font-size: 0.6rem; }
+  .data-cycle-note { font-size: 0.62rem; }
   .wall-clock .time { font-size: 1.3rem; }
   .wall-clock .meridiem { font-size: 0.75rem; }
 
@@ -1945,6 +2020,8 @@ input:focus-visible {
     gap: 0.5rem;
   }
   .milestone-toast .milestone-count { font-size: clamp(1.6rem, 7vw, 2.4rem); }
+  .milestone-toast .club-logo-slot { height: clamp(26px, 6vw, 40px); }
+  .milestone-toast .club-logo { max-width: clamp(72px, 22vw, 130px); }
 
   .tonight-ticker {
     max-width: 92vw;
@@ -2052,6 +2129,8 @@ input:focus-visible {
   .wall-clock { padding: 0.35rem 0.8rem; }
   .tally .tally-count { font-size: 1.2rem; }
   .tally .tally-label { font-size: 0.65rem; }
+  .tally .tally-sync-note { font-size: 0.58rem; }
+  .data-cycle-note { font-size: 0.6rem; }
   .wall-clock .time { font-size: 1.2rem; }
 
   .banner { padding: 0.8rem 4vw 1.2rem; }
@@ -2245,6 +2324,29 @@ input:focus-visible {
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
 }
 
+/* "Birthday this Friday!" ribbon (#331) — a small pill on the arriving
+   child's banner when the weekly roster puts their birthday later this
+   week. Deliberately no animation or transition of its own: it rides the
+   banner's own `bannerItem` variant, and the blanket .zero-animation-mode
+   rule would kill anything added here anyway. */
+.banner .birthday-week-ribbon {
+  /* Scoped to `.banner` on purpose: on the birthday banner this class
+     rides alongside `.tagline` (0-2-0), so a bare `.birthday-week-ribbon`
+     would lose the pill shape to it. */
+  display: inline-block;
+  margin-top: 0.25em;
+  padding: 0.14em 0.8em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--club-accent, #ffd257) 30%, transparent);
+  border: 2px solid color-mix(in srgb, var(--club-accent, #ffd257) 70%, white);
+  font-family: var(--font-hand, inherit);
+  font-size: clamp(1.05rem, 2.2vw, 1.7rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--awana-cream);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
 /* ── Tonight ticker (onTonight): lobby stat strip ─────────────────── */
 /* A persistent low-profile strip, bottom-center, well clear of the
    bottom-left settings gear and bottom-right DataCycle corner. Sits
@@ -2413,6 +2515,40 @@ input:focus-visible {
   font-size: 2.1rem;
 }
 
+/* Handbook milestones (#358) — books finished / awards earned tonight. The
+   night-milestone treatment (this IS a room-wide occasion) with a green edge,
+   so "10 books finished tonight!" is distinguishable at a glance from "100
+   kids tonight!" on a wall nobody is reading closely. */
+/* #4caf50 literal rather than a new token: it is the same green already in
+   the house milestone confetti palette (lib/confetti.js MILESTONE_COLORS),
+   and the token block above holds the catalog brand colours only. */
+.milestone-toast.handbook-milestone {
+  border-color: #4caf50;
+  box-shadow: 0 10px 30px rgba(76, 175, 80, 0.28);
+}
+.milestone-toast.handbook-milestone .milestone-label {
+  color: #4caf50;
+}
+
+/* First-arrival flourish (#335) — the night's opening moment, which happens
+   exactly once. Deliberately NOT carried on border-color: the skin rule
+   `.stage[data-skin] .milestone-toast` above has higher specificity and would
+   repaint it on any themed night. The shadow and the label colour are ours
+   alone. No @keyframes either — the entrance already comes from the M.div
+   toast, so reduceMotion zeroes it with nothing extra to remember. */
+.milestone-toast.first-milestone {
+  box-shadow:
+    0 10px 34px rgba(247, 164, 28, 0.34),
+    0 0 0 3px rgba(255, 210, 87, 0.4);
+}
+.milestone-toast.first-milestone .milestone-label {
+  color: var(--awana-gold, #f7a41c);
+  letter-spacing: 0.12em;
+}
+.milestone-toast.first-milestone .milestone-count {
+  font-size: 2rem;
+}
+
 /* ── Weather mood over the season's scene ──────────────────────────────
    The season picks the scene (background, waves, doodles); the weather only
    cools and dims it. Implemented as a filter on the scene container rather
@@ -2431,6 +2567,34 @@ input:focus-visible {
 }
 @media (prefers-reduced-motion: reduce) {
   .catalog-scene--cozy { transition: none; }
+}
+
+/* ── The arriving club's wash (#349) ───────────────────────────────────
+   While a child's banner holds the stage the scene behind it breathes that
+   child's own club accent, then fades back out when the banner leaves. Opt-in
+   (config.clubTintBackground), because a themed night skin is a look somebody
+   chose on purpose and this competes with it.
+
+   Deliberately opacity-only over a solid colour, with no blend mode: the layer
+   is always mounted so the fade has both directions to play, and a compositing
+   blend would cost real frames on the Raspberry Pi Zero kiosk that embeds this
+   page. It sits over the scene art and UNDER the scene's children, so slide
+   copy and the setup headline never go pastel.
+
+   No @keyframes and nothing framer-motion touches — just a transition, which
+   is exactly what the blanket .zero-animation-mode rule above already kills,
+   so under reduceMotion / ?lowPower=1 the tint snaps instead of fading. */
+.scene-club-tint {
+  position: absolute;
+  inset: 0;
+  background: var(--club-tint, transparent);
+  opacity: 0;
+  transition: opacity 1.1s ease;
+  pointer-events: none;
+}
+.catalog-scene--club-tinted .scene-club-tint { opacity: 0.34; }
+@media (prefers-reduced-motion: reduce) {
+  .scene-club-tint { transition: none; }
 }
 
 /* Display key field — the key is masked and the buttons sit inline, because a

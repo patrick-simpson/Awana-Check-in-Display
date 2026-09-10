@@ -8,6 +8,10 @@ import { DEFAULT_SCHEDULE, resolvePhase, sanitizeSchedule } from '../lib/schedul
 const CACHE_KEY = 'awanaSchedule.v1';
 const REFRESH_MS = 6 * 60 * 60 * 1000;
 const TICK_MS = 30 * 1000;
+// A stable empty table: a fresh {} per render would give the calendar-slides
+// memo a new dependency identity every time and restart the slideshow's hold
+// timer — the exact bug that memo's comment in App.jsx exists to prevent.
+const NO_SPECIAL_DATES = {};
 
 function loadCache() {
   try {
@@ -26,8 +30,13 @@ function saveCache(raw) {
 }
 
 /**
- * Returns { phase, schedule, source } — phase re-resolves every 30 s
- * so banner styling flips on the program boundaries without a reload.
+ * Returns { phase, schedule, specialDates, source } — phase re-resolves every
+ * 30 s so banner styling flips on the program boundaries without a reload.
+ *
+ * `specialDates` is hoisted out of the schedule (#342) because two consumers
+ * need it and neither wants the rest: the calendar slides subtract break weeks
+ * from "nights remaining", and resolvePhase already reads it internally to
+ * force 'off' on a cancelled night.
  */
 export function useSchedule(config) {
   const url = config.sharedScheduleUrl;
@@ -69,5 +78,12 @@ export function useSchedule(config) {
     return () => { cancelled = true; clearInterval(timer); };
   }, [url]);
 
-  return { phase, schedule: state.schedule, source: state.source };
+  return {
+    phase,
+    schedule: state.schedule,
+    // Always an object, so a caller never has to guard: the baked default and
+    // every sanitized schedule both carry one.
+    specialDates: state.schedule?.specialDates ?? NO_SPECIAL_DATES,
+    source: state.source,
+  };
 }

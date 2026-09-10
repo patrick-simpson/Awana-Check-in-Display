@@ -21,6 +21,60 @@ export function setConfettiLevel(level) {
 const off = () => levelFactor === 0;
 const scaled = (count) => Math.max(1, Math.round(count * loadFactor * levelFactor));
 
+// ── Season-shaped confetti (#340) ────────────────────────────────────────────
+// The skin already dresses the room for the season (src/lib/skins.js); these
+// let the room-wide bursts wear it too — red-and-green stars at Christmas,
+// white circles on a snow day, amber squares in autumn.
+//
+// Shapes are canvas-confetti's BUILT-IN names only. The installed build
+// (1.9.4) does also export shapeFromPath/shapeFromText, but both rasterize
+// through a live 2d canvas (and shapeFromText through a font that a kiosk
+// Raspberry Pi may not even have — the emoji-font lesson from the Journey
+// kiosk), and neither is needed for the seasons we actually dress. So this
+// list is the whole vocabulary: 1.9.4 draws 'circle' and 'star' specially and
+// EVERY other value as a square, so an unknown name is silently a square —
+// which is why unknown shapes are dropped here and skins.test.js cross-checks
+// every table entry against this list.
+export const CONFETTI_SHAPES = ['square', 'circle', 'star'];
+
+/** @type {{ colors: string[], shapes: string[] } | null} */
+let skinProfile = null;
+
+/**
+ * Adopt (or clear) the active skin's confetti profile.
+ *
+ * Module-level, like setConfettiLevel/setConfettiLoad, and set from App.jsx in
+ * an effect keyed on the resolved skin. Anything malformed — a non-object, a
+ * colours string, an unknown shape name — is dropped rather than thrown, so a
+ * bad table entry or a future shared-theme override costs the season's
+ * particles, never the burst.
+ *
+ * @param {{ colors?: unknown, shapes?: unknown } | null | undefined} profile
+ */
+export function setConfettiSkin(profile) {
+  const raw = profile && typeof profile === 'object' ? profile : null;
+  const colors = Array.isArray(raw?.colors)
+    ? raw.colors.filter((c) => typeof c === 'string' && c.trim() !== '')
+    : [];
+  const shapes = Array.isArray(raw?.shapes)
+    ? raw.shapes.filter((s) => CONFETTI_SHAPES.includes(s))
+    : [];
+  skinProfile = (colors.length || shapes.length) ? { colors, shapes } : null;
+}
+
+const skinColors = () => (skinProfile && skinProfile.colors.length ? skinProfile.colors : null);
+const skinShapes = () => (skinProfile && skinProfile.shapes.length ? skinProfile.shapes : null);
+// Spread helper: only override a burst's own shapes when the skin has some.
+const shapeOverride = () => {
+  const shapes = skinShapes();
+  return shapes ? { shapes } : null;
+};
+
+// The house milestone palette: Awana gold plus the club colors. Used for
+// milestones that belong to the whole room (a night threshold, the
+// every-Nth toast) rather than to one club.
+const MILESTONE_COLORS = ['#F7A41C', '#FFD257', '#FFFFFF', '#4CAF50', '#2979FF', '#E53935'];
+
 // Standard celebration: two side cannons using the club's colors.
 export function fireStandard(colors) {
   if (off()) return;
@@ -32,18 +86,22 @@ export function fireStandard(colors) {
 // Birthday: a fireworks-style burst plus a rainbow shower from the top.
 export function fireBirthday() {
   if (off()) return;
-  const colors = ['#FF1744', '#F50057', '#AA00FF', '#FFD600', '#00E676', '#2979FF'];
+  // The season dresses the room, so it dresses this burst too (#340); with no
+  // skin profile it is the same rainbow it has always been.
+  const colors = skinColors() ?? ['#FF1744', '#F50057', '#AA00FF', '#FFD600', '#00E676', '#2979FF'];
   const end = Date.now() + 1500;
   (function frame() {
     confetti({
       ...BASE,
       particleCount: scaled(6), angle: 60, spread: 80,
       origin: { x: 0, y: 0.6 }, colors, scalar: 1.2,
+      ...shapeOverride(),
     });
     confetti({
       ...BASE,
       particleCount: scaled(6), angle: 120, spread: 80,
       origin: { x: 1, y: 0.6 }, colors, scalar: 1.2,
+      ...shapeOverride(),
     });
     if (Date.now() < end) requestAnimationFrame(frame);
   })();
@@ -53,7 +111,7 @@ export function fireBirthday() {
       ...BASE,
       particleCount: scaled(200), spread: 180, startVelocity: 40, ticks: 250,
       origin: { x: 0.5, y: 0.35 }, colors,
-      shapes: ['star', 'circle'], scalar: 1.4,
+      shapes: skinShapes() ?? ['star', 'circle'], scalar: 1.4,
     });
   }, 200);
 }
@@ -91,12 +149,23 @@ export function fireFirstTimer() {
  * win. A milestone is never a reason to override someone's accessibility
  * preference.
  *
- * @param {{ big?: boolean }} [opts]
+ * `colors` tints the WHOLE burst — every wave, not just the first — so a
+ * club's own milestone can burst in its own colors (#332). Omitted (or
+ * empty, e.g. a malformed shared-theme override) it falls back to the active
+ * skin's seasonal palette (#340), and then to the house MILESTONE_COLORS.
+ *
+ * That order is the standing rule, not a coincidence: the skin dresses the
+ * ROOM, so it colours the room-wide night/tally milestones — but a club's own
+ * milestone keeps the club's colours even at Christmas.
+ *
+ * @param {{ big?: boolean, colors?: string[] }} [opts]
  */
 export function fireMilestone(opts) {
   if (off()) return;
   const big = !!(opts && opts.big);
-  const colors = ['#F7A41C', '#FFD257', '#FFFFFF', '#4CAF50', '#2979FF', '#E53935'];
+  const colors = (opts && Array.isArray(opts.colors) && opts.colors.length)
+    ? opts.colors
+    : skinColors() ?? MILESTONE_COLORS;
   confetti({
     ...BASE,
     particleCount: scaled(big ? 260 : 160),
@@ -104,10 +173,10 @@ export function fireMilestone(opts) {
     startVelocity: big ? 52 : 45,
     ticks: big ? 340 : 280,
     origin: { x: 0.5, y: 0.65 }, colors, scalar: big ? 1.5 : 1.3,
-    shapes: ['star', 'circle'],
+    shapes: skinShapes() ?? ['star', 'circle'],
   });
   setTimeout(() => {
-    const cannons = { ...BASE, spread: 70, ticks: 220, colors, scalar: 1.15 };
+    const cannons = { ...BASE, spread: 70, ticks: 220, colors, scalar: 1.15, ...shapeOverride() };
     const n = scaled(big ? 110 : 70);
     confetti({ ...cannons, particleCount: n, angle: 60, origin: { x: 0, y: 0.85 } });
     confetti({ ...cannons, particleCount: n, angle: 120, origin: { x: 1, y: 0.85 } });
@@ -118,7 +187,7 @@ export function fireMilestone(opts) {
       confetti({
         ...BASE,
         particleCount: scaled(120), spread: 130, startVelocity: 40, ticks: 260,
-        origin: { x: 0.5, y: 0.5 }, colors, scalar: 1.4, shapes: ['star'],
+        origin: { x: 0.5, y: 0.5 }, colors, scalar: 1.4, shapes: skinShapes() ?? ['star'],
       });
     }, 700);
   }

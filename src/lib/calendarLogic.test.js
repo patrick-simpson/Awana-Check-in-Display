@@ -116,6 +116,58 @@ describe('deriveClubInfo', () => {
     expect(deriveClubInfo(null, '2026-09-09').tonight).toBeNull();
     expect(deriveClubInfo([{}, null, 'x'], '2026-09-09').nightsRemaining).toBe(0);
   });
+
+  // ── shared/schedule.json specialDates (#342) ─────────────────────────────
+  // The projector already knew next Wednesday was cancelled; the lobby TV
+  // counted it toward "nights remaining" anyway. One shared file, one answer.
+  describe('with the shared schedule\'s break weeks', () => {
+    const breakWeeks = { '2026-09-16': { noClub: true, label: 'Thanksgiving Break' } };
+
+    it('subtracts a no-club date from nights remaining', () => {
+      expect(deriveClubInfo(season, '2026-09-09').nightsRemaining).toBe(3);
+      // The 16th is now a break week: 30th and Oct 7 remain.
+      expect(deriveClubInfo(season, '2026-09-09', breakWeeks).nightsRemaining).toBe(2);
+    });
+
+    it('skips it for nextNight while nextEntry still sees it', () => {
+      const info = deriveClubInfo(season, '2026-09-09', breakWeeks);
+      expect(info.nextEntry?.date).toBe('2026-09-16');
+      expect(info.nextEntry?.isCancelled).toBe(true);
+      expect(info.nextNight?.date).toBe('2026-09-30');
+    });
+
+    it('is not "tonight" when the shared file cancelled today', () => {
+      const info = deriveClubInfo(season, '2026-09-16', breakWeeks);
+      expect(info.tonight).toBeNull();
+      expect(info.nextNight?.date).toBe('2026-09-30');
+    });
+
+    it('carries the shared label without overwriting the calendar title', () => {
+      // Both facts matter: the calendar's title may be a real event name, and
+      // the shared label is the church's words for why it is not happening.
+      const info = deriveClubInfo(season, '2026-09-09', breakWeeks);
+      expect(info.nextEntry.noClubLabel).toBe('Thanksgiving Break');
+      expect(info.nextEntry.title).toBe('Awana meeting');
+    });
+
+    it('leaves a label-only (not no-club) entry completely alone', () => {
+      const info = deriveClubInfo(season, '2026-09-09', { '2026-09-16': { label: 'Fall Festival' } });
+      expect(info.nightsRemaining).toBe(3);
+      expect(info.nextEntry?.isCancelled).toBe(false);
+      expect(info.nextEntry.noClubLabel).toBeUndefined();
+    });
+
+    it('never double-counts a week the calendar ALREADY cancelled', () => {
+      const info = deriveClubInfo(season, '2026-09-16', { '2026-09-23': { noClub: true } });
+      expect(info.nightsRemaining).toBe(2); // 30th and Oct 7
+    });
+
+    it('ignores a missing or malformed table exactly as before', () => {
+      for (const table of [undefined, null, 'nope', 42]) {
+        expect(deriveClubInfo(season, '2026-09-09', table).nightsRemaining).toBe(3);
+      }
+    });
+  });
 });
 
 describe('buildCalendarSlides', () => {
@@ -208,6 +260,33 @@ describe('buildCalendarSlides', () => {
     );
     const next = byId(buildCalendarSlides(info, {}), 'cal_next');
     expect(next.subtext).toBe('Christmas Break — Back Wed, Dec 30');
+  });
+
+  // #342 — the break week came from the SHARED schedule, not the church
+  // calendar, so the shared file's label is what names the reason.
+  it('a shared-schedule break week names its label on the heads-up slide', () => {
+    const info = deriveClubInfo(
+      [club('2026-11-18'), club('2026-11-25'), club('2026-12-02')],
+      '2026-11-18',
+      { '2026-11-25': { noClub: true, label: 'Thanksgiving Break' } },
+    );
+    const next = byId(buildCalendarSlides(info, {}), 'cal_next');
+    expect(next.text).toBe('No club next week');
+    expect(next.subtext).toBe('Thanksgiving Break — Back Wed, Dec 2');
+    // …and the week it cancelled is gone from the count.
+    const remaining = byId(buildCalendarSlides(info, {}), 'cal_remaining');
+    expect(remaining.text).toBe('1 night remaining');
+  });
+
+  it('a shared break week with no label still says no club, with the comeback date', () => {
+    const info = deriveClubInfo(
+      [club('2026-11-18'), club('2026-11-25'), club('2026-12-02')],
+      '2026-11-18',
+      { '2026-11-25': { noClub: true } },
+    );
+    const next = byId(buildCalendarSlides(info, {}), 'cal_next');
+    expect(next.text).toBe('No club next week');
+    expect(next.subtext).toBe('Back Wed, Dec 2');
   });
 
   it('cancelled with no scheduled return → no comeback date, no boilerplate', () => {

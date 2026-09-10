@@ -66,9 +66,33 @@ function dayOfWeek(dateStr) {
 /**
  * Everything the slides need to know about where we are in the club
  * year, derived from the sanitized event list and a local date key.
+ *
+ * `specialDates` (#342) is the shared schedule's break-week table — the same
+ * one the projector reads (see src/lib/schedule.js for the signage-side
+ * parser). A date it marks `noClub` cancels that night here too, so one shared
+ * file means one answer on both screens: the lobby TV stops counting a break
+ * week toward "nights remaining" and can name the reason on its heads-up
+ * slide. Nothing else about the entry is used.
+ *
+ * Note the limit, deliberately: this can only cancel a night the CHURCH
+ * CALENDAR also lists. A break week that the calendar feed never mentioned was
+ * never counted in the first place, so there is nothing to subtract.
+ *
+ * @param {Array<any>|null|undefined} events
+ * @param {string} todayStr
+ * @param {Record<string, { noClub?: boolean, label?: string }>|null} [specialDates]
  */
-export function deriveClubInfo(events, todayStr) {
-  const clubs = (Array.isArray(events) ? events : []).filter((e) => e?.kind === 'club');
+export function deriveClubInfo(events, todayStr, specialDates = null) {
+  const special = (specialDates && typeof specialDates === 'object') ? specialDates : {};
+  const clubs = (Array.isArray(events) ? events : []).filter((e) => e?.kind === 'club').map((e) => {
+    const entry = special[e.date];
+    if (!entry || entry.noClub !== true) return e;
+    // The calendar's own title still stands as the title (it may be a real
+    // event name); the shared file's label is carried separately, because it is
+    // the church's words for WHY there is no club, which is what the heads-up
+    // slide should say.
+    return { ...e, isCancelled: true, noClubLabel: entry.label || '' };
+  });
 
   const tonight = clubs.find((e) => e.date === todayStr && !e.isCancelled) || null;
   const after = clubs.filter((e) => e.date > todayStr);
@@ -157,7 +181,14 @@ export function buildCalendarSlides(info, cfg = {}) {
       const resumeGap = info.nextNight ? daysBetween(todayKey, info.nextNight.date) : null;
       const weeksAway = Math.floor((gap + dayOfWeek(todayKey)) / 7);
       const longBreak = (resumeGap != null && resumeGap > 14) || weeksAway > 1;
-      const reason = splitTitle(entry.title).title;
+      // When it is the SHARED SCHEDULE that cancelled the night (#342), its
+      // label is the only honest reason — the calendar's own title describes a
+      // night that is now not happening, so "Awana meeting — Back Wed, Dec 2"
+      // would be worse than saying nothing. A shared break week with no label
+      // therefore falls through to just the comeback date.
+      const reason = entry.noClubLabel !== undefined
+        ? entry.noClubLabel
+        : splitTitle(entry.title).title;
       const back = info.nextNight ? `Back ${formatShortDate(info.nextNight.date)}` : '';
       slides.push(slide('cal_next', {
         eyebrow: 'Heads up',

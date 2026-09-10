@@ -62,6 +62,11 @@ export default function BackgroundIframe({
   // The season's scene theme, and the weather's atmosphere modifier over it.
   // Both default to today's behaviour so an unthemed install looks unchanged.
   sceneTheme = 'sky', cozy = false, dim = 1,
+  // The arriving child's club accent while their banner is up, or null (#349).
+  // App.jsx has already decided whether a tint is allowed at all — including
+  // that a 'video' or 'pptx' background is never ours to tint — so this is
+  // simply handed down to every scene we render ourselves.
+  clubTint = null,
   // Skips CatalogScene's continuous ambient animation work (orbs, twinkling
   // doodles, the SVG wave) — not just freezing their CSS transforms the way
   // config.reduceMotion's framer-motion wiring does, but avoiding the
@@ -81,7 +86,7 @@ export default function BackgroundIframe({
       <VideoBackground
         fallback={(
           <div className="background-placeholder">
-            <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim}>
+            <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim} clubTint={clubTint}>
               <div className="placeholder-copy">
                 <span className="placeholder-eyebrow">Awana Clubs</span>
                 <h1>Upload a video<br />in Settings</h1>
@@ -108,7 +113,7 @@ export default function BackgroundIframe({
       />
     ) : (
       <div className="background-placeholder">
-        <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim}>
+        <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim} clubTint={clubTint}>
           <div className="placeholder-copy">
             <span className="placeholder-eyebrow">Awana Clubs</span>
             <h1>Upload a PowerPoint<br />in Settings</h1>
@@ -126,7 +131,7 @@ export default function BackgroundIframe({
   if (backgroundSource === 'manual') {
     if (deck.length) {
       return (
-        <ManualSlideshow slides={deck} slideshowDelaySec={slideshowDelaySec} />
+        <ManualSlideshow slides={deck} slideshowDelaySec={slideshowDelaySec} clubTint={clubTint} />
       );
     }
   }
@@ -136,7 +141,7 @@ export default function BackgroundIframe({
   if (backgroundSource === 'manual' || !url) {
     return (
       <div className="background-placeholder">
-        <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim}>
+        <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim} clubTint={clubTint}>
           <div className="placeholder-copy">
             {/* Gentle breath + float keep the welcome screen feeling
                 alive between check-ins; both loops are subtle enough to

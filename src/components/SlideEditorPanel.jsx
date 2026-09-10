@@ -13,8 +13,11 @@ import {
   resolveSizeClass,
   resolveTheme,
   sanitizeSlides,
+  slideExpired,
+  slideScheduled,
 } from '../lib/slides.js';
 import { collectGarbage, getVideo, makeVideoId, putVideo } from '../lib/videoStore.js';
+import { localDateStr } from '../lib/calendarLogic.js';
 import { publishDeck } from '../lib/publishDeck.js';
 import { loadPublishToken } from '../lib/publishToken.js';
 
@@ -61,6 +64,11 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     seededDeck ? mergeSyncedDeck(seededDeck.slides, config.manualSlides) : sanitizeSlides(config.manualSlides)
   ));
   const [slides, setSlides] = useState(initialSlides);
+  // The local date key (#345), read once when the panel opens — the editor is
+  // a short-lived modal, and the badges only need to be right for the session
+  // the operator is typing in. LOCAL, never toISOString(): a UTC date in a
+  // US-Eastern evening is already tomorrow, i.e. exactly club hours.
+  const [today] = useState(localDateStr);
   const [importError, setImportError] = useState('');
   const [videoError, setVideoError] = useState('');
   // { phase: 'idle'|'busy'|'ok'|'edited'|'err', message, deckRev }
@@ -376,6 +384,11 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
               <div className="slide-card-fields">
                 <div className="slide-card-index" tabIndex={-1}>
                   Slide {i + 1} of {slides.length}{isVideoSlide(slide) ? ' · video' : ''}
+                  {/* The row is never hidden when its window closes — an
+                      operator has to be able to see and fix the slide that
+                      stopped showing. */}
+                  {slideExpired(slide, today) && <span className="slide-window-badge is-expired">Expired</span>}
+                  {slideScheduled(slide, today) && <span className="slide-window-badge is-scheduled">Starts later</span>}
                 </div>
                 {isVideoSlide(slide) ? (
                   <>
@@ -462,6 +475,33 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
                         <span className="hint">0 = use the global slide delay from Settings.</span>
                       </div>
                     </div>
+                    {/* Optional show window (#345): a dated announcement
+                        retires itself instead of advertising last month's
+                        store night. Both dates are inclusive and local. */}
+                    <div className="slide-card-row">
+                      <div className="field">
+                        <label htmlFor={`from-${slide.id}`}>Show from (optional)</label>
+                        <input
+                          id={`from-${slide.id}`}
+                          type="date"
+                          value={slide.showFrom || ''}
+                          onChange={(e) => patch(slide.id, { showFrom: e.target.value })}
+                        />
+                        <span className="hint">Blank = show it straight away.</span>
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`until-${slide.id}`}>Show until (optional)</label>
+                        <input
+                          id={`until-${slide.id}`}
+                          type="date"
+                          value={slide.showUntil || ''}
+                          onChange={(e) => patch(slide.id, { showUntil: e.target.value })}
+                        />
+                        <span className="hint">
+                          Last day it shows, included — then it retires itself on every screen.
+                        </span>
+                      </div>
+                    </div>
                   </>
                 )}
                 <div className="slide-card-controls">
@@ -488,6 +528,13 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
               {calendarOn
                 ? 'With no slides saved, the calendar slides play on their own.'
                 : 'With no slides saved, the screen shows the welcome placeholder instead.'}
+            </div>
+          )}
+          {slides.length > 0 && slides.every((s) => slideExpired(s, today)) && (
+            <div className="hint" style={{ marginBottom: '0.75rem' }}>
+              Every slide&rsquo;s show-until date has passed, so the screens are
+              {calendarOn ? ' playing the calendar slides instead' : ' showing the welcome placeholder'} —
+              never a blank background. Clear a date, or push it out, to bring a slide back.
             </div>
           )}
           {slides.some(isVideoSlide) && (

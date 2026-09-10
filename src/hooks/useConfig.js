@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import defaults from '../config.js';
 import { sanitizeSlides } from '../lib/slides.js';
+import { sanitizeMilestoneList } from '../lib/milestones.js';
 import { NIGHT_THEME_VALUES } from '../lib/skins.js';
 import { parseUrlFlags } from '../lib/urlFlags.js';
 
@@ -31,8 +32,14 @@ const VALIDATORS = {
   showTally: isBool,
   keepScreenAwake: isBool,
   milestoneEvery: numberBetween(0, 10000),
+  showTallySyncNote: isBool,
+  // Threshold LISTS, repaired rather than rejected — see sanitizeMilestoneList
+  // in lib/milestones.js. Array-shaped here, whole-number-repaired below.
+  bookMilestones: Array.isArray,
+  awardMilestones: Array.isArray,
   showClock: isBool,
   showWeatherChip: isBool,
+  showBirthdayWeekRibbon: isBool,
   widgetDisplayMode: (v) => v === 'cycle' || v === 'stickers',
   cycleIntervalSec: numberBetween(2, 120),
   calendarEnabled: isBool,
@@ -42,6 +49,8 @@ const VALIDATORS = {
   recapMaxAgeMin: numberBetween(1, 240),
   panicMode: isBool,
   clubMilestoneEvery: numberBetween(0, 1000),
+  firstArrivalMoment: isBool,
+  clubTintBackground: isBool,
   // Who's-still-here board. OFF by default and deliberately so — see
   // CheckoutBoard.jsx for why this one needs an operator decision rather than a
   // sensible default.
@@ -90,6 +99,11 @@ function sanitizeClubPhrases(raw) {
 const TRANSFORMS = {
   manualSlides: sanitizeSlides,
   clubPhrases: sanitizeClubPhrases,
+  // A NaN or a thousand-entry list here would reach crossedMilestones, so
+  // both lists are repaired on the way in (from localStorage AND from
+  // ?config=, which routes through this same function).
+  bookMilestones: sanitizeMilestoneList,
+  awardMilestones: sanitizeMilestoneList,
 };
 
 export function sanitizeOverrides(raw) {

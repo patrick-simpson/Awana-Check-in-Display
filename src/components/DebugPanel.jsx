@@ -4,7 +4,7 @@ import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 
 export default function DebugPanel({
   onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice, onClearNotice,
-  onSimulateTally, onSimulateCheckout, onClose,
+  onSimulateTally, onSimulateCheckout, onSimulateBirthdays, onClose,
   status, lastEventAt, pending, phase, seenStats, opsFailures, wakeLockStatus,
 }) {
   const standard = () => onSimulate({
@@ -91,12 +91,25 @@ export default function DebugPanel({
   // payload is only a baseline by design, so a fixed number could never
   // demonstrate a night milestone; and walking it upward is the only way to
   // watch the 100-kid celebration actually fire before club night.
+  //
+  // Books and awards ramp for the same reason (#358): they drive their own
+  // milestone toasts off the same baseline-then-crossing rule, and a fixed
+  // `booksCompleted: 4` could never demonstrate one. Each press adds 4 books
+  // and 8 awards, so the second press crosses the default 5-book threshold
+  // and the room can be checked before club night.
   const tonightCount = useRef(23);
+  const tonightBooks = useRef(0);
+  const tonightAwards = useRef(3);
   const tonight = () => {
     tonightCount.current += 40;
+    tonightBooks.current += 4;
+    tonightAwards.current += 8;
     onSimulateTonight?.({
       checkedIn: tonightCount.current,
-      booksCompleted: 4, awardsEarned: 11, friendsBrought: 2, at: Date.now(),
+      booksCompleted: tonightBooks.current,
+      awardsEarned: tonightAwards.current,
+      friendsBrought: 2,
+      at: Date.now(),
     });
   };
 
@@ -110,25 +123,48 @@ export default function DebugPanel({
 
   // A tally is what drives the per-club milestone path and the corner counter.
   // Numbers only — this event structurally cannot carry a name.
+  //
+  // Every press after the first RAMPS each club by 10, for the same reason the
+  // tonight button ramps: a club milestone fires on a CROSSING, and the first
+  // tally of the night is only a baseline (App.jsx handleTally), so repeating
+  // one fixed set of counts could never demonstrate a club celebration. The
+  // first press deliberately still sends 9 / 16 / 23 / 30 (total 78).
+  const tallyBumps = useRef(0);
   const tally = () => {
     const clubs = getAllClubs().slice(0, 4);
     const counts = {};
     let total = 0;
     clubs.forEach((club, i) => {
-      const n = 9 + i * 7;
+      const n = 9 + i * 7 + tallyBumps.current * 10;
       counts[club] = n;
       total += n;
     });
+    tallyBumps.current += 1;
     onSimulateTally?.({ counts, total, at: Date.now() });
   };
 
-  // NOTE: there is deliberately no `birthdays` simulator here. That event is
-  // the weekly ROSTER broadcast, consumed only by the projector page
-  // (countdown.html); the signage banners' birthday mode comes from the
-  // `isBirthday` flag on a checkin event, which the birthday button above
-  // already covers. A button that provably renders nothing is worse than no
-  // button. The projector page still has no simulator UI at all — that belongs
-  // with the projector work, not here.
+  // The weekly `birthdays` ROSTER broadcast. The projector page has always
+  // consumed it; the signage page does too now, for the "Birthday this
+  // Friday!" ribbon (src/lib/birthdayWeek.js). The ribbon needs the roster
+  // entry and the arriving check-in to name the SAME child and club, so these
+  // three buttons use one fixed pair rather than the random picks above —
+  // otherwise the path could never be driven end to end from here.
+  const RIBBON_KID = SAMPLE_NAMES[0];
+  const RIBBON_CLUB = 'Sparks';
+  const birthdayWeekRoster = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + 3);
+    onSimulateBirthdays?.({
+      entries: [{
+        firstName: RIBBON_KID, club: RIBBON_CLUB, month: d.getMonth() + 1, day: d.getDate(),
+      }],
+      at: new Date().toISOString(),
+    });
+  };
+  const birthdayWeekWelcome = () => onSimulate({ firstName: RIBBON_KID, club: RIBBON_CLUB });
+  const birthdayWeekCake = () => onSimulate({
+    firstName: RIBBON_KID, club: RIBBON_CLUB, isBirthday: true,
+  });
 
   const seen = seenStats?.() ?? { size: 0 };
 
@@ -157,6 +193,13 @@ export default function DebugPanel({
       {onSimulateRecap && <button onClick={recap}>Simulate recap replay (quiet banners)</button>}
       {onSimulateOps && <button onClick={printFailure}>Simulate print failure (ops)</button>}
       {onSimulateTally && <button onClick={tally}>Simulate club tally (counts)</button>}
+      {onSimulateBirthdays && (
+        <>
+          <button onClick={birthdayWeekRoster}>Seed birthday-week roster (Test Kid · Sparks)</button>
+          <button onClick={birthdayWeekWelcome}>Welcome the birthday-week kid (ribbon)</button>
+          <button onClick={birthdayWeekCake}>Birthday banner for that kid (ribbon)</button>
+        </>
+      )}
       {onSimulateCheckout && (
         <>
           <button onClick={checkoutBoard(9)}>Still-here board: 9 children (names)</button>
@@ -164,7 +207,7 @@ export default function DebugPanel({
           <button onClick={checkoutEmpty}>Still-here board: everyone picked up</button>
         </>
       )}
-      {onSimulateTonight && <button onClick={tonight}>Show tonight ticker (+40 each press)</button>}
+      {onSimulateTonight && <button onClick={tonight}>Show tonight ticker (+40 kids, +4 books each press)</button>}
       {onSimulateNotice && <button onClick={noticeCritical}>Show cancellation alert</button>}
       {onSimulateNotice && <button onClick={noticeInfo}>Show info notice</button>}
       {/* The simulated cancellation bar holds for four hours like a real one

@@ -140,6 +140,11 @@ test('a tally broadcast reconciles the corner counter, including counting DOWN',
 
   await page.getByRole('button', { name: 'Simulate club tally (counts)' }).click();
   await expect(tallyCount).toHaveText('78');
+
+  // #351 — an 80 → 78 correction is a two-step move, so the counter says
+  // where it came from. Without this the room reads a counter that drops as
+  // a broken screen.
+  await expect(page.locator('.tally .tally-sync-note')).toHaveText(/synced with the check-in desk/i);
 });
 
 test('simulated events do not raise page errors', async ({ page }) => {
@@ -180,3 +185,152 @@ test('simulated events do not raise page errors', async ({ page }) => {
 // deliberately NOT duplicated here: these specs run against the built bundle,
 // where a raw module import doesn't resolve, and a permanently-skipped test
 // reads as coverage that doesn't exist.
+
+test('a birthday later this week rides a ribbon instead of claiming today', async ({ page }) => {
+  // The weekly `birthdays` roster now reaches the signage page too. Both
+  // simulators name the same fixed child/club pair on purpose — the ribbon
+  // only fires on a unique name+club match, so a random pick could never
+  // drive this path.
+  await goSignage(page);
+  await openDebug(page);
+
+  await page.getByRole('button', { name: /Seed birthday-week roster/ }).click();
+  await page.getByRole('button', { name: /Welcome the birthday-week kid/ }).click();
+
+  const banner = page.locator('.banner').first();
+  await expect(banner).toBeVisible();
+  await expect(banner.locator('.birthday-week-ribbon')).toContainText(/Birthday this \w+!/);
+
+  // Let the queue drain, as the other multi-banner tests here do.
+  await page.waitForTimeout(6000);
+
+  await page.getByRole('button', { name: /Birthday banner for that kid/ }).click();
+  const cake = page.locator('.banner.birthday');
+  await expect(cake.locator('.birthday-week-ribbon')).toContainText(/Birthday this \w+!/);
+  // "It's your special day" is simply wrong three days early.
+  await expect(cake).not.toContainText(/special day/i);
+});
+
+test('books finished tonight get their own toast, one at a time', async ({ page }) => {
+  await goSignage(page);
+  await openDebug(page);
+
+  // #358 — the tonight simulator ramps books by 4 a press. The first payload
+  // is only a baseline (a screen booting at 8pm must not replay the evening),
+  // so it takes two presses to cross the default 5-book threshold.
+  const tonight = page.getByRole('button', { name: 'Show tonight ticker' });
+  await tonight.click();
+  await tonight.click();
+
+  // That second press also crosses the 100-kid night threshold, which is
+  // exactly the pile-up useCelebrationQueue exists for: whatever is showing,
+  // there is never more than ONE toast on screen.
+  await expect(page.locator('.milestone-toast')).toHaveCount(1);
+
+  // The handbook toast gets its own copy and its green handbook edge — it may
+  // be queued behind the night milestone's hold, hence the longer wait.
+  const books = page.locator('.milestone-toast.handbook-milestone');
+  await expect(books).toBeVisible({ timeout: 20000 });
+  await expect(books).toContainText(/Handbooks/i);
+  await expect(books).toContainText(/5 books finished tonight!/i);
+  await expect(page.locator('.milestone-toast')).toHaveCount(1);
+});
+
+test('a club milestone toast wears that club’s wordmark', async ({ page }) => {
+  await goSignage(page);
+  await openDebug(page);
+
+  // The first tally of the night is only a baseline, so it takes two presses
+  // to produce a crossing: 9 / 16 / 23 / 30, then +10 per club. With the
+  // default clubMilestoneEvery of 10 several clubs cross at once and the
+  // queue plays their toasts one at a time.
+  const tally = page.getByRole('button', { name: 'Simulate club tally (counts)' });
+  await tally.click();
+  await tally.click();
+
+  const toast = page.locator('.milestone-toast.club-milestone');
+  await expect(toast).toBeVisible();
+  // The badge is the club's own wordmark art, sized by the toast-scoped CSS.
+  const logo = toast.locator('.club-logo');
+  await expect(logo).toBeVisible();
+  const box = await logo.boundingBox();
+  expect(box.width).toBeGreaterThan(0);
+  // Whatever the art's intrinsic size, it must stay inside the pill.
+  const toastBox = await toast.boundingBox();
+  expect(box.width).toBeLessThan(toastBox.width);
+  // The mascot sticker is banner-scale art and is deliberately hidden here.
+  await expect(toast.locator('.club-mascot')).toBeHidden();
+});
+
+test('the night’s first check-in raises the doors-are-open flourish, exactly once', async ({ page }) => {
+  // #335 is phase-gated, and resolvePhase reads the real wall clock — a CI run
+  // on a Wednesday evening would otherwise resolve 'game-time' and see no
+  // flourish at all. So pin the phase hermetically: blank the shared-schedule
+  // URL (so nothing is fetched) and seed the cache with today marked no-club,
+  // which resolvePhase turns into 'off' at any hour on any day.
+  await page.addInitScript(() => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const d = new Date();
+    const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ sharedScheduleUrl: '' }));
+    localStorage.setItem('awanaSchedule.v1', JSON.stringify({
+      fetchedAt: d.toISOString(),
+      raw: {
+        meeting: { day: d.getDay() },
+        windows: [{ start: '18:00', end: '19:30', kind: 'game' }],
+        specialDates: { [today]: { noClub: true } },
+      },
+    }));
+  });
+  await goSignage(page);
+  await openDebug(page);
+
+  await page.getByRole('button', { name: 'Standard welcome' }).click();
+
+  const flourish = page.locator('.milestone-toast.first-milestone');
+  await expect(flourish).toBeVisible();
+  await expect(flourish).toContainText(/Doors are open/i);
+  await expect(flourish).toContainText(/is first in tonight!/i);
+  // Only a first name reaches it — the same name the banner itself shows.
+  await expect(flourish).toContainText(FAKE_NAME);
+
+  // It retires after MILESTONE_TOAST_MS, and the SECOND child of the night
+  // gets a banner and no flourish: the whole point is that it happens once.
+  await expect(flourish).toHaveCount(0, { timeout: 15000 });
+  await page.getByRole('button', { name: 'Standard welcome' }).click();
+  await expect(page.locator('.banner').first()).toBeVisible();
+  await page.waitForTimeout(1500);
+  await expect(page.locator('.milestone-toast.first-milestone')).toHaveCount(0);
+});
+
+test('a check-in washes the background in the arriving club’s color, then clears it', async ({ page }) => {
+  // #349 is opt-in, so seed it on. Sticker mode keeps the corner widgets out
+  // of the way; 'manual' with nothing typed renders the placeholder scene,
+  // which is a CatalogScene — one of ours to tint.
+  await page.addInitScript(() => {
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({
+      clubTintBackground: true,
+      backgroundSource: 'manual',
+      calendarEnabled: false,
+      standardDisplayMs: 2000,
+    }));
+  });
+  await goSignage(page);
+  await openDebug(page);
+
+  const scene = page.locator('.catalog-scene').first();
+  await expect(scene).toBeVisible();
+  await expect(scene).not.toHaveClass(/catalog-scene--club-tinted/);
+
+  await page.getByRole('button', { name: 'Standard welcome' }).click();
+  await expect(page.locator('.banner').first()).toBeVisible();
+  await expect(scene).toHaveClass(/catalog-scene--club-tinted/);
+  // A real colour, taken from the club palette — not white, not empty.
+  const color = await scene.evaluate((el) => el.style.getPropertyValue('--club-tint'));
+  expect(color).toMatch(/^#[0-9a-fA-F]{6}$/);
+  // It is a wash behind everything, never something a click can land on.
+  await expect(page.locator('.scene-club-tint')).toHaveCSS('pointer-events', 'none');
+
+  // Once the banner retires, the wash goes with it.
+  await expect(scene).not.toHaveClass(/catalog-scene--club-tinted/, { timeout: 15000 });
+});

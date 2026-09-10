@@ -125,6 +125,24 @@ const config = {
   // "25 kids tonight!" toast. Set to 0 to turn milestones off.
   milestoneEvery: 25,
 
+  // When the check-in desk's broadcast moves the corner counter by more than
+  // one — an operator undo, or a catch-up after this screen was offline — show
+  // a short "synced with the check-in desk" note under the number, so a jump
+  // (or a count going DOWN) reads as a correction rather than a glitch. A
+  // delta of exactly one is always silent; ordinary broadcast ordering
+  // produces those constantly.
+  showTallySyncNote: true,
+
+  // Handbook milestones (#358): the `tonight` broadcast already carries how
+  // many books were finished and awards earned this evening, and nothing
+  // rendered them — so the only thing the screen ever cheered was heads
+  // through the door. These are the thresholds that earn their own toast.
+  // Smaller than the attendance ones on purpose: ten books finished in one
+  // night is a bigger deal than the hundredth kid arriving. An empty list
+  // turns that half off.
+  bookMilestones: [5, 10, 25],
+  awardMilestones: [10, 25, 50],
+
   // Show the current time of day (the countdown shows time-until-start;
   // this is a plain wall clock). A headline item in 'cycle' mode, a
   // top-right sticker in 'stickers' mode.
@@ -187,6 +205,30 @@ const config = {
   // Celebrate when a single club's tally (from the printer's live
   // broadcasts) crosses a multiple of this. 0 disables.
   clubMilestoneEvery: 10,
+
+  // Give the very first child checked in each night a one-time "Doors are
+  // open" flourish instead of an ordinary banner-only arrival — the cue that
+  // tells volunteers check-in has actually started. Only a screen that was
+  // already awake before doors can know who was first, so this is skipped
+  // entirely on a screen that boots mid-program (see lib/firstOfNight.js).
+  firstArrivalMoment: true,
+
+  // While a child's banner is on screen, briefly wash the background scene in
+  // that child's own club colour, so the whole display belongs to the arriving
+  // kid for a few seconds instead of only the banner doing.
+  //
+  // OFF by default on purpose: it competes with a themed night skin, which is
+  // a look somebody chose deliberately. Skipped automatically in overlay and
+  // panic mode, and over a video/uploaded-PowerPoint background (there is
+  // nothing of ours to tint there). See src/lib/clubTint.js.
+  clubTintBackground: false,
+
+  // A small "Birthday this Friday!" ribbon on an arriving child's banner
+  // when the printer's weekly `birthdays` roster says their birthday falls
+  // later this week (never on the day itself — that day's banner already
+  // says the right thing). The roster arrives sealed, so a screen with no
+  // display key simply never shows one.
+  showBirthdayWeekRibbon: true,
 
   // ── Who's still here board ────────────────────────────────────────────
   // Shows which children have not been checked out yet, from the printer's

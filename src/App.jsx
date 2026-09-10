@@ -17,6 +17,7 @@ import SetupCard from './components/SetupCard.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { Mark } from './components/Doodles.jsx';
 import StickerChip from './components/StickerChip.jsx';
+import ClubBadge from './components/ClubBadge.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useSocket, simulateEvent } from './hooks/useSocket.js';
@@ -29,20 +30,29 @@ import { useTheme } from './hooks/useTheme.js';
 import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
-import { fireMilestone, setConfettiLevel, setConfettiLoad } from './lib/confetti.js';
+import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { decideBoard } from './lib/checkoutBoard.js';
+import { birthdayRibbon } from './lib/birthdayWeek.js';
 import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
-import { crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight } from './lib/milestones.js';
+import {
+  AWARD_MILESTONES, BOOK_MILESTONES, awardMilestoneCopy, bookMilestoneCopy,
+  crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight,
+} from './lib/milestones.js';
 import { setRemoteDefaults } from './hooks/useConfig.js';
+import { FLEET_CONFIG_URL_CHANGE_EVENT, loadFleetConfigUrl, resolveRemoteConfigUrl } from './lib/fleetConfigUrl.js';
 import { getClubPalette } from './lib/clubs.js';
-import { mergeSyncedDeck } from './lib/slides.js';
+import { clubTintFor } from './lib/clubTint.js';
+import { mergeSyncedDeck, visibleSlides } from './lib/slides.js';
 import { parseUrlFlags } from './lib/urlFlags.js';
 import { applyPanicMode } from './lib/panic.js';
 import { isLatePhase } from './lib/schedule.js';
+import {
+  clearFirstOfNight, firstOfNightCopy, hasFiredToday, isFirstOfNight, markFiredToday,
+} from './lib/firstOfNight.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
-import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
+import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, TALLY_SYNC_NOTE_MS } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -54,10 +64,29 @@ export default function App() {
   // their central config isn't being applied — silently falling back
   // looks identical to working until club night.
   const [remoteConfigError, setRemoteConfigError] = useState(null);
+  // The display login can deliver that same URL (#394), so a replacement
+  // screen is set up by one passphrase instead of by hand. It lives in its own
+  // storage slot — never in the config object, which `?config=` and Settings →
+  // Export both operate on — and is applied HERE, through the one remote-config
+  // path that already existed. An explicit `?config=` still wins: someone
+  // standing at the screen with a URL in their hand outranks what the print
+  // server last handed it. Tracked as state so a screen that logs in for the
+  // first time picks its fleet settings up without a reload.
+  const [provisionedConfigUrl, setProvisionedConfigUrl] = useState(loadFleetConfigUrl);
   useEffect(() => {
-    if (!FLAGS.configUrl) return undefined;
+    const sync = () => setProvisionedConfigUrl(loadFleetConfigUrl());
+    window.addEventListener(FLEET_CONFIG_URL_CHANGE_EVENT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(FLEET_CONFIG_URL_CHANGE_EVENT, sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+  const remoteConfigUrl = resolveRemoteConfigUrl(FLAGS.configUrl, provisionedConfigUrl);
+  useEffect(() => {
+    if (!remoteConfigUrl) return undefined;
     let cancelled = false;
-    fetch(FLAGS.configUrl, { cache: 'no-cache' })
+    fetch(remoteConfigUrl, { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((raw) => {
         if (cancelled) return;
@@ -72,7 +101,7 @@ export default function App() {
         if (!cancelled) setRemoteConfigError(err?.message || 'fetch failed');
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [remoteConfigUrl]);
 
   const { config: effectiveConfig, storedConfig, overrides, updateConfig, resetConfig } = useConfig();
 
@@ -92,8 +121,21 @@ export default function App() {
   // celebrating it — an undo or an offline catch-up must never fire a
   // "you just hit 50!" toast.
   const tallySyncedRef = useRef(false);
+  // …and the visible half of the same event (#351): when a broadcast moves the
+  // counter by MORE than one, say so under the number. A wall that jumps 38 →
+  // 45, or counts down after an operator undo, otherwise looks broken to
+  // everyone standing in the lobby. { from, to } for the wording; cleared by a
+  // plain timeout, deliberately NOT the celebration queue — an explanation must
+  // never be able to displace a milestone toast.
+  const [tallySync, setTallySync] = useState(/** @type {{from: number, to: number}|null} */ (null));
+  const tallySyncTimerRef = useRef(null);
+  useEffect(() => () => clearTimeout(tallySyncTimerRef.current), []);
   const { hasSeen, markSeen, stats: seenStats } = useSeenEvents();
-  const { phase, source: scheduleSource } = useSchedule(config);
+  // `specialDates` is the shared schedule's break-week table (#342) — the same
+  // file the projector reads. resolvePhase already applies it (a cancelled
+  // night is 'off'); the calendar slides need it too, so nights-remaining and
+  // the heads-up slide agree with the projector.
+  const { phase, specialDates, source: scheduleSource } = useSchedule(config);
   const phaseRef = useRef(phase);
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useTheme(config);
@@ -111,8 +153,24 @@ export default function App() {
   // queued — otherwise a burst would go off for a toast nobody can see yet.
   useEffect(() => {
     if (celebration == null) return;
-    fireMilestone(isBigMilestone(celebration.count) ? { big: true } : undefined);
+    // A club's own milestone bursts in that club's colors (#332) — club
+    // identity is the strongest signal these kids respond to. The room-wide
+    // night/tally milestones keep the house palette, and `off()`/`scaled()`
+    // inside fireMilestone still gate everything exactly as before.
+    const ofOneClub = celebration.kind === 'club' || celebration.kind === 'kid';
+    fireMilestone({
+      big: isBigMilestone(celebration.count) || undefined,
+      colors: ofOneClub ? getClubPalette(celebration.club).confetti : undefined,
+    });
   }, [celebration]);
+
+  // The palette behind the toast's club colors and its wordmark — null for
+  // the room-wide 'night' and 'tally' kinds, which carry no club at all.
+  const celebrationClub = useMemo(() => (
+    (celebration && (celebration.kind === 'club' || celebration.kind === 'kid'))
+      ? getClubPalette(celebration.club)
+      : null
+  ), [celebration]);
 
   // Club milestones (#36): the printer's live tally broadcasts carry
   // per-club counts; when one club crosses a multiple of
@@ -121,6 +179,10 @@ export default function App() {
   // Same once-per-night rule the night milestones have: a tally that bounces
   // down (an operator undo) and back up must not re-fire the same threshold.
   const firedClubMilestonesRef = useRef(new Set());
+  // Once-per-session latch for the "Doors are open" flourish (#335). The
+  // per-day localStorage key is the durable half; this is the half that holds
+  // inside a single batched burst and on a device with storage blocked.
+  const firstOfNightFiredRef = useRef(false);
   // The printer's season broadcast, null until (or unless) one arrives.
   const [printerSeason, setPrinterSeason] = useState(/** @type {string|null} */ (null));
   // Rehearsal mode (#19): true while the printer's tallies carry the
@@ -157,7 +219,18 @@ export default function App() {
     // the fix for both an operator UNDO on the print server (total drops)
     // and ordinary drift (missed events while offline, a doubled banner).
     // See useTally.js's sync() for the freshness/no-op rules.
-    if (syncTally(tally.total, tally.at)) tallySyncedRef.current = true;
+    const delta = syncTally(tally.total, tally.at);
+    if (delta) {
+      tallySyncedRef.current = true;
+      // One-step deltas are ordinary broadcast ordering (our bump() and the
+      // printer's total crossing paths) and happen constantly — narrating
+      // those would be noise, and would teach the room to ignore the note.
+      if (Math.abs(delta) > 1) {
+        setTallySync({ from: tally.total - delta, to: tally.total });
+        clearTimeout(tallySyncTimerRef.current);
+        tallySyncTimerRef.current = setTimeout(() => setTallySync(null), TALLY_SYNC_NOTE_MS);
+      }
+    }
   }, [config.clubMilestoneEvery, enqueueCelebration, syncTally]);
 
   // Operator telemetry from the printer (ops events): a red count on the
@@ -184,19 +257,39 @@ export default function App() {
   // the count bounces (a reconnect re-delivering an older snapshot, say).
   const prevCheckedInRef = useRef(null);
   const firedNightMilestonesRef = useRef(new Set());
+  // Handbook progress rides the same broadcast (#358). Awana is about the
+  // handbook, but attendance was the only thing the screen ever cheered — and
+  // these two counters have been on the wire all along with nothing rendering
+  // them. Same baseline-then-crossing rule, one prev-ref and one fired-Set
+  // each, so a screen booting at 8pm never replays the evening and a counter
+  // that bounces (a reconnect re-delivering an older snapshot) never re-fires.
+  const prevBooksRef = useRef(null);
+  const firedBookMilestonesRef = useRef(new Set());
+  const prevAwardsRef = useRef(null);
+  const firedAwardMilestonesRef = useRef(new Set());
   const handleTonight = useCallback((payload) => {
     setTonight(payload);
-    const next = payload?.checkedIn;
-    if (typeof next !== 'number') return;
-    const prev = prevCheckedInRef.current;
-    prevCheckedInRef.current = next;
-    if (prev == null) return;                       // first sight = baseline
-    for (const threshold of crossedMilestones(prev, next)) {
-      if (firedNightMilestonesRef.current.has(threshold)) continue;
-      firedNightMilestonesRef.current.add(threshold);
-      enqueueCelebration({ kind: 'night', count: threshold, ...nightMilestoneCopy(threshold) });
-    }
-  }, [enqueueCelebration]);
+    // One helper for all three counters: baseline the first payload, then
+    // celebrate each threshold at most once tonight.
+    const crossings = (value, prevRef, firedRef, thresholds, copy, kind) => {
+      if (typeof value !== 'number') return;
+      const prev = prevRef.current;
+      prevRef.current = value;
+      if (prev == null) return;                     // first sight = baseline
+      for (const threshold of crossedMilestones(prev, value, thresholds)) {
+        if (firedRef.current.has(threshold)) continue;
+        firedRef.current.add(threshold);
+        enqueueCelebration({ kind, count: threshold, ...copy(threshold) });
+      }
+    };
+    const list = (value, fallback) => (Array.isArray(value) ? value : fallback);
+    crossings(payload?.checkedIn, prevCheckedInRef, firedNightMilestonesRef,
+      undefined, nightMilestoneCopy, 'night');
+    crossings(payload?.booksCompleted, prevBooksRef, firedBookMilestonesRef,
+      list(config.bookMilestones, BOOK_MILESTONES), bookMilestoneCopy, 'books');
+    crossings(payload?.awardsEarned, prevAwardsRef, firedAwardMilestonesRef,
+      list(config.awardMilestones, AWARD_MILESTONES), awardMilestoneCopy, 'awards');
+  }, [config.bookMilestones, config.awardMilestones, enqueueCelebration]);
 
   // Church-authored announcements (#onNotice): latest one wins, same as
   // the tally/ops widgets above. NoticeBanner judges staleness and picks
@@ -209,14 +302,38 @@ export default function App() {
   // the calm 'late' treatment (no confetti cannon, ducked chime).
   const handleCheckIn = useCallback((payload) => {
     if (payload.id) markSeen(payload.id, payload.at ?? Date.now());
-    enqueue({
-      ...payload,
-      presentation: isLatePhase(phaseRef.current) ? 'late' : 'live',
-    });
+    const late = isLatePhase(phaseRef.current);
+    const presentation = late ? 'late' : 'live';
+    enqueue({ ...payload, presentation });
+    // "Doors are open" (#335): the night's FIRST arrival gets a one-time
+    // flourish riding behind their ordinary banner. Gated BEFORE bump(),
+    // because the gate is "this device has counted nobody yet". All of the
+    // judgement — including the phase gate that stops a screen booting at
+    // 6:40pm from crowning whoever it sees first — is in lib/firstOfNight.js.
+    if (config.firstArrivalMoment !== false
+        && isFirstOfNight({
+          count,
+          phase: phaseRef.current,
+          presentation,
+          // The in-memory latch matters as much as the day key: `count` is
+          // React state, so two check-ins delivered in one batch would both
+          // read zero, and storage can be blocked outright.
+          alreadyFired: firstOfNightFiredRef.current || hasFiredToday(),
+        })) {
+      firstOfNightFiredRef.current = true;
+      markFiredToday();
+      enqueueCelebration({
+        kind: 'first',
+        firstName: payload.firstName,
+        club: payload.club,
+        count: 1,
+        ...firstOfNightCopy(payload.firstName),
+      });
+    }
     // Milestone wall (#10): the sealed `milestone` flag marks the same nights
     // the label's milestone line fires (5/10/25/50). Live check-ins only —
     // a late-phase arrival gets a quiet banner, not a wall celebration.
-    if (payload.milestone && !isLatePhase(phaseRef.current)) {
+    if (payload.milestone && !late) {
       enqueueCelebration({
         kind: 'kid',
         firstName: payload.firstName,
@@ -225,7 +342,10 @@ export default function App() {
       });
     }
     bump();
-  }, [enqueue, bump, markSeen, enqueueCelebration]);
+    // `count` and the config flag are read above, so they belong in the deps.
+    // Re-identifying this handler is free: useSocket keeps handlers in a ref
+    // it re-points every render, so the Pusher subscription never churns.
+  }, [enqueue, bump, markSeen, enqueueCelebration, count, config.firstArrivalMoment]);
 
   // Recap replay: after a reconnect, celebrate the kids this display
   // missed — quiet variant, skipping ids already seen live and anything
@@ -246,6 +366,12 @@ export default function App() {
   // decideBoard() in src/lib/checkoutBoard.js.
   const [checkout, setCheckout] = useState(null);
 
+  // This week's birthday roster (the sealed `birthdays` broadcast). Latest
+  // payload wins. The sanitizer emits ONLY { entries } — the wire's `at` is
+  // stripped — so there is deliberately no staleness judgement here; the
+  // printer rebroadcasts every ten minutes on club night.
+  const [birthdays, setBirthdays] = useState(null);
+
   // The synced slide deck — published once at the check-in machine, mirrored
   // to every screen over the sealed `slides` event, cached for reboots.
   const { deck: syncedDeck, onSlides, forget: forgetSyncedDeck } = useSyncedDeck();
@@ -258,6 +384,7 @@ export default function App() {
     onTonight: handleTonight,
     onNotice: handleNotice,
     onCheckout: setCheckout,
+    onBirthdays: setBirthdays,
     onSlides,
   }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice, onSlides]);
 
@@ -314,6 +441,16 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // "Birthday this Friday!" for an arriving child the roster says has a
+  // birthday later this week. Pure matcher — see src/lib/birthdayWeek.js for
+  // the fail-safe rules (ambiguity, or a birthday today, means no ribbon).
+  const today = useMemo(() => new Date(`${todayStr}T00:00:00`), [todayStr]);
+  const birthdayWeekRibbon = useMemo(() => {
+    if (config.showBirthdayWeekRibbon === false) return null;
+    if (!currentEvent || !birthdays) return null;
+    return birthdayRibbon(currentEvent.firstName, currentEvent.club, birthdays.entries, today);
+  }, [config.showBirthdayWeekRibbon, currentEvent, birthdays, today]);
+
   const calendar = useCalendar(config);
   // The corner chip works over any background source — it's an overlay
   // widget like the clock, not part of the slide rotation.
@@ -335,9 +472,25 @@ export default function App() {
   // every App re-render (i.e. every event), stalling the show on one slide.
   const { calendarEnabled, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining } = config;
   const calendarSlides = useMemo(() => (calendarEnabled
-    ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr),
+    ? buildCalendarSlides(deriveClubInfo(calendar.events, todayStr, specialDates),
       { calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining })
-    : []), [calendarEnabled, calendar.events, todayStr, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining]);
+    : []), [calendarEnabled, calendar.events, todayStr, specialDates, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining]);
+
+  // Per-slide show windows (#345): a dated announcement retires itself. The
+  // filter runs on the LOCAL date key (`todayStr`, which already ticks over at
+  // midnight without a reload) — never a toISOString()-derived one, which in a
+  // US-Eastern evening is already tomorrow, i.e. exactly club hours.
+  //
+  // A deck whose every slide has expired becomes [], and the background
+  // concatenates the calendar slides SEPARATELY, so the screen falls back to
+  // those (or to the welcome placeholder with the calendar off) — never to a
+  // blank background. The editor is deliberately NOT filtered: it shows every
+  // slide with an "expired" badge, because the operator has to be able to see
+  // and fix the one that stopped showing.
+  const visibleManualSlides = useMemo(
+    () => visibleSlides(effectiveManualSlides, todayStr),
+    [effectiveManualSlides, todayStr]
+  );
 
   // Thin the confetti while a rush is draining so cheap signage sticks
   // hold 60fps with banners firing back-to-back.
@@ -472,15 +625,25 @@ export default function App() {
   // never be silent, so it can't wait its turn in a rotation.
   const stickerMode = config.widgetDisplayMode === 'stickers';
 
+  // The sync note is opt-out (#351). Gated at RENDER, not at capture, so
+  // turning it off in Settings hides one that is already up rather than
+  // leaving a stuck note behind.
+  const syncNote = config.showTallySyncNote !== false && tallySync != null;
+
   // Themed skin — 'auto' resolves by season, and because it derives
   // from todayStr it rolls over at midnight without a reload, like
   // everything else date-derived. Noon avoids TZ edge cases.
   // Tonight's calendar title lets 'auto' pick Easter / VBS / Thanksgiving,
   // none of which a month table can express (floating, lunar, or
   // church-scheduled). Falls back to the month when nothing matches.
+  // `.tonight`, not `.today` — deriveClubInfo has never returned a `today`
+  // key, so this read was always undefined and the calendar half of 'auto'
+  // (Easter / VBS / Thanksgiving by title) silently never fired. Passing
+  // specialDates too means a cancelled night can't dress the room for an
+  // event that isn't happening.
   const tonightTitle = useMemo(
-    () => deriveClubInfo(calendar.events, todayStr)?.today?.title ?? null,
-    [calendar.events, todayStr],
+    () => deriveClubInfo(calendar.events, todayStr, specialDates)?.tonight?.title ?? null,
+    [calendar.events, todayStr, specialDates],
   );
   // April Fools (#21): screens only, and only does anything on April 1st —
   // a toggle left on all year is inert 364 days. The settings panel and gear
@@ -500,6 +663,16 @@ export default function App() {
   // deliberately-chosen VBS skin doesn't vanish because it started raining.
   const sceneTheme = sceneForSkin(skin);
   const skinAccents = SKIN_TABLE[skin] ?? null;
+
+  // Season-shaped confetti (#340) — the sibling of the setConfettiLevel effect
+  // above, keyed on the RESOLVED skin so 'auto' seasons and the printer's
+  // season broadcast both reach the bursts. A skin with no profile (or 'none')
+  // clears it, so the room-wide milestones go back to the house palette. Level
+  // 'off', the rush thinner and reduced-motion all still gate every burst
+  // inside fireMilestone — a season is never a reason to override those.
+  useEffect(() => {
+    setConfettiSkin(SKIN_TABLE[skin]?.confetti ?? null);
+  }, [skin]);
   const mood = useMemo(
     () => (weatherTheme ? weatherMood(weather) : { cozy: false, dim: 1, reason: 'off' }),
     [weatherTheme, weather],
@@ -578,6 +751,22 @@ export default function App() {
     return () => document.documentElement.classList.remove('overlay-mode');
   }, [overlay]);
 
+  // While a child's banner holds the stage, the background scene breathes that
+  // child's own club colour (#349) — so a Cubbies arrival and a T&T arrival no
+  // longer paint the same wall. Off unless the operator asked for it, and every
+  // "don't" (overlay feed, panic mode, a video or uploaded PowerPoint that is
+  // not ours to tint) lives in the pure clubTintFor(). The fade back out is a
+  // plain CSS transition in app.css, so .zero-animation-mode already reduces it
+  // to an instant snap on the low-power kiosk.
+  const clubTint = useMemo(() => clubTintFor({
+    enabled: config.clubTintBackground === true,
+    active: currentEvent != null,
+    overlay,
+    panicMode: config.panicMode,
+    backgroundSource: config.backgroundSource,
+    club: currentEvent?.club,
+  }), [config.clubTintBackground, config.panicMode, config.backgroundSource, currentEvent, overlay]);
+
   // Zero-animation mode (config.reduceMotion — see ?lowPower=1 in
   // urlFlags.js): ZeroAnimationContext above only reaches framer-motion
   // components built with M.* from src/lib/motion.jsx. Plain CSS
@@ -631,11 +820,12 @@ export default function App() {
             slideshowDelaySec={config.slideshowDelaySec}
             useLocalSlideshow={config.useLocalSlideshow}
             backgroundSource={config.backgroundSource}
-            manualSlides={effectiveManualSlides}
+            manualSlides={visibleManualSlides}
             calendarSlides={calendarSlides}
             sceneTheme={sceneTheme ?? 'sky'}
             cozy={mood.cozy}
             dim={mood.dim}
+            clubTint={clubTint}
             reduceMotion={config.reduceMotion}
           />
         </ErrorBoundary>
@@ -652,7 +842,12 @@ export default function App() {
       )}
 
       <ErrorBoundary label="banner" eventKey={currentEvent?.id} onError={() => { skipCurrent(); recordLayerFault('banner'); }}>
-        <Overlay currentEvent={currentEvent} audioEnabled={!config.audioMuted} clubPhrases={config.clubPhrases} />
+        <Overlay
+          currentEvent={currentEvent}
+          audioEnabled={!config.audioMuted}
+          clubPhrases={config.clubPhrases}
+          birthdayRibbon={birthdayWeekRibbon}
+        />
       </ErrorBoundary>
 
       {/* Church-authored announcements. Rendered regardless of overlay
@@ -667,6 +862,7 @@ export default function App() {
         <ErrorBoundary label="data-cycle" eventKey={boardNow} onError={() => recordLayerFault('corner widgets')}>
           <DataCycle
             count={count}
+            syncNote={syncNote}
             weather={weather}
             showClock={config.showClock}
             showTally={config.showTally}
@@ -771,11 +967,26 @@ export default function App() {
             {count}
           </M.span>
           <span className="tally-label">checked in</span>
+          {/* Why the number just moved. See handleTally: only a jump of more
+              than one earns this, and it fades on its own timeout. */}
+          {syncNote && (
+            <M.span
+              className="tally-sync-note"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              title={`${tallySync.from} → ${tallySync.to}`}
+            >
+              synced with the check-in desk
+            </M.span>
+          )}
         </StickerChip>
       )}
 
       {/* One toast, three sources — see useCelebrationQueue. `kind` picks the
-          copy and styling; the queue guarantees only one is ever on screen. */}
+          copy and styling; the queue guarantees only one is ever on screen.
+          A club's own milestone ('club' / 'kid') wears that club's palette
+          and wordmark (#332); the room-wide ones stay Awana gold. */}
       <AnimatePresence>
         {celebration != null && (
           <M.div
@@ -787,10 +998,19 @@ export default function App() {
                   ? 'milestone-toast night-milestone'
                   : celebration.kind === 'kid'
                     ? 'milestone-toast kid-milestone'
-                    : 'milestone-toast'
+                    : celebration.kind === 'books' || celebration.kind === 'awards'
+                      // Handbook progress (#358) is a room-wide occasion like a
+                      // night threshold, plus a green edge of its own so the
+                      // room can tell "ten books" from "a hundred kids".
+                      ? `milestone-toast night-milestone handbook-milestone ${celebration.kind}-milestone`
+                      : celebration.kind === 'first'
+                        // The night's opening moment (#335) — see app.css for
+                        // why its identity rides the shadow, not the border.
+                        ? 'milestone-toast first-milestone'
+                        : 'milestone-toast'
             }
-            style={celebration.kind === 'club' || celebration.kind === 'kid'
-              ? { rotate: 1.1, '--club-primary': getClubPalette(celebration.club).primary }
+            style={celebrationClub
+              ? { rotate: 1.1, '--club-primary': celebrationClub.primary }
               : { rotate: -1.2 }}
             initial={{ opacity: 0, y: 46, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 280, damping: 16 } }}
@@ -805,17 +1025,33 @@ export default function App() {
             >
               <Mark kind="sparkle" size={30} />
             </M.span>
+            {/* The club's own wordmark. `rawName` is deliberately NOT passed:
+                an unknown club would otherwise render ClubBadge's title pill,
+                duplicating the text already in .milestone-label. A typo club
+                gets no badge and the warm-orange default confetti — the toast
+                stays exactly as it was. The label wrapper supplies the
+                variant orchestration ClubBadge's own variants expect, which
+                the toast's object animate/initial cannot. */}
+            {celebrationClub?.logo && (
+              <M.span className="milestone-badge" initial="hidden" animate="show">
+                <ClubBadge club={celebrationClub} />
+              </M.span>
+            )}
             <div className="milestone-lines">
+              {/* `night`, `books` and `awards` all carry their own copy (see
+                  lib/milestones.js), so they read off label/headline rather
+                  than growing a branch each; `club`, `kid` and the every-Nth
+                  `tally` toast compose theirs from the payload. */}
               <span className="milestone-label">
                 {celebration.kind === 'club' ? celebration.club
-                  : celebration.kind === 'night' ? celebration.label
-                    : celebration.kind === 'kid' ? `${celebration.firstName}’s`
+                  : celebration.kind === 'kid' ? `${celebration.firstName}’s`
+                    : celebration.label ? celebration.label
                       : 'Checked in tonight'}
               </span>
               <span className="milestone-count">
                 {celebration.kind === 'club' ? `${celebration.count} kids strong!`
-                  : celebration.kind === 'night' ? celebration.headline
-                    : celebration.kind === 'kid' ? `${ordinalNight(celebration.count)} club night!`
+                  : celebration.kind === 'kid' ? `${ordinalNight(celebration.count)} club night!`
+                    : celebration.headline ? celebration.headline
                       : `${celebration.count} kids!`}
               </span>
             </div>
@@ -912,7 +1148,7 @@ export default function App() {
             phase={phase}
             scheduleSource={scheduleSource}
             opsFailures={opsFailures}
-            remoteConfigError={FLAGS.configUrl ? remoteConfigError : null}
+            remoteConfigError={remoteConfigUrl ? remoteConfigError : null}
             wakeLockStatus={wakeLockStatus}
             syncedDeck={syncedDeck}
             slidesStatus={slidesStatus}
@@ -921,7 +1157,13 @@ export default function App() {
             onReset={resetConfig}
             onClose={() => setSettingsOpen(false)}
             onTest={(p) => simulate('checkin', p)}
-            onResetTally={resetTally}
+            onResetTally={() => {
+              // Resetting the counter is also the documented way to give back a
+              // "Doors are open" flourish an afternoon rehearsal consumed (#335).
+              clearFirstOfNight();
+              firstOfNightFiredRef.current = false;
+              resetTally();
+            }}
             onOpenSlideEditor={() => {
               setSettingsOpen(false);
               setEditorFromSettings(true);
@@ -958,6 +1200,7 @@ export default function App() {
             onSimulateOps={(p) => simulate('ops', p)}
             onSimulateTally={(p) => simulate('tally', p)}
             onSimulateCheckout={(p) => simulate('checkout', p)}
+            onSimulateBirthdays={(p) => simulate('birthdays', p)}
             onSimulateTonight={(p) => simulate('tonight', p)}
             onSimulateNotice={(p) => simulate('notice', p)}
             onClearNotice={() => setNotice(null)}

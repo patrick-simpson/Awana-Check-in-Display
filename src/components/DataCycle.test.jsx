@@ -118,6 +118,25 @@ describe('DataCycle', () => {
     expect(pop.childElementCount).toBe(1);
   });
 
+  // #351 — a reconciliation that moved the counter by more than one says so.
+  it('names the check-in desk under the tally when a sync note is up', () => {
+    renderCycle({ showTally: true, count: 45, syncNote: true });
+    expect(screen.getByText(/synced with the check-in desk/i)).toBeTruthy();
+  });
+
+  it('says nothing by default, and nothing on the other faces', () => {
+    // The default matters: an always-on note would read as a standing
+    // disclaimer on the count rather than an explanation of one jump.
+    const { container } = renderCycle({ showTally: true, count: 45 });
+    expect(screen.queryByText(/synced with the check-in desk/i)).toBeNull();
+    expect(container.querySelector('.data-cycle-note')).toBeNull();
+
+    cleanup();
+    // Same note flag, but the clock is the face on screen: still nothing.
+    renderCycle({ showClock: true, syncNote: true });
+    expect(screen.queryByText(/synced with the check-in desk/i)).toBeNull();
+  });
+
   it('has no countdown card (retired in favor of the presentation tool)', () => {
     // Legacy countdown props are simply ignored — old saved settings
     // must not resurrect the card.

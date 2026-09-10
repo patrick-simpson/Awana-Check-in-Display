@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import defaults from '../config.js';
 import { sanitizeOverrides } from '../hooks/useConfig.js';
+import { parseMilestoneList, sanitizeMilestoneList } from '../lib/milestones.js';
 import { deleteDeck, getDeck, putDeck } from '../lib/pptxStore.js';
 import { BACKGROUND_VIDEO_ID, deleteVideo, getVideo, putVideo } from '../lib/videoStore.js';
 import { BACKGROUND_VIDEO_CHANGED_EVENT } from './VideoBackground.jsx';
@@ -61,6 +62,7 @@ function seedForm(c) {
     audioMuted: !!c.audioMuted,
     showConnectionStatus: !!c.showConnectionStatus,
     showTally: c.showTally !== false,
+    showTallySyncNote: c.showTallySyncNote !== false,
     keepScreenAwake: c.keepScreenAwake !== false,
     panicMode: !!c.panicMode,
     showClock: !!c.showClock,
@@ -80,12 +82,19 @@ function seedForm(c) {
     reduceMotion: c.reduceMotion === true,
     burstFloorMs: c.burstFloorMs ?? 2500,
     clubMilestoneEvery: c.clubMilestoneEvery ?? 10,
+    clubTintBackground: c.clubTintBackground === true,
+    firstArrivalMoment: c.firstArrivalMoment !== false,
+    showBirthdayWeekRibbon: c.showBirthdayWeekRibbon !== false,
     clubPhrases: { ...(c.clubPhrases || {}) },
     checkoutBoardMode: ['pickup', 'always'].includes(c.checkoutBoardMode) ? c.checkoutBoardMode : 'off',
     checkoutBoardNamesAbove: c.checkoutBoardNamesAbove ?? 3,
     checkoutBoardStaleMin: c.checkoutBoardStaleMin ?? 8,
     cycleIntervalSec: c.cycleIntervalSec ?? 3,
     milestoneEvery: c.milestoneEvery ?? 25,
+    // Threshold LISTS (#358) — seeded through the same sanitizer the config
+    // validator uses, so an old saved list is repaired, never silently reset.
+    bookMilestones: sanitizeMilestoneList(c.bookMilestones ?? [5, 10, 25]),
+    awardMilestones: sanitizeMilestoneList(c.awardMilestones ?? [10, 25, 50]),
     calendarEnabled: c.calendarEnabled !== false,
     calendarUrl: c.calendarUrl || '',
     calendarWelcomeText: c.calendarWelcomeText || 'Welcome to Awana!',
@@ -109,6 +118,8 @@ function normalize(f) {
     specialDisplayMs: clamp(f.specialDisplayMs, 3000, 25000),
     slideshowDelaySec: clamp(f.slideshowDelaySec, 0, 120),
     milestoneEvery: clamp(Math.round(f.milestoneEvery) || 0, 0, 10000),
+    bookMilestones: sanitizeMilestoneList(f.bookMilestones),
+    awardMilestones: sanitizeMilestoneList(f.awardMilestones),
     clubMilestoneEvery: clamp(Math.round(f.clubMilestoneEvery) || 0, 0, 1000),
     checkoutBoardNamesAbove: clamp(Math.round(f.checkoutBoardNamesAbove) || 0, 0, 200),
     checkoutBoardStaleMin: clamp(Math.round(f.checkoutBoardStaleMin) || 8, 1, 120),
@@ -321,7 +332,8 @@ export default function SettingsPanel({
           )}
           {remoteConfigError && (
             <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
-              The central config from this page's <code>?config=</code> URL could not be
+              The central config for this screen &mdash; from this page&rsquo;s <code>?config=</code> URL,
+              or from the address the display login handed it &mdash; could not be
               applied ({remoteConfigError}) — this display is running on its baked
               defaults and local overrides instead.
             </div>
@@ -474,6 +486,40 @@ export default function SettingsPanel({
 
 // A real <label>: the whole row — title and hint — is the hit target, and
 // the checkbox gets an accessible name (getByRole('checkbox', { name })).
+// A comma-separated threshold list ("5, 10, 25"). The TEXT is local state and
+// the parsed array is what reaches the form: parsing on every keystroke while
+// rendering `value.join(', ')` back would eat a trailing comma the moment it
+// was typed, so the two are deliberately kept apart.
+function MilestoneListField({ id, label, hint, value, onChange }) {
+  const [text, setText] = useState(() => (Array.isArray(value) ? value : []).join(', '));
+  const parsed = parseMilestoneList(text);
+  return (
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        maxLength={80}
+        value={text}
+        placeholder="5, 10, 25"
+        onChange={(e) => {
+          setText(e.target.value);
+          onChange(parseMilestoneList(e.target.value));
+        }}
+      />
+      <span className="hint">
+        {hint}
+        {/* Echo what was actually understood — whole numbers only, sorted and
+            de-duplicated — so a typo is visible before Save, not after club. */}
+        {parsed.length > 0
+          ? <> Celebrating at {parsed.join(', ')}.</>
+          : <> Nothing set — these celebrations are off.</>}
+      </span>
+    </div>
+  );
+}
+
 function Toggle({ checked, onChange, title, hint, disabled }) {
   const id = useId();
   return (
@@ -1152,6 +1198,59 @@ function BannersTab({ form, set, setForm }) {
         </span>
       </div>
 
+      <Toggle
+        checked={form.firstArrivalMoment}
+        onChange={set('firstArrivalMoment')}
+        title="First arrival of the night"
+        hint={<>
+          The very first child checked in each night gets a one-time &ldquo;Doors are open&rdquo;
+          flourish &mdash; the cue that tells volunteers check-in has actually started. Skipped on a
+          screen that boots after the program is already underway, since it cannot know who was first.
+        </>}
+      />
+
+      <MilestoneListField
+        id="bookMilestones"
+        label="Books finished tonight (celebrate at)"
+        value={form.bookMilestones}
+        onChange={(list) => setForm((f) => ({ ...f, bookMilestones: list }))}
+        hint={<>
+          Awana is about the handbook, so the screen cheers it too: when the check-in system reports this
+          many books finished tonight, the milestone toast says so. Comma-separated; leave blank to turn
+          this half off.
+        </>}
+      />
+
+      <MilestoneListField
+        id="awardMilestones"
+        label="Awards earned tonight (celebrate at)"
+        value={form.awardMilestones}
+        onChange={(list) => setForm((f) => ({ ...f, awardMilestones: list }))}
+        hint="Same, for awards handed out tonight. Comma-separated; blank turns it off."
+      />
+
+      <Toggle
+        checked={form.showTallySyncNote !== false}
+        onChange={set('showTallySyncNote')}
+        title="Explain corrections to the corner counter"
+        hint={<>
+          When the check-in desk's count jumps by more than one — or goes down after an undo — the corner
+          counter says &ldquo;synced with the check-in desk&rdquo; for a few seconds, so it reads as a
+          correction instead of a glitch. Single-step differences are always silent.
+        </>}
+      />
+
+      <Toggle
+        checked={form.showBirthdayWeekRibbon !== false}
+        onChange={set('showBirthdayWeekRibbon')}
+        title="Birthday-this-week ribbon"
+        hint={<>
+          When the check-in system says a child’s birthday falls later this week, their banner names the day
+          (&ldquo;Birthday this Friday!&rdquo;) instead of claiming today. Needs a display key — the birthday
+          roster arrives encrypted.
+        </>}
+      />
+
       <h3 className="section">Club phrases</h3>
       <span className="hint" style={{ display: 'block', marginBottom: '0.75rem' }}>
         A short line under the child’s name on their welcome banner, one per club. Leave a club blank for no
@@ -1354,6 +1453,13 @@ function DisplayTab({ form, set }) {
         onChange={set('weatherTheme')}
         title="Let the weather set the mood"
         hint="A rainy or snowy night cools and dims the background scene. The season still picks the colors, so a chosen skin never disappears in bad weather. Needs a weather location set under Calendar & Weather."
+      />
+
+      <Toggle
+        checked={form.clubTintBackground === true}
+        onChange={set('clubTintBackground')}
+        title="Wash the background in the arriving club's color"
+        hint="While a child's banner is up, the background scene briefly breathes that child's own club color, so the whole screen belongs to them for a few seconds. Off by default because it competes with a themed skin you chose on purpose. Skipped over a video or uploaded PowerPoint background, and in panic mode."
       />
 
       <h3 className="section">Screen</h3>

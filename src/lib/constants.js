@@ -74,6 +74,16 @@ export const TONIGHT_STALE_MS = 10 * 60 * 1000;
 // rather than deadlocking the counter forever.
 export const TALLY_REORDER_MS = 60 * 1000;
 
+// How long "synced with the check-in desk" stays under the corner counter
+// after a reconciliation moved it by more than one (#351). A jump from 38 to
+// 45 — or a count that goes DOWN after an operator undo — reads as a glitch
+// to everyone watching the lobby wall unless the screen says where it came
+// from. Deliberately a plain timeout rather than the celebration queue: this
+// is an explanation, not a celebration, and it must never be able to displace
+// a milestone toast. A delta of exactly one is silent, because ordinary
+// broadcast ordering produces those constantly.
+export const TALLY_SYNC_NOTE_MS = 6000;
+
 // Church-authored announcements (onNotice) expire after this long so a
 // forgotten "CLUB CANCELLED TONIGHT" can never haunt the screen into
 // next week's club night.

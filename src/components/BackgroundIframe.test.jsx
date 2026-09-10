@@ -81,3 +81,26 @@ describe('source selection', () => {
     expect(container.querySelector('.placeholder-copy')).toBeTruthy();
   });
 });
+
+describe('an all-expired typed deck (#345) is never a blank screen', () => {
+  afterEach(cleanup);
+
+  // App.jsx filters the MANUAL deck through visibleSlides() and hands the
+  // calendar slides down separately, so an expired deck leaves the calendar
+  // rotation on the wall — and with the calendar off, the welcome placeholder.
+  const CAL = [{ id: 'cal_1', eyebrow: 'Tonight', text: 'Welcome to Awana!', theme: 'sky', durationSec: 0, textSize: 'auto' }];
+
+  it('falls back to the calendar slides', () => {
+    const { container } = render(
+      <BackgroundIframe backgroundSource="manual" manualSlides={[]} calendarSlides={CAL} url="" slideshowDelaySec={5} />
+    );
+    expect(container.querySelector('.manual-slide-text').textContent).toBe('Welcome to Awana!');
+  });
+
+  it('falls back to the placeholder when there are no calendar slides either', () => {
+    const { container } = render(
+      <BackgroundIframe backgroundSource="manual" manualSlides={[]} calendarSlides={[]} url="" slideshowDelaySec={5} />
+    );
+    expect(container.querySelector('.placeholder-copy')).toBeTruthy();
+  });
+});

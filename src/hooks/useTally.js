@@ -57,12 +57,17 @@ export function useTally() {
   // `total` outright rather than nudging toward it: there is no "closer"
   // value than the number the printer just reported.
   //
-  // Returns whether the stored count actually changed, so a caller (namely
-  // App.jsx's every-Nth-kid milestone effect, which watches `count` rather
-  // than `bump()` calls) can tell a reconciliation jump apart from a real,
-  // one-at-a-time increment and skip celebrating it.
+  // Returns the SIGNED DELTA it applied (0 when nothing changed), so a caller
+  // can tell a reconciliation jump apart from a real, one-at-a-time increment.
+  // Two callers rely on that, both in App.jsx: the every-Nth-kid milestone
+  // effect (which watches `count` rather than `bump()` calls) skips celebrating
+  // any non-zero delta, and the "synced with the check-in desk" note (#351)
+  // reads how big the jump was — a lobby wall that goes 38 → 45, or counts
+  // DOWN after an operator undo, looks like a bug unless the screen says so.
+  // A number keeps the old truthiness contract exactly: a changed count can
+  // never have a delta of 0.
   const sync = useCallback((total, at) => {
-    if (!Number.isInteger(total) || total < 0) return false;
+    if (!Number.isInteger(total) || total < 0) return 0;
     // Order broadcasts against EACH OTHER — never against this device's
     // clock. See TALLY_REORDER_MS: comparing the printer's `at` to our
     // Date.now() silently rejected every broadcast on a screen whose
@@ -73,15 +78,15 @@ export function useTally() {
     // we re-baseline on it instead of ignoring the printer forever.
     // sanitizeTally() drops any payload without a real `at`, so a missing
     // one here means something upstream is wrong — stay defensive.
-    if (typeof at !== 'number' || !Number.isFinite(at)) return false;
+    if (typeof at !== 'number' || !Number.isFinite(at)) return 0;
     const last = lastAtRef.current;
-    if (last !== null && at < last && last - at <= TALLY_REORDER_MS) return false;
+    if (last !== null && at < last && last - at <= TALLY_REORDER_MS) return 0;
     lastAtRef.current = at;
     const current = load();
-    if (current === total) return false; // already in sync
+    if (current === total) return 0; // already in sync
     save(total);
     setCount(total);
-    return true;
+    return total - current;
   }, []);
 
   return { count, bump, reset, sync };
