@@ -1,15 +1,8 @@
 {
   "version": 1,
-  "generatedAt": "2026-09-03T12:50:53.280Z",
+  "generatedAt": "2026-09-10T12:56:31.882Z",
   "sourceUrl": "https://kvbchurch.twotimtwo.com/calendar/index",
   "events": [
-    {
-      "date": "2026-09-09",
-      "kind": "club",
-      "title": "Poster Contest kicks off",
-      "isCancelled": false,
-      "isSpecial": true
-    },
     {
       "date": "2026-09-16",
       "kind": "club",
