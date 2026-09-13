@@ -48,6 +48,17 @@ export function formatShortDate(dateStr) {
   });
 }
 
+// 'YYYY-MM-DD' → 'Wednesday, October 14'. Same local-Date recipe as
+// formatShortDate above, spelled out: a promo naming the night it is
+// counting down to has the room's full attention and can afford the words.
+export function formatLongDate(dateStr) {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric',
+  });
+}
+
 // Whole days between two date keys, DST-proof (UTC component math).
 export function daysBetween(fromStr, toStr) {
   const [fy, fm, fd] = String(fromStr).split('-').map(Number);
@@ -61,6 +72,29 @@ function dayOfWeek(dateStr) {
   const [y, m, d] = String(dateStr).split('-').map(Number);
   if (!y || !m || !d) return 0;
   return new Date(y, m - 1, d).getDay();
+}
+
+/**
+ * The club nights on the calendar, with the shared schedule's break weeks
+ * already applied. Split out of deriveClubInfo() so anything else that has to
+ * count real club nights (see src/lib/promos.js) asks the SAME question about
+ * cancellations instead of growing a second, slightly different copy of the
+ * rules.
+ *
+ * @param {Array<any>|null|undefined} events
+ * @param {Record<string, { noClub?: boolean, label?: string }>|null} [specialDates]
+ */
+export function clubNights(events, specialDates = null) {
+  const special = (specialDates && typeof specialDates === 'object') ? specialDates : {};
+  return (Array.isArray(events) ? events : []).filter((e) => e?.kind === 'club').map((e) => {
+    const entry = special[e.date];
+    if (!entry || entry.noClub !== true) return e;
+    // The calendar's own title still stands as the title (it may be a real
+    // event name); the shared file's label is carried separately, because it is
+    // the church's words for WHY there is no club, which is what the heads-up
+    // slide should say.
+    return { ...e, isCancelled: true, noClubLabel: entry.label || '' };
+  });
 }
 
 /**
@@ -83,16 +117,7 @@ function dayOfWeek(dateStr) {
  * @param {Record<string, { noClub?: boolean, label?: string }>|null} [specialDates]
  */
 export function deriveClubInfo(events, todayStr, specialDates = null) {
-  const special = (specialDates && typeof specialDates === 'object') ? specialDates : {};
-  const clubs = (Array.isArray(events) ? events : []).filter((e) => e?.kind === 'club').map((e) => {
-    const entry = special[e.date];
-    if (!entry || entry.noClub !== true) return e;
-    // The calendar's own title still stands as the title (it may be a real
-    // event name); the shared file's label is carried separately, because it is
-    // the church's words for WHY there is no club, which is what the heads-up
-    // slide should say.
-    return { ...e, isCancelled: true, noClubLabel: entry.label || '' };
-  });
+  const clubs = clubNights(events, specialDates);
 
   const tonight = clubs.find((e) => e.date === todayStr && !e.isCancelled) || null;
   const after = clubs.filter((e) => e.date > todayStr);
