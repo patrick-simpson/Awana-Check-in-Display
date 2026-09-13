@@ -49,6 +49,10 @@ export const SEASON_PROMOS = [
 // about the voting once the posters are actually in.
 export const CONTEST_DATE = '2026-10-14';
 
+// Parents' Night, named once here so the contest promo can point at it
+// without a second copy of the date (the two events are chained).
+export const PARENTS_DATE = '2026-11-04';
+
 // Longer than a text slide's default hold: a promo has an entrance
 // animation to play through before anyone has read the counter.
 export const PROMO_DURATION_SEC = 12;
