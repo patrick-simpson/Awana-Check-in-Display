@@ -115,10 +115,10 @@ describe('buildPromoSlot', () => {
   });
 
   it('honours each promo\'s showFrom', () => {
-    // Sep 2: only the contest has opened.
-    expect(kinds(slot('2026-09-02'))).toEqual(['contest']);
-    expect(kinds(slot('2026-09-14'))).toEqual(['contest']);
-    expect(kinds(slot('2026-09-15'))).toEqual(['contest', 'friend', 'parents']);
+    // All three open together on Sep 1; the day before, nothing shows.
+    expect(slot('2026-08-31')).toBeNull();
+    expect(kinds(slot('2026-09-01'))).toEqual(['contest', 'friend', 'parents']);
+    expect(kinds(slot('2026-09-13'))).toEqual(['contest', 'friend', 'parents']);
   });
 
   it('shows the October pair ON October 14 and retires them on the 15th', () => {

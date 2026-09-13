@@ -89,9 +89,10 @@ function Sparkle({ className, size, duration, delay }) {
 }
 
 // ── Poster contest ───────────────────────────────────────────
-// Navy ground, a taped-up white sign that drops in with DEFEND
-// spelling itself out, and the orange "posters due" band sweeping up
-// from the bottom-right.
+// Navy ground, one centred stack like the printed poster: title, a
+// taped-up white sign that drops in with DEFEND spelling itself out,
+// the verse reference, and the orange "posters due" band sweeping up
+// across the bottom.
 
 const DEFEND = ['D', 'E', 'F', 'E', 'N', 'D'];
 const TAPE_CORNERS = ['tl', 'tr', 'bl', 'br'];
@@ -102,7 +103,7 @@ function ContestPromo({ promo }) {
     <div className="promo-slide promo-slide--contest">
       <Wordmark />
 
-      <div className="promo-contest-left">
+      <div className="promo-contest-stack">
         <M.span
           className="promo-eyebrow"
           initial={{ opacity: 0, y: -12 }}
@@ -153,23 +154,25 @@ function ContestPromo({ promo }) {
         >
           1 Peter 3:15 NKJV
         </M.span>
+
+        {tonight ? null : (
+          <M.p
+            className="promo-contest-chain"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.7, delay: 1.75, ease: 'easeOut' }}
+          >
+            Voting happens at Parents&rsquo; Night &middot; {PARENTS_LONG}
+          </M.p>
+        )}
       </div>
 
       <Sparkle className="promo-sparkle--a" size="3.4vmin" duration={3.4} delay={1.2} />
       <Sparkle className="promo-sparkle--b" size="2.2vmin" duration={4.6} delay={1.9} />
       <Sparkle className="promo-sparkle--c" size="2.7vmin" duration={5.2} delay={0.6} />
       <Sparkle className="promo-sparkle--d" size="3.1vmin" duration={4.1} delay={2.4} />
-
-      {tonight ? null : (
-        <M.p
-          className="promo-contest-chain"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.7, delay: 1.75, ease: 'easeOut' }}
-        >
-          Voting happens at Parents&rsquo; Night &middot; {PARENTS_LONG}
-        </M.p>
-      )}
+      <Sparkle className="promo-sparkle--e" size="2.4vmin" duration={3.9} delay={1.5} />
+      <Sparkle className="promo-sparkle--f" size="2.9vmin" duration={4.8} delay={0.9} />
 
       <M.div
         className="promo-contest-band"

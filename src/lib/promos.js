@@ -41,8 +41,8 @@ import { showDate, slideInWindow } from './slides.js';
 /** @type {ReadonlyArray<SeasonPromo>} */
 export const SEASON_PROMOS = [
   { id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', showFrom: '2026-09-01' },
-  { id: 'promo_friend', kind: 'friend', eventDate: '2026-10-14', showFrom: '2026-09-15' },
-  { id: 'promo_parents', kind: 'parents', eventDate: '2026-11-04', showFrom: '2026-09-15' },
+  { id: 'promo_friend', kind: 'friend', eventDate: '2026-10-14', showFrom: '2026-09-01' },
+  { id: 'promo_parents', kind: 'parents', eventDate: '2026-11-04', showFrom: '2026-09-01' },
 ];
 
 // The poster-contest deadline. Parents' Night says something different
