@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
 import CatalogScene from './CatalogScene.jsx';
+import PromoSlide from './PromoSlide.jsx';
+import { isPromoSlide } from '../lib/promos.js';
 import {
   isVideoSlide,
   resolveTheme,
@@ -26,15 +28,23 @@ export const MISSING_VIDEO_SKIP_MS = 4000;
  * advance; >0 = hold that long with the video looping underneath.
  */
 export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = null }) {
-  const [index, setIndex] = useState(0);
+  // A step counter that only ever goes UP, rather than an index that wraps:
+  // the deck position is `step % length` and the LAP is `step / length`, and
+  // the promo slot uses the lap to show a different promo each time round
+  // (see src/lib/promos.js for why there is only one slot). Deriving both from
+  // one number keeps `advance` a pure state updater — incrementing a second
+  // piece of state from inside the updater would double-count under React's
+  // strict-mode double invocation.
+  const [step, setStep] = useState(0);
 
-  // The deck can shrink mid-show (editor save); keep the index valid
+  // The deck can shrink mid-show (editor save); keep the position valid
   // without waiting for the next timer tick.
-  const safe = slides.length ? index % slides.length : 0;
+  const safe = slides.length ? step % slides.length : 0;
+  const lap = slides.length ? Math.floor(step / slides.length) : 0;
 
   const advance = useCallback(() => {
-    setIndex((prev) => (prev + 1) % (slides.length || 1));
-  }, [slides.length]);
+    setStep((prev) => prev + 1);
+  }, []);
 
   const slide = slides[safe];
   // A NUMBER, not the array: App re-renders on every event and can hand
@@ -75,6 +85,11 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
               loop={slides.length <= 1 || slide.durationSec > 0}
               onFinished={slides.length > 1 ? advance : undefined}
             />
+          ) : isPromoSlide(slide) ? (
+            /* One slot, one promo per lap. The key stays `slide.id`, so the
+               slot remounts on every visit and each promo's entrance
+               animation plays from the top. */
+            <PromoSlide promo={slide.promos[lap % slide.promos.length]} />
           ) : (
             <CatalogScene theme={resolveTheme(slide, safe)} clubTint={clubTint}>
               <div className="manual-slide-copy">

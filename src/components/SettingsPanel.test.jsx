@@ -263,6 +263,18 @@ describe('SettingsPanel (tabbed)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }));
     expect(props.calendar.refresh).toHaveBeenCalled();
   });
+
+  it('offers the fall event promos alongside the other auto-slides, on by default', () => {
+    const props = baseProps();
+    render(<SettingsPanel {...props} />);
+    tab('Calendar & Weather');
+    const promos = screen.getByLabelText('Fall event promos');
+    expect(promos.checked).toBe(true);
+    fireEvent.click(promos);
+    clickSave();
+    // Only the toggle the volunteer actually touched is written.
+    expect(props.onChange).toHaveBeenCalledWith({ seasonPromos: false });
+  });
 });
 
 describe('Connection tab', () => {

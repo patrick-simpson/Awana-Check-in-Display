@@ -30,6 +30,7 @@ import { useTheme } from './hooks/useTheme.js';
 import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
+import { buildPromoSlot } from './lib/promos.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { decideBoard } from './lib/checkoutBoard.js';
@@ -476,6 +477,28 @@ export default function App() {
       { calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining })
     : []), [calendarEnabled, calendar.events, todayStr, specialDates, calendarWelcomeText, calendarShowWelcome, calendarShowNextWeek, calendarShowRemaining]);
 
+  // This season's event promos (src/lib/promos.js) — ONE slot however many are
+  // live today, because three extra slides in an eight-slide deck would turn
+  // the lobby TV into a poster wall. Same rules as the calendar slides above:
+  // derived fresh from (events, today, config), never persisted, never
+  // published, and memoized on exactly the inputs it reads so the background's
+  // hold timer isn't restarted by every check-in.
+  const seasonPromos = config.seasonPromos;
+  const promoSlot = useMemo(
+    () => buildPromoSlot(calendar.events, todayStr, {
+      specialDates,
+      enabled: calendarEnabled && seasonPromos !== false,
+    }),
+    [calendar.events, todayStr, specialDates, calendarEnabled, seasonPromos]
+  );
+
+  // One array identity per (calendarSlides, promoSlot) pair, for the same
+  // reason the memo above exists — see BackgroundIframe's `deck`.
+  const autoSlides = useMemo(
+    () => (promoSlot ? [...calendarSlides, promoSlot] : calendarSlides),
+    [calendarSlides, promoSlot]
+  );
+
   // Per-slide show windows (#345): a dated announcement retires itself. The
   // filter runs on the LOCAL date key (`todayStr`, which already ticks over at
   // midnight without a reload) — never a toISOString()-derived one, which in a
@@ -821,7 +844,7 @@ export default function App() {
             useLocalSlideshow={config.useLocalSlideshow}
             backgroundSource={config.backgroundSource}
             manualSlides={visibleManualSlides}
-            calendarSlides={calendarSlides}
+            calendarSlides={autoSlides}
             sceneTheme={sceneTheme ?? 'sky'}
             cozy={mood.cozy}
             dim={mood.dim}

@@ -101,6 +101,7 @@ function seedForm(c) {
     calendarShowWelcome: c.calendarShowWelcome !== false,
     calendarShowNextWeek: c.calendarShowNextWeek !== false,
     calendarShowRemaining: c.calendarShowRemaining !== false,
+    seasonPromos: c.seasonPromos !== false,
     showWeatherChip: c.showWeatherChip !== false,
     weatherLocationName: c.weatherLocationName || '',
     weatherLat: c.weatherLat ?? 44.552,
@@ -1592,6 +1593,8 @@ function CalendarTab({ form, set, setForm, calendar }) {
         title="Next-week slide" hint='"Next week…!" announcements and break-week notices.' />
       <Toggle checked={form.calendarShowRemaining} onChange={set('calendarShowRemaining')}
         title="Nights-remaining slide" hint="A countdown nudge once fewer than 10 club nights remain." />
+      <Toggle checked={form.seasonPromos} onChange={set('seasonPromos')}
+        title="Fall event promos" hint="Poster Contest, BARF Night, Parents' Night. Animated, dated, retire themselves." />
       <Toggle checked={form.showWeatherChip} onChange={set('showWeatherChip')}
         title="Corner weather" hint="Animated temperature with a living doodle of the sky — joins the cycle, or sits top-right as a sticker. Updates every 15 minutes; works over any background." />
 
