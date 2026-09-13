@@ -69,6 +69,7 @@ const VALIDATORS = {
   calendarShowWelcome: isBool,
   calendarShowNextWeek: isBool,
   calendarShowRemaining: isBool,
+  seasonPromos: isBool,
   weatherLocationName: isString,
   weatherLat: numberBetween(-90, 90),
   weatherLon: numberBetween(-180, 180),

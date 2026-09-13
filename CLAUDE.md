@@ -104,6 +104,55 @@ mechanisms, because framer-motion and CSS need different enforcement:
   (baselines under `e2e/__screenshots__`, regenerate via the
   update-snapshots workflow)
 
+## Season promo slides (fall 2026)
+
+Three hardcoded, animated recreations of the church's printed fall
+posters — the DEFEND **poster contest**, **BARF Night**, and
+**Parents' Night** — shown in the lobby signage's background rotation.
+Signage only (`index.html`); the projector and Journey never see them.
+
+- `src/lib/promos.js` is the pure half: `SEASON_PROMOS` (the three
+  descriptors), `nightsUntil()` / `countdownLabel()` (the live "3 club
+  nights left" → "Next club night" → "Tonight!" counter) and
+  `buildPromoSlot()`. `src/components/PromoSlide.jsx` + the
+  `.promo-*` rules in `app.css` are the art.
+- **Calendar-driven, and only calendar-driven.** The counter counts real
+  club nights out of the same feed the calendar slides use, through
+  `calendarLogic.js`'s `clubNights()` — so a break week the shared
+  schedule marks `noClub` is subtracted here too, from one copy of the
+  rules rather than two. No feed means **no slot at all**, never a promo
+  with a blank or guessed counter (that is also what keeps them out of
+  the hermetic e2e smoke run, which boots with no calendar).
+- **Self-retiring.** Each promo shows from its `showFrom` through its
+  event date INCLUSIVE and is gone the next morning — the same
+  `slideInWindow()` semantics as a typed slide's `showUntil`, on the
+  local date key that already ticks over at midnight without a reload.
+  After 2026-11-04 the slot returns null and nothing changes on screen.
+- **ONE slot per pass through the deck.** Three extra slides in an
+  eight-slide deck would turn the lobby TV into a poster wall, so the
+  slot carries every live promo and `ManualSlideshow` shows a different
+  one each lap (`step % length` is the position, `step / length` is the
+  lap — both derived from one counter so `advance` stays a pure state
+  updater). The slot's key stays `slide.id`, so it remounts each visit
+  and every entrance animation plays from the top.
+- **Nothing persisted, nothing on the wire.** Like the calendar slides,
+  the slot is derived fresh from (events, today, config) on every
+  render; it is never written to localStorage and never published. A
+  `type: 'promo'` entry arriving in a `slides` chunk is dropped by the
+  existing text-only allowlist, and `eventSanitizers.test.js` pins that.
+- Every animated element is `M.*` from `src/lib/motion.jsx`, so
+  `?lowPower=1` freezes the whole poster. Ambient `repeat: Infinity`
+  loops are fine — just keep the LAST keyframe the resting value,
+  because zero-animation mode jumps straight to it and that is the frame
+  the Pi sits on.
+- Settings → Calendar & Weather → **"Fall event promos"**
+  (`config.seasonPromos`) turns them off without touching the other
+  auto-slides.
+- **Next season means editing `SEASON_PROMOS` and `PromoSlide.jsx`
+  together** — deliberately hardcoded (owner's choice 2026-09-13),
+  because the art is a recreation of three specific printed posters, not
+  something an operator types a date into.
+
 ## The presentation page (`src/presentation/` → /countdown.html)
 
 The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown

@@ -2141,6 +2141,415 @@ input:focus-visible {
   .banner .club-logo-slot { height: clamp(40px, 16vh, 84px); }
 }
 
+/* ── Season promo slides (fall 2026) ───────────────────────
+   Animated recreations of the church's three printed fall posters,
+   sharing one slot in the background rotation (PromoSlide.jsx; which
+   one shows is decided in src/lib/promos.js). Unlike a typed slide
+   these are FULL-BLEED — the poster is the whole screen — so the copy
+   inside each one keeps its own safe area away from the top-right
+   corner widgets and the bottom banner instead of reusing
+   .manual-slide-copy's inset. Sizes are clamp(min, min(vw, vh), max)
+   so 1920x1080, 1280x720 and a 1024x600 stick all read the same. */
+.promo-slide {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* A promo is art, not text to select or a target to click. */
+  user-select: none;
+}
+
+/* The Awana Clubs wordmark, small and centred at the top of every
+   promo. Its own slot does the centring so framer-motion owns the
+   element's transform outright. */
+.promo-wordmark-slot {
+  position: absolute;
+  top: 3.2%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.promo-wordmark {
+  height: clamp(22px, min(2.6vw, 4.6vh), 52px);
+  width: auto;
+}
+
+/* The live counter: "3 club nights left" / "Tonight!". Top-LEFT on
+   purpose — the corner widget stack (clock, weather, tally) owns the
+   top right, and the settings gear owns the bottom left only as a
+   faded 44px target. */
+.promo-chip {
+  position: absolute;
+  top: 3.6%;
+  left: 3.6%;
+  padding: 0.42em 1.1em 0.48em;
+  border-radius: 999px;
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(0.8rem, min(1.5vw, 2.7vh), 1.5rem);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.promo-slide--contest .promo-chip { background: #f8a91c; color: #1f2a5c; }
+.promo-slide--friend .promo-chip { background: #7ed321; color: #3b1a63; }
+.promo-slide--parents .promo-chip { background: #fbf1e1; color: #c85a2e; }
+
+.promo-sparkle {
+  position: absolute;
+  color: #ffffff;
+  pointer-events: none;
+}
+
+.promo-eyebrow {
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(0.9rem, min(1.9vw, 3.3vh), 1.8rem);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+/* ── Promo: DEFEND poster contest ───────────────────────── */
+.promo-slide--contest { background: #1f2a5c; }
+
+.promo-contest-left {
+  position: absolute;
+  left: 4%;
+  /* Centred in the navy the band leaves, not hung from the top: the
+     bottom bound clears the band's high (left-hand) edge. */
+  top: 11%;
+  bottom: 26%;
+  width: 48%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.promo-contest-theme {
+  margin-top: 0.45em;
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(0.72rem, min(1.4vw, 2.5vh), 1.25rem);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #f8a91c;
+}
+
+/* The taped-up sign the theme word is written on. */
+.promo-sign {
+  position: relative;
+  margin-top: clamp(0.8rem, 2.6vh, 2.2rem);
+  padding: clamp(0.7rem, 2.2vh, 1.8rem) clamp(1.2rem, 3vw, 3.2rem) clamp(0.9rem, 2.6vh, 2rem);
+  background: #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 26px 60px rgba(8, 12, 32, 0.45);
+}
+.promo-tape {
+  position: absolute;
+  width: clamp(34px, 4.4vw, 86px);
+  height: clamp(13px, 1.8vh, 26px);
+  background: rgba(232, 220, 184, 0.9);
+}
+.promo-tape--tl { top: -0.6em; left: -1em; transform: rotate(-38deg); }
+.promo-tape--tr { top: -0.6em; right: -1em; transform: rotate(38deg); }
+.promo-tape--bl { bottom: -0.6em; left: -1em; transform: rotate(38deg); }
+.promo-tape--br { bottom: -0.6em; right: -1em; transform: rotate(-38deg); }
+
+.promo-sign-word {
+  display: flex;
+  justify-content: center;
+  line-height: 1;
+}
+.promo-sign-letter {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.5rem, min(6.8vw, 12vh), 7.6rem);
+  letter-spacing: 0.01em;
+  color: #f8a91c;
+  text-shadow: 0 3px 0 rgba(210, 120, 10, 0.28);
+}
+.promo-contest-verse {
+  margin-top: clamp(0.7rem, 2vh, 1.5rem);
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(0.78rem, min(1.5vw, 2.7vh), 1.4rem);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #f8a91c;
+}
+
+/* The chain to the other poster, in the empty navy on the right. */
+.promo-contest-chain {
+  position: absolute;
+  right: 4.5%;
+  top: 52%;
+  width: 40%;
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-condensed);
+  font-weight: 500;
+  font-size: clamp(0.8rem, min(1.55vw, 2.8vh), 1.5rem);
+  line-height: 1.4;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* The diagonal band. Wider than the slide and hung off the bottom so
+   its rotated ends never expose a corner of navy; the origin is the
+   RIGHT edge, so the sweep lifts the left end into the frame. */
+.promo-contest-band {
+  position: absolute;
+  left: -8%;
+  right: -8%;
+  bottom: -6%;
+  height: 36%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The band hangs off three edges so its rotated corners never expose a
+     sliver of navy; the copy is padded back up out of that overhang, and
+     out of the extra drop the rotation gives the middle of the band. */
+  padding-bottom: clamp(2rem, 7vh, 5.5rem);
+  background: #f8a91c;
+  transform-origin: 100% 50%;
+  box-shadow: 0 -18px 60px rgba(8, 12, 32, 0.35);
+}
+.promo-band-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 8%;
+}
+.promo-band-kicker {
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(0.78rem, min(1.6vw, 2.8vh), 1.5rem);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #1f2a5c;
+}
+.promo-band-head {
+  margin-top: 0.06em;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.7rem, min(4.6vw, 8.2vh), 5.2rem);
+  line-height: 1.04;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 4px 0 rgba(190, 110, 8, 0.35);
+}
+.promo-band-head--long { font-size: clamp(1.2rem, min(3.1vw, 5.6vh), 3.4rem); text-transform: none; }
+.promo-band-foot {
+  margin-top: 0.15em;
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(0.72rem, min(1.5vw, 2.6vh), 1.4rem);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #1f2a5c;
+}
+
+.promo-slide--contest .promo-sparkle--a { right: 10%; top: 24%; }
+.promo-slide--contest .promo-sparkle--b { right: 31%; top: 13%; }
+.promo-slide--contest .promo-sparkle--c { right: 21%; top: 36%; }
+.promo-slide--contest .promo-sparkle--d { right: 5%; top: 62%; }
+
+/* ── Promo: BARF Night ──────────────────────────────────── */
+.promo-slide--friend { background: #5b1f8f; }
+
+.promo-friend-stack {
+  position: absolute;
+  inset: 10% 4% 5%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.promo-friend-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.7rem, min(5.6vw, 9.6vh), 6rem);
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #7ed321;
+  text-shadow: 0 5px 0 rgba(46, 12, 76, 0.45);
+}
+
+.promo-friend-splat-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Room for the drips to hang without landing on the date below. */
+  padding-bottom: clamp(0.5rem, 2.4vh, 2rem);
+}
+.promo-friend-wobble,
+.promo-friend-squish {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.promo-friend-splat {
+  width: min(48vw, 70%);
+  height: 100%;
+  max-height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 18px 40px rgba(30, 8, 52, 0.4));
+}
+.promo-friend-words {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 0.98;
+}
+.promo-friend-word {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.4rem, min(4.4vw, 7.6vh), 4.4rem);
+  letter-spacing: 0.02em;
+  color: #3b1a63;
+}
+
+.promo-friend-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.12em;
+}
+.promo-friend-date {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.4rem, min(4.2vw, 7.4vh), 4.6rem);
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 4px 0 rgba(46, 12, 76, 0.4);
+}
+.promo-friend-date--long {
+  font-size: clamp(1.1rem, min(2.9vw, 5.2vh), 3rem);
+  text-transform: none;
+}
+.promo-friend-reward {
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(0.8rem, min(1.7vw, 3vh), 1.6rem);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #7ed321;
+}
+.promo-friend-bag {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.1rem, min(3vw, 5.4vh), 3.1rem);
+  line-height: 1.05;
+  color: #7ed321;
+}
+
+.promo-slide--friend .promo-wordmark-slot { top: 2.6%; }
+
+/* ── Promo: Parents' Night ──────────────────────────────── */
+.promo-slide--parents { background: #fbf1e1; }
+
+.promo-parents-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 17%;
+}
+.promo-parents-header svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.promo-parents-stack {
+  position: absolute;
+  inset: 19% 6% 6%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.45rem, 1.8vh, 1.5rem);
+  text-align: center;
+}
+.promo-parents-heart {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+}
+.promo-parents-heart svg {
+  display: block;
+  width: clamp(54px, min(12.5vw, 21vh), 172px);
+  height: auto;
+  overflow: visible;
+}
+.promo-parents-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.8rem, min(5.4vw, 9.4vh), 5.8rem);
+  line-height: 1.02;
+  letter-spacing: 0.005em;
+  color: #3d1f33;
+}
+.promo-parents-sub {
+  margin: 0;
+  font-family: var(--font-condensed);
+  font-style: italic;
+  font-weight: 500;
+  font-size: clamp(0.85rem, min(1.9vw, 3.3vh), 1.8rem);
+  letter-spacing: 0.03em;
+  color: #c85a2e;
+}
+.promo-parents-rule {
+  width: clamp(90px, 16vw, 260px);
+  height: clamp(3px, 0.5vh, 6px);
+  border-radius: 999px;
+  background: #e2a43c;
+  transform-origin: center;
+}
+.promo-parents-date {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.2rem, min(3.4vw, 6vh), 3.6rem);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #3d1f33;
+}
+.promo-parents-pill {
+  max-width: 88%;
+  margin: clamp(0.2rem, 1vh, 0.8rem) 0 0;
+  padding: 0.5em 1.3em 0.58em;
+  border-radius: 999px;
+  background: #c85a2e;
+  color: #fbf1e1;
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(0.78rem, min(1.7vw, 3vh), 1.6rem);
+  line-height: 1.3;
+  letter-spacing: 0.05em;
+  box-shadow: 0 12px 30px rgba(120, 52, 24, 0.28);
+}
+
 /* ── Wave 1: presentation variants + operator surfaces ─────────────── */
 
 /* Calm banners (recap replay / mid-program late arrivals): slightly

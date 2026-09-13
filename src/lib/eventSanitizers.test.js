@@ -223,6 +223,23 @@ describe('slides chunk specifics (contract v5)', () => {
     expect(JSON.stringify(out)).not.toContain('v_x');
   });
 
+  it('a PROMO entry is dropped: the season promos are local art, never wire data', () => {
+    // src/lib/promos.js builds the promo slot on the device from the calendar
+    // feed. Nothing publishes one, so a `type: 'promo'` on the wire is either a
+    // mistake or someone probing for a typed entry the allowlist will render.
+    const out = sanitizeSlidesChunk({
+      ...base,
+      slides: [
+        { type: 'promo', promos: [{ kind: 'contest', countdown: 'Tonight!' }], text: 'Poster contest' },
+        { text: 'Kept' },
+      ],
+    });
+    expect(out.slides).toHaveLength(1);
+    expect(out.slides[0].text).toBe('Kept');
+    expect(JSON.stringify(out)).not.toContain('promo');
+    expect(JSON.stringify(out)).not.toContain('Poster contest');
+  });
+
   it('a chunk with no dates has exactly the pre-#345 entry shape', () => {
     const out = sanitizeSlidesChunk(base);
     expect(Object.keys(out.slides[0]).sort()).toEqual(['durationSec', 'eyebrow', 'text', 'textSize', 'theme']);

@@ -344,6 +344,13 @@ const config = {
   calendarShowNextWeek: true,
   calendarShowRemaining: true,
 
+  // This season's three hardcoded event promos (the DEFEND poster
+  // contest, BARF Night, Parents' Night) — animated recreations of the
+  // printed fall posters, sharing ONE slot in the background rotation.
+  // They are dated: each one retires itself the day after its event, and
+  // the last of them is gone after Nov 4, 2026. See src/lib/promos.js.
+  seasonPromos: true,
+
   // Self-heal watchdog: reload the page automatically after this many
   // minutes of continuously-lost realtime connection (never more than
   // twice an hour). 0 disables. Only fires when Pusher is configured —

@@ -180,4 +180,53 @@ describe('ManualSlideshow video slides', () => {
     act(() => vi.advanceTimersByTime(120000));
     expect(container.querySelector('video.manual-slide-video')).toBeTruthy();
   });
+
+  // ── The season promo slot (#promos) ───────────────────────────────────
+  // ONE slide in the deck, a different promo on each lap through it — see
+  // src/lib/promos.js for why the three posters share a slot.
+  describe('the promo slot', () => {
+    const promoSlot = {
+      id: 'season_promo',
+      type: 'promo',
+      durationSec: 12,
+      promos: [
+        { id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', tonight: false, countdown: '3 club nights left', afterContest: false },
+        { id: 'promo_friend', kind: 'friend', eventDate: '2026-10-14', tonight: false, countdown: '3 club nights left', afterContest: false },
+      ],
+    };
+    const withPromo = [deck[0], promoSlot];
+
+    it('shows promo A on the first lap and promo B on the next', () => {
+      const { container } = render(<ManualSlideshow slides={withPromo} slideshowDelaySec={5} />);
+      act(() => vi.advanceTimersByTime(5000)); // text slide → the promo slot
+      expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+
+      act(() => vi.advanceTimersByTime(12000)); // the slot's own 12s → lap 2
+      expect(screen.getByText('First slide')).toBeTruthy();
+      act(() => vi.advanceTimersByTime(5000));
+      expect(container.querySelector('.promo-slide--friend')).not.toBeNull();
+
+      // …and round again to the first promo, not off the end of the list.
+      act(() => vi.advanceTimersByTime(12000));
+      act(() => vi.advanceTimersByTime(5000));
+      expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+    });
+
+    it('honours the slot\'s own hold rather than the global delay', () => {
+      const { container } = render(<ManualSlideshow slides={withPromo} slideshowDelaySec={5} />);
+      act(() => vi.advanceTimersByTime(5000));
+      expect(container.querySelector('.promo-slide')).not.toBeNull();
+      act(() => vi.advanceTimersByTime(5000)); // the global delay is NOT the promo's
+      expect(container.querySelector('.promo-slide')).not.toBeNull();
+      act(() => vi.advanceTimersByTime(7000)); // 12s total
+      expect(screen.getByText('First slide')).toBeTruthy();
+    });
+
+    it('a promo-only deck renders the first promo and never throws', () => {
+      const { container } = render(<ManualSlideshow slides={[promoSlot]} slideshowDelaySec={5} />);
+      expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+      act(() => vi.advanceTimersByTime(600000));
+      expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+    });
+  });
 });
