@@ -100,6 +100,15 @@ describe('countdownLabel', () => {
   });
 });
 
+describe('PROMO_DURATION_SEC', () => {
+  // The hold is choreographed, not arbitrary: 1.5 s entrance, detail
+  // strings at 1.6 / 3.8 / 6.0 s, one beat at 4.0 s. Changing it means
+  // re-timing PromoSlide.jsx, so pin the number here.
+  it('holds a promo for 8 seconds', () => {
+    expect(PROMO_DURATION_SEC).toBe(8);
+  });
+});
+
 describe('buildPromoSlot', () => {
   const slot = (todayStr, opts) => buildPromoSlot(season, todayStr, opts);
   const kinds = (s) => (s ? s.promos.map((p) => p.kind) : null);

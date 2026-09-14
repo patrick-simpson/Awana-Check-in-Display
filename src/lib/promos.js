@@ -53,9 +53,11 @@ export const CONTEST_DATE = '2026-10-14';
 // without a second copy of the date (the two events are chained).
 export const PARENTS_DATE = '2026-11-04';
 
-// Longer than a text slide's default hold: a promo has an entrance
-// animation to play through before anyone has read the counter.
-export const PROMO_DURATION_SEC = 12;
+// Longer than a text slide's default hold, short enough that the deck
+// keeps moving: a promo plays a 1.5 s entrance, turns its detail line
+// over at 1.6 / 3.8 / 6.0 s and beats once at 4.0 s, which is the whole
+// of what it has to say. Twelve seconds left it sitting still.
+export const PROMO_DURATION_SEC = 8;
 
 /**
  * @param {any} slide
