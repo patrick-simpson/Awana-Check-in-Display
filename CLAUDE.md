@@ -140,11 +140,29 @@ Signage only (`index.html`); the projector and Journey never see them.
   render; it is never written to localStorage and never published. A
   `type: 'promo'` entry arriving in a `slides` chunk is dropped by the
   existing text-only allowlist, and `eventSanitizers.test.js` pins that.
+- **Three big statements, one rotating line** (v2, after the owner
+  watched them on the lobby TV: too many small pieces, and they landed
+  in two seconds and then sat still). A slide carries a headline, a hero
+  graphic and a date, at sizes meant for a read from the check-in line,
+  plus the countdown chip and ONE `.promo-detail` slot. Every line the
+  first pass set in small type is now a string in that slot, which turns
+  over at 1.6 / 3.8 / 6.0 s inside the 8 s hold
+  (`PROMO_DURATION_SEC = 8`) and beats once at 4.0 s. All of that copy
+  lives in the one exported `PROMO_DETAILS` table in `PromoSlide.jsx`,
+  chosen by the pure `detailsFor(promo)`; the tonight/`afterContest`
+  wording is pinned by tests there. Hero words and dates are set in
+  Lilita One (`--font-poster`), headlines in Baloo, the detail line in
+  Oswald. If a line will not fit a screen, cut words rather than points.
 - Every animated element is `M.*` from `src/lib/motion.jsx`, so
   `?lowPower=1` freezes the whole poster. Ambient `repeat: Infinity`
   loops are fine — just keep the LAST keyframe the resting value,
   because zero-animation mode jumps straight to it and that is the frame
-  the Pi sits on.
+  the Pi sits on. (The drifting confetti and the floating hearts end
+  off-frame or at zero opacity for exactly that reason.) Note that
+  framer-motion captures the real `requestAnimationFrame` when it is
+  imported, so **vitest fake timers cannot drive its crossfades** — the
+  detail line's cadence is tested through `RotatingDetail` with real
+  timers and short steps, and its copy through `detailsFor`.
 - Settings → Calendar & Weather → **"Fall event promos"**
   (`config.seasonPromos`) turns them off without touching the other
   auto-slides.
