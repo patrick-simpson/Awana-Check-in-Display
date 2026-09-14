@@ -52,6 +52,11 @@
      every "Join our Awana Club!" secondary line under the chunky caps.
      Bundled via @fontsource-variable/caveat in src/main.jsx. */
   --font-hand: 'Caveat Variable', 'Caveat', 'Segoe Script', 'Comic Sans MS', cursive;
+  /* The poster voice: the single-weight chunky face the fall event
+     promo slides set their hero words and dates in, so a poster reads
+     as a poster and not as another catalog page. Bundled via
+     @fontsource/lilita-one in src/main.jsx. */
+  --font-poster: 'Lilita One', 'Baloo 2 Variable', 'Baloo 2', 'Segoe UI', system-ui, sans-serif;
 
   /* TV title-safe inset for all fixed chrome — older panels overscan. */
   --safe-inset: max(24px, 2.5vmin);
@@ -2145,11 +2150,22 @@ input:focus-visible {
    Animated recreations of the church's three printed fall posters,
    sharing one slot in the background rotation (PromoSlide.jsx; which
    one shows is decided in src/lib/promos.js). Unlike a typed slide
-   these are FULL-BLEED — the poster is the whole screen — so the copy
+   these are FULL-BLEED (the poster is the whole screen), so the copy
    inside each one keeps its own safe area away from the top-right
    corner widgets and the bottom banner instead of reusing
-   .manual-slide-copy's inset. Sizes are clamp(min, min(vw, vh), max)
-   so 1920x1080, 1280x720 and a 1024x600 stick all read the same. */
+   .manual-slide-copy's inset.
+
+   v2, after watching them on the lobby TV: these are read from the
+   check-in line about twenty feet away, so a slide carries THREE big
+   statements (headline, hero, date) plus one rotating detail line and
+   the countdown chip, and nothing else. Sizes are
+   clamp(min, min(vw, vh), max) so 1920x1080, 1366x768 and a 1024x600
+   stick all read the same, and the floors are deliberately high: a
+   line that will not fit should lose words, not points.
+
+   Layering inside a slide, lowest first: texture (0), vignette (1),
+   drifting flecks and sparkles (2), the poster's own stacks (3), the
+   wordmark and the countdown chip (4). */
 .promo-slide {
   position: absolute;
   inset: 0;
@@ -2158,11 +2174,36 @@ input:focus-visible {
   user-select: none;
 }
 
+/* Depth, two cheap static layers. The grain keeps a big flat field of
+   navy or purple from banding on a TV panel; the vignette pulls the
+   corners down so the hero sits in a pool of light. Neither animates. */
+.promo-texture,
+.promo-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.promo-texture {
+  z-index: 0;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.promo-vignette {
+  z-index: 1;
+  background: radial-gradient(ellipse at 50% 44%, rgba(0, 0, 0, 0) 52%, rgba(0, 0, 0, 0.38) 100%);
+}
+/* Cream needs a warm shade rather than black, or the corners go grey. */
+.promo-slide--parents .promo-texture { opacity: 0.045; mix-blend-mode: multiply; }
+.promo-slide--parents .promo-vignette {
+  background: radial-gradient(ellipse at 50% 46%, rgba(140, 70, 30, 0) 55%, rgba(140, 70, 30, 0.2) 100%);
+}
+
 /* The Awana Clubs wordmark, small and centred at the top of every
    promo. Its own slot does the centring so framer-motion owns the
    element's transform outright. */
 .promo-wordmark-slot {
   position: absolute;
+  z-index: 4;
   top: 3.2%;
   left: 0;
   right: 0;
@@ -2176,83 +2217,180 @@ input:focus-visible {
 }
 
 /* The live counter: "3 club nights left" / "Tonight!". Top-LEFT on
-   purpose — the corner widget stack (clock, weather, tally) owns the
+   purpose: the corner widget stack (clock, weather, tally) owns the
    top right, and the settings gear owns the bottom left only as a
-   faded 44px target. */
-.promo-chip {
+   faded 44px target. The slot holds the position so the pill itself is
+   free to pulse on the mid-hold beat. */
+.promo-chip-slot {
   position: absolute;
-  top: 3.6%;
-  left: 3.6%;
+  z-index: 4;
+  top: 3.4%;
+  left: 3.4%;
+}
+.promo-chip {
   padding: 0.42em 1.1em 0.48em;
   border-radius: 999px;
   font-family: var(--font-condensed);
   font-weight: 600;
-  font-size: clamp(0.8rem, min(1.5vw, 2.7vh), 1.5rem);
+  font-size: clamp(1rem, min(1.9vw, 3.4vh), 2rem);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
 }
 .promo-slide--contest .promo-chip { background: #f8a91c; color: #1f2a5c; }
 .promo-slide--friend .promo-chip { background: #7ed321; color: #3b1a63; }
 .promo-slide--parents .promo-chip { background: #fbf1e1; color: #c85a2e; }
 
-.promo-sparkle {
-  position: absolute;
-  color: #ffffff;
-  pointer-events: none;
+/* The one headline per poster. */
+.promo-headline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.2rem, min(4.6vw, 8vh), 5rem);
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+.promo-headline--contest { color: #ffffff; text-shadow: 0 0.06em 0 rgba(10, 16, 48, 0.55); }
+.promo-headline--friend { color: #7ed321; text-shadow: 0 0.06em 0 rgba(46, 12, 76, 0.5); }
+
+/* Hero words and dates: the poster face, one weight, set big. */
+.promo-date {
+  font-family: var(--font-poster);
+  font-weight: 400;
+  font-size: clamp(2rem, min(5.2vw, 9vh), 6rem);
+  line-height: 1.04;
+  /* No extra tracking: the poster face already sets its own, and a
+     comma picked up a visible gap in front of it at these sizes. */
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
-.promo-eyebrow {
+/* A two-tone outline: eight offsets of --po-c around the glyph, then
+   one solid drop of --po-s behind it. text-shadow rather than
+   -webkit-text-stroke because the stroke inks INWARD and thins a
+   display face at these sizes. Both properties inherit, so the class
+   goes on the element that owns the type and the inner beat span picks
+   it up. */
+.promo-outline {
+  text-shadow:
+    calc(var(--po-w) * -1) 0 0 var(--po-c),
+    var(--po-w) 0 0 var(--po-c),
+    0 calc(var(--po-w) * -1) 0 var(--po-c),
+    0 var(--po-w) 0 var(--po-c),
+    calc(var(--po-w) * -1) calc(var(--po-w) * -1) 0 var(--po-c),
+    var(--po-w) calc(var(--po-w) * -1) 0 var(--po-c),
+    calc(var(--po-w) * -1) var(--po-w) 0 var(--po-c),
+    var(--po-w) var(--po-w) 0 var(--po-c),
+    0 var(--po-drop, 0.07em) 0 var(--po-s, transparent);
+}
+
+/* The beat span: an inline-block so its one-shot bounce has something
+   to scale. */
+.promo-beat { display: inline-block; }
+
+/* The rotating detail line. One slot, one string at a time, at a size
+   that can actually be read from the check-in line. Everything the
+   printed poster says in small type takes its turn here. The slot owns
+   the font-size so its min-height can hold the row while
+   AnimatePresence swaps the string out. */
+.promo-detail-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 1.5em;
+  font-size: clamp(1.3rem, min(2.6vw, 4.6vh), 2.6rem);
+}
+.promo-detail {
+  display: inline-block;
   font-family: var(--font-condensed);
   font-weight: 600;
-  font-size: clamp(0.9rem, min(1.9vw, 3.3vh), 1.8rem);
-  letter-spacing: 0.2em;
+  font-size: 1em;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #ffffff;
+  text-align: center;
 }
+.promo-slide--contest .promo-detail { color: #1f2a5c; }
+.promo-slide--friend .promo-detail { color: #ffffff; }
+.promo-slide--parents .promo-detail { color: #3d1f33; }
+
+/* Ambient drift: sparkles that twinkle, and flecks crossing the whole
+   poster. Both sit above the vignette and below the type. */
+.promo-sparkle {
+  position: absolute;
+  z-index: 2;
+  color: #ffffff;
+  pointer-events: none;
+  filter: drop-shadow(0 0 0.6vmin rgba(255, 255, 255, 0.35));
+}
+.promo-sparkle--gold { color: #ffd98a; }
+
+.promo-drift-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+.promo-fleck {
+  position: absolute;
+  top: 0;
+  border-radius: 1px;
+}
+.promo-fleck--gold { background: #f8a91c; }
+.promo-fleck--white { background: rgba(255, 255, 255, 0.85); }
+.promo-fleck--lime { background: #7ed321; border-radius: 999px; }
+.promo-fleck--pale { background: #b6f06a; border-radius: 999px; }
 
 /* ── Promo: DEFEND poster contest ───────────────────────── */
-.promo-slide--contest { background: #1f2a5c; }
+.promo-slide--contest {
+  background-color: #1f2a5c;
+  background-image: radial-gradient(ellipse 66% 58% at 50% 42%, #32427f 0%, rgba(50, 66, 127, 0) 62%);
+}
 
 .promo-contest-stack {
   position: absolute;
+  z-index: 3;
   left: 4%;
   right: 4%;
-  /* One centred column, like the printed poster. The bottom bound clears
-     the band's top edge at the middle of the slide, where the copy sits. */
-  top: 11%;
-  bottom: 31%;
+  /* One centred column, like the printed poster. The bottom bound
+     clears the top edge of the band where it crosses the middle. */
+  top: 10%;
+  bottom: 42%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   text-align: center;
 }
-.promo-contest-theme {
-  margin-top: 0.45em;
-  font-family: var(--font-condensed);
-  font-weight: 600;
-  font-size: clamp(0.72rem, min(1.4vw, 2.5vh), 1.25rem);
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-  color: #f8a91c;
-}
 
-/* The taped-up sign the theme word is written on. */
+/* The taped-up sign the theme word is written on. It DROPS in on the
+   hang element and then swings from its top edge on the swing element,
+   so the landing and the pendulum never share a transform. */
+.promo-sign-hang {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: clamp(1rem, 3.4vh, 2.8rem);
+}
 .promo-sign {
   position: relative;
-  margin-top: clamp(0.8rem, 2.6vh, 2.2rem);
-  padding: clamp(0.6rem, 1.8vh, 1.5rem) clamp(1.4rem, 3.6vw, 4rem) clamp(0.8rem, 2.2vh, 1.8rem);
-  background: #ffffff;
-  border-radius: 4px;
-  box-shadow: 0 26px 60px rgba(8, 12, 32, 0.45);
+  padding: clamp(0.5rem, 1.6vh, 1.4rem) clamp(1.6rem, 4vw, 4.4rem) clamp(0.7rem, 2.1vh, 1.8rem);
+  background-image: linear-gradient(178deg, #ffffff 0%, #f3efe4 100%);
+  border-radius: 5px;
+  box-shadow:
+    0 34px 70px rgba(6, 10, 28, 0.55),
+    0 2px 0 rgba(255, 255, 255, 0.7) inset;
 }
 .promo-tape {
   position: absolute;
-  width: clamp(34px, 4.4vw, 86px);
-  height: clamp(13px, 1.8vh, 26px);
-  background: rgba(232, 220, 184, 0.9);
+  width: clamp(34px, 4.4vw, 90px);
+  height: clamp(13px, 1.8vh, 28px);
+  background: rgba(232, 220, 184, 0.92);
+  box-shadow: 0 4px 10px rgba(8, 12, 32, 0.35);
 }
 .promo-tape--tl { top: -0.6em; left: -1em; transform: rotate(-38deg); }
 .promo-tape--tr { top: -0.6em; right: -1em; transform: rotate(38deg); }
@@ -2266,120 +2404,120 @@ input:focus-visible {
 }
 .promo-sign-letter {
   display: inline-block;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(2.8rem, min(9.5vw, 15vh), 10.5rem);
-  letter-spacing: 0.01em;
+  font-family: var(--font-poster);
+  font-weight: 400;
+  font-size: clamp(3.5rem, min(12vw, 19vh), 13rem);
+  letter-spacing: 0.005em;
   color: #f8a91c;
-  text-shadow: 0 3px 0 rgba(210, 120, 10, 0.28);
-}
-.promo-contest-verse {
-  margin-top: clamp(0.7rem, 2vh, 1.5rem);
-  font-family: var(--font-condensed);
-  font-weight: 600;
-  font-size: clamp(0.78rem, min(1.5vw, 2.7vh), 1.4rem);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #f8a91c;
-}
-
-/* The chain to the other poster, a quiet line under the verse. */
-.promo-contest-chain {
-  margin: clamp(0.5rem, 1.6vh, 1.2rem) 0 0;
-  font-family: var(--font-condensed);
-  font-weight: 500;
-  font-size: clamp(0.78rem, min(1.4vw, 2.5vh), 1.35rem);
-  line-height: 1.4;
-  letter-spacing: 0.05em;
-  color: rgba(255, 255, 255, 0.7);
+  --po-w: 0.022em;
+  --po-c: #1f2a5c;
+  --po-s: rgba(194, 110, 8, 0.55);
+  --po-drop: 0.05em;
 }
 
 /* The diagonal band. Wider than the slide and hung off the bottom so
    its rotated ends never expose a corner of navy; the origin is the
-   RIGHT edge, so the sweep lifts the left end into the frame. */
+   RIGHT edge, so the sweep lifts the left end into the frame. The
+   stripes are the printed poster's paper stock, kept to about 6% white
+   so they never compete with the date. */
 .promo-contest-band {
   position: absolute;
+  z-index: 3;
   left: -8%;
   right: -8%;
-  bottom: -6%;
-  height: 36%;
+  bottom: -4%;
+  height: 38%;
   display: flex;
   align-items: center;
   justify-content: center;
   /* The band hangs off three edges so its rotated corners never expose a
      sliver of navy; the copy is padded back up out of that overhang, and
      out of the extra drop the rotation gives the middle of the band. */
-  padding-bottom: clamp(2rem, 7vh, 5.5rem);
-  background: #f8a91c;
+  padding-bottom: clamp(2.5rem, 12vh, 9rem);
+  background-color: #f8a91c;
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0.06) 0 14px,
+    rgba(255, 255, 255, 0) 14px 34px
+  );
   transform-origin: 100% 50%;
-  box-shadow: 0 -18px 60px rgba(8, 12, 32, 0.35);
+  box-shadow: 0 -22px 70px rgba(8, 12, 32, 0.45);
 }
 .promo-band-copy {
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 0 8%;
+  width: 100%;
+  padding: 0 6%;
 }
 .promo-band-kicker {
   font-family: var(--font-condensed);
   font-weight: 600;
-  font-size: clamp(0.78rem, min(1.6vw, 2.8vh), 1.5rem);
+  font-size: clamp(1rem, min(2.1vw, 3.7vh), 2rem);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: #1f2a5c;
 }
 .promo-band-head {
-  margin-top: 0.06em;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(1.7rem, min(4.6vw, 8.2vh), 5.2rem);
-  line-height: 1.04;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
+  margin-top: 0.04em;
   color: #ffffff;
-  text-shadow: 0 4px 0 rgba(190, 110, 8, 0.35);
+  --po-w: 0.026em;
+  --po-c: #1f2a5c;
+  --po-s: rgba(150, 84, 4, 0.45);
+  --po-drop: 0.06em;
 }
-.promo-band-head--long { font-size: clamp(1.2rem, min(3.1vw, 5.6vh), 3.4rem); text-transform: none; }
-.promo-band-foot {
-  margin-top: 0.15em;
-  font-family: var(--font-condensed);
-  font-weight: 600;
-  font-size: clamp(0.72rem, min(1.5vw, 2.6vh), 1.4rem);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #1f2a5c;
+.promo-band-head--long {
+  font-size: clamp(1.6rem, min(3.6vw, 6.2vh), 3.8rem);
+  text-transform: none;
 }
+.promo-slide--contest .promo-detail-slot { margin-top: 0.12em; }
 
-.promo-slide--contest .promo-sparkle--a { left: 7%; top: 20%; }
-.promo-slide--contest .promo-sparkle--b { left: 15%; top: 44%; }
-.promo-slide--contest .promo-sparkle--c { left: 9%; top: 56%; }
-.promo-slide--contest .promo-sparkle--d { right: 8%; top: 17%; }
-.promo-slide--contest .promo-sparkle--e { right: 15%; top: 40%; }
-.promo-slide--contest .promo-sparkle--f { right: 7%; top: 58%; }
+.promo-slide--contest .promo-sparkle--a { left: 6%; top: 22%; }
+.promo-slide--contest .promo-sparkle--b { left: 14%; top: 46%; }
+.promo-slide--contest .promo-sparkle--c { left: 8%; top: 58%; }
+.promo-slide--contest .promo-sparkle--d { right: 7%; top: 18%; }
+.promo-slide--contest .promo-sparkle--e { right: 14%; top: 42%; }
+.promo-slide--contest .promo-sparkle--f { right: 6%; top: 57%; }
 
 /* ── Promo: BARF Night ──────────────────────────────────── */
-.promo-slide--friend { background: #5b1f8f; }
+.promo-slide--friend {
+  background-color: #5b1f8f;
+  background-image: radial-gradient(ellipse 68% 60% at 50% 42%, #7b2fbd 0%, rgba(123, 47, 189, 0) 62%);
+}
 
 .promo-friend-stack {
   position: absolute;
-  inset: 10% 4% 5%;
+  z-index: 3;
+  inset: 10.5% 4% 6.5%;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
 }
-.promo-friend-title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(1.7rem, min(5.6vw, 9.6vh), 6rem);
-  line-height: 1;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-  color: #7ed321;
-  text-shadow: 0 5px 0 rgba(46, 12, 76, 0.45);
+/* The headline and the comic burst behind it share one box so the
+   burst stays centred on the words at any size. */
+.promo-friend-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
+.promo-friend-burst {
+  --burst: clamp(200px, min(36vw, 46vh), 640px);
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  top: 50%;
+  width: var(--burst);
+  height: var(--burst);
+  margin-left: calc(var(--burst) / -2);
+  margin-top: calc(var(--burst) / -2 + 6vh);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.promo-headline--friend { position: relative; z-index: 1; }
 
 .promo-friend-splat-area {
   position: relative;
@@ -2392,7 +2530,7 @@ input:focus-visible {
   /* Room for the drips to hang without landing on the date below. */
   padding-bottom: clamp(0.5rem, 2.4vh, 2rem);
 }
-.promo-friend-wobble,
+.promo-friend-jelly,
 .promo-friend-squish {
   position: absolute;
   inset: 0;
@@ -2401,71 +2539,61 @@ input:focus-visible {
   justify-content: center;
 }
 .promo-friend-splat {
-  width: min(48vw, 70%);
+  width: min(56vw, 78%);
   height: 100%;
   max-height: 100%;
   overflow: visible;
-  filter: drop-shadow(0 18px 40px rgba(30, 8, 52, 0.4));
+  filter: drop-shadow(0 22px 46px rgba(26, 6, 46, 0.5));
 }
 .promo-friend-words {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  line-height: 0.98;
+  line-height: 0.95;
 }
 .promo-friend-word {
   display: inline-block;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(1.4rem, min(4.4vw, 7.6vh), 4.4rem);
-  letter-spacing: 0.02em;
+  font-family: var(--font-poster);
+  font-weight: 400;
+  font-size: clamp(2.6rem, min(7.5vw, 12.5vh), 8.5rem);
+  letter-spacing: 0.01em;
   color: #3b1a63;
+  text-shadow:
+    0 0 0.1em rgba(126, 211, 33, 0.95),
+    0 0 0.28em rgba(126, 211, 33, 0.55);
 }
 
 .promo-friend-foot {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.12em;
+  width: 100%;
+  gap: 0.1em;
 }
 .promo-friend-date {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(1.4rem, min(4.2vw, 7.4vh), 4.6rem);
-  line-height: 1.02;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
   color: #ffffff;
-  text-shadow: 0 4px 0 rgba(46, 12, 76, 0.4);
+  --po-w: 0.024em;
+  --po-c: #3b1a63;
+  --po-s: rgba(30, 8, 52, 0.5);
+  --po-drop: 0.06em;
 }
 .promo-friend-date--long {
-  font-size: clamp(1.1rem, min(2.9vw, 5.2vh), 3rem);
+  font-size: clamp(1.6rem, min(3.6vw, 6.2vh), 3.8rem);
   text-transform: none;
-}
-.promo-friend-reward {
-  font-family: var(--font-condensed);
-  font-weight: 600;
-  font-size: clamp(0.8rem, min(1.7vw, 3vh), 1.6rem);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #7ed321;
-}
-.promo-friend-bag {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(1.1rem, min(3vw, 5.4vh), 3.1rem);
-  line-height: 1.05;
-  color: #7ed321;
 }
 
 .promo-slide--friend .promo-wordmark-slot { top: 2.6%; }
 
 /* ── Promo: Parents' Night ──────────────────────────────── */
-.promo-slide--parents { background: #fbf1e1; }
+.promo-slide--parents {
+  background-color: #fbf1e1;
+  background-image: radial-gradient(ellipse 70% 62% at 50% 46%, #fffaf0 0%, rgba(255, 250, 240, 0) 62%);
+}
 
 .promo-parents-header {
   position: absolute;
+  z-index: 3;
   top: 0;
   left: 0;
   right: 0;
@@ -2475,16 +2603,38 @@ input:focus-visible {
   display: block;
   width: 100%;
   height: 100%;
+  filter: drop-shadow(0 10px 26px rgba(140, 70, 30, 0.25));
 }
+
+/* The little hearts rise from behind the big one, so the layer sits
+   below the stack rather than inside it. */
+.promo-parents-hearts {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 46%;
+  width: min(46vw, 720px);
+  height: 1px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.promo-float-heart {
+  position: absolute;
+  top: 0;
+  height: auto;
+}
+.promo-float-heart--gold { color: #e2a43c; }
+.promo-float-heart--rust { color: #c85a2e; }
 
 .promo-parents-stack {
   position: absolute;
-  inset: 19% 6% 6%;
+  z-index: 3;
+  inset: 20% 6% 6%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: clamp(0.45rem, 1.8vh, 1.5rem);
+  gap: clamp(0.4rem, 1.6vh, 1.4rem);
   text-align: center;
 }
 .promo-parents-heart {
@@ -2495,56 +2645,38 @@ input:focus-visible {
 }
 .promo-parents-heart svg {
   display: block;
-  width: clamp(54px, min(12.5vw, 21vh), 172px);
+  width: clamp(70px, min(16vw, 24vh), 260px);
   height: auto;
   overflow: visible;
 }
 .promo-parents-title {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(1.8rem, min(5.4vw, 9.4vh), 5.8rem);
-  line-height: 1.02;
+  font-family: var(--font-poster);
+  font-weight: 400;
+  font-size: clamp(3rem, min(8.5vw, 14vh), 9.5rem);
+  line-height: 1.1;
   letter-spacing: 0.005em;
   color: #3d1f33;
-}
-.promo-parents-sub {
-  margin: 0;
-  font-family: var(--font-condensed);
-  font-style: italic;
-  font-weight: 500;
-  font-size: clamp(0.85rem, min(1.9vw, 3.3vh), 1.8rem);
-  letter-spacing: 0.03em;
-  color: #c85a2e;
+  text-shadow: 0 0.05em 0 rgba(200, 90, 46, 0.22);
 }
 .promo-parents-rule {
-  width: clamp(90px, 16vw, 260px);
-  height: clamp(3px, 0.5vh, 6px);
+  width: clamp(110px, 18vw, 300px);
+  height: clamp(4px, 0.6vh, 8px);
+  transform-origin: center;
+}
+.promo-parents-rule-bar {
+  width: 100%;
+  height: 100%;
   border-radius: 999px;
   background: #e2a43c;
   transform-origin: center;
 }
 .promo-parents-date {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(1.2rem, min(3.4vw, 6vh), 3.6rem);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   color: #3d1f33;
 }
-.promo-parents-pill {
-  max-width: 88%;
-  margin: clamp(0.2rem, 1vh, 0.8rem) 0 0;
-  padding: 0.5em 1.3em 0.58em;
-  border-radius: 999px;
-  background: #c85a2e;
-  color: #fbf1e1;
-  font-family: var(--font-condensed);
-  font-weight: 600;
-  font-size: clamp(0.78rem, min(1.7vw, 3vh), 1.6rem);
-  line-height: 1.3;
-  letter-spacing: 0.05em;
-  box-shadow: 0 12px 30px rgba(120, 52, 24, 0.28);
+.promo-parents-date--long {
+  font-size: clamp(1.8rem, min(4.2vw, 7.2vh), 4.4rem);
+  text-transform: none;
 }
 
 /* ── Wave 1: presentation variants + operator surfaces ─────────────── */
