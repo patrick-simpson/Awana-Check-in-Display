@@ -1,18 +1,34 @@
 import { useCallback, useRef } from 'react';
 import { SEEN_EVENTS_MAX } from '../lib/constants.js';
 
-// Dedupe ledger for checkin event ids: live delivery marks an id seen,
-// recap replay skips anything already seen — so a display that stayed
-// connected never double-banners a kid, while one that reconnects can
-// replay what it missed. Persisted to sessionStorage so an accidental
-// mid-club refresh doesn't re-celebrate the whole recap buffer.
+// Dedupe ledger for checkin event ids: live delivery marks an id seen, a
+// re-delivery of the same id is ignored, and recap replay skips anything
+// already seen, so a display never double-banners (or double-counts) a kid,
+// while one that reconnects can still replay what it missed.
+//
+// Persisted to LOCALSTORAGE under a day stamp, deliberately the same lifetime
+// and the same `todayKey()` shape as useTally.js. It used to be sessionStorage,
+// which gave the ledger a SHORTER life than the count it guards: a kiosk
+// relaunch kept tonight's number and forgot everyone it had already counted, so
+// the next recap replayed the whole window straight back into the total. Two
+// facts about the same evening cannot live on two different clocks.
+//
+// Only opaque producer ids are stored. No names, ever.
 const STORAGE_KEY = 'awanaSeenEvents.v1';
+
+function todayKey(now = new Date()) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
 
 function loadMap() {
   try {
-    const raw = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
-    if (Array.isArray(raw)) {
-      return new Map(raw.filter((p) => Array.isArray(p) && typeof p[0] === 'string' && typeof p[1] === 'number'));
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    // Pruned to the day: yesterday's ledger is not tonight's, and dropping it
+    // wholesale is also what keeps the entry from growing forever.
+    if (raw && raw.date === todayKey() && Array.isArray(raw.entries)) {
+      return new Map(raw.entries.filter(
+        (p) => Array.isArray(p) && typeof p[0] === 'string' && typeof p[1] === 'number'));
     }
   } catch {
     /* corrupt or blocked storage → start empty */
@@ -26,7 +42,10 @@ export function useSeenEvents() {
 
   const persist = useCallback(() => {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...mapRef.current]));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        date: todayKey(),
+        entries: [...mapRef.current],
+      }));
     } catch {
       /* best-effort */
     }
