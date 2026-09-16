@@ -50,26 +50,59 @@ function sharedDir() {
   };
 }
 
-// Emits sw.js (from src/sw.js) with a build-content hash and a precache
-// manifest baked in. The hash is a sha of the emitted filenames — any
-// code change renames a hashed asset, so every deploy gets a new cache
-// name and `activate` drops the old one (never-stale-JS guarantee).
-// shared/ is deliberately NOT precached (sharedDir() copies it after
-// this hook); it's runtime-cached by the SW's fetch rules instead.
+// The one build identity, used for three things.
+//
+// 1. sw.js (from src/sw.js) gets the hash and a precache manifest baked in.
+//    The hash is a sha of the emitted filenames: any code change renames a
+//    hashed asset, so every deploy gets a new cache name and `activate` drops
+//    the old one (never-stale-JS guarantee). shared/ is deliberately NOT
+//    precached (sharedDir() copies it after this hook); it's runtime-cached by
+//    the SW's fetch rules instead.
+// 2. `dist/version.json` publishes it, so a page that has been running for
+//    days can ask whether it is still the current build.
+// 3. Both HTML entries carry it in a `<meta name="awana-build">` tag, which is
+//    how app code reads its own build without importing anything. The
+//    presentation page shares src/lib/buildReload.js that way without
+//    breaking its isolation rule. See CLAUDE.md, "Self-updating pages".
+//
+// The hash is only knowable once rollup has named every file, so
+// transformIndexHtml writes a token and the post-order generateBundle below
+// swaps it for the real hash in the emitted HTML. The HTML files themselves
+// are kept out of the hashed/precached file list, so sw.js is unchanged by
+// this: a token in the markup must not be able to move the cache name.
 function serviceWorker() {
   return {
     name: 'awana-service-worker',
     apply: 'build',
-    generateBundle(_options, bundle) {
-      const files = Object.keys(bundle).sort();
-      const hash = createHash('sha256').update(files.join('\n')).digest('hex').slice(0, 12);
-      const precache = files
-        .filter((f) => /\.(html|js|css|woff2?)$/.test(f) && !f.startsWith('powerpoint-addon/'))
-        .map((f) => `./${f}`);
-      const source = readFileSync(resolve(__dirname, 'src/sw.js'), 'utf8')
-        .replace('__BUILD_HASH__', hash)
-        .replace('__PRECACHE_MANIFEST__', JSON.stringify(precache, null, 2));
-      this.emitFile({ type: 'asset', fileName: 'sw.js', source });
+    transformIndexHtml: {
+      order: 'post',
+      handler: (html) => html.replace(
+        '</head>',
+        '  <meta name="awana-build" content="__BUILD_HASH__" />\n  </head>'
+      ),
+    },
+    generateBundle: {
+      order: 'post',
+      handler(_options, bundle) {
+        const files = Object.keys(bundle).sort().filter((f) => !f.endsWith('.html'));
+        const hash = createHash('sha256').update(files.join('\n')).digest('hex').slice(0, 12);
+        const precache = files
+          .filter((f) => /\.(js|css|woff2?)$/.test(f) && !f.startsWith('powerpoint-addon/'))
+          .map((f) => `./${f}`);
+        const source = readFileSync(resolve(__dirname, 'src/sw.js'), 'utf8')
+          .replace('__BUILD_HASH__', hash)
+          .replace('__PRECACHE_MANIFEST__', JSON.stringify(precache, null, 2));
+        this.emitFile({ type: 'asset', fileName: 'sw.js', source });
+        this.emitFile({
+          type: 'asset',
+          fileName: 'version.json',
+          source: `${JSON.stringify({ build: hash, builtAt: new Date().toISOString() }, null, 2)}\n`,
+        });
+        for (const [fileName, chunk] of Object.entries(bundle)) {
+          if (!fileName.endsWith('.html') || chunk.type !== 'asset') continue;
+          chunk.source = String(chunk.source).replace('__BUILD_HASH__', hash);
+        }
+      },
     },
   };
 }
