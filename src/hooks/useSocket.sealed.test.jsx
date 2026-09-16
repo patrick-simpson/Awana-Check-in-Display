@@ -82,8 +82,12 @@ describe('with no display key (rollout mode)', () => {
     setup({ onCheckin });
     await waitFor(() => expect(bound.checkin).toBeTypeOf('function'));
     emit('checkin', { firstName: 'Amy', club: 'Sparks' });
-    expect(onCheckin).toHaveBeenCalledWith(
-      expect.objectContaining({ firstName: 'Amy', club: 'Sparks' }));
+    expect(onCheckin).toHaveBeenCalledTimes(1);
+    expect(onCheckin.mock.calls[0][0]).toMatchObject({ firstName: 'Amy', club: 'Sparks' });
+    // The live socket path never passes dispatchEvent's local-only `meta`;
+    // see simulateEvent.test.js. Asserted on the first argument rather than
+    // the whole call so the hint stays invisible to every wire test.
+    expect(onCheckin.mock.calls[0][1]).toBeUndefined();
   });
 
   it('reports no-key once sealed frames start arriving that it cannot read', async () => {
