@@ -39,7 +39,8 @@ export const MAX_QUEUE = 100;
 // Fallback banner hold when the configured duration is invalid.
 export const DEFAULT_HOLD_MS = 6000;
 
-// Seen-events dedupe ledger cap (sessionStorage).
+// Seen-events dedupe ledger cap (day-stamped localStorage, same lifetime as
+// the tally it guards; see useSeenEvents.js).
 export const SEEN_EVENTS_MAX = 500;
 
 // Refuse to trust a calendar scrape that lost most of the calendar.
@@ -73,6 +74,16 @@ export const TONIGHT_STALE_MS = 10 * 60 * 1000;
 // clock having moved (a restart, an NTP correction) and re-baselines
 // rather than deadlocking the counter forever.
 export const TALLY_REORDER_MS = 60 * 1000;
+
+// How long after adopting a printer `tally` an UNSTAMPED check-in is assumed
+// to be already counted by it. The printer publishes a check-in and the tally
+// that includes it milliseconds apart, but the display's two paths are not
+// symmetric: plaintext `tally` dispatches synchronously while a sealed
+// `checkin` waits on a decrypt, so the tally routinely lands first. A check-in
+// that carries its own `at` is compared against the tally directly and never
+// needs this; this window only covers a producer old enough not to stamp one.
+// Small on purpose: it must cover a publish-order inversion, not a lull.
+export const TALLY_BUMP_GRACE_MS = 1500;
 
 // How long "synced with the check-in desk" stays under the corner counter
 // after a reconciliation moved it by more than one (#351). A jump from 38 to
