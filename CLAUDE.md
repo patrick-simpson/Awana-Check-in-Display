@@ -109,7 +109,8 @@ means landing both repos together.
 - A hand-written service worker (`src/sw.js`, emitted with a per-build
   cache version by the `serviceWorker()` plugin in vite.config.js)
   gives both pages an offline shell — JSON and HTML stay network-first
-  so deploys and schedule edits are never masked by a cache
+  so deploys and schedule edits are never masked by a cache, and the
+  self-update probes are network-ONLY (see "Self-updating pages")
 - Quality gates on every push to `main`: lint, `tsc` typecheck of the
   `@ts-check` seams, vitest with coverage thresholds, build, and the
   Playwright smoke suite; visual regression runs in ci.yml only
@@ -223,6 +224,55 @@ so a child sees the number move within a second of their own check-in.
   `contract-vectors.json` are untouched. The existing "synced with the
   check-in desk" note still explains a correction bigger than one either way.
 
+## Self-updating pages
+
+Owner request 2026-09-16: a lobby TV or a projector that has been running for
+days should pick up a new deploy on its own, within a few minutes, without
+anyone walking over to it, and never in the middle of something a room is
+watching.
+
+- **One build identity, three places.** The `serviceWorker()` plugin in
+  `vite.config.js` already hashed the emitted filenames for the service
+  worker's cache name; that same hash now also lands in `dist/version.json`
+  (`{ build, builtAt }`) and in a `<meta name="awana-build">` tag in BOTH
+  HTML entries. The tag is how app code learns its own build, read from the
+  DOM and never imported, which is what lets the projector page share
+  `src/lib/buildReload.js` without breaking its isolation rule. The hash is
+  only knowable after rollup names every file, so `transformIndexHtml` writes
+  a `__BUILD_HASH__` token and the post-order `generateBundle` swaps it in
+  the emitted HTML. HTML files are deliberately excluded from the hashed and
+  precached file list, so that token can never move the service worker's
+  cache name.
+- **No stamp means no poller.** `pageBuild()` is null on the dev server and
+  in the hermetic e2e smoke run, and `useBuildReload` then starts no timer at
+  all. A missing, non-200 or unparsable `version.json` is likewise "no news",
+  never a change: a captive portal answering every URL with a login page must
+  not be able to reload the wall.
+- **The HTML is checked before reloading.** GitHub Pages serves everything
+  with `max-age=600`, so its CDN can still be handing out the previous
+  `index.html` minutes after `version.json` has moved on. A reload that
+  landed on the old HTML would come straight back and loop, so the page
+  fetches its own `location.pathname` first and only reloads when that HTML
+  already carries the new hash. Both probes carry
+  `?awanaBuild=<Date.now()>`; `src/sw.js` passes anything with that query
+  (and `version.json` itself) straight through to the network, because a
+  cached answer would pin the screen to the build it already has.
+- **Busy means busy, and there is no deadline.** Signage is busy while a
+  check-in banner (and so any birthday ribbon riding on it), a celebration or
+  doors-open flourish, a visible checkout board, an open Settings / slide
+  editor / debug panel, or an event from the last `BUILD_QUIET_MS` is on
+  screen. The projector is busy unless `projectorIdle()` says otherwise:
+  shutdown is always safe, a countdown still more than `COUNTDOWN_IDLE_MS`
+  out is safe (before 5:30 on a club night, and every other day), games and
+  slideshows never are. Either page also holds while anything focusable is
+  being typed in. A busy page re-asks every `BUILD_BUSY_RECHECK_MS`, for as
+  long as it takes: a check-in rush is never interrupted to install a fix.
+- Poll every `BUILD_CHECK_MS` (3 minutes) and on the browser's `online`
+  event, rate-limited to `BUILD_ONLINE_MIN_MS` because `online` fires in
+  bursts on a flaky church connection. Nothing is persisted; two
+  `console.warn` lines (update detected, reloading) are the whole trace.
+  `location.reload()` keeps `?lowPower=1`, `?key=` and friends.
+
 ## The presentation page (`src/presentation/` → /countdown.html)
 
 The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
@@ -245,15 +295,18 @@ The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
   remains canonical for anything structural.
 - **Isolation rule**: `src/presentation/` may import from the existing
   app ONLY `src/hooks/useSocket.js`, `src/hooks/useConfig.js`,
-  `src/hooks/useWakeLock.js`, `src/lib/weather.js`, `src/lib/skins.js`,
+  `src/hooks/useWakeLock.js`, `src/hooks/useBuildReload.js`,
+  `src/lib/buildReload.js`, `src/lib/weather.js`, `src/lib/skins.js`,
   `src/components/BirthdayArt.jsx`, and the secret-storage helpers
   `src/hooks/useDisplayLogin.js`, `src/hooks/useDisplayKey.js`,
   `src/lib/displayKey.js` (`maskDisplayKey`) and `src/lib/envelope.js`
   (`isPlausibleKey`). Its realtime data must flow through the sanitized
   socket — never a second Pusher stack; the wake-lock, Open-Meteo
-  fetcher, skin table, birthday art and the display key / login slots
-  are shared so the two pages can't drift apart (the projector page must
-  never grow a second copy of a key slot).
+  fetcher, skin table, birthday art, self-update poller and the display
+  key / login slots are shared so the two pages can't drift apart (the
+  projector page must never grow a second copy of a key slot, and one
+  copy of "may this screen reload right now" is the whole point of the
+  self-update helper).
   (The skin table earned its place after the two screens disagreed about
   the season: November read as `harvest` on signage and `winter` on the
   projector, from two separate month tables.) Nothing in the signage app

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppMode } from './types.js';
 import { FLAGS } from './lib/flags.js';
@@ -10,6 +10,8 @@ import { useClock } from './hooks/useClock.js';
 import { useSchedule } from './hooks/useSchedule.js';
 import { useRealtime } from './hooks/useRealtime.js';
 import { useWakeLock } from '../hooks/useWakeLock.js';
+import { useBuildReload } from '../hooks/useBuildReload.js';
+import { projectorIdle } from '../lib/buildReload.js';
 import { ViewErrorBoundary } from './components/ViewErrorBoundary.jsx';
 import { ResumePill } from './components/ResumePill.jsx';
 import { SetupChecklist } from './components/SetupChecklist.jsx';
@@ -71,6 +73,15 @@ export const App = () => {
   // The projector must never doze off mid-countdown (same shared hook
   // as the signage page — on the presentation import allowlist).
   useWakeLock(true);
+
+  // Self-updating (see CLAUDE.md, "Self-updating pages"): the projector picks
+  // up a new deploy on its own, and only while nobody is watching it count.
+  // Shutdown is always safe, and so is a countdown still more than half an
+  // hour out, before 5:30 on a club night, and any other day of the week.
+  // The rule itself lives in the shared pure helper; here it is just "not
+  // idle means busy".
+  const buildReloadBusy = useCallback(() => !projectorIdle(state), [state]);
+  useBuildReload(buildReloadBusy);
 
   return (
     <MotionConfig reducedMotion={FLAGS.vr ? 'always' : 'user'}>

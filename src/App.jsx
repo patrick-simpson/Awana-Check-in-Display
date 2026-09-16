@@ -33,7 +33,7 @@ import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calenda
 import { buildPromoSlot } from './lib/promos.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
-import { decideBoard } from './lib/checkoutBoard.js';
+import { BOARD_HIDDEN, decideBoard } from './lib/checkoutBoard.js';
 import { birthdayRibbon } from './lib/birthdayWeek.js';
 import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
@@ -53,7 +53,8 @@ import {
   clearFirstOfNight, firstOfNightCopy, hasFiredToday, isFirstOfNight, markFiredToday,
 } from './lib/firstOfNight.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
-import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, TALLY_SYNC_NOTE_MS } from './lib/constants.js';
+import { useBuildReload } from './hooks/useBuildReload.js';
+import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, TALLY_SYNC_NOTE_MS } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -641,6 +642,25 @@ export default function App() {
     now: boardNow,
   }), [checkout, config.checkoutBoardMode, config.checkoutBoardNamesAbove,
     config.checkoutBoardStaleMin, phase, boardNow]);
+
+  // Self-updating (see CLAUDE.md, "Self-updating pages"): a lobby TV that has
+  // been running for days picks up a new deploy on its own, but only while the
+  // room has nothing to look at. Busy is deliberately generous: a banner (and
+  // therefore any birthday ribbon riding on it), a milestone or doors-open
+  // celebration, the checkout board in any visible state, an open panel, or an
+  // event that landed in the last few seconds. There is no deadline, so a rush
+  // simply postpones the reload until it is over.
+  const buildReloadBusy = useCallback(() => (
+    currentEvent != null
+    || celebration != null
+    || settingsOpen
+    || slideEditorOpen
+    || debugOpen
+    || boardDecision.state !== BOARD_HIDDEN
+    || (lastEventAt != null && Date.now() - lastEventAt < BUILD_QUIET_MS)
+  ), [currentEvent, celebration, settingsOpen, slideEditorOpen, debugOpen,
+    boardDecision.state, lastEventAt]);
+  useBuildReload(buildReloadBusy);
 
   // Printer trouble also forces the sticker visible — a kid at the door
   // with no label is exactly when the operator needs the red count.

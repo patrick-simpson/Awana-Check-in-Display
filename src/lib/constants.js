@@ -107,3 +107,20 @@ export const NOTICE_MAX_AGE_MS = 4 * 60 * 60 * 1000;
 // buttons. Both sides have to spell the string the same way, so it lives here
 // rather than inline at the one call site.
 export const EMBED_FULLSCREEN_MESSAGE = 'awana-display:toggle-fullscreen';
+
+// Self-updating pages (see CLAUDE.md, "Self-updating pages"). A display that
+// has been running for days polls version.json this often, and again on the
+// browser's `online` event no more than once per BUILD_ONLINE_MIN_MS, because
+// `online` fires in bursts on a flaky church connection. Once a newer build is
+// known the page re-asks every BUILD_BUSY_RECHECK_MS instead, since the only
+// thing left to wait for is the screen going quiet. There is deliberately NO
+// deadline: a busy screen is never reloaded out from under the room.
+export const BUILD_CHECK_MS = 3 * 60 * 1000;
+export const BUILD_BUSY_RECHECK_MS = 15 * 1000;
+export const BUILD_ONLINE_MIN_MS = 60 * 1000;
+export const BUILD_PROBE_TIMEOUT_MS = 5000;
+
+// How long after the last realtime event the signage page still counts as
+// busy. A banner has just come down; give the room a beat before the screen
+// blinks.
+export const BUILD_QUIET_MS = 5000;

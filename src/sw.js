@@ -19,6 +19,11 @@
 //     a navigation, an HTML one (see cacheable): a captive portal that
 //     answers the watchdog's reload with a redirected 200 must never
 //     become the offline shell.
+//   · The self-update poller's own probes (version.json, and the
+//     freshness check on the page's own HTML, both marked with the
+//     query below) are passed straight through to the network: a cached
+//     answer would pin the screen to the build it already has, forever.
+//     See src/lib/buildReload.js, whose BUILD_PROBE_PARAM this mirrors.
 
 const VERSION = '__BUILD_HASH__';
 const PRECACHE = __PRECACHE_MANIFEST__;
@@ -79,6 +84,10 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Network-only, not even network-first: the deploy heartbeat and the HTML
+  // freshness probe are the two questions a cache must never answer.
+  if (url.searchParams.has('awanaBuild') || url.pathname.endsWith('/version.json')) return;
 
   if (request.mode === 'navigate' || url.pathname.endsWith('.json')) {
     event.respondWith(networkFirst(request));
