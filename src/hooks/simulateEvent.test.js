@@ -123,6 +123,45 @@ describe('dispatchEvent', () => {
     expect(dispatchEvent('checkin', { club: 'Trek' }, {})).toBeNull();
   });
 
+  // Local-only delivery hints. Settings' "Preview a check-in" needs to say
+  // "this is a rehearsal, do not move the public count", and that fact must
+  // travel BESIDE the payload, never inside it: on the wire any publisher
+  // could set it, and the sanitizer would have to allowlist a field that means
+  // nothing to the contract.
+  describe('the local-only meta argument', () => {
+    it('hands meta to the handler as a second argument', () => {
+      const onCheckin = vi.fn();
+      dispatchEvent('checkin', { firstName: 'Demo Kid', club: 'Trek' }, { onCheckin },
+        { countsTowardTally: false });
+      expect(onCheckin).toHaveBeenCalledTimes(1);
+      expect(onCheckin.mock.calls[0][1]).toEqual({ countsTowardTally: false });
+    });
+
+    it('is undefined when the caller does not pass one (the live socket path)', () => {
+      const onCheckin = vi.fn();
+      dispatchEvent('checkin', { firstName: 'Demo Kid', club: 'Trek' }, { onCheckin });
+      expect(onCheckin.mock.calls[0][1]).toBeUndefined();
+    });
+
+    it('never leaks into the sanitized payload, however it is spelled', () => {
+      const onCheckin = vi.fn();
+      // A payload that tries to smuggle the same hint over the wire.
+      dispatchEvent('checkin', {
+        firstName: 'Demo Kid', club: 'Trek', countsTowardTally: false, __test: true,
+      }, { onCheckin });
+      const received = onCheckin.mock.calls[0][0];
+      expect(received).not.toHaveProperty('countsTowardTally');
+      expect(received).not.toHaveProperty('__test');
+    });
+
+    it('simulateEvent forwards it', () => {
+      const onCheckin = vi.fn();
+      simulateEvent('checkin', { firstName: 'Demo Kid', club: 'Trek' }, { onCheckin },
+        { countsTowardTally: false });
+      expect(onCheckin.mock.calls[0][1]).toEqual({ countsTowardTally: false });
+    });
+  });
+
   it('tolerates a bare function handler for checkin only', () => {
     const fn = vi.fn();
     expect(dispatchEvent('checkin', { firstName: 'Test Kid', club: 'Trek' }, fn)).toBeTruthy();

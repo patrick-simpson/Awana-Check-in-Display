@@ -301,7 +301,12 @@ export default function App() {
   // Every live check-in — real or simulated — plays a banner and bumps
   // tonight's tally. Once the ceremony starts, live banners switch to
   // the calm 'late' treatment (no confetti cannon, ducked chime).
-  const handleCheckIn = useCallback((payload) => {
+  const handleCheckIn = useCallback((payload, meta) => {
+    // DEDUPE FIRST. Two check-in stations, or a recap replaying on its own
+    // decrypt chain while the live event is still in flight, can deliver the
+    // same id twice. markSeen was already being called here; it was just never
+    // consulted, so the second delivery banner'd and counted a second child.
+    if (payload.id && hasSeen(payload.id)) return;
     if (payload.id) markSeen(payload.id, payload.at ?? Date.now());
     const late = isLatePhase(phaseRef.current);
     const presentation = late ? 'late' : 'live';
@@ -342,11 +347,16 @@ export default function App() {
         count: payload.milestone,
       });
     }
-    bump();
+    // The optimistic tick. `meta` never comes off the wire (see dispatchEvent):
+    // only a locally injected event can carry it, which is what lets Settings'
+    // "Preview a check-in" rehearse a banner without moving the lobby's number.
+    // The check-in's own `at` lets useTally tell "the printer's total already
+    // counts this child" from "this child is new".
+    if (meta?.countsTowardTally !== false) bump(payload.at);
     // `count` and the config flag are read above, so they belong in the deps.
     // Re-identifying this handler is free: useSocket keeps handlers in a ref
     // it re-points every render, so the Pusher subscription never churns.
-  }, [enqueue, bump, markSeen, enqueueCelebration, count, config.firstArrivalMoment]);
+  }, [enqueue, bump, hasSeen, markSeen, enqueueCelebration, count, config.firstArrivalMoment]);
 
   // Recap replay: after a reconnect, celebrate the kids this display
   // missed — quiet variant, skipping ids already seen live and anything
@@ -358,7 +368,7 @@ export default function App() {
       if (Date.now() - entry.at > maxAgeMs) continue;
       markSeen(entry.id, entry.at);
       enqueue({ ...entry, presentation: 'replay' });
-      bump();
+      bump(entry.at);
     }
   }, [config.recapMaxAgeMin, hasSeen, markSeen, enqueue, bump]);
 
@@ -419,9 +429,9 @@ export default function App() {
   // of the session: a training run must never be mistakable for real check-ins,
   // and "the badge quietly disappeared" is exactly how that mistake happens.
   const [demoActive, setDemoActive] = useState(false);
-  const simulate = useCallback((event, payload) => {
+  const simulate = useCallback((event, payload, meta) => {
     setDemoActive(true);
-    return simulateEvent(event, payload, socketHandlers);
+    return simulateEvent(event, payload, socketHandlers, meta);
   }, [socketHandlers]);
 
   const wakeLockStatus = useWakeLock(config.keepScreenAwake);
@@ -1179,7 +1189,10 @@ export default function App() {
             onChange={updateConfig}
             onReset={resetConfig}
             onClose={() => setSettingsOpen(false)}
-            onTest={(p) => simulate('checkin', p)}
+            // A rehearsal for the operator, not a child in the lobby: it plays
+            // the banner and lights the demo badge, but the public "Tonight"
+            // count belongs to the printer and must not move for a preview.
+            onTest={(p) => simulate('checkin', p, { countsTowardTally: false })}
             onResetTally={() => {
               // Resetting the counter is also the documented way to give back a
               // "Doors are open" flourish an afternoon rehearsal consumed (#335).

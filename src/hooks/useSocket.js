@@ -343,12 +343,21 @@ export { sanitizeCheckin as sanitize };
  *
  * Returns the sanitized payload, or null when the sanitizer rejected it.
  *
+ * `meta` is IN-PROCESS ONLY and is never part of the wire payload. The live
+ * Pusher binding above never passes it, so a handler can only ever see it from
+ * a locally injected event. That is how Settings' "Preview a check-in" shows a
+ * rehearsal banner without moving the public count: the fact that the event is
+ * a rehearsal travels beside the payload, not inside it, where a producer (or
+ * anyone able to publish) could set it and where the sanitizer would have to
+ * grow a field that means nothing on the wire.
+ *
  * @param {string} event Wire event name (a key of EVENT_SANITIZERS).
  * @param {unknown} payload Raw payload.
  * @param {*} handlers The handlers object (or bare checkin function).
+ * @param {{countsTowardTally?: boolean}} [meta] Local-only delivery hints.
  * @returns {object|null}
  */
-export function dispatchEvent(event, payload, handlers) {
+export function dispatchEvent(event, payload, handlers, meta) {
   const sanitizeEvent = EVENT_SANITIZERS[event];
   if (!sanitizeEvent) {
     console.warn(`[socket] Ignoring unknown event '${event}'`);
@@ -359,7 +368,7 @@ export function dispatchEvent(event, payload, handlers) {
   const fn = typeof handlers === 'function'
     ? (event === 'checkin' ? handlers : null)
     : handlers?.[HANDLER_NAMES[event]];
-  fn?.(safe);
+  fn?.(safe, meta);
   return safe;
 }
 
@@ -378,10 +387,11 @@ export function dispatchEvent(event, payload, handlers) {
  * @param {string} event
  * @param {unknown} payload
  * @param {*} handlers
+ * @param {{countsTowardTally?: boolean}} [meta] Local-only delivery hints.
  * @returns {boolean} true when the event reached its handler.
  */
-export function simulateEvent(event, payload, handlers) {
-  const safe = dispatchEvent(event, payload, handlers);
+export function simulateEvent(event, payload, handlers, meta) {
+  const safe = dispatchEvent(event, payload, handlers, meta);
   if (!safe) {
     console.warn(
       `[debug] Simulated '${event}' was REJECTED by its sanitizer — the fake payload does not match the contract`,

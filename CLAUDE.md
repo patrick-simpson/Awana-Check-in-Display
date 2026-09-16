@@ -171,6 +171,46 @@ Signage only (`index.html`); the projector and Journey never see them.
   because the art is a recreation of three specific printed posters, not
   something an operator types a date into.
 
+## Tonight counter: the printer's tally is the source of truth
+
+The corner "Tonight" chip used to run ABOVE the check-in desk's number all
+evening. It now has one rule: **the printer's `tally` total is the truth**
+(derived on the printer side from TwoTimTwo's own report, and republished
+for an hour past club), and a local `bump()` is only an **optimistic tick**
+so a child sees the number move within a second of their own check-in.
+
+- **A bump yields to any tally at or after the check-in's time.**
+  `bump(at)` in `src/hooks/useTally.js` takes the sanitized `checkin.at` and
+  skips when the last adopted tally is stamped at or after it, because that
+  total already counts the child. This is not a rare race: plaintext `tally`
+  dispatches synchronously in `useSocket.js` while a sealed `checkin` waits
+  on a decrypt, so the printer's "check-in then tally" publish order arrives
+  here **inverted** almost every time. A check-in with no `at` (a producer
+  older than contract v2) falls back to `TALLY_BUMP_GRACE_MS` since the last
+  tally landed, measured against this device's own clock only. The printer's
+  `at` is never compared to `Date.now()`, for the reason `TALLY_REORDER_MS`
+  explains. `sync()` still adopts the printer's total outright.
+- **Every check-in is deduped by id before anything else.** `handleCheckIn`
+  returns early on `hasSeen(payload.id)`. Two stations, or a recap replaying
+  on its own decrypt chain beside the live event, deliver the same id twice.
+- **The seen set and the count share one lifetime.** `useSeenEvents.js` is
+  day-stamped `localStorage` with the same `todayKey()` shape as
+  `useTally.js`. It was sessionStorage, which is shorter: a kiosk relaunch
+  kept tonight's number and forgot everyone it had already counted, so the
+  next recap replayed the whole `recapMaxAgeMin` window back into the total.
+  Two facts about the same evening cannot live on two different clocks.
+- **Settings → "Preview a check-in" never moves the public count.** It is a
+  rehearsal for the operator: banner yes, demo badge yes, number no. The hint
+  rides a local-only fourth argument to `dispatchEvent`/`simulateEvent`
+  (`{ countsTowardTally: false }`) that the live Pusher binding never passes.
+  Deliberately NOT a payload field: on the wire any publisher could set it,
+  and the sanitizer would have to allowlist something the contract has no
+  word for. The debug panel's simulators still count, on purpose: that panel
+  exists to rehearse the real thing end to end.
+- Nothing about the wire changed; the `checkin`/`tally` sanitizers and
+  `contract-vectors.json` are untouched. The existing "synced with the
+  check-in desk" note still explains a correction bigger than one either way.
+
 ## The presentation page (`src/presentation/` → /countdown.html)
 
 The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown

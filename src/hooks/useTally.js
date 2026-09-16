@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { TALLY_REORDER_MS } from '../lib/constants.js';
+import { TALLY_BUMP_GRACE_MS, TALLY_REORDER_MS } from '../lib/constants.js';
 
 const STORAGE_KEY = 'awanaTally.v1';
 
@@ -35,8 +35,39 @@ export function useTally() {
   const [count, setCount] = useState(load);
   // `at` of the last broadcast this display adopted, for ordering only.
   const lastAtRef = useRef(null);
+  // When THIS DEVICE adopted that broadcast, by its own clock. Only ever
+  // compared against itself (an elapsed-time window), never against a
+  // printer timestamp, so a drifted signage clock cannot poison it.
+  const adoptedAtRef = useRef(null);
 
-  const bump = useCallback(() => {
+  // The printer's `tally` total is the source of truth for tonight's number.
+  // A local bump is only an OPTIMISTIC TICK so a child sees the count move
+  // within a second of their own check-in, and it must therefore yield to any
+  // tally that already counts them.
+  //
+  // `at` is the check-in's own timestamp (the sanitized `checkin.at`, epoch
+  // ms). The publisher sends the check-in first and the tally that includes it
+  // milliseconds later, but the display's paths are not symmetric: plaintext
+  // `tally` dispatches synchronously while a sealed `checkin` waits on a
+  // decrypt. So the tally lands FIRST all evening, the display adopts a total
+  // that already counts the child, and the bump behind it used to add them a
+  // second time, a permanent +1 per arrival until the next broadcast.
+  //
+  // Returns true when the counter actually moved, for tests and callers that
+  // want to tell an optimistic tick from a suppressed one.
+  const bump = useCallback((at) => {
+    const lastAt = lastAtRef.current;
+    const stamped = typeof at === 'number' && Number.isFinite(at);
+    if (lastAt !== null) {
+      // A tally stamped at or after this check-in already includes it.
+      if (stamped && lastAt >= at) return false;
+      // No timestamp on the check-in (a producer older than contract v2), so
+      // ordering has to fall back to how recently a tally landed here.
+      if (!stamped && adoptedAtRef.current !== null
+          && Date.now() - adoptedAtRef.current <= TALLY_BUMP_GRACE_MS) {
+        return false;
+      }
+    }
     setCount(() => {
       // Re-read storage so a tally that rolled past midnight (or another
       // tab that counted) stays consistent, then add ours.
@@ -44,11 +75,16 @@ export function useTally() {
       save(next);
       return next;
     });
+    return true;
   }, []);
 
   const reset = useCallback(() => {
     save(0);
     setCount(0);
+    // A zeroed counter has no adopted broadcast behind it any more, so the
+    // next check-in must be free to tick it up straight away.
+    lastAtRef.current = null;
+    adoptedAtRef.current = null;
   }, []);
 
   // Reconcile the local counter to the print server's authoritative `tally`
@@ -82,6 +118,9 @@ export function useTally() {
     const last = lastAtRef.current;
     if (last !== null && at < last && last - at <= TALLY_REORDER_MS) return 0;
     lastAtRef.current = at;
+    // Stamped even when the total is unchanged below: "a tally landed" is what
+    // the unstamped-check-in window in bump() asks about, not "the number moved".
+    adoptedAtRef.current = Date.now();
     const current = load();
     if (current === total) return 0; // already in sync
     save(total);

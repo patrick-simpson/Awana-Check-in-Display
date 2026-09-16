@@ -1,6 +1,7 @@
 import { act, render } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useTally } from './useTally.js';
+import { TALLY_BUMP_GRACE_MS } from '../lib/constants.js';
 
 // Same harness idiom as useCelebrationQueue.test.jsx: a callback rather than
 // a ref-mutating prop, so re-render timing stays honest.
@@ -163,6 +164,133 @@ describe('useTally', () => {
     const stored = JSON.parse(localStorage.getItem('awanaTally.v1'));
     expect(stored.count).toBe(5);
     expect(stored.date).not.toBe('2000-01-01');
+  });
+
+  // ── bump() is an OPTIMISTIC TICK that yields to the printer ──────────────
+  // The printer's tally is the source of truth. The publisher sends a check-in
+  // and the tally that includes it milliseconds apart, but the display's paths
+  // are not symmetric (plaintext tally dispatches synchronously, a sealed
+  // check-in waits on a decrypt), so the tally lands FIRST and the bump behind
+  // it used to count the same child a second time.
+  describe('bump() yields to a tally that already counts the check-in', () => {
+    it('does not double count when the tally arrives before the check-in', () => {
+      const { api } = setup();
+      const t = Date.now();
+
+      act(() => { api.current.sync(5, t + 5); });
+      let moved;
+      act(() => { moved = api.current.bump(t); });
+
+      expect(moved).toBe(false);
+      expect(api.current.count).toBe(5);
+    });
+
+    it('treats a tally stamped exactly at the check-in as already counting it', () => {
+      const { api } = setup();
+      const t = Date.now();
+      act(() => { api.current.sync(5, t); });
+      act(() => { api.current.bump(t); });
+      expect(api.current.count).toBe(5);
+    });
+
+    it('ticks up for a check-in NEWER than the last adopted tally', () => {
+      const { api } = setup();
+      const t = Date.now();
+      act(() => { api.current.sync(5, t); });
+
+      let moved;
+      act(() => { moved = api.current.bump(t + 1); });
+      expect(moved).toBe(true);
+      expect(api.current.count).toBe(6);
+
+      // ...and the printer still has the last word.
+      act(() => { api.current.sync(9, t + 2000); });
+      expect(api.current.count).toBe(9);
+    });
+
+    it('a check-in ahead of any tally at all still ticks up, then the tally adopts', () => {
+      const { api } = setup();
+      const t = Date.now();
+      act(() => { api.current.bump(t); });
+      expect(api.current.count).toBe(1);
+      act(() => { api.current.sync(4, t + 100); });
+      expect(api.current.count).toBe(4);
+    });
+
+    // A broadcast sync() REJECTED as out of order never became the baseline,
+    // so it must not silence a later check-in either.
+    it('a stale tally that was ignored does not suppress later check-ins', () => {
+      const { api } = setup();
+      const t = Date.now();
+      act(() => { api.current.sync(20, t); });
+      act(() => { api.current.sync(19, t - 5000); }); // ignored, out of order
+
+      act(() => { api.current.bump(t + 1000); });
+      expect(api.current.count).toBe(21);
+    });
+
+    it('a re-baselined printer clock becomes the new ordering baseline', () => {
+      const { api } = setup();
+      const t = Date.now();
+      act(() => { api.current.sync(20, t); });
+      // Far enough back to read as the printer's own clock moving.
+      act(() => { api.current.sync(12, t - TEN_MIN_MS); });
+      expect(api.current.count).toBe(12);
+
+      // A check-in stamped by that same moved clock is already in the total.
+      let moved;
+      act(() => { moved = api.current.bump(t - TEN_MIN_MS - 1000); });
+      expect(moved).toBe(false);
+      expect(api.current.count).toBe(12);
+    });
+
+    // A producer older than contract v2 sends no `at`, so ordering falls back
+    // to how recently a tally landed on THIS device, by this device's clock.
+    it('skips an UNSTAMPED check-in landing right behind a tally', () => {
+      const { api } = setup();
+      act(() => { api.current.sync(7, Date.now()); });
+
+      let moved;
+      act(() => { moved = api.current.bump(undefined); });
+      expect(moved).toBe(false);
+      expect(api.current.count).toBe(7);
+    });
+
+    it('counts an UNSTAMPED check-in once the grace window has passed', () => {
+      vi.useFakeTimers();
+      try {
+        const { api } = setup();
+        act(() => { api.current.sync(7, Date.now()); });
+        act(() => { vi.advanceTimersByTime(TALLY_BUMP_GRACE_MS + 1); });
+
+        let moved;
+        act(() => { moved = api.current.bump(undefined); });
+        expect(moved).toBe(true);
+        expect(api.current.count).toBe(8);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('counts an UNSTAMPED check-in when no tally has ever been adopted', () => {
+      const { api } = setup();
+      act(() => { api.current.bump(undefined); });
+      expect(api.current.count).toBe(1);
+    });
+
+    it('reset() drops the baseline so the next check-in ticks up again', () => {
+      const { api } = setup();
+      const t = Date.now();
+      act(() => { api.current.sync(7, t); });
+      act(() => { api.current.reset(); });
+
+      // Without clearing the baseline an operator who zeroed the counter
+      // before a rehearsal would watch it refuse to move.
+      let moved;
+      act(() => { moved = api.current.bump(t - 1000); });
+      expect(moved).toBe(true);
+      expect(api.current.count).toBe(1);
+    });
   });
 
   // ── The delta sync() reports (#351) ──────────────────────────────────────
