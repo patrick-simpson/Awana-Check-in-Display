@@ -99,3 +99,11 @@ export const TALLY_SYNC_NOTE_MS = 6000;
 // forgotten "CLUB CANCELLED TONIGHT" can never haunt the screen into
 // next week's club night.
 export const NOTICE_MAX_AGE_MS = 4 * 60 * 60 * 1000;
+
+// Double-click fullscreen, handed UP to the parent page when this app is
+// running inside an iframe (the Journey Display kiosk). Its
+// `public/src/schedule.js` listens for this message and fullscreens its whole
+// page, because fullscreening just the frame hides Journey's own corner
+// buttons. Both sides have to spell the string the same way, so it lives here
+// rather than inline at the one call site.
+export const EMBED_FULLSCREEN_MESSAGE = 'awana-display:toggle-fullscreen';

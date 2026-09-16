@@ -79,6 +79,18 @@ mechanisms, because framer-motion and CSS need different enforcement:
   `animation-name` is its real name standalone and `none` under
   `?lowPower=1`.
 
+**Double-click fullscreen is handed UP when embedded.** A double-click on
+the stage normally fullscreens the stage element. Inside Journey's iframe
+that fullscreens only the frame, which covers Journey's own corner buttons
+and leaves the operator with no way back out, so `toggleFullscreen` in
+`App.jsx` instead posts `{ type: EMBED_FULLSCREEN_MESSAGE }` (the string
+lives in `src/lib/constants.js`) to `window.parent` and returns. Journey's
+`public/src/schedule.js` is the consumer: it verifies `event.source` is its
+own iframe and fullscreens its whole page. The message carries nothing but
+its type, and standalone behaviour (`window.self === window.top`) is exactly
+what it always was. Both sides have to agree on the string, so changing it
+means landing both repos together.
+
 ## Tech stack snapshot
 
 - React 18 + Vite (plain JavaScript)
