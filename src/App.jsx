@@ -53,7 +53,7 @@ import {
   clearFirstOfNight, firstOfNightCopy, hasFiredToday, isFirstOfNight, markFiredToday,
 } from './lib/firstOfNight.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
-import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, TALLY_SYNC_NOTE_MS } from './lib/constants.js';
+import { COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, TALLY_SYNC_NOTE_MS } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -766,6 +766,16 @@ export default function App() {
   // stop the event so double-clicking inside a text field stays normal.
   const stageRef = useRef(null);
   const toggleFullscreen = useCallback(() => {
+    // Embedded (the Journey Display kiosk's iframe), fullscreening the stage
+    // fullscreens only the FRAME: it covers Journey's own corner buttons and
+    // the operator has no way back out. So hand the request up and let the
+    // parent fullscreen its whole page instead. The message carries nothing
+    // but its type, and the Journey side checks that event.source is its own
+    // iframe before acting on it. Standalone behaviour is untouched.
+    if (window.self !== window.top) {
+      window.parent.postMessage({ type: EMBED_FULLSCREEN_MESSAGE }, '*');
+      return;
+    }
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     } else {
