@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import PromoSlide, { PROMO_DETAILS, RotatingDetail, detailsFor } from './PromoSlide.jsx';
+import PromoSlide, { PROMO_DETAILS, RotatingDetail, detailsFor, splatPath } from './PromoSlide.jsx';
 
 // No global test setup file in this repo, so RTL's automatic cleanup
 // (which needs a global afterEach) doesn't run — do it explicitly.
@@ -81,6 +81,56 @@ describe('PromoSlide', () => {
     });
   });
 
+  // The slime cut: the same night as BARF Night above, said much louder. Its
+  // beat sheet runs to 12 s, so what matters here is that every piece of it
+  // is actually in the DOM - the frozen ?lowPower=1 frame is the whole poster.
+  describe('BARF Night, the slime cut', () => {
+    const epic = (extra = {}) => promo('barfEpic', extra);
+
+    it('stacks the four words into a poster', () => {
+      const { container } = render(<PromoSlide promo={epic()} />);
+      expect(container.querySelector('.promo-slide--barf-epic')).not.toBeNull();
+      expect(screen.getByText('The')).toBeTruthy();
+      expect(screen.getByText('Biggest')).toBeTruthy();
+      expect(screen.getByText('Ever')).toBeTruthy();
+      // BARF is one span per letter, each with its own goo drip.
+      expect([...container.querySelectorAll('.promo-epic-hero-letter')]
+        .map((el) => el.firstChild.textContent).join('')).toBe('BARF');
+    });
+
+    it('carries the lower third, the date, the reward line and the closer', () => {
+      const { container } = render(<PromoSlide promo={epic()} />);
+      expect(screen.getByText('Bring A Real Friend')).toBeTruthy();
+      expect(screen.getByText('WEDNESDAY, OCTOBER 14')).toBeTruthy();
+      expect(screen.getByText('10 Awana Shares per friend + a BARF bag!')).toBeTruthy();
+      expect(container.querySelector('.promo-detail').textContent).toBe('Who will you bring?');
+    });
+
+    it('sends two kids in to high-five over it', () => {
+      const { container } = render(<PromoSlide promo={epic()} />);
+      expect(container.querySelectorAll('.promo-epic-kid-art')).toHaveLength(2);
+      // One of them is mirrored, so the two raised hands meet.
+      expect(container.querySelectorAll('.promo-epic-kid-art--flip')).toHaveLength(1);
+    });
+
+    it('swaps the date line and the closer on the night itself', () => {
+      const { container } = render(<PromoSlide promo={epic({ tonight: true, countdown: 'Tonight!' })} />);
+      expect(screen.getByText('Bring them to the check-in desk')).toBeTruthy();
+      expect(container.querySelector('.promo-detail').textContent).toBe('Welcome!');
+      expect(screen.queryByText('WEDNESDAY, OCTOBER 14')).toBeNull();
+      // The reward line is the same either way.
+      expect(screen.getByText('10 Awana Shares per friend + a BARF bag!')).toBeTruthy();
+    });
+
+    it('never uses an em dash, on either night', () => {
+      for (const tonight of [false, true]) {
+        const { container } = render(<PromoSlide promo={epic({ tonight })} />);
+        expect(container.textContent).not.toContain('\u2014');
+        cleanup();
+      }
+    });
+  });
+
   describe('Parents\' Night', () => {
     it('renders the hero words, the date and the first detail', () => {
       const { container } = render(<PromoSlide promo={promo('parents')} />);
@@ -132,6 +182,11 @@ describe('PromoSlide', () => {
         '10 Awana Shares per friend',
         '+ a BARF bag!',
       ]);
+    });
+
+    it('gives the slime cut one closer, not a rotation', () => {
+      expect(detailsFor(promo('barfEpic'))).toEqual(['Who will you bring?']);
+      expect(detailsFor(promo('barfEpic', { tonight: true }))).toEqual(['Welcome!']);
     });
 
     it('points Parents\' Night FORWARD to the poster deadline before October 15', () => {
@@ -221,7 +276,7 @@ describe('PromoSlide', () => {
     ];
 
     it('carries none of the retired small-print elements', () => {
-      for (const kind of ['contest', 'friend', 'parents']) {
+      for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
         for (const tonight of [false, true]) {
           const { container } = render(<PromoSlide promo={promo(kind, { tonight })} />);
           for (const selector of RETIRED) {
@@ -233,7 +288,7 @@ describe('PromoSlide', () => {
     });
 
     it('gives every poster exactly one detail slot and one countdown chip', () => {
-      for (const kind of ['contest', 'friend', 'parents']) {
+      for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
         const { container } = render(<PromoSlide promo={promo(kind)} />);
         expect(container.querySelectorAll('.promo-detail-slot')).toHaveLength(1);
         expect(container.querySelectorAll('.promo-chip')).toHaveLength(1);
@@ -242,12 +297,30 @@ describe('PromoSlide', () => {
     });
 
     it('sets every poster on the same depth layers', () => {
-      for (const kind of ['contest', 'friend', 'parents']) {
+      for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
         const { container } = render(<PromoSlide promo={promo(kind)} />);
         expect(container.querySelector('.promo-texture')).not.toBeNull();
         expect(container.querySelector('.promo-vignette')).not.toBeNull();
         cleanup();
       }
+    });
+  });
+
+  // The splats are drawn, not drawn ONCE: an unstable path would reshuffle
+  // every stain on the poster on every re-render, and App re-renders on the
+  // clock tick.
+  describe('the slime splat path (splatPath)', () => {
+    it('is the same shape every time for a seed', () => {
+      expect(splatPath(17, 8)).toBe(splatPath(17, 8));
+      expect(splatPath(17, 8)).not.toBe(splatPath(18, 8));
+    });
+
+    it('is a closed path with two points per arm', () => {
+      const d = splatPath(41, 7);
+      expect(d.startsWith('M')).toBe(true);
+      expect(d.endsWith('z')).toBe(true);
+      expect(d.match(/Q/g)).toHaveLength(14);
+      expect(d).not.toContain('NaN');
     });
   });
 
@@ -270,7 +343,7 @@ describe('PromoSlide', () => {
 
   describe('the Awana Clubs wordmark', () => {
     it('is on every promo', () => {
-      for (const kind of ['contest', 'friend', 'parents']) {
+      for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
         const { container } = render(<PromoSlide promo={promo(kind)} />);
         expect(container.querySelector('.promo-wordmark')).not.toBeNull();
         cleanup();
@@ -288,7 +361,7 @@ describe('PromoSlide', () => {
   });
 
   it('uses no em dashes anywhere in its on-screen copy', () => {
-    for (const kind of ['contest', 'friend', 'parents']) {
+    for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
       for (const tonight of [false, true]) {
         const { container } = render(<PromoSlide promo={promo(kind, { tonight, afterContest: tonight })} />);
         expect(container.textContent).not.toContain('—');

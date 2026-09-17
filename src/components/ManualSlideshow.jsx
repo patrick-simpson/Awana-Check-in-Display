@@ -47,14 +47,26 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
   }, []);
 
   const slide = slides[safe];
+  // Which promo this lap is showing, resolved ONCE so the hold and the art
+  // can never disagree about it.
+  const promo = isPromoSlide(slide) && slide.promos?.length
+    ? slide.promos[lap % slide.promos.length]
+    : null;
   // A NUMBER, not the array: App re-renders on every event and can hand
   // down an equal-but-new deck; keying the timer on the array restarted the
   // hold each time, and the show stalled on one slide through a whole
   // check-in rush. Video slides with no explicit duration have no timer at
   // all — their <video> ended event drives the advance instead.
+  //
+  // The promo slot holds for THE POSTER IT IS SHOWING: the slime cut of BARF
+  // Night has a 15 second beat sheet and the other three say what they have
+  // to say in 8. slideDurationMs stays a pure function of one slide; the
+  // slideshow just hands it the promo rather than the slot when the promo
+  // names its own hold.
+  const held = promo?.durationSec != null ? promo : slide;
   const holdMs = slides.length <= 1 || !slide
     ? null
-    : isVideoSlide(slide) ? videoSlideTimerMs(slide) : slideDurationMs(slide, slideshowDelaySec);
+    : isVideoSlide(slide) ? videoSlideTimerMs(slide) : slideDurationMs(held, slideshowDelaySec);
 
   useEffect(() => {
     if (holdMs == null) return undefined;
@@ -89,7 +101,7 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
             /* One slot, one promo per lap. The key stays `slide.id`, so the
                slot remounts on every visit and each promo's entrance
                animation plays from the top. */
-            <PromoSlide promo={slide.promos[lap % slide.promos.length]} />
+            <PromoSlide promo={promo} />
           ) : (
             <CatalogScene theme={resolveTheme(slide, safe)} clubTint={clubTint}>
               <div className="manual-slide-copy">

@@ -2585,6 +2585,336 @@ input:focus-visible {
 
 .promo-slide--friend .promo-wordmark-slot { top: 2.6%; }
 
+/* ── Promo: BARF Night, the slime cut ───────────────────────
+   The fourth poster (PromoSlide.jsx's BarfEpicPromo), holding for 15
+   seconds rather than 8. Everything here is sized so the finished
+   composition - THE BIGGEST / BARF / EVER / the lower third / the date /
+   the reward line / the closer - fits one screen at 1920x1080 and at
+   1366x768 without a single line wrapping or a word being cut.
+
+   Layering inside the slide, lowest first: texture and vignette (0-1),
+   the slime curtain and the edge drips (2), the splats on the glass (2),
+   the word stack (3), the wordmark and countdown chip (4). */
+.promo-slide--barf-epic {
+  background-color: #3a0f63;
+  background-image: radial-gradient(ellipse 72% 64% at 50% 44%, #5b1f8f 0%, rgba(91, 31, 143, 0) 66%);
+}
+
+/* The wrapper the screen shake moves. It holds the whole poster, so one
+   transform shakes everything that is part of the art at once. */
+.promo-epic-stage {
+  position: absolute;
+  inset: 0;
+}
+
+/* The wall of goo across the top, and the strands hanging off it. */
+.promo-epic-curtain {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 9.2vh;
+  pointer-events: none;
+}
+.promo-epic-curtain > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0.8vh 1.6vh rgba(26, 6, 46, 0.45));
+}
+
+/* A drip: a slot that owns the position and the growth, and a body that
+   owns the endless sag. Rounded at the bottom only, like real goo. */
+.promo-epic-drip {
+  position: absolute;
+  top: 100%;
+  display: block;
+  transform-origin: 50% 0%;
+  pointer-events: none;
+}
+.promo-epic-drip-body {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 0 0 999px 999px;
+  transform-origin: 50% 0%;
+}
+/* The curtain's own drips hang from its wavy bottom edge. */
+.promo-epic-curtain .promo-epic-drip { top: 78%; }
+
+/* Drips crawling down the far edges of the screen. These are allowed to
+   end invisible: they end off-frame. */
+.promo-epic-edges {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  pointer-events: none;
+}
+.promo-epic-edge-drip {
+  position: absolute;
+  top: 0;
+  background: #7ed321;
+  border-radius: 999px 999px 60% 60%;
+  opacity: 0.75;
+}
+.promo-epic-edge-drip--left { left: 1.2%; }
+.promo-epic-edge-drip--right { right: 1.2%; }
+
+/* Splats that hit the glass and then slide into a stain. Kept out of the
+   middle third, where the type is. */
+.promo-epic-splat {
+  position: absolute;
+  z-index: 2;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 1vh 2vh rgba(26, 6, 46, 0.4));
+}
+/* Behind THE, which sits left of centre in the finished row. */
+.promo-epic-splat--hero { left: 39%; top: 8%; width: 24vmin; height: 24vmin; margin-left: -12vmin; }
+.promo-epic-splat--a { left: 3%; top: 21%; width: 19vmin; height: 19vmin; }
+.promo-epic-splat--b { right: 3.5%; top: 15%; width: 22vmin; height: 22vmin; }
+.promo-epic-splat--c { left: 5%; bottom: 24%; width: 17vmin; height: 17vmin; }
+.promo-epic-splat--d { right: 4%; bottom: 30%; width: 15vmin; height: 15vmin; }
+
+/* The poster itself: one centred column, top-aligned under the curtain
+   and clearing the bottom banner. */
+.promo-epic-stack {
+  position: absolute;
+  z-index: 3;
+  inset: 9.5% 3.5% 4%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.1rem, 0.45vh, 0.6rem);
+  text-align: center;
+}
+/* Nothing here may be squeezed: if the poster does not fit, the sizes
+   are wrong, and a silently shrunk row is what hides that. */
+.promo-epic-stack > * { flex: 0 0 auto; }
+
+/* THE BIGGEST, on one row so the stack has the height for the hero. */
+.promo-epic-top {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.34em;
+  line-height: 0.92;
+}
+.promo-epic-small {
+  display: inline-block;
+  font-family: var(--font-poster);
+  font-weight: 400;
+  font-size: clamp(2rem, min(6vw, 10vh), 7rem);
+  line-height: 0.92;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  color: #ffffff;
+  --po-w: 0.028em;
+  --po-c: #3b1a63;
+  --po-s: rgba(26, 6, 46, 0.55);
+  --po-drop: 0.07em;
+}
+.promo-epic-biggest { color: #c7f26a; }
+.promo-epic-ever { color: #ffffff; }
+
+/* A row of drips hanging off whatever is above it, costing no height. */
+.promo-epic-driprow {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 97%;
+  height: 0;
+  pointer-events: none;
+}
+
+/* BARF: the hero, filling most of the width. */
+.promo-epic-hero-wobble { display: block; }
+.promo-epic-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  line-height: 0.78;
+}
+.promo-epic-hero-letter {
+  position: relative;
+  display: inline-block;
+  font-family: var(--font-poster);
+  font-weight: 400;
+  font-size: clamp(5rem, min(19.3vw, 31.8vh), 24rem);
+  line-height: 0.78;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  color: #c7f26a;
+  --po-w: 0.026em;
+  --po-c: #3b1a63;
+  --po-s: rgba(26, 6, 46, 0.6);
+  --po-drop: 0.055em;
+}
+/* The letter's own drip hangs from its baseline, centred under it. The
+   centring is the CSS `translate` property, NOT `transform`: framer-motion
+   owns the transform here for the drip's growth. */
+.promo-epic-hero-letter .promo-epic-drip {
+  top: 97%;
+  translate: -50% 0;
+}
+
+/* The lower third: two kids meeting over a line that rises out of a
+   puddle of goo. */
+.promo-epic-lower {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  /* Room under the riser for the puddle to sit without touching the date. */
+  padding-bottom: 0.7vh;
+  --kid-h: clamp(50px, min(9.6vw, 11.4vh), 150px);
+}
+.promo-epic-kids {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  /* The two silhouettes overlap by exactly the offset of their raised
+     hands inside the artwork, so the hands meet rather than pass. */
+  gap: calc(var(--kid-h) * -0.244);
+}
+/* The pool the pair stands in, sized off the two silhouettes. */
+.promo-epic-pool {
+  position: absolute;
+  left: 50%;
+  top: 52%;
+  width: calc(var(--kid-h) * 3.3);
+  height: calc(var(--kid-h) * 1.3);
+  translate: -50% -50%;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 1vh 2vh rgba(26, 6, 46, 0.45));
+}
+.promo-epic-kid { position: relative; display: block; }
+.promo-epic-kid-bounce { display: block; transform-origin: 50% 100%; }
+.promo-epic-kid-art {
+  display: block;
+  height: var(--kid-h);
+  width: auto;
+  /* A pale rim so a plum silhouette reads against the purple it overhangs
+     as well as against the lime it stands in. */
+  filter: drop-shadow(0 0 0.45vh rgba(199, 242, 106, 0.95)) drop-shadow(0 0.5vh 1vh rgba(26, 6, 46, 0.4));
+}
+.promo-epic-kid-art--flip { transform: scaleX(-1); }
+
+/* The lime pop where the hands meet. Its slot owns the position so the
+   ring's own transform is free for the burst. */
+.promo-epic-pop-slot {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--kid-h) * 0.135);
+  display: flex;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.promo-epic-pop {
+  display: block;
+  z-index: 1;
+  width: calc(var(--kid-h) * 0.5);
+  height: calc(var(--kid-h) * 0.5);
+  border: calc(var(--kid-h) * 0.07) solid #ffffff;
+  border-radius: 999px;
+}
+
+/* BRING A REAL FRIEND, clipped so it can rise into view from nothing. */
+.promo-epic-riser {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 0 0 0.06em;
+  line-height: 1;
+}
+.promo-epic-friend {
+  display: block;
+  font-family: var(--font-poster);
+  font-weight: 400;
+  font-size: clamp(1.6rem, min(4.4vw, 7.4vh), 5rem);
+  line-height: 1;
+  letter-spacing: 0.015em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #7ed321;
+  --po-w: 0.03em;
+  --po-c: #3b1a63;
+  --po-s: rgba(26, 6, 46, 0.5);
+  --po-drop: 0.07em;
+  text-shadow:
+    calc(var(--po-w) * -1) 0 0 var(--po-c),
+    var(--po-w) 0 0 var(--po-c),
+    0 calc(var(--po-w) * -1) 0 var(--po-c),
+    0 var(--po-w) 0 var(--po-c),
+    calc(var(--po-w) * -1) calc(var(--po-w) * -1) 0 var(--po-c),
+    var(--po-w) calc(var(--po-w) * -1) 0 var(--po-c),
+    calc(var(--po-w) * -1) var(--po-w) 0 var(--po-c),
+    var(--po-w) var(--po-w) 0 var(--po-c),
+    0 var(--po-drop) 0 var(--po-s);
+}
+.promo-epic-puddle {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 0;
+  width: 84%;
+  height: 3.2vh;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 0.5vh 1vh rgba(26, 6, 46, 0.4));
+}
+
+/* The date, the reward line and the closer. */
+.promo-epic-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: clamp(0.05rem, 0.5vh, 0.5rem);
+}
+.promo-epic-date-wrap {
+  position: relative;
+  width: 100%;
+}
+.promo-epic-date {
+  display: block;
+  color: #ffffff;
+  white-space: nowrap;
+  --po-w: 0.024em;
+  --po-c: #3b1a63;
+  --po-s: rgba(26, 6, 46, 0.5);
+  --po-drop: 0.06em;
+}
+.promo-epic-date--long {
+  font-size: clamp(1.5rem, min(3.4vw, 5.8vh), 3.6rem);
+  text-transform: none;
+}
+.promo-epic-shares {
+  display: inline-block;
+  font-family: var(--font-condensed);
+  font-weight: 600;
+  font-size: clamp(1.1rem, min(2.3vw, 4vh), 2.3rem);
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #7ed321;
+  text-shadow: 0 0.06em 0 rgba(26, 6, 46, 0.55);
+}
+.promo-epic-closer { width: 100%; }
+.promo-slide--barf-epic .promo-detail { color: #ffffff; }
+.promo-slide--barf-epic .promo-detail-slot { min-height: 1.18em; }
+/* The chip and the wordmark sit ON the slime wall, so both are inverted
+   against it: a lime chip on lime is no chip at all. */
+.promo-slide--barf-epic .promo-chip { background: #3b1a63; color: #c7f26a; }
+.promo-slide--barf-epic .promo-wordmark-slot { top: 1.2%; }
+.promo-slide--barf-epic .promo-wordmark { filter: drop-shadow(0 0.25vh 0.5vh rgba(26, 6, 46, 0.55)); }
+
 /* ── Promo: Parents' Night ──────────────────────────────── */
 .promo-slide--parents {
   background-color: #fbf1e1;

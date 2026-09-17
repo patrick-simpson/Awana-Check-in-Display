@@ -119,12 +119,13 @@ means landing both repos together.
 
 ## Season promo slides (fall 2026)
 
-Three hardcoded, animated recreations of the church's printed fall
-posters — the DEFEND **poster contest**, **BARF Night**, and
-**Parents' Night** — shown in the lobby signage's background rotation.
+Four hardcoded, animated posters in the lobby signage's background
+rotation: recreations of the church's three printed fall posters (the
+DEFEND **poster contest**, **BARF Night**, and **Parents' Night**), plus
+a fourth the printer never made, the **slime cut of BARF Night**.
 Signage only (`index.html`); the projector and Journey never see them.
 
-- `src/lib/promos.js` is the pure half: `SEASON_PROMOS` (the three
+- `src/lib/promos.js` is the pure half: `SEASON_PROMOS` (the four
   descriptors), `nightsUntil()` / `countdownLabel()` (the live "3 club
   nights left" → "Next club night" → "Tonight!" counter) and
   `buildPromoSlot()`. `src/components/PromoSlide.jsx` + the
@@ -141,13 +142,20 @@ Signage only (`index.html`); the projector and Journey never see them.
   `slideInWindow()` semantics as a typed slide's `showUntil`, on the
   local date key that already ticks over at midnight without a reload.
   After 2026-11-04 the slot returns null and nothing changes on screen.
-- **ONE slot per pass through the deck.** Three extra slides in an
+- **ONE slot per pass through the deck.** Four extra slides in an
   eight-slide deck would turn the lobby TV into a poster wall, so the
   slot carries every live promo and `ManualSlideshow` shows a different
   one each lap (`step % length` is the position, `step / length` is the
   lap — both derived from one counter so `advance` stays a pure state
   updater). The slot's key stays `slide.id`, so it remounts each visit
   and every entrance animation plays from the top.
+- **The hold belongs to the POSTER, not the slot.** Each descriptor
+  carries its own `durationSec` (8 / 8 / 8 / 15), `buildPromoSlot()`
+  copies it onto every slot entry, and `ManualSlideshow` hands
+  `slideDurationMs` the promo this lap is showing rather than the slot
+  (falling back to the slot's own `durationSec`). One hold for all four
+  would either rush the slime cut or leave the other three sitting
+  still. `slideDurationMs` stays a pure function of one slide.
 - **Nothing persisted, nothing on the wire.** Like the calendar slides,
   the slot is derived fresh from (events, today, config) on every
   render; it is never written to localStorage and never published. A
@@ -179,9 +187,34 @@ Signage only (`index.html`); the projector and Journey never see them.
 - Settings → Calendar & Weather → **"Fall event promos"**
   (`config.seasonPromos`) turns them off without touching the other
   auto-slides.
+- **The slime cut (`kind: 'barfEpic'`, `BarfEpicPromo`)** is the loud
+  one: a wall of dripping lime goo over deep purple, THE / BIGGEST /
+  BARF / EVER slamming in one at a time behind splats that hit the
+  "glass", then a lower third that rises out of a puddle while two plum
+  kid silhouettes high-five over it, then the date, the reward line and
+  the closer. Same window as BARF Night (through 2026-10-14 inclusive),
+  same `tonight` variant, and its beat sheet runs to 12 s, which is what
+  the 15 second hold is for.
+  - **Its beats are keyframes, not `initial` plus `delay`.** Measured on
+    the real build: framer-motion runs an accelerated value (opacity) on
+    the browser's own timeline and everything else on its JS frameloop,
+    so an element waiting out a long `delay` can paint at its ANIMATE
+    opacity: a word at full strength and triple size seconds before its
+    beat, and the closer on screen from the first frame. The pure
+    `landsAt(at, dur, values)` in `PromoSlide.jsx` builds one keyframe
+    list per beat ("hold, then land"), which nothing downstream can
+    reinterpret, and whose LAST value is still what `?lowPower=1`
+    freezes on. Use it for any new beat here rather than a long `delay`.
+  - **The frozen frame is the whole poster.** Everything rests at
+    opacity 1 in its final position; the only things that end faint are
+    the splats (a 0.45 stain, which is what a splat on glass looks like)
+    and the edge drips, which end off-frame.
+  - `splatPath(seed, arms)` draws the thrown goo from a tiny seeded LCG,
+    so the stains are varied but identical on every device and in every
+    screenshot; a test pins that.
 - **Next season means editing `SEASON_PROMOS` and `PromoSlide.jsx`
   together** — deliberately hardcoded (owner's choice 2026-09-13),
-  because the art is a recreation of three specific printed posters, not
+  because the art is a recreation of specific printed posters, not
   something an operator types a date into.
 
 ## Tonight counter: the printer's tally is the source of truth

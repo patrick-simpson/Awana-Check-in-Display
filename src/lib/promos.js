@@ -4,9 +4,10 @@
 //
 // The church printed three posters for this fall (the DEFEND poster
 // contest, BARF Night, and Parents' Night). These are the animated
-// lobby-TV recreations of them, and this module is the only place that
-// decides WHICH of them a screen may show today and WHAT the counter
-// under each one says.
+// lobby-TV recreations of them, plus a fourth the printer never made (the
+// slime cut of BARF Night), and this module is the only place that decides
+// WHICH of them a screen may show today and WHAT the counter under each
+// one says.
 //
 // House rules, same as the rest of the calendar code:
 //   • Every comparison is a bare local YYYY-MM-DD key. Never
@@ -22,9 +23,9 @@
 //     and "no nights left" are opposite facts.
 //
 // These descriptors are DELIBERATELY hardcoded (owner's choice,
-// 2026-09-13): the art is a recreation of three specific printed
-// posters, so next season's promos mean editing this table and
-// PromoSlide.jsx together, not typing dates into Settings.
+// 2026-09-13): the art is a recreation of specific printed posters, so
+// next season's promos mean editing this table and PromoSlide.jsx
+// together, not typing dates into Settings.
 // ─────────────────────────────────────────────────────────────
 
 import { clubNights, formatLongDate } from './calendarLogic.js';
@@ -33,16 +34,21 @@ import { showDate, slideInWindow } from './slides.js';
 /**
  * @typedef {Object} SeasonPromo
  * @property {string} id
- * @property {string} kind 'contest' | 'friend' | 'parents'
+ * @property {string} kind 'contest' | 'friend' | 'parents' | 'barfEpic'
  * @property {string} eventDate Last day the promo shows, inclusive.
  * @property {string} showFrom First day the promo may show.
+ * @property {number} durationSec How long the slideshow holds THIS poster.
  */
 
 /** @type {ReadonlyArray<SeasonPromo>} */
 export const SEASON_PROMOS = [
-  { id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', showFrom: '2026-09-01' },
-  { id: 'promo_friend', kind: 'friend', eventDate: '2026-10-14', showFrom: '2026-09-01' },
-  { id: 'promo_parents', kind: 'parents', eventDate: '2026-11-04', showFrom: '2026-09-01' },
+  { id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', showFrom: '2026-09-01', durationSec: 8 },
+  { id: 'promo_friend', kind: 'friend', eventDate: '2026-10-14', showFrom: '2026-09-01', durationSec: 8 },
+  { id: 'promo_parents', kind: 'parents', eventDate: '2026-11-04', showFrom: '2026-09-01', durationSec: 8 },
+  // The slime-soaked hype cut of BARF Night. It says four words the other
+  // posters do not have room for, so it gets nearly twice the hold; see
+  // PROMO_EPIC_DURATION_SEC.
+  { id: 'promo_barf_epic', kind: 'barfEpic', eventDate: '2026-10-14', showFrom: '2026-09-01', durationSec: 15 },
 ];
 
 // The poster-contest deadline. Parents' Night says something different
@@ -58,6 +64,13 @@ export const PARENTS_DATE = '2026-11-04';
 // over at 1.6 / 3.8 / 6.0 s and beats once at 4.0 s, which is the whole
 // of what it has to say. Twelve seconds left it sitting still.
 export const PROMO_DURATION_SEC = 8;
+
+// The slime cut of BARF Night runs a long beat sheet: four words that stack
+// into a poster, then the lower third, the date, the reward line and the
+// closer. So it holds nearly twice as long as the others, which is the
+// reason a promo carries its OWN durationSec. One hold for the whole slot
+// would either rush this one or leave the other three sitting still.
+export const PROMO_EPIC_DURATION_SEC = 15;
 
 /**
  * @param {any} slide
@@ -116,6 +129,7 @@ export function countdownLabel(n, todayStr, eventDate) {
  * @property {boolean} tonight
  * @property {string|null} countdown
  * @property {boolean} afterContest
+ * @property {number} durationSec
  */
 
 /**
@@ -129,10 +143,14 @@ export function countdownLabel(n, todayStr, eventDate) {
 /**
  * The ONE promo slot in the background rotation, or null.
  *
- * One slot, however many promos are live: three extra slides in an eight-slide
+ * One slot, however many promos are live: four extra slides in an eight-slide
  * deck would turn the lobby TV into a poster wall. ManualSlideshow shows a
  * different entry from `promos` on each lap through the deck instead, so every
  * promo still gets the room's attention without crowding the calendar slides.
+ *
+ * Each entry carries its OWN durationSec, because the posters are not the same
+ * length of read. The slot keeps one too, as the fallback for an entry that
+ * somehow has none.
  *
  * Never persisted and never published: like the calendar slides, this is
  * derived fresh from (events, today, config) on every render.
@@ -164,6 +182,7 @@ export function buildPromoSlot(events, todayStr, opts = {}) {
       tonight: today === p.eventDate,
       countdown: countdownLabel(nightsUntil(events, today, p.eventDate, specialDates), today, p.eventDate),
       afterContest,
+      durationSec: p.durationSec,
     }));
 
   if (!promos.length) return null;
