@@ -183,7 +183,7 @@ describe('ManualSlideshow video slides', () => {
 
   // ── The season promo slot (#promos) ───────────────────────────────────
   // ONE slide in the deck, a different promo on each lap through it — see
-  // src/lib/promos.js for why the three posters share a slot.
+  // src/lib/promos.js for why the four posters share a slot.
   describe('the promo slot', () => {
     const promoSlot = {
       id: 'season_promo',
@@ -227,6 +227,56 @@ describe('ManualSlideshow video slides', () => {
       expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
       act(() => vi.advanceTimersByTime(600000));
       expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+    });
+
+    // The posters are not the same length of read: the slime cut of BARF
+    // Night runs a 15 second beat sheet and the others say their piece in 8.
+    // The slot holds for the ONE it is showing.
+    describe('a per-promo hold', () => {
+      const mixed = {
+        ...promoSlot,
+        promos: [
+          { ...promoSlot.promos[0], durationSec: 8 },
+          { ...promoSlot.promos[1], kind: 'barfEpic', id: 'promo_barf_epic', durationSec: 15 },
+        ],
+      };
+      const deckWith = [deck[0], mixed];
+
+      it('holds lap 0 for its promo\'s 8 seconds, not the slot\'s 12', () => {
+        const { container } = render(<ManualSlideshow slides={deckWith} slideshowDelaySec={5} />);
+        act(() => vi.advanceTimersByTime(5000)); // text slide → the slot
+        expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+        act(() => vi.advanceTimersByTime(7999));
+        expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+        act(() => vi.advanceTimersByTime(1));
+        expect(screen.getByText('First slide')).toBeTruthy();
+      });
+
+      it('holds the slime cut\'s lap for its own 15 seconds', () => {
+        const { container } = render(<ManualSlideshow slides={deckWith} slideshowDelaySec={5} />);
+        act(() => vi.advanceTimersByTime(5000)); // → the slot, lap 0
+        act(() => vi.advanceTimersByTime(8000)); // → text slide
+        act(() => vi.advanceTimersByTime(5000)); // → the slot, lap 1
+        expect(container.querySelector('.promo-slide--barf-epic')).not.toBeNull();
+        act(() => vi.advanceTimersByTime(14999));
+        expect(container.querySelector('.promo-slide--barf-epic')).not.toBeNull();
+        act(() => vi.advanceTimersByTime(1));
+        expect(screen.getByText('First slide')).toBeTruthy();
+      });
+
+      it('falls back to the slot\'s own hold for a promo that names none', () => {
+        const noOwn = {
+          ...promoSlot,
+          promos: [{ ...promoSlot.promos[0] }],
+        };
+        const { container } = render(<ManualSlideshow slides={[deck[0], noOwn]} slideshowDelaySec={5} />);
+        act(() => vi.advanceTimersByTime(5000));
+        expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+        act(() => vi.advanceTimersByTime(11999));
+        expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+        act(() => vi.advanceTimersByTime(1));
+        expect(screen.getByText('First slide')).toBeTruthy();
+      });
     });
   });
 });

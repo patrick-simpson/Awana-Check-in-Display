@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   CONTEST_DATE,
   PROMO_DURATION_SEC,
+  PROMO_EPIC_DURATION_SEC,
   SEASON_PROMOS,
   buildPromoSlot,
   countdownLabel,
@@ -100,12 +101,23 @@ describe('countdownLabel', () => {
   });
 });
 
-describe('PROMO_DURATION_SEC', () => {
+describe('the promo holds', () => {
   // The hold is choreographed, not arbitrary: 1.5 s entrance, detail
   // strings at 1.6 / 3.8 / 6.0 s, one beat at 4.0 s. Changing it means
   // re-timing PromoSlide.jsx, so pin the number here.
   it('holds a promo for 8 seconds', () => {
     expect(PROMO_DURATION_SEC).toBe(8);
+  });
+
+  // The slime cut's beat sheet runs to 12 s before its closer even lands.
+  it('holds the slime cut of BARF Night for 15 seconds', () => {
+    expect(PROMO_EPIC_DURATION_SEC).toBe(15);
+  });
+
+  // A promo carries its OWN hold, which is what lets one slot mix an
+  // 8 second poster with a 15 second one.
+  it('gives every descriptor in the table its own duration', () => {
+    expect(SEASON_PROMOS.map((p) => p.durationSec)).toEqual([8, 8, 8, 15]);
   });
 });
 
@@ -118,20 +130,20 @@ describe('buildPromoSlot', () => {
     expect(s.id).toBe('season_promo');
     expect(s.type).toBe('promo');
     expect(s.durationSec).toBe(PROMO_DURATION_SEC);
-    expect(kinds(s)).toEqual(['contest', 'friend', 'parents']);
+    expect(kinds(s)).toEqual(['contest', 'friend', 'parents', 'barfEpic']);
     // Stable across calls — the slideshow picks by index each lap.
-    expect(kinds(slot('2026-09-24'))).toEqual(['contest', 'friend', 'parents']);
+    expect(kinds(slot('2026-09-24'))).toEqual(['contest', 'friend', 'parents', 'barfEpic']);
   });
 
   it('honours each promo\'s showFrom', () => {
     // All three open together on Sep 1; the day before, nothing shows.
     expect(slot('2026-08-31')).toBeNull();
-    expect(kinds(slot('2026-09-01'))).toEqual(['contest', 'friend', 'parents']);
-    expect(kinds(slot('2026-09-13'))).toEqual(['contest', 'friend', 'parents']);
+    expect(kinds(slot('2026-09-01'))).toEqual(['contest', 'friend', 'parents', 'barfEpic']);
+    expect(kinds(slot('2026-09-13'))).toEqual(['contest', 'friend', 'parents', 'barfEpic']);
   });
 
-  it('shows the October pair ON October 14 and retires them on the 15th', () => {
-    expect(kinds(slot('2026-10-14'))).toEqual(['contest', 'friend', 'parents']);
+  it('shows the October three ON October 14 and retires them on the 15th', () => {
+    expect(kinds(slot('2026-10-14'))).toEqual(['contest', 'friend', 'parents', 'barfEpic']);
     expect(kinds(slot('2026-10-15'))).toEqual(['parents']);
   });
 
@@ -149,7 +161,7 @@ describe('buildPromoSlot', () => {
     const eve = slot('2026-10-07').promos;
     expect(eve.every((p) => p.tonight === false)).toBe(true);
     const night = slot('2026-10-14').promos;
-    expect(night.filter((p) => p.tonight).map((p) => p.kind)).toEqual(['contest', 'friend']);
+    expect(night.filter((p) => p.tonight).map((p) => p.kind)).toEqual(['contest', 'friend', 'barfEpic']);
     // Parents' Night is still weeks away on the same evening.
     expect(night.find((p) => p.kind === 'parents').tonight).toBe(false);
   });
@@ -180,7 +192,8 @@ describe('buildPromoSlot', () => {
 
   it('is off when the operator turns it off', () => {
     expect(slot('2026-09-23', { enabled: false })).toBeNull();
-    expect(kinds(slot('2026-09-23', { enabled: true }))).toEqual(['contest', 'friend', 'parents']);
+    expect(kinds(slot('2026-09-23', { enabled: true })))
+      .toEqual(['contest', 'friend', 'parents', 'barfEpic']);
   });
 
   it('refuses an unusable date key rather than guessing', () => {
@@ -188,7 +201,26 @@ describe('buildPromoSlot', () => {
     expect(buildPromoSlot(season, 'tomorrow')).toBeNull();
   });
 
-  it('every descriptor in the table is one of the three known kinds', () => {
-    expect(SEASON_PROMOS.map((p) => p.kind).sort()).toEqual(['contest', 'friend', 'parents']);
+  it('every descriptor in the table is one of the four known kinds', () => {
+    expect(SEASON_PROMOS.map((p) => p.kind).sort())
+      .toEqual(['barfEpic', 'contest', 'friend', 'parents']);
+  });
+
+  it('carries each promo\'s own hold onto the slot entry', () => {
+    const s = slot('2026-09-23');
+    expect(s.promos.map((p) => [p.kind, p.durationSec])).toEqual([
+      ['contest', 8], ['friend', 8], ['parents', 8], ['barfEpic', 15],
+    ]);
+    // The slot keeps one too, as the fallback.
+    expect(s.durationSec).toBe(PROMO_DURATION_SEC);
+  });
+
+  it('shows the slime cut through October 14 and never on the 15th', () => {
+    const live = (d) => (kinds(slot(d)) || []).includes('barfEpic');
+    expect(live('2026-09-01')).toBe(true);
+    expect(live('2026-10-13')).toBe(true);
+    expect(live('2026-10-14')).toBe(true);
+    expect(live('2026-10-15')).toBe(false);
+    expect(live('2026-11-04')).toBe(false);
   });
 });
