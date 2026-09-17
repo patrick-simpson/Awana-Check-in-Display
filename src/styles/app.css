@@ -2671,7 +2671,8 @@ input:focus-visible {
   pointer-events: none;
   filter: drop-shadow(0 1vh 2vh rgba(26, 6, 46, 0.4));
 }
-.promo-epic-splat--hero { left: 50%; top: 8%; width: 24vmin; height: 24vmin; margin-left: -12vmin; }
+/* Behind THE, which sits left of centre in the finished row. */
+.promo-epic-splat--hero { left: 39%; top: 8%; width: 24vmin; height: 24vmin; margin-left: -12vmin; }
 .promo-epic-splat--a { left: 3%; top: 21%; width: 19vmin; height: 19vmin; }
 .promo-epic-splat--b { right: 3.5%; top: 15%; width: 22vmin; height: 22vmin; }
 .promo-epic-splat--c { left: 5%; bottom: 24%; width: 17vmin; height: 17vmin; }
