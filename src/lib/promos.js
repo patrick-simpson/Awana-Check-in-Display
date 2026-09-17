@@ -65,10 +65,10 @@ export const PARENTS_DATE = '2026-11-04';
 // of what it has to say. Twelve seconds left it sitting still.
 export const PROMO_DURATION_SEC = 8;
 
-// The slime cut of BARF Night runs a long beat sheet — four words that
-// stack into a poster, then the lower third, the date, the reward line and
-// the closer — so it holds nearly twice as long as the others. It is the
-// reason a promo carries its OWN durationSec: one hold for the whole slot
+// The slime cut of BARF Night runs a long beat sheet: four words that stack
+// into a poster, then the lower third, the date, the reward line and the
+// closer. So it holds nearly twice as long as the others, which is the
+// reason a promo carries its OWN durationSec. One hold for the whole slot
 // would either rush this one or leave the other three sitting still.
 export const PROMO_EPIC_DURATION_SEC = 15;
 

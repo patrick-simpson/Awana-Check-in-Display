@@ -120,8 +120,8 @@ means landing both repos together.
 ## Season promo slides (fall 2026)
 
 Four hardcoded, animated posters in the lobby signage's background
-rotation: recreations of the church's three printed fall posters — the
-DEFEND **poster contest**, **BARF Night**, and **Parents' Night** — plus
+rotation: recreations of the church's three printed fall posters (the
+DEFEND **poster contest**, **BARF Night**, and **Parents' Night**), plus
 a fourth the printer never made, the **slime cut of BARF Night**.
 Signage only (`index.html`); the projector and Journey never see them.
 
@@ -199,7 +199,7 @@ Signage only (`index.html`); the projector and Journey never see them.
     the real build: framer-motion runs an accelerated value (opacity) on
     the browser's own timeline and everything else on its JS frameloop,
     so an element waiting out a long `delay` can paint at its ANIMATE
-    opacity — a word at full strength and triple size seconds before its
+    opacity: a word at full strength and triple size seconds before its
     beat, and the closer on screen from the first frame. The pure
     `landsAt(at, dur, values)` in `PromoSlide.jsx` builds one keyframe
     list per beat ("hold, then land"), which nothing downstream can
