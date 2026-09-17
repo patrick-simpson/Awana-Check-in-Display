@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
 import { formatLongDate } from '../lib/calendarLogic.js';
+import { PROMO_EPIC_DURATION_SEC } from '../lib/promos.js';
 
 // ─────────────────────────────────────────────────────────────
 // The fall 2026 event promos: animated lobby-TV recreations of the
 // church's three printed posters (DEFEND poster contest, BARF Night,
-// Parents' Night). Which one shows, and what its countdown says, is
-// decided in the pure src/lib/promos.js. This file is only the art.
+// Parents' Night), plus a fourth the printer never made - the slime cut
+// of BARF Night, which holds for 15 seconds instead of 8. Which one
+// shows, when, and what its countdown says is decided in the pure
+// src/lib/promos.js. This file is only the art.
 //
 // v2 shape, from watching them on the lobby TV: a poster is read from
 // the check-in line, twenty feet away, by someone who is not trying.
@@ -29,7 +32,8 @@ import { formatLongDate } from '../lib/calendarLogic.js';
 //   • The 8 second hold has a shape: entrance through 1.5 s, the detail
 //     line turning over at 1.6 / 3.8 / 6.0 s, and one beat at 4.0 s so
 //     the slide is never just sitting there. Ambient loops all run at
-//     different periods so nothing pulses in unison.
+//     different periods so nothing pulses in unison. (The slime cut has
+//     its own, longer beat sheet; see its section below.)
 // ─────────────────────────────────────────────────────────────
 
 // Same recipe as config.js's fromSiteRoot: a fork or mirror serves its
@@ -135,6 +139,12 @@ export const PROMO_DETAILS = Object.freeze({
       '10 Awana Shares per friend',
       '+ a BARF bag!',
     ]),
+  }),
+  // The slime cut says everything else out loud and in full size, so its
+  // one detail string is a closer rather than a rotation.
+  barfEpic: Object.freeze({
+    default: Object.freeze(['Who will you bring?']),
+    tonight: Object.freeze(['Welcome!']),
   }),
   parents: Object.freeze({
     // Before the contest closes the evening is still being sold; after
@@ -578,6 +588,505 @@ function FriendPromo({ promo }) {
   );
 }
 
+// ── BARF Night, the slime cut ────────────────────────────────
+// A fourth poster for the same night as FriendPromo above, and a
+// deliberately louder one: four words slam in one at a time through a
+// wall of lime goo, stack into a finished poster, and then the lower
+// third rises out of a puddle while two kids high-five over it.
+//
+// It runs for PROMO_EPIC_DURATION_SEC (15 s) rather than the usual 8,
+// which is why a promo descriptor now carries its own durationSec. Every
+// beat below is a `delay` on an M transition, never a timer: one clock
+// (framer-motion's) keeps the choreography together, and ?lowPower=1
+// collapses the whole thing to its last keyframe in one step.
+//
+// The frozen frame IS the poster. Under zero-animation every element
+// jumps to the end of its keyframe list with no delay, so every value
+// below rests somewhere readable: the four words at opacity 1, the drips
+// fully grown, the kids' hands together, the date, the reward line and
+// the closer all lit. The only things that end faint are the splats
+// (a 0.35 stain, which is what a splat on glass looks like after a
+// minute) and the edge drips, which end off-frame.
+
+// Palette, extending the printed BARF poster the FriendPromo above
+// recreates: purple ground, toxic lime, plum for anything that has to
+// hold its shape against lime.
+const EPIC_LIME = '#7ed321';
+const EPIC_PALE = '#c7f26a';
+const EPIC_PLUM = '#3b1a63';
+
+// The beat sheet, in seconds into the hold. Named because half of them
+// are referenced twice (a word and the drips that run off it).
+const EPIC_THE = 0.15;
+const EPIC_BIGGEST = 1.4;
+const EPIC_BARF = 2.8;
+const EPIC_EVER = 4.0;
+const EPIC_LOWER = 5.8;
+const EPIC_DATE = 8.0;
+const EPIC_SHARES = 10.0;
+const EPIC_CLOSER = 12.0;
+// Every ambient loop starts after EVER has landed, so nothing is
+// wobbling while a word is still trying to arrive.
+const EPIC_AMBIENT = 4.4;
+
+// The expo-out curve every word lands on: fast in, hard stop.
+const EASE_SLAM = [0.16, 1, 0.3, 1];
+
+/**
+ * ONE BEAT, as keyframes: hold at the first value until `at` seconds into the
+ * hold, then travel to the resting value over `dur`.
+ *
+ * This is deliberately NOT `initial` plus a `delay`, which is how the rest of
+ * this file times its (much shorter) entrances. Measured on the real build: an
+ * element waiting out a long `delay` can paint at its ANIMATE opacity rather
+ * than its `initial` one, so a word showed up at full strength and triple size
+ * seconds before its beat, and the same thing put the closer on screen from
+ * the first frame. A keyframe list says "nothing here yet" in a way nothing
+ * downstream can reinterpret, and its LAST value is still the resting one
+ * ?lowPower=1 freezes on.
+ *
+ * @param {number} at seconds into the hold when this lands
+ * @param {number} dur how long the landing itself takes
+ * @param {Record<string, Array<any>>} values first value, then the landing
+ * @param {any} [ease] the curve for the landing segments
+ */
+function landsAt(at, dur, values, ease = EASE_SLAM) {
+  const total = at + dur;
+  const steps = Math.max(...Object.values(values).map((v) => v.length));
+  const times = [0];
+  for (let i = 0; i < steps; i += 1) times.push((at + (dur * i) / (steps - 1)) / total);
+  const initial = {};
+  const animate = {};
+  for (const [key, frames] of Object.entries(values)) {
+    // A value with fewer frames than the busiest one simply waits longer.
+    const pad = Array(steps - frames.length).fill(frames[0]);
+    animate[key] = [frames[0], frames[0], ...pad, ...frames.slice(1)];
+    initial[key] = frames[0];
+  }
+  // One easing per segment: the hold is linear, every landing step is the curve.
+  const eases = ['linear', ...Array(steps - 1).fill(ease)];
+  return { initial, animate, transition: { duration: total, times, ease: eases } };
+}
+
+/**
+ * The screen shake: one x/y jitter per word landing, on a wrapper around
+ * the whole poster. Four short bursts inside a 15 s animation, expressed
+ * as one keyframe list so there is a single transform driving the stage.
+ *
+ * Pure, and built once at module load. The list always starts and ends at
+ * 0, which is both the resting position and the frame ?lowPower=1 sits on.
+ *
+ * @param {ReadonlyArray<{at: number, amp: number}>} beats
+ * @param {number} total
+ */
+function buildShake(beats, total) {
+  // One burst: out, back past centre, out again, and settle.
+  const shape = [
+    [0.00, 1.00, -0.62],
+    [0.06, -0.80, 0.52],
+    [0.12, 0.50, -0.34],
+    [0.18, -0.26, 0.18],
+    [0.25, 0, 0],
+  ];
+  const times = [0];
+  const x = [0];
+  const y = [0];
+  for (const beat of beats) {
+    for (const [offset, fx, fy] of shape) {
+      times.push((beat.at + offset) / total);
+      x.push(Math.round(beat.amp * fx * 10) / 10);
+      y.push(Math.round(beat.amp * fy * 10) / 10);
+    }
+  }
+  times.push(1);
+  x.push(0);
+  y.push(0);
+  return { times, x, y };
+}
+
+const EPIC_SHAKE = buildShake(
+  [
+    { at: EPIC_THE + 0.4, amp: 4 },
+    { at: EPIC_BIGGEST + 0.05, amp: 6 },
+    { at: EPIC_BARF + 0.05, amp: 9 },
+    { at: EPIC_EVER + 0.05, amp: 7 },
+  ],
+  PROMO_EPIC_DURATION_SEC
+);
+
+/**
+ * A splat: a closed blob with `arms` long points between short ones,
+ * smoothed through its own midpoints so the arms read as thrown goo
+ * rather than a star. `seed` is the only variation, so two splats on one
+ * screen are never the same shape and the shape never changes between
+ * renders.
+ *
+ * @param {number} seed
+ * @param {number} arms
+ * @returns {string}
+ */
+export function splatPath(seed, arms = 7) {
+  // A tiny LCG rather than Math.random: the art has to be identical on
+  // every device and in every screenshot.
+  let s = (seed * 2654435761) % 2147483647;
+  const rnd = () => {
+    s = (s * 1103515245 + 12345) % 2147483647;
+    return (s < 0 ? s + 2147483647 : s) / 2147483647;
+  };
+  const pts = [];
+  const count = arms * 2;
+  for (let i = 0; i < count; i += 1) {
+    const long = i % 2 === 0;
+    const r = long ? 32 + rnd() * 15 : 21 + rnd() * 7;
+    const a = (Math.PI * 2 * i) / count + (rnd() - 0.5) * 0.28;
+    pts.push([50 + r * Math.cos(a), 50 + r * Math.sin(a)]);
+  }
+  const mid = (a, b) => `${((a[0] + b[0]) / 2).toFixed(1)} ${((a[1] + b[1]) / 2).toFixed(1)}`;
+  let d = `M${mid(pts[count - 1], pts[0])}`;
+  for (let i = 0; i < count; i += 1) {
+    const p = pts[i];
+    d += ` Q${p[0].toFixed(1)} ${p[1].toFixed(1)} ${mid(p, pts[(i + 1) % count])}`;
+  }
+  return `${d}z`;
+}
+
+/**
+ * A splat hitting the "glass" of the screen: it bursts outward, then
+ * slides down a little and fades to a stain. It ends at 0.35 rather than
+ * 0 so the frozen low-power frame keeps the marks a real BARF Night
+ * would have left on the TV.
+ */
+function GlassSplat({ seed, arms = 7, className, at }) {
+  const d = splatPath(seed, arms);
+  // Hold, hit, settle, then a long slide into a stain. Hand-shaped rather
+  // than landsAt's even steps, because the hit and the slide are nothing
+  // like the same length.
+  const total = at + 7;
+  const times = [0, at / total, (at + 0.35) / total, (at + 1.1) / total, 1];
+  return (
+    <M.svg
+      className={`promo-epic-splat ${className}`}
+      viewBox="0 0 100 100"
+      aria-hidden="true"
+      initial={{ opacity: 0, scale: 0.15, y: '0vh' }}
+      animate={{
+        opacity: [0, 0, 1, 0.86, 0.45],
+        scale: [0.15, 0.15, 1.2, 1, 1.04],
+        y: ['0vh', '0vh', '0vh', '1vh', '4.5vh'],
+      }}
+      transition={{ duration: total, times, ease: ['linear', 'easeOut', 'easeOut', 'easeOut'] }}
+    >
+      <path d={d} fill={EPIC_LIME} />
+      <ellipse cx="41" cy="38" rx="11" ry="7" fill={EPIC_PALE} opacity="0.55" transform="rotate(-24 41 38)" />
+    </M.svg>
+  );
+}
+
+/**
+ * Goo running off a word: a teardrop that GROWS downward from the letter
+ * and then never quite stops moving. Two elements, because the growth and
+ * the ambient sag would otherwise fight over one scaleY.
+ */
+function Drip({ left, width, height, delay, period, tone = EPIC_LIME }) {
+  return (
+    <M.span
+      className="promo-epic-drip"
+      style={{ left, width, height }}
+      {...landsAt(delay, 0.5, { scaleY: [0, 1.14, 1] })}
+    >
+      <M.span
+        className="promo-epic-drip-body"
+        style={{ background: tone }}
+        animate={{ scaleY: [1, 1.16, 1] }}
+        transition={{ duration: period, delay: EPIC_AMBIENT, repeat: Infinity, ease: 'easeInOut' }}
+      />
+    </M.span>
+  );
+}
+
+// The slime wall across the top of the screen, and the drips hanging off
+// it. preserveAspectRatio="none" on purpose: goo has no correct aspect
+// ratio, and stretching keeps the wall the same depth on every panel.
+const CURTAIN_D = 'M0 0 H1200 V78 C1150 118 1104 74 1050 96 C996 118 950 70 896 94 C842 118 796 72 742 96 C688 120 640 74 586 98 C532 122 486 76 432 98 C378 120 332 74 278 96 C224 118 178 72 124 94 C70 116 44 78 0 88 Z';
+
+const CURTAIN_DRIPS = Object.freeze([
+  { left: '5%', width: '1.6vmin', height: '7vh', delay: 0.9, period: 4.2 },
+  { left: '15%', width: '1.1vmin', height: '4vh', delay: 1.25, period: 5.4 },
+  { left: '26%', width: '1.4vmin', height: '5.5vh', delay: 1.05, period: 3.8 },
+  { left: '74%', width: '1.2vmin', height: '4.5vh', delay: 1.5, period: 4.9 },
+  { left: '85%', width: '1.7vmin', height: '6.5vh', delay: 1.15, period: 4.4 },
+  { left: '94%', width: '1.2vmin', height: '3.6vh', delay: 1.4, period: 5.8 },
+]);
+
+// Drips crawling down the far edges of the screen, forever. These are the
+// one ambient loop that ends INVISIBLE, and they may: they end off-frame,
+// so the frozen low-power poster simply has clean edges.
+const EDGE_DRIPS = Object.freeze([
+  { side: 'left', top: '2%', size: 1.3, duration: 16, delay: -3 },
+  { side: 'left', top: '4%', size: 0.9, duration: 21, delay: -12 },
+  { side: 'left', top: '1%', size: 1.1, duration: 26, delay: -19 },
+  { side: 'right', top: '3%', size: 1.4, duration: 18, delay: -7 },
+  { side: 'right', top: '2%', size: 1, duration: 24, delay: -15 },
+  { side: 'right', top: '5%', size: 1.2, duration: 29, delay: -22 },
+]);
+
+const BARF_LETTERS = ['B', 'A', 'R', 'F'];
+
+// One drip per BARF letter, hung under the letter it belongs to.
+const BARF_DRIPS = Object.freeze([
+  { width: '0.085em', height: '0.17em', period: 3.6 },
+  { width: '0.065em', height: '0.1em', period: 4.8 },
+  { width: '0.075em', height: '0.14em', period: 4.1 },
+  { width: '0.06em', height: '0.08em', period: 5.3 },
+]);
+
+const BIGGEST_DRIPS = Object.freeze([
+  { left: '18%', width: '1.3vmin', height: '1.8vh', delay: 1.8, period: 4.6 },
+  { left: '44%', width: '1vmin', height: '1.2vh', delay: 1.9, period: 3.9 },
+  { left: '68%', width: '1.4vmin', height: '2.1vh', delay: 1.86, period: 5.2 },
+  { left: '87%', width: '0.9vmin', height: '1.4vh', delay: 2.0, period: 4.3 },
+]);
+
+const DATE_DRIPS = Object.freeze([
+  { left: '17%', width: '1.2vmin', height: '2vh', delay: 8.5, period: 4.7 },
+  { left: '82%', width: '1vmin', height: '2.6vh', delay: 8.62, period: 3.7 },
+]);
+
+/** One kid, in plum, with a hand up ready to be met by the other one. */
+function KidSilhouette({ flip }) {
+  return (
+    <svg
+      className={`promo-epic-kid-art ${flip ? 'promo-epic-kid-art--flip' : ''}`}
+      viewBox="0 0 110 140"
+      aria-hidden="true"
+    >
+      <g fill={EPIC_PLUM}>
+        <circle cx="40" cy="24" r="19" />
+        <rect x="24" y="46" width="34" height="48" rx="13" />
+        <rect x="27" y="86" width="12" height="50" rx="6" />
+        <rect x="45" y="86" width="12" height="50" rx="6" />
+        <rect x="14" y="48" width="10" height="40" rx="5" transform="rotate(-13 19 52)" />
+        <rect x="51" y="4" width="11" height="50" rx="5.5" transform="rotate(46.6 56.5 54)" />
+        <circle cx="93" cy="19" r="10" />
+      </g>
+    </svg>
+  );
+}
+
+// The reward line. Same voice as the rotating detail slot below it, but
+// its own element: the slot can only hold one string at a time, and under
+// ?lowPower=1 both this and the closer have to be legible at once.
+const EPIC_SHARES_LINE = '10 Awana Shares per friend + a BARF bag!';
+
+function BarfEpicPromo({ promo }) {
+  const { tonight } = promo;
+  return (
+    <div className="promo-slide promo-slide--barf-epic">
+      <PosterDepth />
+
+      {/* Every word landing knocks the whole poster sideways for a quarter
+          second. One keyframe list, one transform, ending where it began. */}
+      <M.div
+        className="promo-epic-stage"
+        animate={{ x: EPIC_SHAKE.x, y: EPIC_SHAKE.y }}
+        transition={{ duration: PROMO_EPIC_DURATION_SEC, times: EPIC_SHAKE.times, ease: 'linear' }}
+      >
+        <div className="promo-epic-curtain" aria-hidden="true">
+          <svg viewBox="0 0 1200 130" preserveAspectRatio="none">
+            <path d={CURTAIN_D} fill={EPIC_LIME} />
+          </svg>
+          {CURTAIN_DRIPS.map((d) => (
+            <Drip key={d.left} {...d} />
+          ))}
+        </div>
+
+        <div className="promo-epic-edges" aria-hidden="true">
+          {EDGE_DRIPS.map((d, i) => (
+            <M.span
+              // Fixed art, so the index is a stable identity here.
+              key={`${d.side}-${i}`}
+              className={`promo-epic-edge-drip promo-epic-edge-drip--${d.side}`}
+              style={{ top: d.top, width: `${d.size}vmin`, height: `${d.size * 2.6}vmin` }}
+              animate={{ y: ['-12vh', '112vh'] }}
+              transition={{ duration: d.duration, delay: d.delay, repeat: Infinity, ease: 'linear' }}
+            />
+          ))}
+        </div>
+
+        {/* Beat 1 throws one behind THE, beat 3 throws two with BARF, and
+            beat 6 throws one as the lower third arrives. */}
+        <GlassSplat seed={17} arms={8} className="promo-epic-splat--hero" at={EPIC_THE} />
+        <GlassSplat seed={41} arms={7} className="promo-epic-splat--a" at={EPIC_THE + 0.4} />
+        <GlassSplat seed={88} arms={6} className="promo-epic-splat--b" at={EPIC_BARF + 0.02} />
+        <GlassSplat seed={123} arms={8} className="promo-epic-splat--c" at={EPIC_BARF + 0.14} />
+        <GlassSplat seed={205} arms={7} className="promo-epic-splat--d" at={EPIC_LOWER + 0.05} />
+
+        <div className="promo-epic-stack">
+          <div className="promo-epic-top">
+            <M.span
+              className="promo-epic-small promo-outline"
+              {...landsAt(EPIC_THE, 0.42, { opacity: [0, 1], scale: [3, 1] })}
+            >
+              The
+            </M.span>
+            <M.span
+              className="promo-epic-small promo-epic-biggest promo-outline"
+              {...landsAt(EPIC_BIGGEST, 0.42, { opacity: [0, 1], scale: [3, 1] })}
+            >
+              Biggest
+            </M.span>
+            <div className="promo-epic-driprow" aria-hidden="true">
+              {BIGGEST_DRIPS.map((d) => (
+                <Drip key={d.left} {...d} />
+              ))}
+            </div>
+          </div>
+
+          {/* The jelly wobble owns its own element, so the letters' landing
+              scale and the endless wobble never share a transform. */}
+          <M.div
+            className="promo-epic-hero-wobble"
+            animate={{ scale: [1, 1.03, 1] }}
+            transition={{ duration: 3, delay: EPIC_AMBIENT, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <div className="promo-epic-hero">
+              {BARF_LETTERS.map((letter, i) => (
+                <M.span
+                  key={letter}
+                  className="promo-epic-hero-letter promo-outline"
+                  {...landsAt(EPIC_BARF + i * 0.07, 0.5, {
+                    opacity: [0, 1], scale: [2.4, 1], y: ['-12%', '0%'],
+                  })}
+                >
+                  {letter}
+                  <Drip
+                    left="50%"
+                    width={BARF_DRIPS[i].width}
+                    height={BARF_DRIPS[i].height}
+                    delay={EPIC_BARF + 0.45 + i * 0.09}
+                    period={BARF_DRIPS[i].period}
+                  />
+                </M.span>
+              ))}
+            </div>
+          </M.div>
+
+          <M.span
+            className="promo-epic-small promo-epic-ever promo-outline"
+            {...landsAt(EPIC_EVER, 0.5, { opacity: [0, 1], scale: [2.2, 1], y: ['30%', '0%'] })}
+          >
+            Ever
+          </M.span>
+
+          <div className="promo-epic-lower">
+            <div className="promo-epic-kids">
+              <M.svg
+                className="promo-epic-pool"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+                {...landsAt(EPIC_LOWER - 0.2, 0.5, { opacity: [0, 1], scale: [0.4, 1.12, 1] })}
+              >
+                <path d={splatPath(64, 11)} fill={EPIC_LIME} />
+              </M.svg>
+              <M.div
+                className="promo-epic-kid"
+                {...landsAt(EPIC_LOWER - 0.3, 0.55, { opacity: [0, 1], x: ['-900%', '9%', '0%'] })}
+              >
+                <M.div
+                  className="promo-epic-kid-bounce"
+                  {...landsAt(EPIC_LOWER + 0.25, 0.5, { y: ['0%', '-11%', '0%'], rotate: [0, -5, 0] }, 'easeOut')}
+                >
+                  <KidSilhouette />
+                </M.div>
+              </M.div>
+              <M.div
+                className="promo-epic-kid"
+                {...landsAt(EPIC_LOWER - 0.3, 0.55, { opacity: [0, 1], x: ['900%', '-9%', '0%'] })}
+              >
+                <M.div
+                  className="promo-epic-kid-bounce"
+                  {...landsAt(EPIC_LOWER + 0.25, 0.5, { y: ['0%', '-11%', '0%'], rotate: [0, 5, 0] }, 'easeOut')}
+                >
+                  <KidSilhouette flip />
+                </M.div>
+              </M.div>
+              <div className="promo-epic-pop-slot" aria-hidden="true">
+                {/* Ends as a faint lime halo rather than at nothing: the
+                    frozen frame should still show where the hands met. */}
+                <M.span
+                  className="promo-epic-pop"
+                  {...landsAt(EPIC_LOWER + 0.3, 1, { opacity: [0, 1, 0.6], scale: [0.2, 1.5, 1.2] }, 'easeOut')}
+                />
+              </div>
+            </div>
+
+            <div className="promo-epic-riser">
+              <M.span
+                className="promo-epic-friend"
+                {...landsAt(EPIC_LOWER, 0.6, { y: ['118%', '-5%', '0%'] })}
+              >
+                Bring A Real Friend
+              </M.span>
+            </div>
+            {/* The puddle the line comes out of, so it arrives WITH the
+                lower third rather than sitting on an empty poster. */}
+            <M.svg
+              className="promo-epic-puddle"
+              viewBox="0 0 1200 60"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+              {...landsAt(EPIC_LOWER - 0.25, 0.5, { opacity: [0, 1], scaleX: [0.1, 1.04, 1] })}
+            >
+              <path
+                d="M0 60 V34 C62 2 126 46 196 26 C268 6 332 50 402 30 C472 10 536 52 606 32 C676 12 740 48 810 28 C880 8 944 46 1012 26 C1080 6 1142 42 1200 18 V60 Z"
+                fill={EPIC_LIME}
+              />
+            </M.svg>
+          </div>
+
+          <div className="promo-epic-foot">
+            <div className="promo-epic-date-wrap">
+              <M.span
+                className={`promo-date promo-outline promo-epic-date ${tonight ? 'promo-epic-date--long' : ''}`}
+                {...landsAt(EPIC_DATE, 0.55, { opacity: [0, 1], y: ['40%', '0%'] }, 'easeOut')}
+              >
+                {tonight ? 'Bring them to the check-in desk' : formatLongDate(promo.eventDate).toUpperCase()}
+              </M.span>
+              <div className="promo-epic-driprow" aria-hidden="true">
+                {DATE_DRIPS.map((d) => (
+                  <Drip key={d.left} {...d} />
+                ))}
+              </div>
+            </div>
+
+            <M.span
+              className="promo-epic-shares"
+              {...landsAt(EPIC_SHARES, 0.45, { opacity: [0, 1], y: ['30%', '0%'] }, 'easeOut')}
+            >
+              {EPIC_SHARES_LINE}
+            </M.span>
+
+            {/* One string, not a rotation: this poster has already said
+                everything else out loud, so the slot is just the closer. The
+                wrapper holds it off the screen until its beat, so the shared
+                slot's own fade can start at once (see landsAt). */}
+            <M.div
+              className="promo-epic-closer"
+              {...landsAt(EPIC_CLOSER, 0.45, { opacity: [0, 1], y: ['30%', '0%'] }, 'easeOut')}
+            >
+              <RotatingDetail lines={detailsFor(promo)} startMs={0} />
+            </M.div>
+          </div>
+        </div>
+      </M.div>
+
+      <Wordmark />
+      <CountdownChip label={promo.countdown} delay={0.9} />
+    </div>
+  );
+}
+
 // ── Parents' Night ───────────────────────────────────────────
 // Cream ground under a rust header that undulates, a gold heart that
 // beats and throws off little hearts, and the date under a gold rule.
@@ -716,6 +1225,7 @@ function ParentsPromo({ promo }) {
 const SCENES = {
   contest: ContestPromo,
   friend: FriendPromo,
+  barfEpic: BarfEpicPromo,
   parents: ParentsPromo,
 };
 
