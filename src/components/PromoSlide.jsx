@@ -596,17 +596,16 @@ function FriendPromo({ promo }) {
 //
 // It runs for PROMO_EPIC_DURATION_SEC (15 s) rather than the usual 8,
 // which is why a promo descriptor now carries its own durationSec. Every
-// beat below is a `delay` on an M transition, never a timer: one clock
-// (framer-motion's) keeps the choreography together, and ?lowPower=1
-// collapses the whole thing to its last keyframe in one step.
+// beat below is a keyframe list built by landsAt(), never a timer: one
+// clock (framer-motion's) keeps the whole choreography together.
 //
 // The frozen frame IS the poster. Under zero-animation every element
-// jumps to the end of its keyframe list with no delay, so every value
-// below rests somewhere readable: the four words at opacity 1, the drips
-// fully grown, the kids' hands together, the date, the reward line and
-// the closer all lit. The only things that end faint are the splats
-// (a 0.35 stain, which is what a splat on glass looks like after a
-// minute) and the edge drips, which end off-frame.
+// jumps to the end of its keyframe list at once, so every value below
+// rests somewhere readable: the four words at opacity 1, the drips fully
+// grown, the kids' hands together, the date, the reward line and the
+// closer all lit. The only things that end faint are the splats (a 0.45
+// stain, which is what a splat on glass looks like after a minute) and
+// the edge drips, which end off-frame.
 
 // Palette, extending the printed BARF poster the FriendPromo above
 // recreates: purple ground, toxic lime, plum for anything that has to
