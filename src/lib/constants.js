@@ -29,11 +29,11 @@ export const DROPPED_GRACE_MS = 8000;
 // arrivals is normal, and a false alarm on the lobby wall costs trust.
 export const COUNTS_WITHOUT_NAMES_MS = 6 * 60 * 1000;
 
-// Check-in queue: burst mode starts shrinking holds past this many
-// waiting events, never below the floor; the queue is capped against a
-// runaway/duplicated feed.
+// Check-in queue. Past this many waiting children the room is in a rush:
+// confetti thins so back-to-back bursts hold 60fps, and the "+N more coming"
+// chip shows. A rush never shortens anyone's hold (src/lib/checkInQueue.js).
+// The queue is capped against a runaway/duplicated feed.
 export const BURST_THRESHOLD = 2;
-export const BURST_FLOOR_MS = 2500;
 export const MAX_QUEUE = 100;
 
 // Fallback banner hold when the configured duration is invalid.

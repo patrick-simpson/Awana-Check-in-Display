@@ -75,7 +75,6 @@ const VALIDATORS = {
   weatherLon: numberBetween(-180, 180),
   weatherUnits: (v) => v === 'fahrenheit' || v === 'celsius',
   watchdogReloadMin: numberBetween(0, 1440),
-  burstFloorMs: numberBetween(1000, 10000),
   clubPhrases: (v) => !!v && typeof v === 'object' && !Array.isArray(v),
   confettiLevel: (v) => ['full', 'reduced', 'off'].includes(v),
   reduceMotion: isBool,

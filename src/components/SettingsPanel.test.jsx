@@ -434,7 +434,8 @@ describe('Banners & celebrations and Display tabs', () => {
     tab('Banners & celebrations');
     expect(screen.getByLabelText('Confetti intensity')).toBeTruthy();
     expect(screen.getByLabelText('Milestone celebration (every N check-ins)')).toBeTruthy();
-    expect(screen.getByLabelText('Rush-mode minimum banner time (ms)')).toBeTruthy();
+    // A rush no longer shortens anyone's banner, so there is no floor to set.
+    expect(screen.queryByLabelText('Rush-mode minimum banner time (ms)')).toBeNull();
     tab('Display');
     expect(screen.queryByLabelText('Confetti intensity')).toBeNull();
     expect(screen.getByLabelText("Who's still here board")).toBeTruthy();

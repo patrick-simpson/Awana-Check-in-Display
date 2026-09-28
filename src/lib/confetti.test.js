@@ -13,7 +13,7 @@ import { SKIN_TABLE } from './skins.js';
 
 // Asserted as literals rather than imported: a silent palette edit should
 // fail this file, not quietly agree with it.
-const HOUSE = ['#F7A41C', '#FFD257', '#FFFFFF', '#4CAF50', '#2979FF', '#E53935'];
+const HOUSE = ['#FAA41D', '#FCB614', '#FFFFFF', '#F15A28', '#4C72B8', '#58BD79'];
 const SPARKS = ['#E14B4B', '#FFB300', '#FFFFFF'];
 
 describe('fireMilestone', () => {

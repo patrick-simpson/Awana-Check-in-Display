@@ -12,7 +12,7 @@ A joyful welcome screen for your Awana club, styled after the official Awana Clu
 - **Catalog-true club theming** — every banner uses the club's real color, age range, and tagline (Sparks red with "Grades K–2", Cubbies royal blue with "Ages 3–5", and so on).
 - **Birthday mode** — falling gifts, fireworks, and "Happy Birthday, [Name]!"
 - **First-timer mode** — a special "Welcome to Awana Clubs, [Name]!" moment.
-- **Queueing with burst mode** — if five kids scan at once, each still gets their own moment in turn; during a big rush the display automatically shortens banners so the line at the door never outruns the screen.
+- **Rush mode** — if five kids scan at once, each still gets their own full moment in turn: the club wave stays up and the names flip in one after another like a scoreboard, so nobody's time on screen is ever cut short.
 - **Tonight's tally** — an optional corner counter ("23 checked in tonight"). It stores only a number and resets itself daily.
 - **Seasonal skins** — autumn, Christmas, spring and more, or `auto`
   to dress the stage by the calendar.

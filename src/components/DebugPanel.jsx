@@ -30,8 +30,8 @@ export default function DebugPanel({
     }
   };
 
-  // Simulates the after-dinner carpool wave — proves burst mode keeps
-  // the queue moving when 20 kids scan in seconds.
+  // Simulates the after-dinner carpool wave: 20 kids scanning in seconds.
+  // The wave stays up and each name flips in for its full hold.
   const bigRush = () => {
     for (let i = 0; i < 20; i++) {
       onSimulate({ firstName: pick(SAMPLE_NAMES), club: pick(getAllClubs()) });
@@ -188,7 +188,7 @@ export default function DebugPanel({
       <button onClick={birthday}>Birthday welcome</button>
       <button onClick={firstTimer}>First-timer welcome</button>
       <button onClick={fiveAtOnce}>Trigger 5 simultaneous</button>
-      <button onClick={bigRush}>Trigger 20-kid rush (burst mode)</button>
+      <button onClick={bigRush}>Trigger 20-kid rush (scoreboard flip)</button>
       <button onClick={everyClub}>Trigger every club</button>
       {onSimulateRecap && <button onClick={recap}>Simulate recap replay (quiet banners)</button>}
       {onSimulateOps && <button onClick={printFailure}>Simulate print failure (ops)</button>}

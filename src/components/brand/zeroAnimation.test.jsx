@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
-import { ZeroAnimationContext } from '../../lib/motion.jsx';
+import { AnimatePresence } from 'framer-motion';
+import { M, ZeroAnimationContext } from '../../lib/motion.jsx';
 import Wave from './Wave.jsx';
 import CornerTab from './CornerTab.jsx';
 import Sticker from './Sticker.jsx';
@@ -81,5 +82,26 @@ describe('brand primitives under zero-animation mode', () => {
       expect(Number(el.style.opacity || 1)).toBe(1);
       expect(el.style.transform).toBe('rotate(20deg)');
     }, INSTANT);
+  });
+
+  // Through the real framer-motion: an exit that carries its own long
+  // transition (which beats the element's transition prop) must still leave
+  // at once, or a banner would hang on the Pi for as long as its exit says.
+  it('an exit with its own nested transition still leaves at once', async () => {
+    const tree = (show) => (
+      <ZeroAnimationContext.Provider value>
+        <AnimatePresence>
+          {show && (
+            <M.div key="x" className="leaving" exit={{ opacity: 0, y: 40, transition: { duration: 5, delay: 2 } }}>
+              bye
+            </M.div>
+          )}
+        </AnimatePresence>
+      </ZeroAnimationContext.Provider>
+    );
+    const { container, rerender } = render(tree(true));
+    expect(container.querySelector('.leaving')).not.toBeNull();
+    rerender(tree(false));
+    await waitFor(() => expect(container.querySelector('.leaving')).toBeNull(), INSTANT);
   });
 });

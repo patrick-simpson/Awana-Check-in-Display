@@ -115,7 +115,7 @@ export default function App() {
   // flagged-but-unmasked `effectiveConfig` straight from the store. Memoized so
   // `config` keeps a stable identity per store snapshot.
   const config = useMemo(() => applyPanicMode(effectiveConfig), [effectiveConfig]);
-  const { currentEvent, enqueue, skipCurrent, pending } = useCheckInQueue(config);
+  const { currentEvent, run: checkInRun, step: checkInStep, enqueue, skipCurrent, pending } = useCheckInQueue(config);
   const { count, bump, reset: resetTally, sync: syncTally } = useTally();
   // Set (synchronously, before the reconciled `count` even commits) whenever
   // a tally broadcast jumps the counter, so the milestone effect below can
@@ -863,7 +863,7 @@ export default function App() {
     <ZeroAnimationContext.Provider value={config.reduceMotion}>
     <MotionConfig reducedMotion={config.reduceMotion ? 'always' : 'user'}>
     <div
-      className={`stage ${overlay ? 'overlay' : ''} ${aprilFools ? 'april-fools' : ''}`}
+      className={`stage ${overlay ? 'overlay' : ''} ${aprilFools ? 'april-fools' : ''} ${currentEvent && !overlay ? 'checkin-active' : ''}`}
       data-skin={skin !== 'none' ? skin : undefined}
       style={{
         ...(chroma ? { background: chroma } : null),
@@ -907,6 +907,8 @@ export default function App() {
       <ErrorBoundary label="banner" eventKey={currentEvent?.id} onError={() => { skipCurrent(); recordLayerFault('banner'); }}>
         <Overlay
           currentEvent={currentEvent}
+          run={checkInRun}
+          step={checkInStep}
           audioEnabled={!config.audioMuted}
           clubPhrases={config.clubPhrases}
           birthdayRibbon={birthdayWeekRibbon}

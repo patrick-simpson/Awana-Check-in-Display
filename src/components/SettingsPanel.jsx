@@ -80,7 +80,6 @@ function seedForm(c) {
     weatherTheme: c.weatherTheme === true,
     confettiLevel: ['reduced', 'off'].includes(c.confettiLevel) ? c.confettiLevel : 'full',
     reduceMotion: c.reduceMotion === true,
-    burstFloorMs: c.burstFloorMs ?? 2500,
     clubMilestoneEvery: c.clubMilestoneEvery ?? 10,
     clubTintBackground: c.clubTintBackground === true,
     firstArrivalMoment: c.firstArrivalMoment !== false,
@@ -124,7 +123,6 @@ function normalize(f) {
     clubMilestoneEvery: clamp(Math.round(f.clubMilestoneEvery) || 0, 0, 1000),
     checkoutBoardNamesAbove: clamp(Math.round(f.checkoutBoardNamesAbove) || 0, 0, 200),
     checkoutBoardStaleMin: clamp(Math.round(f.checkoutBoardStaleMin) || 8, 1, 120),
-    burstFloorMs: clamp(Math.round(f.burstFloorMs) || 2500, 1000, 10000),
     cycleIntervalSec: clamp(Math.round(f.cycleIntervalSec) || 3, 2, 120),
     calendarUrl: f.calendarUrl.trim(),
     calendarWelcomeText: f.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
@@ -1122,7 +1120,7 @@ function BannersTab({ form, set, setForm }) {
           onChange={set('standardDisplayMs')}
         />
         <span className="hint">
-          During a big rush the display automatically shortens banners so the line never backs up.
+          Every child gets the full time, even in a rush: the banner stays up and the next name flips in.
         </span>
       </div>
 
@@ -1135,19 +1133,6 @@ function BannersTab({ form, set, setForm }) {
         />
         <span className="hint">
           The extra-celebratory banners hold a little longer than standard ones.
-        </span>
-      </div>
-
-      <div className="field">
-        <label htmlFor="burstFloor">Rush-mode minimum banner time (ms)</label>
-        <input
-          id="burstFloor" type="number" min="1000" max="10000" step="250"
-          value={form.burstFloorMs}
-          onChange={set('burstFloorMs')}
-        />
-        <span className="hint">
-          During a check-in rush banners shrink to keep up with the door — but never below this.
-          Lower drains a backlog faster; higher keeps every name readable longer.
         </span>
       </div>
 

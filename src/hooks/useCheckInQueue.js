@@ -1,40 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
+import { BURST_THRESHOLD } from '../lib/constants.js';
+import { checkInQueueReducer, holdMsFor, INITIAL_QUEUE_STATE } from '../lib/checkInQueue.js';
 
 /**
- * FIFO queue for check-in events. Shows one at a time — birthday /
- * first-timer events hold longer because their animations are richer.
- * Fresh events that arrive while one is on-screen join the back of the
- * queue, so nobody's moment is skipped.
+ * FIFO queue for check-in events: one child on screen at a time, each for
+ * their full hold (birthdays and first-timers hold longer), nobody's moment
+ * skipped or shortened. The rules live in the pure reducer in
+ * src/lib/checkInQueue.js; this hook only owns the two timers.
  *
- * Burst mode: when a carpool's worth of kids scan at once, holding every
- * banner for the full 6s would put the screen minutes behind the door.
- * Once more than BURST_THRESHOLD events are waiting, each additional one
- * shrinks the hold by 15%, down to a floor that still reads comfortably.
- * The queue drains, then durations return to normal on their own.
+ * During a rush the banner stays up and the next child flips in the moment
+ * the previous hold ends (same `run`, next `step`), instead of the wave
+ * dropping and rising again for every child.
  */
-import { BURST_FLOOR_MS, BURST_THRESHOLD, DEFAULT_HOLD_MS, MAX_QUEUE } from '../lib/constants.js';
-
 export { BURST_THRESHOLD };
 
-export function effectiveHoldMs(configuredMs, waiting, floorMs = BURST_FLOOR_MS) {
-  const base = Number.isFinite(configuredMs) && configuredMs > 0 ? configuredMs : DEFAULT_HOLD_MS;
-  const over = Math.max(0, waiting - BURST_THRESHOLD);
-  const floor = Number.isFinite(floorMs) && floorMs > 0 ? floorMs : BURST_FLOOR_MS;
-  return Math.round(Math.max(floor, base * Math.pow(0.85, over)));
-}
-
 export function useCheckInQueue(config) {
-  const [queue, setQueue] = useState([]);
-  const [currentEvent, setCurrentEvent] = useState(null);
-  const holdTimerRef = useRef(null);
-  const gapTimerRef = useRef(null);
+  const [state, dispatch] = useReducer(checkInQueueReducer, INITIAL_QUEUE_STATE);
   const nextIdRef = useRef(1);
+  const { current, gap } = state;
 
   const enqueue = useCallback((payload) => {
     if (!payload || !payload.firstName) return;
-    setQueue((q) => [
-      ...q.slice(0, MAX_QUEUE - 1),
-      {
+    dispatch({
+      type: 'enqueue',
+      event: {
         id: nextIdRef.current++,
         firstName: payload.firstName,
         club: payload.club || '',
@@ -51,59 +40,38 @@ export function useCheckInQueue(config) {
           ? payload.presentation
           : 'live',
       },
-    ]);
+    });
   }, []);
 
+  // One hold timer per child on screen, keyed on the child: a flip to the
+  // next child restarts it, so each one gets the whole configured time.
+  const hold = holdMsFor(current, config);
+  const currentId = current?.id;
   useEffect(() => {
-    if (currentEvent) return;
-    if (queue.length === 0) return;
-    // While the between-banner gap is running, wait for it to finish.
-    if (gapTimerRef.current) return;
+    if (currentId == null) return undefined;
+    const t = setTimeout(() => dispatch({ type: 'hold-done', id: currentId }), hold);
+    return () => clearTimeout(t);
+  }, [currentId, hold]);
 
-    const [next, ...rest] = queue;
-    setQueue(rest);
-    setCurrentEvent(next);
+  // The short breath between runs, so an exit and the next entrance never
+  // clip into each other.
+  const gapMs = Number.isFinite(config.gapBetweenBannersMs) && config.gapBetweenBannersMs >= 0
+    ? config.gapBetweenBannersMs
+    : 0;
+  useEffect(() => {
+    if (!gap) return undefined;
+    const t = setTimeout(() => dispatch({ type: 'gap-done' }), gapMs);
+    return () => clearTimeout(t);
+  }, [gap, gapMs]);
 
-    const configured = next.isBirthday || next.isFirstTimer
-      ? config.specialDisplayMs
-      : config.standardDisplayMs;
-    // effectiveHoldMs also guards against bad config so a banner never
-    // flashes (NaN/0 timeout) or sticks forever.
-    const hold = effectiveHoldMs(configured, rest.length, config.burstFloorMs);
+  const skipCurrent = useCallback(() => dispatch({ type: 'skip' }), []);
 
-    clearTimeout(holdTimerRef.current);
-    holdTimerRef.current = setTimeout(() => {
-      setCurrentEvent(null);
-      // Small gap so exit/enter animations don't clip into each other.
-      gapTimerRef.current = setTimeout(() => {
-        gapTimerRef.current = null;
-        // Nudge the effect to re-run so it picks up any waiting event.
-        setQueue((q) => q.slice());
-      }, config.gapBetweenBannersMs);
-    }, hold);
-  }, [
-    queue,
-    currentEvent,
-    config.standardDisplayMs,
-    config.specialDisplayMs,
-    config.gapBetweenBannersMs,
-    config.burstFloorMs,
-  ]);
-
-  const skipCurrent = useCallback(() => {
-    clearTimeout(holdTimerRef.current);
-    clearTimeout(gapTimerRef.current);
-    setCurrentEvent(null);
-    gapTimerRef.current = setTimeout(() => {
-      gapTimerRef.current = null;
-      setQueue((q) => q.slice());
-    }, config.gapBetweenBannersMs);
-  }, [config.gapBetweenBannersMs]);
-
-  useEffect(() => () => {
-    clearTimeout(holdTimerRef.current);
-    clearTimeout(gapTimerRef.current);
-  }, []);
-
-  return { currentEvent, enqueue, skipCurrent, pending: queue.length };
+  return {
+    currentEvent: current,
+    run: state.run,
+    step: state.step,
+    enqueue,
+    skipCurrent,
+    pending: state.queue.length,
+  };
 }

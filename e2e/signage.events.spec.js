@@ -71,8 +71,9 @@ test('birthday and first-timer check-ins render their own banner modes', async (
 
   await page.getByRole('button', { name: 'Birthday welcome' }).click();
   await expect(page.locator('.banner.birthday')).toBeVisible();
-  // The birthday banner's art is hand-drawn SVG on purpose — no emoji.
-  await expect(page.locator('.banner.birthday .cake svg').first()).toBeVisible();
+  // The birthday sticker is the kit's own SVG starburst on purpose: no emoji,
+  // so every TV draws it the same.
+  await expect(page.locator('.banner.birthday .brand-sticker svg').first()).toBeVisible();
 
   // Let the queue drain before asking for the next mode, so we're asserting on
   // the new banner rather than the previous one.
@@ -108,8 +109,8 @@ test('a 20-kid rush queues rather than dropping banners', async ({ page }) => {
   await goSignage(page);
   await openDebug(page);
 
-  // Burst mode is the behaviour that matters most on a real club night: five
-  // families arriving at once must each still get their moment.
+  // Rush mode is the behaviour that matters most on a real club night: five
+  // families arriving at once must each still get their full moment.
   await page.getByRole('button', { name: /20-kid rush/ }).click();
 
   await expect(page.locator('.banner').first()).toBeVisible();
@@ -199,14 +200,14 @@ test('a birthday later this week rides a ribbon instead of claiming today', asyn
 
   const banner = page.locator('.banner').first();
   await expect(banner).toBeVisible();
-  await expect(banner.locator('.birthday-week-ribbon')).toContainText(/Birthday this \w+!/);
+  await expect(banner.locator('.checkin__line')).toContainText(/Birthday this \w+!/);
 
   // Let the queue drain, as the other multi-banner tests here do.
   await page.waitForTimeout(6000);
 
   await page.getByRole('button', { name: /Birthday banner for that kid/ }).click();
   const cake = page.locator('.banner.birthday');
-  await expect(cake.locator('.birthday-week-ribbon')).toContainText(/Birthday this \w+!/);
+  await expect(cake.locator('.checkin__line')).toContainText(/Birthday this \w+!/);
   // "It's your special day" is simply wrong three days early.
   await expect(cake).not.toContainText(/special day/i);
 });

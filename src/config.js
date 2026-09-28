@@ -356,10 +356,6 @@ const config = {
   // twice an hour). 0 disables. Only fires when Pusher is configured —
   // a display that was never set up is left alone.
   watchdogReloadMin: 30,
-
-  // Burst mode floor: even during a check-in rush, no banner ever holds
-  // for less than this (milliseconds).
-  burstFloorMs: 2500,
 };
 
 export default config;

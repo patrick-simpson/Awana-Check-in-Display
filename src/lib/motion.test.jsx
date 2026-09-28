@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
-import { M, ZeroAnimationContext } from './motion.jsx';
+import { M, ZeroAnimationContext, stripTransition, stripVariants } from './motion.jsx';
 
 // framer-motion's own animate() is exercised via a real DOM render; what
 // we actually need to assert is the `transition` prop resolution, since
@@ -18,11 +18,18 @@ vi.mock('framer-motion', () => ({
     {
       get: (_t, tag) => {
         const Tag = tag === 'div' ? 'div' : tag;
-        return function MockMotionTag({ transition, initial, children, ...rest }) {
+        return function MockMotionTag({ transition, initial, animate, exit, variants, children, ...rest }) {
+          // Variants may hold functions (custom variants); resolve them with
+          // a fixed `custom` so the rendered attribute shows what they return.
+          const resolved = variants && Object.fromEntries(Object.entries(variants)
+            .map(([k, v]) => [k, typeof v === 'function' ? v(1) : v]));
           return (
             <Tag
               data-transition={JSON.stringify(transition ?? null)}
               data-initial={JSON.stringify(initial ?? null)}
+              data-animate={JSON.stringify(animate ?? null)}
+              data-exit={JSON.stringify(exit ?? null)}
+              data-variants={JSON.stringify(resolved ?? null)}
               {...rest}
             >
               {children}
@@ -117,5 +124,55 @@ describe('M (zero-animation-aware motion wrapper)', () => {
       </ZeroAnimationContext.Provider>
     );
     expect(container.querySelector('circle[data-transition]')).toBeTruthy();
+  });
+
+  /* A transition nested inside a target wins over the element's own
+     `transition` prop in framer-motion, so under zero animation the nested
+     ones must go too or every exit and variant change still animates on the
+     Pi (the old banner's 0.45 s exit did exactly that). */
+  it('strips transitions nested in animate / exit / variants when zero-animation is on', () => {
+    const { container } = render(
+      <ZeroAnimationContext.Provider value>
+        <M.div
+          animate={{ x: 10, transition: { duration: 3, repeat: 2 } }}
+          exit={{ opacity: 0, transition: { duration: 0.3, delay: 1 } }}
+          variants={{
+            show: { opacity: 1, transition: { staggerChildren: 0.1 } },
+            hidden: (i) => ({ opacity: 0, y: i * 10, transition: { delay: i } }),
+          }}
+        >hi</M.div>
+      </ZeroAnimationContext.Provider>
+    );
+    const el = container.querySelector('div[data-animate]');
+    expect(JSON.parse(el.dataset.animate)).toEqual({ x: 10 });
+    expect(JSON.parse(el.dataset.exit)).toEqual({ opacity: 0 });
+    expect(JSON.parse(el.dataset.variants)).toEqual({ show: { opacity: 1 }, hidden: { opacity: 0, y: 10 } });
+    expect(JSON.parse(el.dataset.transition)).toEqual({ type: false });
+  });
+
+  it('leaves nested transitions alone when zero-animation is off', () => {
+    const { container } = render(
+      <ZeroAnimationContext.Provider value={false}>
+        <M.div exit={{ opacity: 0, transition: { duration: 0.3 } }}>hi</M.div>
+      </ZeroAnimationContext.Provider>
+    );
+    const el = container.querySelector('div[data-exit]');
+    expect(JSON.parse(el.dataset.exit)).toEqual({ opacity: 0, transition: { duration: 0.3 } });
+  });
+});
+
+describe('stripTransition / stripVariants', () => {
+  it('passes labels, label lists, keyframe-free targets and nullish values through', () => {
+    expect(stripTransition('show')).toBe('show');
+    const labels = ['a', 'b'];
+    expect(stripTransition(labels)).toBe(labels);
+    const plain = { opacity: 1 };
+    expect(stripTransition(plain)).toBe(plain);
+    expect(stripTransition(undefined)).toBeUndefined();
+    expect(stripVariants(undefined)).toBeUndefined();
+  });
+
+  it('keeps every animated value, including keyframe lists', () => {
+    expect(stripTransition({ y: [0, -4, 0], opacity: 1, transition: { repeat: Infinity } })).toEqual({ y: [0, -4, 0], opacity: 1 });
   });
 });

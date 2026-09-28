@@ -1,0 +1,301 @@
+import { useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { M } from '../lib/motion.jsx';
+import { getClubPalette } from '../lib/clubs.js';
+import { fireBirthday, fireFirstTimer, fireStandard } from '../lib/confetti.js';
+import { playBirthdayChime, playChime, playFirstTimerChime } from '../lib/audio.js';
+import { nameAccent } from '../lib/nameAccent.js';
+import { DUR, EASE, measureEm } from '../lib/brand.js';
+import {
+  kickerFor, momentFor, nameSizeU, PER_LETTER_MAX, stickerFor, sublineFor,
+} from '../lib/checkInMoment.js';
+import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
+import { useFontsReady } from '../hooks/useFontsReady.js';
+import Wave from './brand/Wave.jsx';
+import Sticker from './brand/Sticker.jsx';
+import DoodleCluster from './brand/DoodleCluster.jsx';
+import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
+
+/**
+ * The check-in moment: the catalog's club opener page (p.63), played live.
+ * The child's club wave rises from the bottom and carries their name, the
+ * club's official mark rides the low side, three doodles land last, and a
+ * hot sticker marks a birthday or a first-timer. The colour is always the
+ * child's club; what changes between kinds of arrival is only the words
+ * (src/lib/checkInMoment.js) and the sticker.
+ *
+ * One component per RUN (useCheckInQueue): the Overlay keys it on `run`, so
+ * during a rush it stays mounted and each next child FLIPS in, scoreboard
+ * style. The old name's letters leave upward, a new club's wave sweeps in
+ * from the right over the old one, the mark crosses over, and the new name
+ * lands. Each child still holds the stage for their full time; the queue
+ * decides that, never this component.
+ *
+ * Choreography, on the brand's 100 ms beat (shared/brand/tokens.json):
+ *   entrance  back wave 0 / front wave +70 ms (wipe 640), mark 300,
+ *             kicker 400, name 500 + 40 ms a letter (settle 520),
+ *             line 800, sticker 900 (pop), doodles 1000 + a beat each
+ *   flip      old letters out (exit 220), new club's wave sweeps (560),
+ *             new letters from 260 ms, or 560 ms after a club change
+ *   leaving   everything lifts out (exit 280), waves drop at 120 / 190 ms
+ *
+ * Layers that persist for the whole run are wrappers whose own `exit` plays
+ * when the run ends; everything that changes per child sits inside a small
+ * AnimatePresence keyed on what it shows, so it crosses over on a flip.
+ * Every element is M.*, and every entrance's last keyframe is its resting
+ * state, so under ?lowPower=1 the whole thing appears finished at once.
+ */
+
+// Sizes and offsets are in u: 1u = 1% of a 16:9 stage's width
+// (`--u: min(1vw, 1.7778vh)` on .checkin).
+const u = (n) => `calc(${n} * var(--u))`;
+
+const ENTRANCE = { mark: 0.3, kicker: 0.4, name: 0.5, letter: 0.04, nameDur: DUR.settle, line: 0.8, sticker: 0.9, doodles: 1.0 };
+const FLIP = { mark: 0.3, kicker: 0.26, name: 0.26, letter: 0.028, nameDur: 0.36, line: 0.4, sticker: 0.46 };
+// After a club change the new name waits for the sweep to land.
+const SWEPT = 0.3;
+
+const LEAVE = { duration: DUR.exit, ease: EASE.exit };
+
+// The three letter entrances a name can be dealt (src/lib/nameAccent.js,
+// #336): a child flies in the same way every week. Re-cut to the brand's
+// settle curve; `i` is the letter's place in the whole name.
+const LETTER_FROM = {
+  pop: () => ({ opacity: 0, y: '0.55em', scale: 0.7 }),
+  wave: (i) => ({ opacity: 0, y: `${(0.5 * Math.sin(i * 0.9 + 0.4)).toFixed(3)}em`, scale: 0.85 }),
+  drop: () => ({ opacity: 0, y: '-0.6em', scale: 1 }),
+};
+
+const DOODLES = [
+  { kind: 'sparkle', x: u(74), y: u(10.6), size: u(2.6) },
+  { kind: 'dot', x: u(78.6), y: u(9.4), size: u(1.1) },
+  { kind: 'sparkleX', x: u(77.4), y: u(14.2), size: u(1.7), rotate: 12 },
+];
+
+function useFlipTracking(event, clubKey) {
+  // Whether THIS child brought a different club than the one before them in
+  // the run, captured once per child (derived state, not a ref, so a later
+  // re-render for a font load cannot re-time an entrance already playing).
+  const [seen, setSeen] = useState({ id: event.id, club: clubKey, changed: false });
+  if (seen.id !== event.id) {
+    const next = { id: event.id, club: clubKey, changed: seen.club !== clubKey };
+    setSeen(next);
+    return next.changed;
+  }
+  return seen.changed;
+}
+
+function Name({ text, entrance, timing, size, wraps }) {
+  const from = LETTER_FROM[entrance] ?? LETTER_FROM.pop;
+  const perLetter = [...text].length <= PER_LETTER_MAX;
+  const words = text.split(' ').filter(Boolean);
+  let at = 0;
+  const piece = (content, key, index) => (
+    <M.span
+      key={key}
+      className="checkin__letter"
+      initial={from(index)}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: '-0.6em', scale: 1, transition: { duration: 0.22, delay: index * 0.014, ease: EASE.exit } }}
+      transition={{ duration: timing.nameDur, delay: timing.name + index * timing.letter, ease: EASE.settle }}
+    >
+      {content}
+    </M.span>
+  );
+  return (
+    <h1
+      className={`checkin__name${wraps ? ' checkin__name--wraps' : ''}`}
+      style={{ fontSize: u(size) }}
+      aria-label={text}
+    >
+      {words.map((word, w) => (
+        // The space between words sits OUTSIDE each inline-block word, where
+        // it is a real breakable space; inside one it would collapse away.
+        <span key={w}>
+          {w > 0 ? ' ' : null}
+          <span className="checkin__word" aria-hidden="true">
+            {perLetter
+              ? [...word].map((ch, i) => piece(ch, i, at++))
+              : piece(word, 0, w * 3)}
+          </span>
+        </span>
+      ))}
+    </h1>
+  );
+}
+
+export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhrases, ribbon }) {
+  useFontsReady();
+  const club = getClubPalette(event.club);
+  const clubKey = club.name || 'awana';
+  const mark = club.logo || awanaClubsMark;
+  const markAlt = club.name ? `${club.name} logo` : 'Awana Clubs';
+  const moment = momentFor(event);
+  const first = step === 0;
+  const changed = useFlipTracking(event, clubKey);
+  const t = first ? ENTRANCE : changed
+    ? { ...FLIP, kicker: FLIP.kicker + SWEPT, name: FLIP.name + SWEPT, line: FLIP.line + SWEPT, sticker: FLIP.sticker + SWEPT }
+    : FLIP;
+
+  const kicker = kickerFor(event, moment);
+  const phrase = clubPhrases?.[String(event.club ?? '').trim().toLowerCase()];
+  const line = sublineFor(moment, { ribbon, phrase });
+  const sticker = stickerFor(moment);
+  const display = String(event.firstName).toUpperCase();
+  const { size, wraps } = nameSizeU(display, (s) => measureEm(s));
+  const accent = nameAccent(event.firstName);
+
+  // Confetti lands with the name (or with the sticker, for the two kinds
+  // that have one); replays and late arrivals stay quiet. See
+  // useCelebration for why this fires exactly once per child.
+  const tints = [club.primary, club.accent, '#FFFFFF', '#FCB614'];
+  const burstAt = (sticker ? t.sticker : t.name) * 1000;
+  const later = (fn) => () => { setTimeout(fn, burstAt); };
+  useCelebration(event.id, audioEnabled, celebrationProfile(event.presentation, {
+    confetti: later(moment === 'birthday'
+      ? () => fireBirthday([club.primary, club.accent])
+      : moment === 'first' ? fireFirstTimer : () => fireStandard(tints)),
+    chime: moment === 'birthday' ? playBirthdayChime : moment === 'first' ? playFirstTimerChime : playChime,
+  }));
+
+  const modeClass = { birthday: 'birthday', first: 'first-timer', back: 'welcome-back', welcome: 'welcome' }[moment];
+
+  return (
+    <div
+      className={`checkin banner ${modeClass}${event.presentation !== 'live' ? ' calm' : ''}`}
+      style={{ '--club-primary': club.primary, '--club-deep': club.deep, '--club-tint': club.accent }}
+      data-club={clubKey}
+    >
+      {/* The two waves: deep behind, club colour in front, each rising on
+          its own wrapper at the start of the run and dropping away at its
+          end. A new club mid-run sweeps its wave in over the old one. */}
+      <M.div
+        className="checkin__layer checkin__layer--back"
+        initial={{ y: '106%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '106%', transition: { duration: 0.48, delay: 0.19, ease: EASE.exit } }}
+        transition={{ duration: DUR.wipe, ease: EASE.wipe }}
+      >
+        <AnimatePresence initial={false}>
+          <Wave
+            key={clubKey}
+            className="checkin__wave checkin__wave--back"
+            color={club.deep}
+            flip
+            style={{ zIndex: step + 1 }}
+            initial={{ x: '102%' }}
+            animate={{ x: 0 }}
+            exit={{ opacity: 0, transition: { delay: DUR.stinger + 0.06, duration: 0 } }}
+            transition={{ duration: DUR.stinger, delay: 0.06, ease: EASE.wipe }}
+          />
+        </AnimatePresence>
+      </M.div>
+      <M.div
+        className="checkin__layer checkin__layer--front"
+        initial={{ y: '106%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '106%', transition: { duration: 0.48, delay: 0.12, ease: EASE.exit } }}
+        transition={{ duration: DUR.wipe, delay: 0.07, ease: EASE.wipe }}
+      >
+        <AnimatePresence initial={false}>
+          <Wave
+            key={clubKey}
+            className="checkin__wave checkin__wave--front"
+            color={club.primary}
+            style={{ zIndex: step + 1 }}
+            initial={{ x: '102%' }}
+            animate={{ x: 0 }}
+            exit={{ opacity: 0, transition: { delay: DUR.stinger, duration: 0 } }}
+            transition={{ duration: DUR.stinger, ease: EASE.wipe }}
+          />
+        </AnimatePresence>
+      </M.div>
+
+      {/* Doodles sit under the mark and the copy, so a long name paints over
+          them rather than the other way round. */}
+      <M.div className="checkin__doodles" exit={{ opacity: 0, transition: LEAVE }}>
+        <DoodleCluster items={DOODLES} color="var(--club-tint)" delay={ENTRANCE.doodles} twinkle={event.presentation === 'live'} />
+      </M.div>
+
+      <M.div
+        className="checkin__mark-slot"
+        initial={{ opacity: 0, x: '-24%' }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, y: '-30%', transition: LEAVE }}
+        transition={{ duration: 0.42, delay: ENTRANCE.mark, ease: EASE.settle }}
+      >
+        <AnimatePresence initial={false}>
+          <M.img
+            key={clubKey}
+            className="checkin__mark"
+            src={mark}
+            alt={markAlt}
+            initial={{ opacity: 0, x: '-18%' }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0.18, ease: EASE.exit } }}
+            transition={{ duration: 0.38, delay: t.mark, ease: EASE.settle }}
+          />
+        </AnimatePresence>
+      </M.div>
+
+      <M.div className="checkin__copy" exit={{ opacity: 0, y: u(-1.6), transition: LEAVE }}>
+        <div className="checkin__cell checkin__cell--kicker">
+          <AnimatePresence>
+            <M.div
+              key={kicker}
+              className="checkin__kicker"
+              initial={{ opacity: 0, y: '0.5em' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0.18, ease: EASE.exit } }}
+              transition={{ duration: 0.32, delay: t.kicker, ease: EASE.settle }}
+            >
+              {kicker}
+            </M.div>
+          </AnimatePresence>
+        </div>
+        <div className="checkin__cell checkin__cell--name">
+          <AnimatePresence>
+            <Name key={event.id} text={display} entrance={accent.entrance} timing={t} size={size} wraps={wraps} />
+          </AnimatePresence>
+        </div>
+        <div className="checkin__cell checkin__cell--line">
+          <AnimatePresence>
+            {line && (
+              <M.p
+                key={line}
+                className="checkin__line"
+                initial={{ opacity: 0, y: '0.4em' }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, transition: { duration: 0.18, ease: EASE.exit } }}
+                transition={{ duration: 0.36, delay: t.line, ease: EASE.settle }}
+              >
+                {line}
+              </M.p>
+            )}
+          </AnimatePresence>
+        </div>
+      </M.div>
+
+      <M.div className="checkin__sticker-slot" exit={{ opacity: 0, scale: 0.8, transition: LEAVE }}>
+        <AnimatePresence>
+          {sticker && (
+            <Sticker
+              key={event.id}
+              className="checkin__sticker"
+              kind="starburst"
+              tilt={-8}
+              initial={{ opacity: 0, scale: 0.2, rotate: -40 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0, scale: 0.6, transition: { duration: 0.2, ease: EASE.exit } }}
+              transition={{ duration: DUR.pop, delay: t.sticker, ease: EASE.pop }}
+            >
+              {sticker.map((l) => <span key={l}>{l}</span>)}
+            </Sticker>
+          )}
+        </AnimatePresence>
+      </M.div>
+
+    </div>
+  );
+}
+

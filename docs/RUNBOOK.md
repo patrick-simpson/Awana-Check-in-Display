@@ -65,9 +65,9 @@ worker keeps art, slides, and the schedule cached on the device.
 
 ### Good-to-know behaviors (not bugs)
 
-- One banner at a time; during a rush, banners shorten automatically
-  (never below the Settings → Banners floor) and a "+N more coming"
-  pill appears.
+- One banner at a time, each for its full time. During a rush the club
+  wave stays up, the next name flips in the moment the last one's time is
+  up, and a "+N more coming" pill appears.
 - After the opening ceremony starts, banners switch to a calmer
   late-arrival style with no confetti cannon — that's the shared
   schedule (`shared/schedule.json`) doing its job.

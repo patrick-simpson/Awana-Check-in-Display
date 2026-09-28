@@ -1,4 +1,5 @@
 import confetti from 'canvas-confetti';
+import { DOODLES } from './brand.js';
 
 // Every burst respects prefers-reduced-motion (canvas-confetti no-ops the
 // call entirely), keeping the display comfortable on low-power signage
@@ -70,69 +71,122 @@ const shapeOverride = () => {
   return shapes ? { shapes } : null;
 };
 
-// The house milestone palette: Awana gold plus the club colors. Used for
-// milestones that belong to the whole room (a night threshold, the
-// every-Nth toast) rather than to one club.
-const MILESTONE_COLORS = ['#F7A41C', '#FFD257', '#FFFFFF', '#4CAF50', '#2979FF', '#E53935'];
-
-// Standard celebration: two side cannons using the club's colors.
-export function fireStandard(colors) {
-  if (off()) return;
-  const defaults = { ...BASE, spread: 60, ticks: 180, gravity: 0.9, scalar: 1.1, colors };
-  confetti({ ...defaults, particleCount: scaled(80), angle: 60, origin: { x: 0, y: 0.75 } });
-  confetti({ ...defaults, particleCount: scaled(80), angle: 120, origin: { x: 1, y: 0.75 } });
+// ── The catalog's own confetti (rebrand stage 3) ─────────────────────────────
+// The 2026-27 catalog scatters four-point sparkles and dots, never squares or
+// five-point stars, so the bursts throw the brand kit's own sparkle
+// (shared/brand/doodles/sparkle-4pt.svg) and circles. The sparkle is a path
+// shape, built ONCE with an explicit matrix: that skips shapeFromPath's
+// pixel-scan for the path's bounds (the live-canvas rasterizing the season
+// note above avoids), so what remains is one Path2D the library transforms
+// per particle. Anywhere paths are unsupported (canvas-confetti throws) it
+// falls back to the built-in star, and the Pi Zero embed never gets here at
+// all (?lowPower=1 forces confettiLevel 'off').
+/** @type {object | null | undefined} */
+let sparkleShape;
+function brandShapes() {
+  if (sparkleShape === undefined) {
+    try {
+      const [x, y, w, h] = DOODLES.sparkle.viewBox.split(/\s+/).map(Number);
+      const k = 10 / Math.max(w, h);
+      sparkleShape = confetti.shapeFromPath({
+        path: DOODLES.sparkle.d,
+        matrix: [k, 0, 0, k, -(x + w / 2) * k, -(y + h / 2) * k],
+      });
+    } catch {
+      sparkleShape = null;
+    }
+  }
+  return sparkleShape ? [sparkleShape, 'circle'] : ['star', 'circle'];
+}
+/** Test seam: forget the built sparkle so the next burst rebuilds it. */
+export function resetConfettiShapes() {
+  sparkleShape = undefined;
 }
 
-// Birthday: a fireworks-style burst plus a rainbow shower from the top.
-export function fireBirthday() {
+// The house palette, straight from the brand kit (shared/brand/tokens.json
+// `house`): Awana orange and sunflower, white, the hot sticker red-orange and
+// Awana blue, plus T&T green for a little more spread. Used for milestones
+// that belong to the whole room (a night threshold, the every-Nth toast)
+// rather than to one club.
+const MILESTONE_COLORS = ['#FAA41D', '#FCB614', '#FFFFFF', '#F15A28', '#4C72B8', '#58BD79'];
+
+// A birthday and a first-timer burst from the hot sticker, in warm brand
+// colours that read on any club's wave.
+const BIRTHDAY_COLORS = ['#FFFFFF', '#FCB614', '#FFE8C2', '#F15A28', '#FAA41D'];
+const FIRST_TIMER_COLORS = ['#FFFFFF', '#FCB614', '#FFE8C2', '#FAA41D'];
+
+// Where the check-in moment's sticker sits (src/components/CheckInMoment.jsx):
+// 6u from the right edge, its centre 28u up a 56.25u-tall 16:9 stage.
+const STICKER_ORIGIN = { x: 0.87, y: 0.5 };
+
+/**
+ * Standard celebration: two low side cannons of sparkles and dots in the
+ * child's club colours, timed by the check-in moment to land with the name.
+ * @param {string[]} [colors]
+ */
+export function fireStandard(colors) {
+  if (off()) return;
+  const defaults = { ...BASE, spread: 58, ticks: 170, gravity: 0.95, scalar: 1.05, colors, shapes: brandShapes() };
+  confetti({ ...defaults, particleCount: scaled(64), angle: 60, origin: { x: 0, y: 0.78 } });
+  confetti({ ...defaults, particleCount: scaled(64), angle: 120, origin: { x: 1, y: 0.78 } });
+}
+
+/**
+ * Birthday: a burst of sparkles and dots out of the HAPPY BIRTHDAY sticker,
+ * then side cannons for a second and a half.
+ * @param {string[]} [clubColors]
+ */
+export function fireBirthday(clubColors) {
   if (off()) return;
   // The season dresses the room, so it dresses this burst too (#340); with no
-  // skin profile it is the same rainbow it has always been.
-  const colors = skinColors() ?? ['#FF1744', '#F50057', '#AA00FF', '#FFD600', '#00E676', '#2979FF'];
+  // skin profile it is the warm sticker palette, with the child's club
+  // colours mixed in when the moment passes them.
+  const colors = skinColors()
+    ?? (Array.isArray(clubColors) && clubColors.length ? [...BIRTHDAY_COLORS, ...clubColors] : BIRTHDAY_COLORS);
+  const shapes = skinShapes() ?? brandShapes();
   const end = Date.now() + 1500;
-  (function frame() {
-    confetti({
-      ...BASE,
-      particleCount: scaled(6), angle: 60, spread: 80,
-      origin: { x: 0, y: 0.6 }, colors, scalar: 1.2,
-      ...shapeOverride(),
-    });
-    confetti({
-      ...BASE,
-      particleCount: scaled(6), angle: 120, spread: 80,
-      origin: { x: 1, y: 0.6 }, colors, scalar: 1.2,
-      ...shapeOverride(),
-    });
-    if (Date.now() < end) requestAnimationFrame(frame);
-  })();
-  // One big center pop on top.
+  // The pop out of the sticker first: it is what the eye is on.
+  confetti({
+    ...BASE,
+    particleCount: scaled(120), spread: 110, startVelocity: 34, ticks: 230,
+    origin: STICKER_ORIGIN, angle: 110, colors, shapes, scalar: 1.25,
+  });
   setTimeout(() => {
-    confetti({
-      ...BASE,
-      particleCount: scaled(200), spread: 180, startVelocity: 40, ticks: 250,
-      origin: { x: 0.5, y: 0.35 }, colors,
-      shapes: skinShapes() ?? ['star', 'circle'], scalar: 1.4,
-    });
+    (function frame() {
+      confetti({
+        ...BASE,
+        particleCount: scaled(5), angle: 60, spread: 70,
+        origin: { x: 0, y: 0.7 }, colors, shapes, scalar: 1.1,
+      });
+      confetti({
+        ...BASE,
+        particleCount: scaled(5), angle: 120, spread: 70,
+        origin: { x: 1, y: 0.7 }, colors, shapes, scalar: 1.1,
+      });
+      if (Date.now() < end) requestAnimationFrame(frame);
+    })();
   }, 200);
 }
 
-// First-timer: gentle golden stars drifting down.
+/**
+ * First-timer: a gentle shower of sparkles out of the NEW! sticker, drifting
+ * down slowly, then a soft second puff.
+ */
 export function fireFirstTimer() {
   if (off()) return;
-  const colors = ['#FFD54F', '#FFB300', '#FFF176', '#FFFFFF'];
+  const colors = FIRST_TIMER_COLORS;
+  const shapes = brandShapes();
   confetti({
     ...BASE,
-    particleCount: scaled(150), spread: 160, startVelocity: 35, ticks: 260,
-    origin: { x: 0.5, y: 0.3 }, colors,
-    shapes: ['star'], scalar: 1.3,
+    particleCount: scaled(110), spread: 130, startVelocity: 30, ticks: 260,
+    origin: STICKER_ORIGIN, angle: 115, colors, shapes, scalar: 1.25,
     gravity: 0.6,
   });
   setTimeout(() => {
     confetti({
       ...BASE,
-      particleCount: scaled(40), spread: 360, startVelocity: 15, ticks: 200,
-      origin: { x: 0.5, y: 0.5 }, colors,
-      shapes: ['star'], scalar: 1.0,
+      particleCount: scaled(36), spread: 360, startVelocity: 14, ticks: 200,
+      origin: STICKER_ORIGIN, colors, shapes, scalar: 1.0,
     });
   }, 500);
 }
@@ -173,7 +227,7 @@ export function fireMilestone(opts) {
     startVelocity: big ? 52 : 45,
     ticks: big ? 340 : 280,
     origin: { x: 0.5, y: 0.65 }, colors, scalar: big ? 1.5 : 1.3,
-    shapes: skinShapes() ?? ['star', 'circle'],
+    shapes: skinShapes() ?? brandShapes(),
   });
   setTimeout(() => {
     const cannons = { ...BASE, spread: 70, ticks: 220, colors, scalar: 1.15, ...shapeOverride() };
@@ -187,7 +241,7 @@ export function fireMilestone(opts) {
       confetti({
         ...BASE,
         particleCount: scaled(120), spread: 130, startVelocity: 40, ticks: 260,
-        origin: { x: 0.5, y: 0.5 }, colors, scalar: 1.4, shapes: skinShapes() ?? ['star'],
+        origin: { x: 0.5, y: 0.5 }, colors, scalar: 1.4, shapes: skinShapes() ?? brandShapes(),
       });
     }, 700);
   }

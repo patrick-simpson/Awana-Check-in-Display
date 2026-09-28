@@ -589,10 +589,7 @@ html, body, #root {
   cursor: pointer;
 }
 
-/* Transparent overlay layer — animations and banners live here.
-   Banners are centered by the grid rather than a translate(-50%,-50%)
-   transform, because framer-motion overwrites `transform` while
-   animating and would un-center them. */
+/* Transparent overlay layer: the check-in moment lives here. */
 .overlay {
   position: absolute;
   inset: 0;
@@ -607,338 +604,160 @@ html, body, #root {
   pointer-events: auto;
 }
 
-/* ── Banner: a lower-third wave band in the club's color ──
-   Rises from the bottom edge with a wavy crest (BannerWave.jsx), so
-   it reads as part of the catalog scene and leaves the upper part of
-   the background slides visible. */
-.banner {
-  --band-top: var(--club-primary, var(--awana-orange));
-  --band-bottom: var(--club-deep, var(--awana-orange-deep));
-  position: relative;
+/* ── The check-in moment (src/components/CheckInMoment.jsx) ──────────
+   The catalog's club opener page, played live. Everything is sized in u,
+   1% of a 16:9 stage's width, so the moment keeps its proportions on any
+   screen: a 4:3 projector letterboxes the layout's height, an ultrawide its
+   width. Flat colour and hard offsets only, no blur or gradient: the one
+   depth cue is the name's offset shadow in the club's deep shade. */
+.checkin {
+  --u: min(1vw, 1.7778vh);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* 52% of a 16:9 stage; on a squarer screen at least 46% of its height,
+     so the lobby's own bottom wave never peeks over the club's. */
+  height: max(calc(29.25 * var(--u)), 46vh);
+  pointer-events: none;
+  color: #fff;
+}
+.checkin__layer {
+  position: absolute;
+  inset: 0;
+  /* Its own stacking context, so the z-index that puts a newer club's wave
+     over the one it replaces never lifts a wave above the name. */
+  isolation: isolate;
+}
+.checkin__layer--back {
+  left: -3%;
+  right: -3%;
+}
+.checkin__wave {
+  position: absolute;
+  inset: 0;
+}
+.checkin__mark-slot {
+  position: absolute;
+  left: calc(3.6 * var(--u));
+  bottom: calc(3.2 * var(--u));
+  width: calc(17 * var(--u));
+  height: calc(6.4 * var(--u));
+  display: grid;
+}
+.checkin__mark {
   grid-area: 1 / 1;
   width: 100%;
-  padding: 1.2rem 4vw 2.1rem;
-  text-align: center;
-  color: #fff;
-  background: linear-gradient(180deg, var(--band-top) 0%, var(--band-bottom) 130%);
-  box-shadow: 0 -18px 90px rgba(20, 26, 40, 0.35);
-}
-.banner .banner-wave {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  width: 100%;
-  height: clamp(48px, 7.5vh, 92px);
-  display: block;
-  filter: drop-shadow(0 -10px 30px rgba(20, 26, 40, 0.25));
-}
-.banner .banner-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(1.5rem, 4vw, 4rem);
-}
-.banner .banner-text {
-  min-width: 0;
-}
-
-.doodle-field {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  color: rgba(255, 255, 255, 0.9);
-}
-.doodle { position: absolute; display: inline-flex; }
-
-/* Sparkles twinkling inside the band itself. */
-.band-sparkles {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  color: rgba(255, 255, 255, 0.65);
-}
-
-/* The catalog's tone-on-tone depth: a club-accent blob drifting slowly
-   inside the band. Transform-only — never repainted. The clip wrapper
-   keeps its drift from spilling past the band edge into the crest. */
-.band-blob-clip {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.band-blob {
-  position: absolute;
-  width: 44%;
-  height: 170%;
-  top: -30%;
-  left: 6%;
-  background: var(--club-accent, #ffffff);
-  opacity: 0.13;
-  border-radius: 46% 54% 58% 42% / 52% 44% 56% 48%;
-  pointer-events: none;
-  will-change: transform;
-}
-
-/* First-timer starburst sticker — catalog badge language. */
-.first-time-burst {
-  position: absolute;
-  top: -34%;
-  left: 5.5%;
-  width: clamp(96px, 12vw, 170px);
-  z-index: 2;
-  pointer-events: none;
-}
-.first-time-burst-inner {
-  position: relative;
-  width: 100%;
-}
-.first-time-burst svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  filter:
-    drop-shadow(0 4px 0 rgba(0, 0, 0, 0.12))
-    drop-shadow(0 10px 24px rgba(0, 0, 0, 0.3));
-}
-.first-time-burst span {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-condensed);
-  font-size: clamp(0.95rem, 1.5vw, 1.6rem);
-  font-weight: 600;
-  line-height: 1.05;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-align: center;
-  color: #fff;
-}
-
-.banner .eyebrow {
-  display: block;
-  font-family: var(--font-condensed);
-  font-size: clamp(1.15rem, 2.1vw, 1.7rem);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 0.95;
-  margin-bottom: 0.25rem;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
-}
-.banner h1 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: clamp(3rem, 7.5vw, 6.75rem);
-  font-weight: 800;
-  line-height: 1.02;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-  text-shadow:
-    0 5px 0 rgba(0, 0, 0, 0.18),
-    0 14px 34px rgba(0, 0, 0, 0.3);
-}
-
-/* Per-letter name animation (AnimatedName): letters are inline-block so
-   transforms apply; word wrappers keep natural line-break points. */
-.banner .name-word { display: inline-block; white-space: pre-wrap; }
-.banner .name-letter { display: inline-block; will-change: transform; }
-
-/* Club identity slot — the official catalog logo (white knockout art)
-   or, for clubs without one, a styled title pill. Fixed height so the
-   card never reflows when the image decodes. */
-.banner .club-logo-slot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: clamp(72px, 12vh, 140px);
-  flex-shrink: 0;
-}
-.banner .club-logo {
   height: 100%;
-  width: auto;
-  max-width: clamp(240px, 30vw, 420px);
   object-fit: contain;
-  filter:
-    drop-shadow(0 5px 0 rgba(0, 0, 0, 0.14))
-    drop-shadow(0 12px 28px rgba(0, 0, 0, 0.28));
+  object-position: left bottom;
 }
-/* Official mascot sticker (duck / bear / Sparky) riding shotgun on the
-   wordmark. Slightly overlaps it, like stickers slapped on together. */
-.banner .club-mascot {
-  display: inline-flex;
-  flex-shrink: 0;
-  width: clamp(56px, 9vh, 104px);
-  margin-right: -0.5rem;
-  z-index: 1;
-}
-.banner .club-mascot img {
-  width: 100%;
-  height: auto;
-  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.3));
-}
-.banner .club-title-fallback {
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-  padding: 0 1.9rem;
-  font-family: var(--font-display);
-  font-size: clamp(1.7rem, 3.2vw, 2.6rem);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
-  border: 3px solid var(--club-accent, rgba(255, 255, 255, 0.55));
-  border-radius: 999px;
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.16);
-}
-.banner .tagline {
-  /* The catalog's script voice — every brand graphic pairs the chunky
-     caps headline with a cream hand-script line ("Join our Awana
-     Club!"), so the banner's supporting line speaks the same way. */
-  display: block;
-  margin-top: 0.35rem;
-  font-family: var(--font-hand);
-  font-size: clamp(1.5rem, 2.9vw, 2.4rem);
-  font-weight: 600;
-  letter-spacing: 0.015em;
-  color: var(--awana-cream);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
-}
-
-/* Birthday band: catalog coral → raspberry. */
-.banner.birthday {
-  --band-top: var(--awana-coral);
-  --band-bottom: var(--awana-raspberry);
-}
-.banner.birthday .cake {
-  display: inline-block;
-  position: relative; /* anchors the landing ring (#29) */
-  flex-shrink: 0;
-  width: clamp(72px, 13vh, 132px);
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
-}
-.banner.birthday .cake svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  /* The candle flames poke above the viewBox top. */
-  overflow: visible;
-}
-/* Inner wrapper so the entrance (rise + settle, on .cake) and the looping
-   wiggle can run on separate elements — framer-motion can't drive both a
-   one-shot and an infinite animation on the same transform. */
-.banner.birthday .cake-wiggle {
-  display: block;
-  position: relative;
-}
-/* Candle flames, positioned over the cake's two candles. Deliberately no
-   COUNT of candles: the event contract carries no birth year, so the display
-   cannot know an age and must never imply one. */
-.banner.birthday .cake-flames {
+.checkin__copy {
   position: absolute;
-  top: 2%;
-  left: 0;
-  right: 0;
-  height: 12%;
-  pointer-events: none;
+  left: calc(24.6 * var(--u));
+  right: calc(3 * var(--u));
+  bottom: calc(3.1 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
-.banner.birthday .cake-flame {
-  position: absolute;
-  width: 7%;
-  height: 100%;
-  border-radius: 50% 50% 45% 45%;
-  background: radial-gradient(ellipse at 50% 70%, #fff6e3 0%, #ffd257 45%, #f7a41c 100%);
-  transform-origin: 50% 100%;
-  filter: blur(0.3px);
-}
-.banner.birthday .cake-flame--a { left: 41%; }
-.banner.birthday .cake-flame--b { left: 52%; }
-
-/* Bunting across the top of the band. Sits above the band's own decorations
-   but below the text, and is clipped by the band so it reads as strung
-   across it rather than floating. */
-.banner.birthday .birthday-garland {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: clamp(20px, 3.4vh, 38px);
-  pointer-events: none;
-  opacity: 0.75;
-  /* Behind the band text. At full height and opacity the flags overlapped the
-     "Happy Birthday" eyebrow — decoration must never compete with the child's
-     name, which is the only thing on this banner that matters. */
-  z-index: 0;
-}
-/* Guarantees the text paints above the garland regardless of source order. */
-.banner.birthday .banner-text {
-  position: relative;
-  z-index: 2;
-}
-.banner.birthday .birthday-garland svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-/* First-timer band: the big Awana-orange welcome, with a golden glow
-   rising off the wave. */
-.banner.first-timer {
-  --band-top: var(--awana-gold);
-  --band-bottom: var(--awana-orange-deep);
-  box-shadow:
-    0 -18px 90px rgba(20, 26, 40, 0.35),
-    0 -10px 120px rgba(255, 184, 28, 0.45);
-}
-
-/* Welcome-back band (#9): a returning kid's first night of the season.
-   Cool blue band — familiar and warm where the first-timer band is loud
-   and new — with the round rosette seal where the starburst would sit. */
-.banner.welcome-back {
-  --band-top: #3b82f6;
-  --band-bottom: #1e3a8a;
-  box-shadow:
-    0 -18px 90px rgba(20, 26, 40, 0.35),
-    0 -10px 120px rgba(59, 130, 246, 0.4);
-}
-.welcome-back-seal {
-  position: absolute;
-  top: -34%;
-  left: 5.5%;
-  width: clamp(96px, 12vw, 170px);
-  z-index: 2;
-  pointer-events: none;
-}
-.welcome-back-seal-inner {
-  position: relative;
-  width: 100%;
-}
-.welcome-back-seal svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  filter:
-    drop-shadow(0 4px 0 rgba(0, 0, 0, 0.12))
-    drop-shadow(0 10px 24px rgba(0, 0, 0, 0.3));
-}
-.welcome-back-seal span {
-  position: absolute;
-  inset: 0;
+/* Each cell stacks the outgoing and incoming versions of its line in one
+   grid area, so a flip crosses over in place instead of reflowing. */
+.checkin__cell {
   display: grid;
-  place-items: center;
+  width: 100%;
+}
+.checkin__cell > * {
+  grid-area: 1 / 1;
+  align-self: end;
+}
+.checkin__kicker {
   font-family: var(--font-condensed);
-  font-size: clamp(0.9rem, 1.4vw, 1.5rem);
-  font-weight: 600;
-  line-height: 1.05;
-  text-align: center;
-  color: #fff;
+  font-size: calc(2.5 * var(--u));
+  line-height: 1;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  letter-spacing: 0.02em;
+  color: var(--club-tint);
+  margin-bottom: calc(0.9 * var(--u));
+}
+.checkin__name {
+  margin: 0;
+  font-family: var(--font-shout);
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  color: #fff;
+  text-shadow: calc(0.45 * var(--u)) calc(0.45 * var(--u)) 0 var(--club-deep);
+}
+.checkin__name--wraps {
+  white-space: normal;
+}
+.checkin__word {
+  display: inline-block;
+  white-space: nowrap;
+}
+.checkin__letter {
+  display: inline-block;
+}
+.checkin__line {
+  margin: calc(0.8 * var(--u)) 0 0;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: calc(2.1 * var(--u));
+  line-height: 1.15;
+  color: #fff;
+  opacity: 0.95;
+}
+.checkin__sticker-slot {
+  position: absolute;
+  right: calc(6 * var(--u));
+  bottom: calc(21.5 * var(--u));
+  width: calc(13 * var(--u));
+  aspect-ratio: 1;
+  display: grid;
+}
+.checkin .checkin__sticker {
+  grid-area: 1 / 1;
+  position: relative;
+  width: 100%;
+}
+.checkin__sticker .brand-sticker__text {
+  font-size: calc(2.05 * var(--u));
+  text-transform: uppercase;
+}
+.checkin.first-timer .checkin__sticker .brand-sticker__text {
+  font-size: calc(3.4 * var(--u));
+}
+.checkin__doodles {
+  /* The 16:9 box, pinned to the bottom like the name, so the doodles keep
+     their place beside it when the moment grows taller on a squarer screen. */
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(29.25 * var(--u));
+}
+
+/* One hero at a time: while a child's name is up, the slide behind it
+   steps back instead of competing with it, and comes forward again when
+   the wave drops. Plain CSS transitions, so ?lowPower=1's blanket rule
+   turns them into an instant switch. The posters are left alone: they are
+   printed art, and stage 4 holds check-ins while one is up. */
+.placeholder-copy,
+.manual-slide-copy {
+  transition:
+    opacity var(--brand-dur-settle) var(--brand-ease-settle),
+    transform var(--brand-dur-settle) var(--brand-ease-settle);
+}
+.stage.checkin-active .placeholder-copy,
+.stage.checkin-active .manual-slide-copy {
+  opacity: 0.28;
+  transform: translateX(-50%) scale(0.97);
+}
+/* The idle gear would sit on the club's mark; it still comes back the
+   moment an operator moves the mouse. */
+.stage.checkin-active .settings-gear.idle {
+  opacity: 0;
 }
 
 /* Ambient particle layer (#26): snow / rain / sparkles behind the widgets.
@@ -986,66 +805,6 @@ html, body, #root {
 @keyframes particle-sparkle-twinkle {
   0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
   50%      { opacity: 0.85; transform: scale(1) rotate(45deg); }
-}
-
-/* Falling birthday art (gifts / balloons / stars) */
-.gift-rain {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.gift-rain .gift {
-  position: absolute;
-  top: -80px;
-  display: inline-block;
-  will-change: transform;
-  filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
-}
-.gift-rain .gift svg {
-  display: block;
-  width: 3.2rem;
-  height: auto;
-}
-
-/* Balloon lift (#29): the rising counter-stream to the gift rain. */
-.balloon-lift {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.balloon-lift .balloon {
-  position: absolute;
-  bottom: -140px;
-  display: inline-block;
-  will-change: transform;
-  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.28));
-}
-.balloon-lift .balloon svg {
-  display: block;
-  width: 3.8rem;
-  height: auto;
-}
-
-/* Cake landing ring (#29): a golden pulse behind the cake's spring settle. */
-.cake-pop-ring {
-  position: absolute;
-  inset: -12%;
-  border-radius: 50%;
-  border: 5px solid rgba(255, 210, 87, 0.85);
-  box-shadow: 0 0 22px rgba(255, 210, 87, 0.55), inset 0 0 14px rgba(255, 210, 87, 0.35);
-  pointer-events: none;
-}
-
-/* Birthday name glow (#29): a soft candle-light pulse on the kid's name.
-   Plain CSS on purpose — the zero-animation blanket rule covers it. */
-.banner.birthday h1.birthday-glow {
-  animation: birthday-name-glow 2.6s ease-in-out infinite;
-}
-@keyframes birthday-name-glow {
-  0%, 100% { text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), 0 0 18px rgba(255, 214, 87, 0.25); }
-  50%      { text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35), 0 0 34px rgba(255, 214, 87, 0.75); }
 }
 
 /* ── Sticker chips ─────────────────────────────────────────
@@ -2060,17 +1819,6 @@ input:focus-visible {
   .wall-clock .time { font-size: 1.3rem; }
   .wall-clock .meridiem { font-size: 0.75rem; }
 
-  /* Check-in banner: the logo + name row wraps instead of squeezing,
-     and the name sizes to the narrow screen. */
-  .banner .banner-content {
-    flex-wrap: wrap;
-    gap: 0.75rem 1.25rem;
-  }
-  .banner h1 { font-size: clamp(2.1rem, 11vw, 3.4rem); }
-  .banner .eyebrow { font-size: clamp(0.95rem, 3.4vw, 1.15rem); }
-  .banner .tagline { font-size: clamp(1.15rem, 4.2vw, 1.55rem); }
-  .banner .club-logo-slot { height: clamp(48px, 9vh, 84px); }
-  .banner .club-title-fallback { font-size: clamp(1.1rem, 4.5vw, 1.7rem); padding: 0 1.1rem; }
   .first-time-burst { width: clamp(72px, 20vw, 110px); top: -22%; }
   .welcome-back-seal { width: clamp(72px, 20vw, 110px); top: -22%; }
   .first-time-burst span { font-size: clamp(0.7rem, 2.6vw, 0.95rem); }
@@ -2193,12 +1941,6 @@ input:focus-visible {
   .data-cycle-note { font-size: 0.6rem; }
   .wall-clock .time { font-size: 1.2rem; }
 
-  .banner { padding: 0.8rem 4vw 1.2rem; }
-  .banner .banner-wave { height: clamp(28px, 6vh, 48px); }
-  .banner h1 { font-size: clamp(1.8rem, 16vh, 4rem); }
-  .banner .eyebrow { font-size: clamp(0.8rem, 5vh, 1.2rem); margin-bottom: 0.1rem; }
-  .banner .tagline { font-size: clamp(1.05rem, 5.5vh, 1.55rem); margin-top: 0.2rem; }
-  .banner .club-logo-slot { height: clamp(40px, 16vh, 84px); }
 }
 
 /* ── Season promo slides (fall 2026) ───────────────────────
@@ -3071,15 +2813,6 @@ input:focus-visible {
 
 /* ── Wave 1: presentation variants + operator surfaces ─────────────── */
 
-/* Calm banners (recap replay / mid-program late arrivals): slightly
-   smaller and softer so they read as a gentle acknowledgment, not the
-   full door-moment celebration. */
-.banner.calm {
-  transform: scale(0.9);
-  transform-origin: bottom center;
-  filter: saturate(0.85);
-}
-
 /* Printer-problem count riding the Signal sticker. */
 .status-dot .ops-count {
   margin-left: 0.4em;
@@ -3232,47 +2965,6 @@ input:focus-visible {
 }
 .milestone-toast.kid-milestone .milestone-label {
   color: var(--club-primary, #f7a41c);
-}
-
-/* ── Per-name accents (#8) + per-club phrases (#15) ────────────────── */
-.name-sparkle {
-  display: inline-block;
-  margin-left: 0.3em;
-  vertical-align: super;
-  color: var(--club-accent, #ffd257);
-}
-.club-phrase {
-  display: block;
-  margin-top: 0.15em;
-  font-family: var(--font-hand, inherit);
-  font-size: clamp(1rem, 2.2cqw, 1.6rem);
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  color: color-mix(in srgb, var(--club-accent, #ffd257) 75%, white);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
-}
-
-/* "Birthday this Friday!" ribbon (#331) — a small pill on the arriving
-   child's banner when the weekly roster puts their birthday later this
-   week. Deliberately no animation or transition of its own: it rides the
-   banner's own `bannerItem` variant, and the blanket .zero-animation-mode
-   rule would kill anything added here anyway. */
-.banner .birthday-week-ribbon {
-  /* Scoped to `.banner` on purpose: on the birthday banner this class
-     rides alongside `.tagline` (0-2-0), so a bare `.birthday-week-ribbon`
-     would lose the pill shape to it. */
-  display: inline-block;
-  margin-top: 0.25em;
-  padding: 0.14em 0.8em;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--club-accent, #ffd257) 30%, transparent);
-  border: 2px solid color-mix(in srgb, var(--club-accent, #ffd257) 70%, white);
-  font-family: var(--font-hand, inherit);
-  font-size: clamp(1.05rem, 2.2vw, 1.7rem);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--awana-cream);
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
 }
 
 /* ── Tonight ticker (onTonight): lobby stat strip ─────────────────── */

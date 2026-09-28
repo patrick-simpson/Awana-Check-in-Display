@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useCheckInQueue, effectiveHoldMs, BURST_THRESHOLD } from './useCheckInQueue.js';
-import { BURST_FLOOR_MS, DEFAULT_HOLD_MS, MAX_QUEUE } from '../lib/constants.js';
+import { useCheckInQueue } from './useCheckInQueue.js';
+import { MAX_QUEUE } from '../lib/constants.js';
 
 const config = {
   standardDisplayMs: 6000,
@@ -24,12 +24,36 @@ describe('useCheckInQueue', () => {
     expect(result.current.currentEvent.firstName).toBe('Amelia');
     expect(result.current.pending).toBe(1);
 
-    // Standard banner expires, then the gap runs, then the next shows.
+    // Amelia's full hold, then Noah flips in at once: same run, next step,
+    // no gap and no moment where the banner is down.
+    expect(result.current.run).toBe(1);
+    expect(result.current.step).toBe(0);
+    act(() => vi.advanceTimersByTime(5999));
+    expect(result.current.currentEvent.firstName).toBe('Amelia');
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current.currentEvent.firstName).toBe('Noah');
+    expect(result.current.run).toBe(1);
+    expect(result.current.step).toBe(1);
+    expect(result.current.pending).toBe(0);
+
+    // Noah's hold ends with nobody waiting: the run ends and the banner leaves.
     act(() => vi.advanceTimersByTime(6000));
+    expect(result.current.currentEvent).toBeNull();
+  });
+
+  it('starts a new run after the gap when someone arrives once the banner is down', () => {
+    const { result } = renderHook(() => useCheckInQueue(config));
+    act(() => result.current.enqueue({ firstName: 'Amelia' }));
+    act(() => vi.advanceTimersByTime(6000));
+    expect(result.current.currentEvent).toBeNull();
+
+    // Arriving during the gap waits it out, then raises a fresh wave.
+    act(() => result.current.enqueue({ firstName: 'Noah' }));
     expect(result.current.currentEvent).toBeNull();
     act(() => vi.advanceTimersByTime(400));
     expect(result.current.currentEvent.firstName).toBe('Noah');
-    expect(result.current.pending).toBe(0);
+    expect(result.current.run).toBe(2);
+    expect(result.current.step).toBe(0);
   });
 
   it('holds birthday and first-timer banners longer', () => {
@@ -69,22 +93,30 @@ describe('useCheckInQueue', () => {
     expect(result.current.currentEvent.firstName).toBe('Emma');
   });
 
-  it('shortens banners during a check-in rush so the queue drains', () => {
+  it('never shortens anyone during a rush: every child gets the full hold', () => {
     const { result } = renderHook(() => useCheckInQueue(config));
 
     act(() => {
       for (let i = 0; i < 10; i++) {
-        result.current.enqueue({ firstName: `Kid${i}` });
+        result.current.enqueue({ firstName: `Kid${i}`, isBirthday: i === 3 });
       }
     });
-    expect(result.current.currentEvent.firstName).toBe('Kid0');
 
-    // 9 waiting → hold is compressed well below the configured 6s.
-    const hold = effectiveHoldMs(6000, 9);
-    act(() => vi.advanceTimersByTime(hold - 1));
-    expect(result.current.currentEvent?.firstName).toBe('Kid0');
-    act(() => vi.advanceTimersByTime(1));
+    // Ten children waiting is a real rush, and still each holds 6 s (the
+    // birthday child the special 8 s), flipping in one after another.
+    let at = 0;
+    for (let i = 0; i < 10; i++) {
+      const hold = i === 3 ? 8000 : 6000;
+      expect(result.current.currentEvent.firstName).toBe(`Kid${i}`);
+      expect(result.current.step).toBe(i);
+      act(() => vi.advanceTimersByTime(hold - 1));
+      expect(result.current.currentEvent.firstName).toBe(`Kid${i}`);
+      act(() => vi.advanceTimersByTime(1));
+      at += hold;
+    }
+    expect(at).toBe(62000);
     expect(result.current.currentEvent).toBeNull();
+    expect(result.current.run).toBe(1);
   });
 
   it('survives broken duration config without flashing banners', () => {
@@ -129,52 +161,8 @@ describe('useCheckInQueue', () => {
 
     expect(result.current.currentEvent.presentation).toBe('replay');
     for (const expected of ['late', 'live', 'live']) {
-      act(() => vi.advanceTimersByTime(6000 + 400)); // full hold + gap
+      act(() => vi.advanceTimersByTime(6000)); // full hold, then the next flips in
       expect(result.current.currentEvent.presentation).toBe(expected);
     }
-  });
-});
-
-describe('effectiveHoldMs', () => {
-  it('keeps the full configured hold at or below the burst threshold', () => {
-    for (let waiting = 0; waiting <= BURST_THRESHOLD; waiting++) {
-      expect(effectiveHoldMs(6000, waiting)).toBe(6000);
-    }
-  });
-
-  it('shrinks 15% per waiting event beyond the threshold', () => {
-    expect(effectiveHoldMs(6000, BURST_THRESHOLD + 1)).toBe(5100); // 6000 * 0.85
-    expect(effectiveHoldMs(6000, BURST_THRESHOLD + 2)).toBe(4335); // 6000 * 0.85^2
-    // Strictly decreasing until the floor takes over.
-    let prev = effectiveHoldMs(6000, BURST_THRESHOLD);
-    for (let w = BURST_THRESHOLD + 1; effectiveHoldMs(6000, w) > BURST_FLOOR_MS; w++) {
-      const cur = effectiveHoldMs(6000, w);
-      expect(cur).toBeLessThan(prev);
-      prev = cur;
-    }
-  });
-
-  it('never dips below the 2500ms floor no matter the backlog', () => {
-    expect(BURST_FLOOR_MS).toBe(2500);
-    expect(effectiveHoldMs(6000, 30)).toBe(BURST_FLOOR_MS);
-    expect(effectiveHoldMs(6000, 1000)).toBe(BURST_FLOOR_MS);
-  });
-
-  it('honors a custom floorMs', () => {
-    expect(effectiveHoldMs(6000, 1000, 1200)).toBe(1200);
-  });
-
-  it('falls back to the default floor when floorMs is invalid', () => {
-    expect(effectiveHoldMs(6000, 1000, NaN)).toBe(BURST_FLOOR_MS);
-    expect(effectiveHoldMs(6000, 1000, 0)).toBe(BURST_FLOOR_MS);
-    expect(effectiveHoldMs(6000, 1000, -5)).toBe(BURST_FLOOR_MS);
-  });
-
-  it('guards against NaN/zero/negative/non-finite configured holds', () => {
-    for (const bad of [NaN, 0, -100, Infinity, undefined]) {
-      expect(effectiveHoldMs(bad, 0), `configuredMs ${bad}`).toBe(DEFAULT_HOLD_MS);
-    }
-    // The burst curve still applies on top of the fallback.
-    expect(effectiveHoldMs(NaN, BURST_THRESHOLD + 1)).toBe(Math.round(DEFAULT_HOLD_MS * 0.85));
   });
 });

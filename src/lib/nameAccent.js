@@ -27,7 +27,7 @@ function hashName(name) {
  * The letter entrance styles a name can be dealt (#336). Order is part of the
  * contract: the id is chosen by index from the seeded stream, so reordering
  * this array would re-deal every child in the church. Consumed by
- * src/components/AnimatedName.jsx, which holds the actual variants.
+ * src/components/CheckInMoment.jsx, which holds the actual variants.
  */
 export const NAME_ENTRANCES = ['pop', 'wave', 'drop'];
 
