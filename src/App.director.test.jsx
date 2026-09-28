@@ -114,7 +114,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('the lobby director, end to end', () => {
+// Each test waits out ~30 ms of real frames per 250 ms of screen time, so a
+// run of 20-odd screen seconds costs 2-4 s of wall clock on an idle machine:
+// too close to vitest's 5 s default for a busy one. The budget is wall clock
+// only; every assertion about screen time runs on the fake clock.
+describe('the lobby director, end to end', { timeout: 20_000 }, () => {
   it('a held slide makes arrivals wait, then they play in full and pause the deck', async () => {
     configure();
     await mount();

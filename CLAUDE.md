@@ -73,12 +73,17 @@ mechanisms, because framer-motion and CSS need different enforcement:
   don't go through React, so they need a separate kill switch: `App.jsx`
   toggles a `zero-animation-mode` class on `<html>` from the same
   `config.reduceMotion` flag, and `app.css` has one blanket rule —
-  `.zero-animation-mode, .zero-animation-mode * { animation: none
-  !important; transition: none !important; }` — that disables every CSS
+  `.zero-animation-mode, .zero-animation-mode *, .zero-animation-mode
+  *::before, .zero-animation-mode *::after { animation: none !important;
+  transition: none !important; }` — that disables every CSS
   animation/transition on the page at once. Deliberately a blanket rule
   rather than listing selectors one at a time, for the same reason as
   `M.*`: a future CSS animation is covered automatically, with nothing
-  to remember.
+  to remember. The pseudo-elements are named because `*` never matches
+  one and neither property is inherited: the kit checkbox's `::before`
+  check pop still played under `?lowPower=1` until they were.
+  `src/lib/zeroAnimationCss.test.js` pins the rule and fails any
+  pseudo-element animation it would not reach.
 - Verified live (not just unit-tested): a real animated element sampled
   every 250ms genuinely oscillates opacity standalone but is perfectly
   flat under `?lowPower=1`; a CSS `@keyframes` animation's computed
