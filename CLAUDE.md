@@ -362,8 +362,10 @@ wins over readability, but every fact lands on the end card. Signage only
     light, glints, ripples, vines, rays), so the next flood wipes the last
     away. The cord morphs into the loop (same four cubic segments, so `d`
     interpolates), the knot cinches, the poster floods out of the knot,
-    and a dotted flight line runs from an OUR CLUB pin to a hand-drawn
-    Uganda (the real border, smoothed; no people drawn, by choice). The
+    and a dotted flight line runs east from a pin on Waterville, Maine
+    (where the club meets) to Uganda, both hand drawn from the real
+    borders, smoothed, each on its own little map (no people drawn, by
+    choice). The
     stage is one 1600x900 SVG; the full-bleed layers overscan 3% so the
     shake never shows an edge, and a flood stops painting once the next
     has covered it. The kicker chip reads "This week" / "Tonight!", and

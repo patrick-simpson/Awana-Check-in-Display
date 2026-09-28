@@ -84,14 +84,18 @@ describe('BraceletsPromo', () => {
     expect(sliders).toEqual(['translate(1198 492) rotate(14) scale(0.46)', 'translate(1252 492) rotate(-14) scale(0.46)']);
   });
 
-  it('draws the journey: our club, the flight line and Uganda', () => {
+  it('draws the journey: Waterville, Maine, the flight line and Uganda', () => {
     const { container } = mount(promo());
     const labels = [...container.querySelectorAll('.promo-brc-map-label')].map((t) => t.textContent);
-    expect(labels).toEqual(['OUR CLUB', 'UGANDA']);
-    const outline = container.querySelector('.promo-brc-country-line').getAttribute('d');
-    expect(outline.startsWith('M')).toBe(true);
-    expect(outline.endsWith('z')).toBe(true);
-    expect(outline).not.toContain('NaN');
+    expect(labels).toEqual(['WATERVILLE, ME', 'UGANDA']);
+    const outlines = [...container.querySelectorAll('.promo-brc-country-line')].map((p) => p.getAttribute('d'));
+    // Maine, then Uganda.
+    expect(outlines).toHaveLength(2);
+    for (const d of outlines) {
+      expect(d.startsWith('M')).toBe(true);
+      expect(d.endsWith('z')).toBe(true);
+      expect(d).not.toContain('NaN');
+    }
   });
 
   it('renders exactly one detail slot and one chip, on the shared depth layers', () => {

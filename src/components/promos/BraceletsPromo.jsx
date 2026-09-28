@@ -37,7 +37,8 @@ import {
 //        9.95 BRACELETS drops letter by letter, each letter flashing a
 //        bead colour before it settles gold; 10.45 FOR KIDS IN UGANDA
 //        wipes in; 10.7 the subline; 10.85 the date pill.
-//  10.0  the journey: an OUR CLUB pin, a dotted flight line drawn to a
+//   9.85 the journey: a hand-drawn Maine with a pin on Waterville, where
+//        our club meets, and (10.0) a dotted flight line drawn east to a
 //        hand-drawn Uganda (10.2 to 11.0), a tiny bracelet riding it, and
 //        the Uganda pin dropping with a ring as it arrives (11.0). The
 //        doodles land around the card. End card assembled by 11.3.
@@ -381,10 +382,30 @@ const BLOB_L = 'M-20 120 C80 80 170 150 190 240 C210 330 140 390 60 430 C20 450 
 const CREAM_WAVE = 'M-20 600 C160 560 320 620 520 640 C760 664 900 560 1120 560 C1300 560 1420 630 1620 600 L1620 920 L-20 920 Z';
 
 // ── The journey ──────────────────────────────────────────────
-// Uganda, hand drawn: a smoothed outline of the real border (lon/lat),
-// with the Ugandan part of Lake Victoria cut out of the south-east.
-const MAP = Object.freeze({ x: 1228, y: 96, k: 40, lon0: 29.58, lat0: 4.22 });
-const project = ([lon, lat]) => [MAP.x + (lon - MAP.lon0) * MAP.k, MAP.y + (MAP.lat0 - lat) * MAP.k];
+// From our club in Waterville, Maine, east to Uganda. Both are hand drawn
+// from the real borders (lon/lat, smoothed), each on its own little map:
+// at true scale Maine would be a speck an ocean away.
+/**
+ * A lon/lat projection that puts (lon0, lat0) at stage point (x, y), with
+ * `k` px per degree of latitude and longitude squeezed by cos(latitude).
+ */
+const projection = ({ x, y, k, lon0, lat0 }) => {
+  const kx = k * Math.cos((lat0 * Math.PI) / 180);
+  return ([lon, lat]) => [x + (lon - lon0) * kx, y + (lat0 - lat) * k];
+};
+
+// Waterville sits exactly on the home pin.
+const HOME = Object.freeze({ x: 1044, y: 322 });
+const toMaine = projection({ x: HOME.x, y: HOME.y, k: 32, lon0: -69.63, lat0: 44.55 });
+const MAINE = [
+  [-70.7, 43.08], [-70.98, 43.35], [-70.99, 44.1], [-71.08, 45.3], [-70.84, 45.4], [-70.4, 45.73],
+  [-70.26, 46.1], [-70.05, 46.4], [-69.99, 46.7], [-69.23, 47.45], [-68.9, 47.18], [-68.23, 47.35],
+  [-67.79, 47.07], [-67.79, 45.94], [-67.43, 45.59], [-67.46, 45.28], [-67.0, 44.8], [-67.8, 44.5],
+  [-68.6, 44.3], [-69.1, 44.0], [-69.8, 43.75], [-70.3, 43.6],
+];
+
+// Uganda, with the Ugandan part of Lake Victoria cut out of the south-east.
+const toUganda = projection({ x: 1228, y: 96, k: 40, lon0: 29.58, lat0: 4.22 });
 const UGANDA = [
   [30.86, 3.49], [31.25, 3.79], [31.95, 3.6], [32.4, 3.75], [33.02, 3.89], [33.51, 3.75], [33.99, 4.22],
   [34.39, 3.62], [34.48, 2.95], [35.0, 1.9], [34.55, 1.12], [34.05, 0.45], [33.9, -0.95], [31.8, -1.0],
@@ -397,7 +418,7 @@ const LAKE = [
 ];
 
 /** A closed Catmull-Rom curve through the points, as cubic Béziers. */
-function smoothClosed(points) {
+function smoothClosed(points, project) {
   const p = points.map(project);
   const count = p.length;
   let d = `M${n1(p[0][0])} ${n1(p[0][1])}`;
@@ -412,11 +433,13 @@ function smoothClosed(points) {
   }
   return `${d}z`;
 }
-const UGANDA_PATH = smoothClosed(UGANDA);
-const LAKE_PATH = smoothClosed(LAKE);
+const MAINE_PATH = smoothClosed(MAINE, toMaine);
+const UGANDA_PATH = smoothClosed(UGANDA, toUganda);
+const LAKE_PATH = smoothClosed(LAKE, toUganda);
 
-const [PIN_X, PIN_Y] = project([32.35, 1.55]);
-const HOME = Object.freeze({ x: 1044, y: 322 });
+const [PIN_X, PIN_Y] = toUganda([32.35, 1.55]);
+// The Waterville label sits just under Maine's southern coast.
+const HOME_LABEL_Y = n1(Math.max(...MAINE.map((pt) => toMaine(pt)[1])) + 27);
 const ARC_C = Object.freeze({ x: 1110, y: 96 });
 const ARC_PATH = `M${HOME.x} ${HOME.y} Q${ARC_C.x} ${ARC_C.y} ${n1(PIN_X)} ${n1(PIN_Y)}`;
 
@@ -438,6 +461,9 @@ const TRAVEL = (() => {
   return keyframes(frames, 'linear');
 })();
 
+const MAINE_LINE = landsAt(9.85, 0.7, { pathLength: [0, 1], opacity: [0, 1] }, EASE_INOUT);
+const MAINE_FILL = landsAt(10.2, 0.5, { opacity: [0, 1] }, 'easeOut');
+const HOME_LABEL = landsAt(10.15, 0.4, { opacity: [0, 1] }, 'easeOut');
 const MAP_LINE = landsAt(10.0, 0.9, { pathLength: [0, 1], opacity: [0, 1] }, EASE_INOUT);
 const MAP_FILL = landsAt(10.5, 0.5, { opacity: [0, 1] }, 'easeOut');
 const LAKE_FILL = landsAt(10.7, 0.5, { opacity: [0, 1] }, 'easeOut');
@@ -685,6 +711,8 @@ export default function BraceletsPromo({ promo, lines }) {
             </defs>
 
             <g className="promo-brc-map">
+              <M.path d={MAINE_PATH} className="promo-brc-country-fill" {...MAINE_FILL} />
+              <M.path d={MAINE_PATH} className="promo-brc-country-line" {...MAINE_LINE} />
               <M.path d={UGANDA_PATH} className="promo-brc-country-fill" {...MAP_FILL} />
               <M.path d={LAKE_PATH} className="promo-brc-lake" {...LAKE_FILL} />
               <M.path d={UGANDA_PATH} className="promo-brc-country-line" {...MAP_LINE} />
@@ -705,8 +733,8 @@ export default function BraceletsPromo({ promo, lines }) {
                   <circle cy="-40" r="8" fill="#ffffff" />
                 </M.g>
               </g>
+              <M.text x={HOME.x} y={HOME_LABEL_Y} className="promo-brc-map-label" textAnchor="middle" {...HOME_LABEL}>WATERVILLE, ME</M.text>
               <M.g {...MAP_LABELS}>
-                <text x={HOME.x} y={HOME.y + 44} className="promo-brc-map-label" textAnchor="middle">OUR CLUB</text>
                 <text x={n1(PIN_X)} y={n1(PIN_Y) + 44} className="promo-brc-map-label promo-brc-map-label--ug" textAnchor="middle">UGANDA</text>
               </M.g>
               <M.g {...TRAVEL}>
