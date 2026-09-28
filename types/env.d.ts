@@ -14,3 +14,14 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// Vite asset imports the brand kit uses (src/lib/brand.js, src/lib/clubs.js):
+// `?raw` hands over the file's text, a bare asset import its URL.
+declare module '*?raw' {
+  const text: string;
+  export default text;
+}
+declare module '*.svg' {
+  const url: string;
+  export default url;
+}

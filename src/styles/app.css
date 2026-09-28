@@ -5,6 +5,10 @@
    and color-coded clubs.
    ──────────────────────────────────────────────────────────── */
 
+/* The shared brand kit's tokens (--brand-*): club colors, house colors,
+   the three voices and the motion table. See shared/brand/README.md. */
+@import '../../shared/brand/tokens.css';
+
 :root {
   /* Catalog palette */
   --awana-orange: #f7a41c;
@@ -42,16 +46,26 @@
   --shadow-soft: 0 10px 40px rgba(20, 26, 40, 0.35);
   --shadow-deep: 0 30px 90px rgba(20, 26, 40, 0.45);
 
-  --font-display: 'Baloo 2 Variable', 'Baloo 2', 'Segoe UI', system-ui, sans-serif;
-  --font-body: 'Nunito Variable', 'Nunito', 'Segoe UI', system-ui, sans-serif;
-  /* The catalog's second voice: bold condensed uppercase for eyebrows,
-     callouts and chrome labels (subheads like "4 THINGS EVERY SPARKS
-     KID NEEDS" pair a condensed face with the chunky display caps). */
-  --font-condensed: 'Oswald Variable', 'Oswald', 'Arial Narrow', 'Segoe UI', system-ui, sans-serif;
-  /* The catalog's third voice: the friendly hand-script that carries
-     every "Join our Awana Club!" secondary line under the chunky caps.
-     Bundled via @fontsource-variable/caveat in src/main.jsx. */
-  --font-hand: 'Caveat Variable', 'Caveat', 'Segoe Script', 'Comic Sans MS', cursive;
+  /* The three brand voices (shared/brand/README.md), bundled in
+     src/main.jsx. Galindo shouts: names, headlines, big numbers (the
+     free match for the catalog's RugFish). */
+  --font-display: 'Galindo', 'Arial Rounded MT Bold', 'Segoe UI', system-ui, sans-serif;
+  /* Figtree is read: body copy, settings, notices (for Gibson). */
+  --font-body: 'Figtree Variable', 'Figtree', 'Segoe UI', system-ui, sans-serif;
+  /* Londrina Solid labels: kickers, tabs, chips' small line, buttons
+     (for Motel California). The token keeps its old name so every label
+     rule picks the new voice up without a rename. */
+  --font-condensed: 'Londrina Solid', 'Arial Narrow', 'Segoe UI', system-ui, sans-serif;
+  /* The catalog has no hand-script voice of its own, so the old script
+     accents now speak in the label voice. */
+  --font-hand: var(--font-condensed);
+  /* The fall promo posters stay EXACTLY as printed, so they keep the
+     faces they were drawn in through their own tokens: no rule outside
+     .promo-* may use these, and no .promo-* rule may use the brand
+     tokens above (src/lib/promoFonts.test.js pins both). */
+  --promo-font-display: 'Baloo 2 Variable', 'Baloo 2', 'Segoe UI', system-ui, sans-serif;
+  --promo-font-condensed: 'Oswald Variable', 'Oswald', 'Arial Narrow', 'Segoe UI', system-ui, sans-serif;
+  --promo-font-body: 'Nunito Variable', 'Nunito', 'Segoe UI', system-ui, sans-serif;
   /* The poster voice: the single-weight chunky face the fall event
      promo slides set their hero words and dates in, so a poster reads
      as a poster and not as another catalog page. Bundled via
@@ -63,6 +77,9 @@
 
   color-scheme: light;
   font-family: var(--font-body);
+  /* Galindo and Londrina ship one weight each: never let the browser
+     smear a fake bold over them when an old rule asks for 800. */
+  font-synthesis-weight: none;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -2170,6 +2187,11 @@ input:focus-visible {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  /* Pinned: anything a poster doesn't style itself inherits the face it
+     was drawn in, not the lobby's current body font, and the browser's
+     old synthesized-bold behaviour (the lobby turns that off at :root). */
+  font-family: var(--promo-font-body);
+  font-synthesis-weight: auto;
   /* A promo is art, not text to select or a target to click. */
   user-select: none;
 }
@@ -2230,7 +2252,7 @@ input:focus-visible {
 .promo-chip {
   padding: 0.42em 1.1em 0.48em;
   border-radius: 999px;
-  font-family: var(--font-condensed);
+  font-family: var(--promo-font-condensed);
   font-weight: 600;
   font-size: clamp(1rem, min(1.9vw, 3.4vh), 2rem);
   letter-spacing: 0.1em;
@@ -2245,7 +2267,7 @@ input:focus-visible {
 /* The one headline per poster. */
 .promo-headline {
   margin: 0;
-  font-family: var(--font-display);
+  font-family: var(--promo-font-display);
   font-weight: 800;
   font-size: clamp(2.2rem, min(4.6vw, 8vh), 5rem);
   line-height: 1.02;
@@ -2305,7 +2327,7 @@ input:focus-visible {
 }
 .promo-detail {
   display: inline-block;
-  font-family: var(--font-condensed);
+  font-family: var(--promo-font-condensed);
   font-weight: 600;
   font-size: 1em;
   line-height: 1.2;
@@ -2452,7 +2474,7 @@ input:focus-visible {
   padding: 0 6%;
 }
 .promo-band-kicker {
-  font-family: var(--font-condensed);
+  font-family: var(--promo-font-condensed);
   font-weight: 600;
   font-size: clamp(1rem, min(2.1vw, 3.7vh), 2rem);
   letter-spacing: 0.22em;
@@ -2897,7 +2919,7 @@ input:focus-visible {
 }
 .promo-epic-shares {
   display: inline-block;
-  font-family: var(--font-condensed);
+  font-family: var(--promo-font-condensed);
   font-weight: 600;
   font-size: clamp(1.1rem, min(2.3vw, 4vh), 2.3rem);
   line-height: 1.2;
@@ -3668,4 +3690,93 @@ details.advanced-fields[open] > summary { margin-bottom: 0.5rem; }
 }
 @media (min-width: 3600px) {
   html { font-size: 32px; }
+}
+
+/* ────────────────────────────────────────────────────────────
+   Brand kit primitives (src/components/brand/): the catalog's
+   stepped chip, club wave, corner tab, hot sticker and doodles.
+   Layout only; every color comes from a prop or a --brand-* token.
+   ──────────────────────────────────────────────────────────── */
+.step-chip {
+  display: inline-block;
+  position: relative;
+  line-height: 0;
+  vertical-align: middle;
+  flex: none;
+}
+.step-chip svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.brand-wave {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+.brand-wave svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.brand-tab {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.brand-tab svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.brand-tab__content {
+  position: relative;
+}
+.brand-sticker {
+  position: absolute;
+  aspect-ratio: 1;
+}
+.brand-sticker svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.brand-sticker__text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  color: #fff;
+  text-align: center;
+  line-height: 0.95;
+}
+.brand-doodles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.brand-doodle,
+.brand-doodle__twinkle {
+  position: absolute;
+  display: block;
+}
+.brand-doodle__twinkle {
+  inset: 0;
+}
+.brand-doodle svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
 }

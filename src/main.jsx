@@ -1,16 +1,21 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// Bundled variable fonts (no CDN) so the display looks right even on a
-// church network that blocks or throttles font hosts.
+// Bundled fonts (no CDN) so the display looks right even on a church
+// network that blocks or throttles font hosts. The three brand voices
+// (shared/brand/README.md): Galindo shouts (--font-display), Londrina
+// Solid labels (--font-condensed; the 400 cut only, which is already
+// bold, so no CSS weight can reach for the much fatter 900) and Figtree
+// is read (--font-body).
+import '@fontsource/galindo';
+import '@fontsource/londrina-solid/400.css';
+import '@fontsource-variable/figtree';
+// Pinned for the fall promo posters ONLY (--promo-font-*, --font-poster),
+// which stay exactly as printed until they retire on 2026-11-05. Drop these
+// four imports then, not before.
 import '@fontsource-variable/baloo-2';
 import '@fontsource-variable/nunito';
 import '@fontsource-variable/oswald';
-// The poster voice (--font-poster): the fall event promo slides' hero
-// words and dates.
 import '@fontsource/lilita-one';
-// The catalog's hand-script accent voice (--font-hand): banner taglines,
-// slide subtext, club phrases, the idle screen's sign-off line.
-import '@fontsource-variable/caveat';
 import App from './App.jsx';
 import './styles/app.css';
 
