@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/react';
+import { MotionConfig } from 'framer-motion';
 
 vi.mock('../hooks/useCalendarEvents.js', () => ({ useCalendarEvents: () => [] }));
 
@@ -14,36 +15,104 @@ const deck = (props = {}) => (
 );
 
 // The opening deck's order (config.js): welcome, the two pledges, a blackout.
+const ORDER = ['welcome', 'us-pledge', 'awana-pledge', 'black-slide'];
+
+/** The slide the deck is on now (exiting slides stay mounted under AnimatePresence, so text alone cannot say). */
+const current = (container) => container.querySelector('[data-slide]').dataset.slide;
+/** Every sweep still on the wall, oldest first. */
+const sweeps = (container) => [...container.querySelectorAll('[data-sweep]')];
+/** Where the newest sweep's waves enter from: '-110%' (left, forward) or '110%' (right, back). */
+const newestFrom = (container) => {
+  const froms = [...sweeps(container).at(-1).querySelectorAll('[data-from]')].map((w) => w.dataset.from);
+  expect(froms).toHaveLength(6);
+  expect(new Set(froms).size).toBe(1);
+  return froms[0];
+};
+
 describe('SlideshowView: the operator\'s keys still drive the deck', () => {
   afterEach(cleanup);
 
   it('opens on the welcome, kicked by the night it is', () => {
     const { container } = render(deck());
+    expect(current(container)).toBe(ORDER[0]);
     expect(container.textContent).toMatch(/Wednesday night/);
     expect(container.textContent).toMatch(/WELCOME TO AWANA/);
     // No change yet, so no sweep on the wall.
     expect(container.querySelector('[data-sweep]')).toBeNull();
   });
 
-  it('Space, → and PageDown advance; each change sweeps the club colours once', () => {
-    const { container } = render(deck());
-    press('Space');
-    expect(container.textContent).toMatch(/Pledge of Allegiance/);
-    expect(container.querySelectorAll('[data-sweep]')).toHaveLength(1);
-    press('ArrowRight');
-    expect(container.textContent).toMatch(/Awana Pledge/);
-    press('PageDown');
-    // The closing blackout: nothing new lands on it.
-    expect(container.querySelectorAll('[data-sweep]')).toHaveLength(1);
+  for (const key of ['Space', 'ArrowRight', 'PageDown']) {
+    it(`${key} advances one slide, sweeping left to right`, () => {
+      const { container } = render(deck());
+      press(key);
+      expect(current(container)).toBe(ORDER[1]);
+      expect(sweeps(container)).toHaveLength(1);
+      expect(newestFrom(container)).toBe('-110%');
+      press(key);
+      expect(current(container)).toBe(ORDER[2]);
+      expect(newestFrom(container)).toBe('-110%');
+    });
+  }
+
+  for (const key of ['ArrowLeft', 'PageUp']) {
+    it(`${key} steps back one slide, sweeping the other way`, () => {
+      const { container } = render(deck());
+      press('Space');
+      press('Space');
+      expect(current(container)).toBe(ORDER[2]);
+      press(key);
+      expect(current(container)).toBe(ORDER[1]);
+      expect(newestFrom(container)).toBe('110%');
+      press(key);
+      expect(current(container)).toBe(ORDER[0]);
+      expect(newestFrom(container)).toBe('110%');
+    });
+
+    it(`${key} on the first slide does nothing (no change, no sweep)`, () => {
+      const { container } = render(deck());
+      press(key);
+      expect(current(container)).toBe(ORDER[0]);
+      expect(container.querySelector('[data-sweep]')).toBeNull();
+    });
+  }
+
+  it('PageDown reaches the closing blackout, a bare wall', () => {
+    const onBareChange = vi.fn();
+    const { container } = render(deck({ onBareChange }));
+    for (let i = 0; i < 3; i++) press('PageDown');
+    expect(current(container)).toBe(ORDER[3]);
+    expect(onBareChange).toHaveBeenLastCalledWith(true);
+    press('PageUp');
+    expect(current(container)).toBe(ORDER[2]);
+    expect(onBareChange).toHaveBeenLastCalledWith(false);
   });
 
-  it('← and PageUp step back, sweeping the other way', () => {
+  // A second press while the first change's sweep is still crossing the
+  // wall (a double tap to the Awana Pledge, or a press that coincides with
+  // the welcome's auto-advance). Re-keying one sweep unmounted the running
+  // waves and restarted them off the wall: a hard cut mid-wall.
+  it('a press mid-sweep leaves the running sweep to finish and starts its own', () => {
     const { container } = render(deck());
     press('Space');
+    const [first] = sweeps(container);
+    press('Space');
+    const both = sweeps(container);
+    expect(both).toHaveLength(2);
+    expect(both[0]).toBe(first); // the same element, still mounted, still crossing
     press('ArrowLeft');
-    expect(container.textContent).toMatch(/WELCOME TO AWANA/);
-    press('PageUp'); // already at the start: nothing happens
-    expect(container.querySelectorAll('[data-sweep]')).toHaveLength(1);
+    expect(sweeps(container)).toHaveLength(3);
+    expect(sweeps(container)[0]).toBe(first);
+    expect(newestFrom(container)).toBe('110%');
+  });
+
+  it('a sweep leaves the DOM once its last wave is off the wall', async () => {
+    // Reduced motion makes the transform-only sweep instant, so it finishes
+    // on the next frame instead of in 1.4 s.
+    const { container } = render(<MotionConfig reducedMotion="always">{deck()}</MotionConfig>);
+    press('Space');
+    expect(sweeps(container)).toHaveLength(1);
+    await waitFor(() => expect(sweeps(container)).toHaveLength(0));
+    expect(current(container)).toBe(ORDER[1]);
   });
 
   it('the sweep is six club waves, in the club colours', () => {

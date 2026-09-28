@@ -8,6 +8,8 @@ import { EventChips } from '../components/EventChips.jsx';
 import { Kicker } from '../components/Kicker.jsx';
 import { StepChip } from '../components/StepChip.jsx';
 import { HOUSE } from '../lib/kit.js';
+import { fitChipU } from '../lib/chip.js';
+import { useFontsReady } from '../hooks/useFontsReady.js';
 import { secondsUntil } from '../lib/schedule.js';
 import { playStinger } from '../lib/stingers.js';
 import { useKeydown } from '../hooks/useKeydown.js';
@@ -95,12 +97,29 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
 
         {theme && (
           <div style={{ marginTop: 'calc(1.6 * var(--u))' }}>
-            <StepChip label="This week" value={theme} size="calc(2.6 * var(--u))" plate={HOUSE.blueDeep} />
+            <ThemeChip theme={theme} />
           </div>
         )}
 
         <EventChips events={events} />
       </div>
     </ScreenFrame>
+  );
+};
+
+/**
+ * The THIS WEEK chip's fit: its mockup size, shrinking only as far as a long
+ * theme needs to stay inside `widthU` of the wall. The theme is the church's
+ * own calendar title, up to 60 characters on the wire (TITLE_MAX in
+ * src/lib/eventSanitizers.js), and a chip's plate grows with its value.
+ */
+export const THEME_CHIP = { label: 'This week', maxU: 2.6, widthU: 90 };
+
+const ThemeChip = ({ theme }) => {
+  // The fit measures the theme: measure again once the faces land.
+  useFontsReady();
+  const sizeU = Math.floor(fitChipU(THEME_CHIP.label, theme, THEME_CHIP) * 1000) / 1000;
+  return (
+    <StepChip label={THEME_CHIP.label} value={theme} size={`calc(${sizeU} * var(--u))`} plate={HOUSE.blueDeep} />
   );
 };

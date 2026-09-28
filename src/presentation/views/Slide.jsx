@@ -4,12 +4,14 @@ import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ConfettiBurst } from '../components/ConfettiBurst.jsx';
-import { Headline } from '../components/Headline.jsx';
+import { Headline, fittedU } from '../components/Headline.jsx';
 import { Kicker } from '../components/Kicker.jsx';
 import { BodyText } from '../components/BodyText.jsx';
 import { StepChip } from '../components/StepChip.jsx';
 import { wordCount } from '../components/Words.jsx';
 import { HOUSE } from '../lib/kit.js';
+import { chipGeometry, fitChipList, measureEm } from '../lib/chip.js';
+import { useFontsReady } from '../hooks/useFontsReady.js';
 import { ambientVariants, partVariants } from '../lib/landing.js';
 
 /**
@@ -117,8 +119,8 @@ const SlideBody = ({ slide, now, events, hold }) => {
     case 'coming-up':
       return (
         <>
-          <Headline text={slide.title} fit={{ maxU: 5.6, widthU: 84 }} parts={{ start: 0, hold }} />
-          <ComingUpList events={events ?? []} start={wordCount(slide.title)} hold={hold} />
+          <Headline text={slide.title} fit={COMING_UP.headline} parts={{ start: 0, hold }} />
+          <ComingUpList title={slide.title} events={events ?? []} start={wordCount(slide.title)} hold={hold} />
         </>
       );
   }
@@ -132,12 +134,65 @@ export const nightLabel = (date) =>
     .toUpperCase();
 
 /**
+ * The coming-up slide's layout, in projector units. `top`, `gapX`/`gapY`,
+ * `headlineLine` and `frame` restate index.css (.pj-slide's top, .pj-chip-row's
+ * gaps, .pj-headline's line-height, .pj-frame's height); Slide.test.jsx pins
+ * them to it. The list may run down to `bottom`, which keeps a title-safe
+ * margin clear above the frame's bottom edge.
+ */
+export const COMING_UP = {
+  headline: { maxU: 5.6, widthU: 84 },
+  headlineLine: 0.98,
+  top: 15,
+  listGap: 3.4,
+  frame: 56.25,
+  bottom: 51.75,
+  row: 80,
+  gapX: 1.6,
+  gapY: 1.4,
+  /** The chips' size when the nights fit easily. */
+  maxU: 3.2,
+  /** Never smaller than this with more than one night left: the old pill badges' ~1.8u, and then some. */
+  minU: 2,
+};
+
+/**
+ * Where the coming-up list sits and how big its chips are: sized to the
+ * room left under the headline, so five nights with long names (the
+ * church's feed lists "Awana meeting (Making Bracelets)" most weeks, and a
+ * long name takes a row of its own) still end inside the wall. Below
+ * COMING_UP.minU it shows the soonest nights that fit rather than shrinking
+ * further.
+ * @param {string} title the slide's headline
+ * @param {Array<{ label: string, value: string }>} chips
+ */
+export function comingUpLayout(title, chips) {
+  const c = COMING_UP;
+  const headU = fittedU(title, c.headline);
+  const headLines = Math.max(1, Math.ceil((measureEm(String(title).toUpperCase()) * headU) / c.headline.widthU));
+  const listTopU = c.top + headU * c.headlineLine * headLines + c.listGap;
+  const widths = chips.map(({ label, value }) => chipGeometry(measureEm(label.toUpperCase()), measureEm(value)).width);
+  const { sizeU, count } = fitChipList(widths, {
+    maxU: c.maxU,
+    minU: c.minU,
+    rowU: c.row,
+    heightU: c.bottom - listTopU,
+    gapXU: c.gapX,
+    gapYU: c.gapY,
+  });
+  // Rounded down, so the CSS never asks for a hair more than the fit allowed.
+  return { listTopU, sizeU: Math.floor(sizeU * 1000) / 1000, count };
+}
+
+/**
  * Upcoming calendar nights for the closing "Coming up" slide, as stepped
  * chips: the date over the night's name. A special night (a theme night, a
  * party) gets the kit's one hot red-orange; an ordinary club night the
  * house blue.
  */
-const ComingUpList = ({ events, start, hold }) => {
+const ComingUpList = ({ title, events, start, hold }) => {
+  // The fit measures the chips' text: measure again once the faces land.
+  useFontsReady();
   const upcoming = events.slice(0, 5);
   if (upcoming.length === 0) {
     return (
@@ -149,18 +204,26 @@ const ComingUpList = ({ events, start, hold }) => {
       />
     );
   }
+  const chips = upcoming.map((event) => ({ event, label: nightLabel(event.date), value: event.title }));
+  const { sizeU, count } = comingUpLayout(title, chips);
   return (
-    <div className="pj-chip-row" style={{ marginTop: 'calc(3.4 * var(--u))', maxWidth: 'calc(80 * var(--u))' }}>
-      {upcoming.map((event, idx) => (
+    <div
+      className="pj-chip-row"
+      data-chip-u={sizeU}
+      style={{ marginTop: `calc(${COMING_UP.listGap} * var(--u))`, maxWidth: `calc(${COMING_UP.row} * var(--u))` }}
+    >
+      {chips.slice(0, count).map(({ event, label, value }, idx) => (
+        // A flex box, not inline-block: no line box, so a row stands exactly
+        // as tall as its chips (which is what the fit counts).
         <motion.span
           key={`${event.title}-${event.daysUntil}`}
-          className="inline-block"
+          className="flex"
           variants={partVariants(start + idx, hold)}
         >
           <StepChip
-            label={nightLabel(event.date)}
-            value={event.title}
-            size="calc(3.2 * var(--u))"
+            label={label}
+            value={value}
+            size={`calc(${sizeU} * var(--u))`}
             plate={event.isSpecial ? HOUSE.hot : HOUSE.blueDeep}
           />
         </motion.span>

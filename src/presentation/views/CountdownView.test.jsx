@@ -89,3 +89,34 @@ describe('CountdownView milestone popups', () => {
     unmount();
   });
 });
+
+// The theme is the church's own calendar title, up to 60 characters on the
+// wire (TITLE_MAX in src/lib/eventSanitizers.js). A chip's plate grows with
+// its value, so at a fixed size a long theme ran off both edges of the wall.
+describe('CountdownView theme chip', () => {
+  afterEach(cleanup);
+
+  /** The rendered THIS WEEK chip's width and size, in projector units. */
+  const themeChip = (theme) => {
+    const { container, unmount } = render(
+      <CountdownView now={nowFor(3 * 3600)} target={TARGET} theme={theme} onSkip={() => {}} />,
+    );
+    const chip = container.querySelector('.pj-chip[aria-label^="THIS WEEK"]');
+    const size = Number(chip.style.fontSize.match(/^calc\(([0-9.]+) \* var\(--u\)\)$/)[1]);
+    const out = { size, width: parseFloat(chip.style.width) * size };
+    unmount();
+    return out;
+  };
+
+  it('keeps an ordinary theme at the mockup size', () => {
+    expect(themeChip('Superhero Night').size).toBe(2.6);
+  });
+
+  it('never runs a maximum-length theme off the wall', () => {
+    const longest = 'MISSIONS MONTH KICKOFF: WEAR WHITE & BRING A FRIEND TONIGHT!';
+    expect(longest).toHaveLength(60);
+    const { size, width } = themeChip(longest);
+    expect(size).toBeLessThan(2.6);
+    expect(width).toBeLessThanOrEqual(90);
+  });
+});

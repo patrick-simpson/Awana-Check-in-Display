@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DUR, EASE } from './motion-tokens.js';
-import { LEAVE_TOTAL, RISE, ambientVariants, holdThen, landsAt, leavesAt, partVariants } from './landing.js';
+import { FROM_NOW, LEAVE_TOTAL, RISE, ambientVariants, holdThen, landsAt, leavesAt, partVariants } from './landing.js';
 
 describe('holdThen', () => {
   it('holds, then moves, as ONE keyframe list whose last value is the target', () => {
@@ -47,6 +47,28 @@ describe('a slide\'s parts', () => {
     expect(v.gone.opacity.at(-1)).toBe(0);
     expect(v.gone.y.at(-1)).toBe(`-${RISE}`);
     expect(v.gone.transition.ease.at(-1)).toEqual(EASE.exit);
+  });
+
+  // A press that catches a slide before all of it has landed sends its
+  // still-invisible parts straight to `gone`. Started from an explicit 1,
+  // every one of them flashed at full strength before fading (measured: a
+  // skipped pledge's 31 words at opacity 1.00 within 45 ms of a double
+  // press). null is framer-motion's "current value" keyframe.
+  it('leave from wherever each part is now, never from its landed state', () => {
+    expect(FROM_NOW).toBeNull();
+    for (const i of [0, 1, 7, 30]) {
+      const { gone } = partVariants(i, 0.56);
+      // Every keyframe before the last is "now": hold where it is, then go.
+      expect(gone.opacity.slice(0, -1).every((k) => k === null)).toBe(true);
+      expect(gone.y.slice(0, -1).every((k) => k === null)).toBe(true);
+    }
+    const ambient = ambientVariants(0.56).gone;
+    expect(ambient.opacity).toEqual([null, 0]);
+  });
+
+  it('holdThen keeps a null start as a null hold', () => {
+    const t = holdThen(0.2, 0.3, { opacity: null }, { opacity: 0 }, EASE.exit);
+    expect(t.opacity).toEqual([null, null, 0]);
   });
 
   it('the ambient layer fades with the type and rests visible', () => {

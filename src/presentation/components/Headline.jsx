@@ -10,10 +10,20 @@ import { useFontsReady } from '../hooks/useFontsReady.js';
  * @param {string} text
  * @param {{ maxU: number, widthU: number, minU?: number }} fit
  */
-export function fittedSize(text, { maxU, widthU, minU = maxU * 0.7 }) {
+export function fittedSize(text, fit) {
+  return `calc(${fittedU(text, fit).toFixed(3)} * var(--u))`;
+}
+
+/**
+ * fittedSize as a number of projector units, for a layout that has to know
+ * how much room the headline takes.
+ * @param {string} text
+ * @param {{ maxU: number, widthU: number, minU?: number }} fit
+ */
+export function fittedU(text, { maxU, widthU, minU = maxU * 0.7 }) {
   const em = measureEm(String(text).toUpperCase());
   const one = em > 0 ? widthU / em : maxU;
-  return `calc(${Math.max(minU, Math.min(maxU, one)).toFixed(3)} * var(--u))`;
+  return Math.max(minU, Math.min(maxU, one));
 }
 
 /**

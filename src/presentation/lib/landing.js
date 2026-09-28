@@ -17,9 +17,10 @@ export const RISE = '0.5em';
 
 /**
  * Hold at `from` for `at` seconds, then move to `to` over `dur` on `ease`.
+ * A `from` of null is framer-motion's "wherever it is now" (see FROM_NOW).
  * @param {number} at
  * @param {number} dur
- * @param {Record<string, number | string>} from
+ * @param {Record<string, number | string | null>} from
  * @param {Record<string, number | string>} to
  * @param {any} ease
  * @returns {Record<string, any>} a framer-motion target with its own transition
@@ -65,6 +66,17 @@ export function leavesAt(i) {
 export const LEAVE_TOTAL = leavesAt(12) + DUR.exit;
 
 /**
+ * Where a leave starts: from wherever the part is NOW (null is framer-motion's
+ * "current value" keyframe), never from its landed state. A press that
+ * catches a slide before all of it has landed (a quick double press, or one
+ * that coincides with an auto-advance) sends parts that are still invisible
+ * straight to `gone`; an explicit 1 would paint every one of them at full
+ * strength for a frame and then fade it, flashing text the room never saw.
+ * A part that has landed is at 1 anyway, so an ordinary change is unchanged.
+ */
+export const FROM_NOW = null;
+
+/**
  * The three states of one part of a slide (a kicker, a headline word, a
  * body word), as variants a slide's parts inherit from their slide:
  * `hidden` (before it lands), `shown` (landed) and `gone` (left upward).
@@ -75,7 +87,7 @@ export function partVariants(i, hold = 0) {
   return {
     hidden: { opacity: 0, y: RISE },
     shown: holdThen(landsAt(i, hold), DUR.settle, { opacity: 0, y: RISE }, { opacity: 1, y: '0em' }, EASE.settle),
-    gone: holdThen(leavesAt(i), DUR.exit, { opacity: 1, y: '0em' }, { opacity: 0, y: `-${RISE}` }, EASE.exit),
+    gone: holdThen(leavesAt(i), DUR.exit, { opacity: FROM_NOW, y: FROM_NOW }, { opacity: 0, y: `-${RISE}` }, EASE.exit),
   };
 }
 
@@ -88,6 +100,6 @@ export function ambientVariants(hold = 0) {
   return {
     hidden: { opacity: 0 },
     shown: holdThen(hold, DUR.settle, { opacity: 0 }, { opacity: 1 }, EASE.settle),
-    gone: holdThen(0, LEAVE_TOTAL, { opacity: 1 }, { opacity: 0 }, EASE.exit),
+    gone: holdThen(0, LEAVE_TOTAL, { opacity: FROM_NOW }, { opacity: 0 }, EASE.exit),
   };
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from '../components/icons.jsx';
 import { DECKS } from '../config.js';
@@ -32,7 +32,9 @@ const CHANGE_HOLD = LEAVE_TOTAL + 0.02;
  * and text land. The Awana Clubs mark (App.jsx) and the pledge slides' clock
  * stay put through it, like a broadcast logo. No setTimeout state machine,
  * and keypresses are never dropped mid-transition: every press moves the
- * index and restarts the sweep.
+ * index and starts a sweep of its own, while a sweep a quicker press caught
+ * mid-wall carries on across and off it (unmounting it would snap its waves
+ * off the wall in one frame).
  */
 export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => {
   // "Upcoming Awana Nights": when the calendar knows about upcoming
@@ -55,9 +57,14 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
     return [...base.map((s) => (s.duration ? s : { ...s, duration: 20 })), comingUp];
   }, [deck, events]);
   const [index, setIndex] = useState(0);
-  // Every change bumps `n` (the sweep's key, so it replays) and records the
-  // direction it swept in.
-  const [change, setChange] = useState({ n: 0, dir: 1 });
+  // How many changes there have been: after the first, a landing slide
+  // waits for the outgoing one's words to leave.
+  const [changes, setChanges] = useState(0);
+  // The sweeps still crossing the wall, oldest first. Each change adds one;
+  // each leaves the list only once its last wave is off the wall.
+  const [sweeps, setSweeps] = useState(/** @type {{ id: number, dir: 1 | -1 }[]} */ ([]));
+  const sweepIds = useRef(0);
+  const sweepDone = useCallback((id) => setSweeps((list) => list.filter((w) => w.id !== id)), []);
   const [escArmed, setEscArmed] = useState(false);
 
   const slide = slides[Math.min(index, slides.length - 1)];
@@ -72,7 +79,9 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
       onFinish?.();
       return;
     }
-    setChange((c) => ({ n: c.n + 1, dir }));
+    setChanges((n) => n + 1);
+    const id = (sweepIds.current += 1);
+    setSweeps((list) => [...list, { id, dir }]);
     setIndex(next);
   };
   const goNext = () => goTo(index + 1, 1);
@@ -114,7 +123,7 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
   });
 
   return (
-    <div className="w-full h-full relative group" style={{ background: '#000000' }}>
+    <div className="w-full h-full relative group" data-slide={slide.id} style={{ background: '#000000' }}>
       <AnimatePresence>
         <motion.div
           key={slide.id}
@@ -128,7 +137,7 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
             slide={slide}
             now={now}
             events={events}
-            hold={change.n > 0 ? CHANGE_HOLD : FIRST_HOLD}
+            hold={changes > 0 ? CHANGE_HOLD : FIRST_HOLD}
             onNext={index < slides.length - 1 || onFinish ? goNext : undefined}
           />
         </motion.div>
@@ -142,7 +151,7 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
             key="clock"
             className="pj-slide-clock"
             initial={{ opacity: 0 }}
-            animate={holdThen(change.n > 0 ? CHANGE_HOLD : FIRST_HOLD, DUR.settle, { opacity: 0 }, { opacity: 1 }, EASE.settle)}
+            animate={holdThen(changes > 0 ? CHANGE_HOLD : FIRST_HOLD, DUR.settle, { opacity: 0 }, { opacity: 1 }, EASE.settle)}
             exit={{ opacity: 0, transition: { duration: DUR.exit, ease: EASE.exit } }}
           >
             <SlideClock now={now} />
@@ -150,7 +159,9 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
         )}
       </AnimatePresence>
 
-      {change.n > 0 && <ColorSweep key={change.n} direction={change.dir} />}
+      {sweeps.map((w) => (
+        <ColorSweep key={w.id} direction={w.dir} onDone={() => sweepDone(w.id)} />
+      ))}
 
       {/* Exit confirmation toast */}
       <AnimatePresence>
