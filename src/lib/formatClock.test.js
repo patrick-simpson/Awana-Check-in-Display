@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatClock } from './WallClock.jsx';
+import { formatClock } from '../lib/cornerInfo.js';
 
 describe('formatClock', () => {
   it('formats an afternoon time as 12-hour with PM', () => {

@@ -50,7 +50,9 @@ const ALLOWED_KEYS = {
   slides: ['deckRev', 'publishedAt', 'seq', 'total', 'slides'],
 };
 
-const SLIDE_ENTRY_KEYS = ['id', 'eyebrow', 'text', 'theme', 'textSize', 'durationSec', 'showFrom', 'showUntil'];
+// Straight from the contract, so a new optional field (holdCheckIns, stage 4)
+// is allowed here exactly when the canonical copy allows it.
+const SLIDE_ENTRY_KEYS = [...vectors.events.slides.entryFields, ...vectors.events.slides.entryOptionalFields];
 
 describe('contract vectors are the v5 contract', () => {
   it('is contract version 5 on awana-channel', () => {
@@ -294,5 +296,25 @@ describe('checkin celebration flags (#9/#10)', () => {
     const out = sc(base);
     expect('welcomeBack' in out).toBe(false);
     expect('milestone' in out).toBe(false);
+  });
+});
+
+describe('slides: holdCheckIns (stage 4)', () => {
+  it('carries a literal true through, and the valid vector that marks one', () => {
+    const marked = vectors.events.slides.valid.find((v) => v.slides.some((e) => e.holdCheckIns === true));
+    expect(marked).toBeTruthy();
+    const out = SANITIZERS.slides(marked);
+    expect(out.slides.filter((e) => e.holdCheckIns === true)).toHaveLength(1);
+    expect(out.slides.some((e) => 'holdCheckIns' in e && e.holdCheckIns !== true)).toBe(false);
+  });
+
+  it('drops every other value instead of coercing it', () => {
+    const chunk = {
+      deckRev: 1, publishedAt: '2026-09-28T12:00:00.000Z', seq: 0, total: 1,
+      slides: [false, 'true', 1, null, {}].map((v, i) => ({ text: `Slide ${i}`, holdCheckIns: v })),
+    };
+    const out = SANITIZERS.slides(chunk);
+    expect(out.slides).toHaveLength(5);
+    for (const e of out.slides) expect('holdCheckIns' in e).toBe(false);
   });
 });

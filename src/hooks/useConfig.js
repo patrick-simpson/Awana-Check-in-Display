@@ -40,8 +40,6 @@ const VALIDATORS = {
   showClock: isBool,
   showWeatherChip: isBool,
   showBirthdayWeekRibbon: isBool,
-  widgetDisplayMode: (v) => v === 'cycle' || v === 'stickers',
-  cycleIntervalSec: numberBetween(2, 120),
   calendarEnabled: isBool,
   calendarUrl: isString,
   sharedScheduleUrl: isString,

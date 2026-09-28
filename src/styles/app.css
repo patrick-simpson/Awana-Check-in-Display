@@ -317,6 +317,42 @@ html, body, #root {
   overflow: hidden;
   z-index: 0;
 }
+/* The stinger (ManualSlideshow.jsx): a full-screen house wave that sweeps
+   up over the lobby whenever a transition involves a slide that holds
+   check-ins, so a poster arrives as its own moment. Two waves (sunflower
+   behind, Awana orange in front) with solid fills under their crests so
+   nothing shows through mid-sweep. */
+.slide-stinger {
+  position: absolute;
+  left: -3%;
+  right: -3%;
+  top: 0;
+  bottom: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+.slide-stinger__wave--back {
+  height: 118%;
+  bottom: -2%;
+}
+.slide-stinger__wave--front {
+  height: 108%;
+  bottom: -2%;
+}
+.slide-stinger__fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2%;
+}
+.slide-stinger__fill--back {
+  height: 92%;
+  background: var(--brand-sun);
+}
+.slide-stinger__fill--front {
+  height: 84%;
+  background: var(--brand-orange);
+}
 .manual-slide {
   position: absolute;
   inset: 0;
@@ -421,6 +457,21 @@ html, body, #root {
 }
 
 /* ── Typed slides: editor panel ──────────────────────────── */
+/* "Hold check-ins while this slide is up" (stage 4). */
+.slide-card-hold {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  margin: 0.4rem 0 0.2rem;
+  cursor: pointer;
+}
+.slide-card-hold input {
+  margin-top: 0.2rem;
+  flex: none;
+}
+.slide-card-hold .hint {
+  display: block;
+}
 /* Same pinned header / scrolling body / pinned actions column as Settings
    (.panel--tabbed); the compound selector outranks .panel--tabbed's width. */
 .panel--tabbed.panel--slides {
@@ -921,169 +972,6 @@ html, body, #root {
   margin-top: 0.2rem;
 }
 
-/* ── Bottom-right data cycle ───────────────────────────── */
-/* The 'cycle' widget mode: no sticker chrome, just big floating
-   catalog type. One data point holds the corner at a time; the
-   reserved min box keeps AnimatePresence's mode="wait" handoff gap
-   from collapsing the corner between items. */
-.data-cycle {
-  position: absolute;
-  right: var(--safe-inset);
-  bottom: var(--safe-inset);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: flex-end;
-  min-height: 7.5rem;
-  min-width: 16rem;
-  text-align: right;
-  pointer-events: none;
-}
-.data-cycle-item {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.1rem;
-  /* Drop-shadow filters instead of text-shadow: a text-shadow bleeds
-     through gradient-clipped glyphs, a filter wraps their alpha. */
-  filter: drop-shadow(0 3px 0 rgba(20, 26, 40, 0.45)) drop-shadow(0 10px 28px rgba(20, 26, 40, 0.5));
-}
-.data-cycle-eyebrow {
-  font-family: var(--font-condensed);
-  font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.92);
-}
-.data-cycle-value {
-  display: inline-block;
-  font-family: var(--font-display);
-  font-size: clamp(2.6rem, 7vmin, 4.6rem);
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.02em;
-  line-height: 1.05;
-}
-/* Chrome drops a background-clip:text background from any descendant
-   that carries its own transform, leaving invisible glyphs — so every
-   text-holding span paints its own clipped gradient instead of
-   inheriting the value's.
-   `.data-cycle-pop` is deliberately NOT in this list: it is the span
-   framer-motion transforms, and an element that is both composited and
-   background-clip:text is exactly what ghosted the clock colon below.
-   Its static child `.data-cycle-digits` wears the gradient instead. */
-.data-cycle-value,
-.data-cycle-digits {
-  background: linear-gradient(180deg, var(--awana-gold-pale) 10%, var(--awana-orange) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-/* The colon deliberately carries NO clipped gradient and NO animation
-   (see ClockFace): as an animated, composited span it ghosted twice on
-   real GPUs — its clip texture rasterized at the value's left edge, and
-   the item's drop-shadow filter drew a stale full-opacity silhouette of
-   it beside the faded glyph. A plain solid glyph the shade of the
-   gradient's midpoint is indistinguishable at this size and has nothing
-   left to mis-render. */
-.data-cycle-colon {
-  color: #fbc35d;
-  -webkit-text-fill-color: currentColor;
-}
-.data-cycle-colon,
-.data-cycle-pop,
-.data-cycle-digits {
-  display: inline-block;
-}
-.data-cycle-unit {
-  font-size: 0.4em;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  margin-left: 0.15em;
-  vertical-align: 0.55em;
-}
-.data-cycle-sub {
-  font-family: var(--font-condensed);
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.8);
-}
-/* The cycle-mode twin of .tally-sync-note. Smaller than .data-cycle-sub and
-   not uppercased: it is a sentence, not a label. */
-.data-cycle-note {
-  font-family: var(--font-condensed);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.72);
-}
-.data-cycle-row {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-}
-.data-cycle-glyph {
-  display: inline-flex;
-  width: clamp(3rem, 6vmin, 4.2rem);
-}
-.data-cycle-glyph .weather-glyph {
-  width: 100%;
-  height: auto;
-}
-.data-cycle-spark {
-  position: absolute;
-  top: -14px;
-  right: -10px;
-  color: var(--awana-gold-pale);
-  pointer-events: none;
-}
-
-/* ── Tonight's tally ───────────────────────────────────── */
-.tally {
-  position: absolute;
-  /* Nudged below the safe inset so the "Tonight" label tab stays
-     inside the TV title-safe area. */
-  top: calc(var(--safe-inset) + 10px);
-  left: var(--safe-inset);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.6rem;
-  padding: 0.55rem 1.2rem;
-}
-.tally .tally-count {
-  font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--awana-yellow);
-}
-.tally .tally-label {
-  font-family: var(--font-condensed);
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-on-glass-muted);
-}
-/* "synced with the check-in desk" (#351) — its own row under the number
-   (flex-basis: 100% against .tally's wrap), quiet enough that it explains
-   the jump without competing with the count itself. */
-.tally .tally-sync-note {
-  flex-basis: 100%;
-  margin-top: 0.15rem;
-  font-family: var(--font-condensed);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--text-on-glass-muted);
-  opacity: 0.85;
-}
-
 /* ── Settings gear button ──────────────────────────────── */
 .settings-gear {
   position: absolute;
@@ -1567,68 +1455,33 @@ html, body, #root {
   padding-top: 10px;
 }
 
-/* ── Wall clock ────────────────────────────────────────── */
-.wall-clock {
+/* ── Corner info (CornerChip.jsx): one stepped chip at a time ─────── */
+.corner-bottom {
+  position: absolute;
+  right: calc(2.6 * min(1vw, 1.7778vh));
+  bottom: calc(1.8 * min(1vw, 1.7778vh));
+  z-index: 4;
+  pointer-events: none;
+  display: grid;
+  justify-items: end;
+}
+/* The outgoing and incoming chips cross over in the same spot. */
+.corner-bottom > .corner-chip {
+  grid-area: 1 / 1;
+}
+.corner-chip {
   display: flex;
-  align-items: baseline;
-  gap: 0.35rem;
-  padding: 0.55rem 1.2rem;
+  flex-direction: column;
+  align-items: flex-end;
+  transform-origin: 85% 70%;
 }
-.wall-clock .time-colon {
-  display: inline-block;
-}
-.wall-clock .time {
-  font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  color: #fff;
-}
-.wall-clock .meridiem {
-  font-family: var(--font-condensed);
-  font-size: 0.9rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-on-glass-muted);
-}
-
-/* ── Weather chip ──────────────────────────────────────── */
-/* Little sibling of the wall clock: same sticker tab, plus a living
-   hand-doodle glyph and a warm gradient temperature (the countdown's
-   palette). The sparkle winks from the top-right corner of the tab. */
-.weather-chip {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.45rem 1.1rem 0.45rem 0.8rem;
-}
-.weather-chip .weather-chip-glyph {
-  display: flex;
-  flex: 0 0 auto;
-}
-.weather-chip .weather-glyph {
-  width: 2.4rem;
-  height: 2.4rem;
-  overflow: visible;
-}
-.weather-chip .weather-chip-temp {
-  font-family: var(--font-display);
-  font-size: 1.7rem;
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  background: linear-gradient(180deg, var(--awana-gold-pale) 10%, var(--awana-orange) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.weather-chip .weather-chip-unit {
-  font-size: 0.55em;
+.corner-chip__note {
+  margin-top: 0.35rem;
+  font-family: var(--font-body);
   font-weight: 700;
-  vertical-align: super;
-  margin-left: 0.06em;
+  font-size: calc(1.1 * min(1vw, 1.7778vh));
+  color: #fff;
+  text-shadow: 0 1px 0 rgba(3, 4, 4, 0.45);
 }
 
 /* ── Milestone toast ───────────────────────────────────── */
@@ -1818,19 +1671,6 @@ input:focus-visible {
   }
   .countdown .label { font-size: 0.62rem; letter-spacing: 0.1em; }
   .countdown .time { font-size: 1.8rem; }
-  .data-cycle { min-height: 4.5rem; min-width: 9rem; }
-  .data-cycle-value { font-size: 2rem; }
-  .data-cycle-eyebrow { font-size: 0.68rem; }
-  .data-cycle-sub { font-size: 0.65rem; }
-  .data-cycle-glyph { width: 2rem; }
-  .tally,
-  .wall-clock { padding: 0.4rem 0.85rem; }
-  .tally .tally-count { font-size: 1.3rem; }
-  .tally .tally-label { font-size: 0.7rem; }
-  .tally .tally-sync-note { font-size: 0.6rem; }
-  .data-cycle-note { font-size: 0.62rem; }
-  .wall-clock .time { font-size: 1.3rem; }
-  .wall-clock .meridiem { font-size: 0.75rem; }
 
   .first-time-burst { width: clamp(72px, 20vw, 110px); top: -22%; }
   .welcome-back-seal { width: clamp(72px, 20vw, 110px); top: -22%; }
@@ -1941,18 +1781,6 @@ input:focus-visible {
   }
   .countdown .label { font-size: 0.58rem; letter-spacing: 0.1em; }
   .countdown .time { font-size: 1.6rem; }
-  .data-cycle { min-height: 4rem; min-width: 8rem; }
-  .data-cycle-value { font-size: 1.7rem; }
-  .data-cycle-eyebrow { font-size: 0.62rem; }
-  .data-cycle-sub { font-size: 0.6rem; }
-  .data-cycle-glyph { width: 1.8rem; }
-  .tally,
-  .wall-clock { padding: 0.35rem 0.8rem; }
-  .tally .tally-count { font-size: 1.2rem; }
-  .tally .tally-label { font-size: 0.65rem; }
-  .tally .tally-sync-note { font-size: 0.58rem; }
-  .data-cycle-note { font-size: 0.6rem; }
-  .wall-clock .time { font-size: 1.2rem; }
 
 }
 

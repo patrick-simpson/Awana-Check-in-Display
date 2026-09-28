@@ -280,3 +280,64 @@ describe('ManualSlideshow video slides', () => {
     });
   });
 });
+
+describe('ManualSlideshow as the lobby director sees it (rebrand stage 4)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  const held = { id: 's_h', eyebrow: 'Important', text: 'Pick-up is at the gym doors', theme: 'sky', durationSec: 6, holdCheckIns: true };
+
+  it('names on screen stop the clock without resetting it', () => {
+    const { rerender } = render(<ManualSlideshow slides={deck} slideshowDelaySec={5} />);
+    act(() => vi.advanceTimersByTime(3000));
+    rerender(<ManualSlideshow slides={deck} slideshowDelaySec={5} paused />);
+    act(() => vi.advanceTimersByTime(20000));
+    expect(screen.getByText('First slide')).toBeTruthy();
+    rerender(<ManualSlideshow slides={deck} slideshowDelaySec={5} paused={false} />);
+    // Two seconds were left on the first slide when the names came up.
+    act(() => vi.advanceTimersByTime(1999));
+    expect(screen.queryByText('Second slide')).toBeNull();
+    act(() => vi.advanceTimersByTime(1));
+    expect(screen.getByText('Second slide')).toBeTruthy();
+  });
+
+  it('reports every slide, and whether it holds check-ins', () => {
+    const onSlide = vi.fn();
+    render(<ManualSlideshow slides={[deck[0], held]} slideshowDelaySec={5} onSlide={onSlide} />);
+    expect(onSlide).toHaveBeenLastCalledWith({ key: '0:s_1', special: false });
+    act(() => vi.advanceTimersByTime(5000));
+    expect(onSlide).toHaveBeenLastCalledWith({ key: '1:s_h', special: true });
+    act(() => vi.advanceTimersByTime(6000));
+    expect(onSlide).toHaveBeenLastCalledWith({ key: '2:s_1', special: false });
+  });
+
+  it('never holds when the deck could not move on to an ordinary slide', () => {
+    const onSlide = vi.fn();
+    const { unmount } = render(<ManualSlideshow slides={[held]} slideshowDelaySec={5} onSlide={onSlide} />);
+    expect(onSlide).toHaveBeenLastCalledWith({ key: '0:s_h', special: false });
+    unmount();
+    const onOnly = vi.fn();
+    render(<ManualSlideshow slides={[held, { ...held, id: 's_h2' }]} slideshowDelaySec={5} onSlide={onOnly} />);
+    expect(onOnly).toHaveBeenLastCalledWith({ key: '0:s_h', special: false });
+  });
+
+  it('stops holding when the slideshow goes away', () => {
+    const onSlide = vi.fn();
+    const { unmount } = render(<ManualSlideshow slides={[held, deck[0]]} slideshowDelaySec={5} onSlide={onSlide} />);
+    expect(onSlide).toHaveBeenLastCalledWith({ key: '0:s_h', special: true });
+    unmount();
+    expect(onSlide).toHaveBeenLastCalledWith({ key: 'none', special: false });
+  });
+
+  it('sweeps the stinger over any change that involves a held slide, and only then', () => {
+    const { container } = render(<ManualSlideshow slides={[deck[0], deck[2], held]} slideshowDelaySec={5} />);
+    expect(container.querySelector('.slide-stinger')).toBeNull();
+    act(() => vi.advanceTimersByTime(5000)); // ordinary → ordinary: a crossfade
+    expect(container.querySelector('.slide-stinger')).toBeNull();
+    act(() => vi.advanceTimersByTime(5000)); // → the held slide: the wipe
+    expect(container.querySelectorAll('.slide-stinger')).toHaveLength(1);
+  });
+});

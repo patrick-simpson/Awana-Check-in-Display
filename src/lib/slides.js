@@ -191,7 +191,10 @@ export function sanitizeSlides(raw) {
       const videoSize = typeof entry.videoSize === 'number' && Number.isFinite(entry.videoSize) && entry.videoSize > 0
         ? Math.round(entry.videoSize)
         : 0;
-      clean.push({ id, type: 'video', videoId: entry.videoId, videoName, videoSize, durationSec });
+      /** @type {Record<string, unknown>} */
+      const video = { id, type: 'video', videoId: entry.videoId, videoName, videoSize, durationSec };
+      if (entry.holdCheckIns === true) video.holdCheckIns = true;
+      clean.push(video);
       continue;
     }
 
@@ -211,9 +214,27 @@ export function sanitizeSlides(raw) {
     if (showFrom) slide.showFrom = showFrom;
     const showUntil = showDate(entry.showUntil);
     if (showUntil) slide.showUntil = showUntil;
+    // "Hold check-ins while this slide is up": strictly `true` or absent,
+    // never false, exactly as the print server publishes it, so an unmarked
+    // deck stays byte-identical to what it always was.
+    if (entry.holdCheckIns === true) slide.holdCheckIns = true;
     clean.push(slide);
   }
   return clean;
+}
+
+/**
+ * Whether check-ins wait while this slide is up (rebrand stage 4): the fall
+ * promo posters always do (printed art, its own full-screen moment), and so
+ * does any slide the operator marks "Hold check-ins". The arrivals queue
+ * behind a WAITING chip and then play, each for their full time, on the
+ * next slide. Checks the promo type directly rather than importing
+ * isPromoSlide, which would make promos.js and this file import each other;
+ * slides.test.js pins that the two agree.
+ * @param {{ type?: unknown, holdCheckIns?: unknown } | null | undefined} slide
+ */
+export function holdsCheckIns(slide) {
+  return slide?.type === 'promo' || slide?.holdCheckIns === true;
 }
 
 /**
@@ -243,7 +264,7 @@ export function mergeSyncedDeck(syncedSlides, localSlides) {
   const textOf = (slides) => JSON.stringify(slides
     .filter((s) => !isVideoSlide(s))
     .map((s) => [s.eyebrow.replace(/\s+/g, ' ').trim(), s.text.trim(), s.theme, s.textSize, s.durationSec,
-      s.showFrom || '', s.showUntil || '']));
+      s.showFrom || '', s.showUntil || '', s.holdCheckIns === true]));
   if (textOf(local) === textOf(synced)) return local;
   // Re-sanitize the concatenation: it dedupes any id shared across the
   // two sources and re-applies the MAX_SLIDES cap.

@@ -19,6 +19,12 @@
 //   - When a hold ends with nobody waiting, the run ends and the banner
 //     leaves; a short gap follows before a new arrival starts the next run,
 //     so the exit and the next entrance never clip into each other.
+//   - While the lobby HOLDS check-ins (a promo poster or a slide marked
+//     "Hold check-ins" is up, rebrand stage 4) no new run starts: arrivals
+//     wait in order, and the moment the hold lifts they play as one run,
+//     each for their full time. A run already on screen is never cut off
+//     (the slideshow does not advance while names are up, so a held slide
+//     only ever arrives between runs; this is the belt to that brace).
 
 import { DEFAULT_HOLD_MS, MAX_QUEUE } from './constants.js';
 
@@ -35,16 +41,24 @@ import { DEFAULT_HOLD_MS, MAX_QUEUE } from './constants.js';
  *   run: number,
  *   step: number,
  *   gap: boolean,
+ *   held: boolean,
  * }} QueueState
  *
  * @typedef {{ type: 'enqueue', event: QueuedCheckIn }
  *   | { type: 'hold-done', id: number }
  *   | { type: 'gap-done' }
- *   | { type: 'skip' }} QueueAction
+ *   | { type: 'skip' }
+ *   | { type: 'hold', held: boolean }} QueueAction
  */
 
 /** @type {QueueState} */
-export const INITIAL_QUEUE_STATE = { queue: [], current: null, run: 0, step: 0, gap: false };
+export const INITIAL_QUEUE_STATE = { queue: [], current: null, run: 0, step: 0, gap: false, held: false };
+
+/** @param {QueueState} state  Start a fresh run with whoever is first in line. */
+function startRun(state) {
+  const [next, ...rest] = state.queue;
+  return next ? { ...state, current: next, queue: rest, run: state.run + 1, step: 0 } : state;
+}
 
 /**
  * How long one child's moment holds, in ms. Birthdays and first-timers get
@@ -72,8 +86,9 @@ export function holdMsFor(event, config) {
 export function checkInQueueReducer(state, action) {
   switch (action.type) {
     case 'enqueue': {
-      // Idle and not in the post-run gap: this child raises the wave now.
-      if (!state.current && !state.gap && state.queue.length === 0) {
+      // Idle, not in the post-run gap and not held: this child raises the
+      // wave now.
+      if (!state.current && !state.gap && !state.held && state.queue.length === 0) {
         return { ...state, current: action.event, run: state.run + 1, step: 0 };
       }
       // One on screen plus the waiting line never exceeds MAX_QUEUE, against
@@ -92,9 +107,16 @@ export function checkInQueueReducer(state, action) {
     }
     case 'gap-done': {
       if (!state.gap) return state;
-      const [next, ...rest] = state.queue;
-      if (next) return { ...state, gap: false, current: next, queue: rest, run: state.run + 1, step: 0 };
-      return { ...state, gap: false };
+      const open = { ...state, gap: false };
+      return open.held ? open : startRun(open);
+    }
+    case 'hold': {
+      const held = action.held === true;
+      if (held === state.held) return state;
+      const next = { ...state, held };
+      // The hold lifted with children waiting and the stage clear: they go
+      // now, as one run.
+      return !held && !next.current && !next.gap ? startRun(next) : next;
     }
     case 'skip': {
       // The operator (or a crashed banner) dismisses the child on screen:

@@ -4,12 +4,11 @@ import { M, ZeroAnimationContext } from './lib/motion.jsx';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import ParticleLayer from './components/ParticleLayer.jsx';
-import DataCycle from './components/DataCycle.jsx';
 import TonightTicker from './components/TonightTicker.jsx';
 import CheckoutBoard from './components/CheckoutBoard.jsx';
 import NoticeBanner from './components/NoticeBanner.jsx';
-import WallClock from './components/WallClock.jsx';
-import WeatherChip from './components/WeatherChip.jsx';
+import CornerChip from './components/CornerChip.jsx';
+import StepChip from './components/brand/StepChip.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import SlideEditorPanel from './components/SlideEditorPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
@@ -20,6 +19,8 @@ import StickerChip from './components/StickerChip.jsx';
 import ClubBadge from './components/ClubBadge.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
+import { useCornerItem } from './hooks/useCornerItem.js';
+import { DUR, EASE } from './lib/brand.js';
 import { useSocket, simulateEvent } from './hooks/useSocket.js';
 import { useSyncedDeck } from './hooks/useSyncedDeck.js';
 import { useSeenEvents } from './hooks/useSeenEvents.js';
@@ -115,7 +116,17 @@ export default function App() {
   // flagged-but-unmasked `effectiveConfig` straight from the store. Memoized so
   // `config` keeps a stable identity per store snapshot.
   const config = useMemo(() => applyPanicMode(effectiveConfig), [effectiveConfig]);
-  const { currentEvent, run: checkInRun, step: checkInStep, enqueue, skipCurrent, pending } = useCheckInQueue(config);
+  // The lobby director (rebrand stage 4). The typed slideshow reports each
+  // slide; a promo poster or a slide marked "Hold check-ins" holds the
+  // check-in queue while it is up, and names on screen pause the slideshow
+  // in turn, so the two never compete for the room. `special` only ever
+  // comes from a deck that can move on to an ordinary slide (see
+  // ManualSlideshow), so a child can never wait forever.
+  const [slideInfo, setSlideInfo] = useState({ key: 'none', special: false });
+  const checkInsHeld = !FLAGS.overlay && slideInfo.special;
+  const {
+    currentEvent, run: checkInRun, step: checkInStep, enqueue, skipCurrent, pending,
+  } = useCheckInQueue(config, { held: checkInsHeld });
   const { count, bump, reset: resetTally, sync: syncTally } = useTally();
   // Set (synchronously, before the reconciled `count` even commits) whenever
   // a tally broadcast jumps the counter, so the milestone effect below can
@@ -149,7 +160,7 @@ export default function App() {
   const {
     current: celebration,
     enqueue: enqueueCelebration,
-  } = useCelebrationQueue(MILESTONE_TOAST_MS);
+  } = useCelebrationQueue(MILESTONE_TOAST_MS, { held: checkInsHeld });
 
   // Confetti fires when a celebration reaches the SCREEN, not when it is
   // queued — otherwise a burst would go off for a toast nobody can see yet.
@@ -672,11 +683,32 @@ export default function App() {
     || Boolean(nameFault)
     || countsWithoutNames;
 
-  // 'cycle' (default): one big animated data point at a time, bottom
-  // right. 'stickers': the classic corner-chip layout. The connection
-  // status dot stays a corner sticker in both modes — a dead pipe must
-  // never be silent, so it can't wait its turn in a rotation.
-  const stickerMode = config.widgetDisplayMode === 'stickers';
+  // The corner info: ONE item at a time (the time, tonight's tally or the
+  // weather), moving on with each slide load and frozen in between (owner,
+  // 2026-09-27; src/lib/cornerInfo.js). The typed slideshow reports its
+  // loads; any other background (a PowerPoint embed, a video, a lone
+  // slide, the placeholder) cannot, so a timer on the slideshow delay
+  // stands in. The connection status sticker is not in the rotation: a
+  // dead pipe must never be silent, so it never waits its turn.
+  const slideDriven = !FLAGS.overlay && config.backgroundSource === 'manual'
+    && (autoSlides.length + visibleManualSlides.length) > 1;
+  const corner = useCornerItem(
+    {
+      clock: config.showClock === true,
+      tally: config.showTally ? count : 0,
+      weather: showWeatherChip ? weather : null,
+    },
+    { fallbackMs: slideDriven ? null : Math.max(5000, (Number(config.slideshowDelaySec) || 8) * 1000) },
+  );
+  const advanceCorner = corner.advance;
+  const handleSlide = useCallback((info) => {
+    setSlideInfo(info);
+    if (info.key !== 'none') advanceCorner();
+  }, [advanceCorner]);
+  // Hidden while a slide holds check-ins: a poster is its own moment. (While
+  // a name is up the slideshow is paused, so the corner simply holds still;
+  // the check-in wave covers the bottom corner anyway.)
+  const cornerHidden = FLAGS.overlay || checkInsHeld;
 
   // The sync note is opt-out (#351). Gated at RENDER, not at capture, so
   // turning it off in Settings hides one that is already up rather than
@@ -890,6 +922,8 @@ export default function App() {
             dim={mood.dim}
             clubTint={clubTint}
             reduceMotion={config.reduceMotion}
+            paused={currentEvent != null}
+            onSlide={handleSlide}
           />
         </ErrorBoundary>
       )}
@@ -923,17 +957,21 @@ export default function App() {
         <NoticeBanner notice={notice} />
       </ErrorBoundary>
 
-      {!overlay && !stickerMode && (
-        <ErrorBoundary label="data-cycle" eventKey={boardNow} onError={() => recordLayerFault('corner widgets')}>
-          <DataCycle
-            count={count}
-            syncNote={syncNote}
-            weather={weather}
-            showClock={config.showClock}
-            showTally={config.showTally}
-            showWeather={showWeatherChip}
-            intervalSec={config.cycleIntervalSec}
-          />
+      {/* The corner info's bottom corner (the time or tonight's tally); the
+          weather's is in the corner stack below. One item, one corner, at a
+          time: see useCornerItem. */}
+      {!overlay && (
+        <ErrorBoundary label="corner-info" eventKey={boardNow} onError={() => recordLayerFault('corner widgets')}>
+          <div className="corner-bottom">
+            <CornerChip
+              item={corner.item}
+              corner="bottom"
+              loads={corner.loads}
+              hidden={cornerHidden}
+              note={syncNote ? 'synced with the check-in desk' : null}
+              size="calc(3.1 * min(1vw, 1.7778vh))"
+            />
+          </div>
         </ErrorBoundary>
       )}
 
@@ -944,7 +982,7 @@ export default function App() {
           check-in banner via `active`; see TonightTicker.jsx. */}
       {!overlay && (
         <ErrorBoundary label="tonight-ticker" eventKey={boardNow} onError={() => recordLayerFault('tonight strip')}>
-          <TonightTicker tonight={tonight} active={!currentEvent} />
+          <TonightTicker tonight={tonight} active={!currentEvent && !checkInsHeld} />
         </ErrorBoundary>
       )}
 
@@ -958,14 +996,38 @@ export default function App() {
         </ErrorBoundary>
       )}
 
-      {/* Top-right corner stack: clock, weather chip, status dot flow
-          under one another so nothing ever overlaps. In cycle mode the
-          clock and weather live in the rotation instead, so only the
-          status dot remains up here. */}
-      {!overlay && ((stickerMode && (config.showClock || (showWeatherChip && weather))) || showStatus) && (
+      {/* Top-right corner stack: the corner info's top corner (the weather),
+          the WAITING chip while a slide holds check-ins, and the status
+          sticker, flowing under one another so nothing ever overlaps. The
+          status sticker is a problem indicator, not corner info: it shows
+          whenever there is a problem, whatever slide is up. */}
+      {!overlay && (
         <div className="corner-stack">
-          {stickerMode && config.showClock && <WallClock />}
-          {stickerMode && showWeatherChip && <WeatherChip weather={weather} />}
+          <CornerChip
+            item={corner.item}
+            corner="top"
+            loads={corner.loads}
+            hidden={cornerHidden}
+            size="calc(2.5 * min(1vw, 1.7778vh))"
+          />
+          {/* Arrivals held behind a poster or a marked slide: say how many
+              are waiting, so the room knows the names are coming. */}
+          <AnimatePresence>
+            {checkInsHeld && pending > 0 && (
+              <M.div
+                key="waiting"
+                className="corner-chip corner-chip--waiting"
+                role="status"
+                aria-label={`${pending} ${pending === 1 ? 'child' : 'children'} waiting to be welcomed`}
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9, transition: { duration: DUR.exit, ease: EASE.exit } }}
+                transition={{ duration: DUR.pop, ease: EASE.pop }}
+              >
+                <StepChip label="WAITING" value={pending} size="calc(2.5 * min(1vw, 1.7778vh))" />
+              </M.div>
+            )}
+          </AnimatePresence>
           {showStatus && (
             <StickerChip
               className={`status-dot ${status}`}
@@ -1011,42 +1073,6 @@ export default function App() {
         </div>
       )}
 
-      {!overlay && stickerMode && config.showTally && count > 0 && (
-        <StickerChip
-          className="tally"
-          label="Tonight"
-          tilt={1.2}
-          sparkle
-          sparkleDelay={5}
-          aria-live="off"
-        >
-          {/* Remounting on every increment gives the number a joyful
-              little pop-and-twist as each kid checks in. */}
-          <M.span
-            key={count}
-            className="tally-count"
-            initial={{ scale: 1.5, rotate: -8 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 15 }}
-          >
-            {count}
-          </M.span>
-          <span className="tally-label">checked in</span>
-          {/* Why the number just moved. See handleTally: only a jump of more
-              than one earns this, and it fades on its own timeout. */}
-          {syncNote && (
-            <M.span
-              className="tally-sync-note"
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              title={`${tallySync.from} → ${tallySync.to}`}
-            >
-              synced with the check-in desk
-            </M.span>
-          )}
-        </StickerChip>
-      )}
 
       {/* One toast, three sources — see useCelebrationQueue. `kind` picks the
           copy and styling; the queue guarantees only one is ever on screen.
@@ -1133,7 +1159,7 @@ export default function App() {
       </AnimatePresence>
 
       <AnimatePresence>
-        {!overlay && pending >= BURST_THRESHOLD && (
+        {!overlay && !checkInsHeld && pending >= BURST_THRESHOLD && (
           <M.div
             key="up-next"
             className="up-next"

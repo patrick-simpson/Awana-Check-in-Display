@@ -98,18 +98,10 @@ const config = {
   // at least once, so the chime is silent on first load either way.
   audioEnabledByDefault: false,
 
-  // How the corner data widgets (time, tally, weather, countdown) are
-  // presented:
-  //   'cycle'    — one big beautifully-animated data point at a time in
-  //                the bottom-right corner, cycling through whichever
-  //                items are enabled below (the default)
-  //   'stickers' — the classic look: sticker chips pinned to the top
-  //                corners plus the countdown card bottom-right
-  widgetDisplayMode: 'cycle',
-
-  // How long each data point holds the corner before the next one
-  // tumbles in (seconds). Only used in 'cycle' mode.
-  cycleIntervalSec: 3,
+  // The corner info (time, tonight's tally, weather) shows ONE item at a
+  // time, moving on with each slide (src/lib/cornerInfo.js); there is no
+  // layout or interval to choose any more. Any saved widgetDisplayMode or
+  // cycleIntervalSec is dropped by the validator like any unknown key.
 
   // Show a tiny "● connected" dot in the corner? Useful while setting up,
   // distracting during club. Defaults to hidden. (If the connection drops
