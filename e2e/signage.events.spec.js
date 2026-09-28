@@ -147,10 +147,15 @@ test('a tally broadcast reconciles the corner counter, including counting DOWN',
   await page.getByRole('button', { name: 'Simulate club tally (counts)' }).click();
   // #351 — an 80 → 78 correction is a two-step move, so the counter says
   // where it came from. Without this the room reads a counter that drops as
-  // a broken screen. (The note is live and brief; the number waits for the
-  // corner's next load, so check the note first.)
-  await expect(page.locator('.corner-chip--tally .corner-chip__note').first()).toHaveText(/synced with the check-in desk/i);
+  // a broken screen. The note rides the corner's next load, under the
+  // corrected number it explains.
   await expect(tally(78)).toBeAttached({ timeout: 12000 });
+  await expect(
+    page.locator('.corner-chip--tally')
+      .filter({ has: page.getByRole('img', { name: 'TONIGHT 78' }) })
+      .locator('.corner-chip__note')
+      .first(),
+  ).toHaveText(/synced with the check-in desk/i);
 });
 
 test('simulated events do not raise page errors', async ({ page }) => {

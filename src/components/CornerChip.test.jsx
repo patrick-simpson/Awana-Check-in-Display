@@ -25,11 +25,17 @@ describe('CornerChip', () => {
     expect(container.querySelector('.corner-chip')).toBeNull();
   });
 
-  it('carries the tally sync note, and only on the tally', async () => {
-    const tally = { id: 'tally', label: 'Tonight', value: '23', spoken: '23 checked in tonight', corner: 'bottom' };
-    const { container, rerender } = render(still(<CornerChip item={tally} corner="bottom" loads={1} note="synced" />));
+  it('shows the note its snapshot carries, unless Settings turned notes off', async () => {
+    const tally = {
+      id: 'tally', label: 'Tonight', value: '78', spoken: '78 checked in tonight', corner: 'bottom', note: 'synced',
+    };
+    const { container, rerender } = render(still(<CornerChip item={tally} corner="bottom" loads={1} />));
     expect(container.querySelector('.corner-chip__note').textContent).toBe('synced');
-    rerender(still(<CornerChip item={clock} corner="bottom" loads={2} note="synced" />));
+    // Gated at render: switching it off hides one that is already up.
+    rerender(still(<CornerChip item={tally} corner="bottom" loads={1} showNote={false} />));
+    expect(container.querySelector('.corner-chip__note')).toBeNull();
+    // A snapshot with no note has none, whatever the setting.
+    rerender(still(<CornerChip item={clock} corner="bottom" loads={2} />));
     await waitFor(() => expect(container.querySelector('.corner-chip__note')).toBeNull());
   });
 });
@@ -58,6 +64,37 @@ describe('useCornerItem', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('tells onShown about every load, whichever path made it', () => {
+    vi.useFakeTimers();
+    try {
+      const onShown = vi.fn();
+      const { result } = renderHook(() => useCornerItem(source(5), { fallbackMs: 8000, onShown }));
+      act(() => vi.advanceTimersByTime(0));
+      expect(onShown).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'clock' }));
+      act(() => result.current.advance());
+      expect(onShown).toHaveBeenLastCalledWith(expect.objectContaining({ id: 'tally', value: '5' }));
+      expect(onShown).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('carries a correction into the next tally load only', () => {
+    const correction = { from: 80, to: 78 };
+    const { result, rerender } = renderHook(({ s }) => useCornerItem(s), {
+      initialProps: { s: { clock: true, tally: 78, weather: null, correction } },
+    });
+    act(() => result.current.advance());
+    expect(result.current.item).toMatchObject({ id: 'clock' });
+    act(() => result.current.advance());
+    expect(result.current.item).toMatchObject({ id: 'tally', value: '78', note: 'synced with the check-in desk' });
+    // App spends the latch once the corner has carried it.
+    rerender({ s: { clock: true, tally: 78, weather: null, correction: null } });
+    act(() => result.current.advance());
+    act(() => result.current.advance());
+    expect(result.current.item).toMatchObject({ id: 'tally', note: null });
   });
 
   it('with no slides to follow, a timer stands in for the slide loads', () => {

@@ -1217,9 +1217,10 @@ function BannersTab({ form, set, setForm }) {
         onChange={set('showTallySyncNote')}
         title="Explain corrections to the corner counter"
         hint={<>
-          When the check-in desk's count jumps by more than one — or goes down after an undo — the corner
-          counter says &ldquo;synced with the check-in desk&rdquo; for a few seconds, so it reads as a
-          correction instead of a glitch. Single-step differences are always silent.
+          When the check-in desk's count jumps by more than one — or goes down after an undo — the next time
+          the counter comes round in the corner it says &ldquo;synced with the check-in desk&rdquo; under the
+          corrected number, so it reads as a correction instead of a glitch. Single-step differences are
+          always silent.
         </>}
       />
 
@@ -1283,7 +1284,7 @@ function DisplayTab({ form, set }) {
         checked={form.showClock}
         onChange={set('showClock')}
         title="Wall clock"
-        hint="The current time of day — joins the cycle, or sits top-right as a sticker."
+        hint="The current time of day, bottom-right, in the corner rotation. It shows the time as of each slide."
       />
 
       <Toggle
@@ -1538,7 +1539,7 @@ function CalendarTab({ form, set, setForm, calendar }) {
       <Toggle checked={form.seasonPromos} onChange={set('seasonPromos')}
         title="Fall event promos" hint="Poster Contest, BARF Night, Parents' Night. Animated, dated, retire themselves." />
       <Toggle checked={form.showWeatherChip} onChange={set('showWeatherChip')}
-        title="Corner weather" hint="Animated temperature with a living doodle of the sky — joins the cycle, or sits top-right as a sticker. Updates every 15 minutes; works over any background." />
+        title="Corner weather" hint="The temperature and the sky, top-right, in the corner rotation. The reading refreshes every 15 minutes; works over any background." />
 
       <div className="field" style={{ marginTop: '1rem' }}>
         <label htmlFor="wloc">Weather location</label>

@@ -11,18 +11,21 @@ import StepChip from './brand/StepChip.jsx';
  *
  * Keyed on the load count, so every slide load lands the chip afresh (a pop
  * on the brand's curve, a beat after the slide), and the previous one lifts
- * away. Hidden (a slide that holds check-ins) it simply leaves.
+ * away. Hidden (a slide that holds check-ins) it simply leaves. A note (the
+ * tally's "synced with the check-in desk") is part of the frozen snapshot, so
+ * it stays with the number it explains; `showNote` is the Settings opt-out,
+ * applied at render so turning it off hides one already up.
  *
  * @param {{
  *   item: import('../lib/cornerInfo.js').CornerSnapshot | null,
  *   corner: 'top' | 'bottom',
  *   loads: number,
  *   hidden?: boolean,
- *   note?: string | null,
+ *   showNote?: boolean,
  *   size?: string,
  * }} props
  */
-export default function CornerChip({ item, corner, loads, hidden = false, note = null, size }) {
+export default function CornerChip({ item, corner, loads, hidden = false, showNote = true, size }) {
   const show = !hidden && item && item.corner === corner;
   return (
     <AnimatePresence>
@@ -38,7 +41,7 @@ export default function CornerChip({ item, corner, loads, hidden = false, note =
           transition={{ duration: DUR.pop, delay: 0.3, ease: EASE.pop }}
         >
           <StepChip label={item.label.toUpperCase()} value={item.value} size={size} />
-          {note && item.id === 'tally' && <span className="corner-chip__note">{note}</span>}
+          {showNote && item.note && <span className="corner-chip__note">{item.note}</span>}
         </M.div>
       )}
     </AnimatePresence>

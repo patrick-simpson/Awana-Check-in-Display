@@ -136,13 +136,12 @@ const config = {
   awardMilestones: [10, 25, 50],
 
   // Show the current time of day (the countdown shows time-until-start;
-  // this is a plain wall clock). A headline item in 'cycle' mode, a
-  // top-right sticker in 'stickers' mode.
+  // this is a plain wall clock). Bottom-right, in the one-item corner
+  // rotation, frozen at each slide load (src/lib/cornerInfo.js).
   showClock: true,
 
-  // Animated weather — temperature plus a living doodle of the sky.
-  // Joins the cycle in 'cycle' mode, or sits under the clock as a
-  // top-right sticker in 'stickers' mode. Refreshes every 15 minutes
+  // Weather: the temperature and the sky's one-word label, top-right, in
+  // the one-item corner rotation. Refreshes every 15 minutes
   // from Open-Meteo (free, keyless). Works over any background source;
   // hides itself whenever no reading is available.
   showWeatherChip: true,

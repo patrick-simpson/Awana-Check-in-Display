@@ -30,6 +30,13 @@ export const MISSING_VIDEO_SKIP_MS = 4000;
 const STINGER_SEC = DUR.stinger * 2 + 0.08;
 // Mid-cover: the wave fills the screen from 47% to 53% of its run.
 const SWAP_AT = STINGER_SEC * 0.5;
+// Where the stinger travels, as a share of its own height: in from below
+// the screen, a hold high enough that the back wave's trough clears the top
+// edge (at 0% the crest left a band of the old slide showing across the top
+// of the TV while the slides swapped), and out past the top, fills and all.
+// The fills run 22% below the box (app.css) so the bottom stays covered at
+// the hold.
+export const STINGER_Y = ['120%', '-14%', '-14%', '-126%'];
 const SLIDE_VARIANTS = {
   enter: { opacity: 0 },
   show: (wipe) => ({
@@ -47,9 +54,9 @@ function Stinger() {
     <M.div
       className="slide-stinger"
       aria-hidden="true"
-      initial={{ y: '112%' }}
+      initial={{ y: STINGER_Y[0] }}
       // Ends off the top: the frame ?lowPower=1 jumps to shows nothing.
-      animate={{ y: ['112%', '0%', '0%', '-112%'] }}
+      animate={{ y: STINGER_Y }}
       transition={{ duration: STINGER_SEC, times: [0, 0.47, 0.53, 1], ease: [EASE.wipe, 'linear', EASE.wipe] }}
     >
       <Wave className="slide-stinger__wave slide-stinger__wave--back" color="var(--brand-sun)" flip />

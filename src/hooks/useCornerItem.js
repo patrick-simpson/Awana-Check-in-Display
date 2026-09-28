@@ -8,27 +8,36 @@ import { cornerIds, nextCornerId, snapshotCorner } from '../lib/cornerInfo.js';
  * App calls it from the typed slideshow's onSlide. A background with no
  * slides we can see (a PowerPoint embed, a video, a lone slide) passes
  * `fallbackMs`, and a timer stands in for the slide loads it cannot report.
+ * `onShown(snapshot)` hears every load, whichever path made it (App uses it
+ * to spend a tally correction once the corner has carried it).
  *
  * @param {import('../lib/cornerInfo.js').CornerSource} source  read at each load
- * @param {{ fallbackMs?: number | null }} [opts]
+ * @param {{
+ *   fallbackMs?: number | null,
+ *   onShown?: (item: import('../lib/cornerInfo.js').CornerSnapshot | null) => void,
+ * }} [opts]
  */
-export function useCornerItem(source, { fallbackMs = null } = {}) {
-  const latest = useRef(source);
+export function useCornerItem(source, { fallbackMs = null, onShown } = {}) {
+  const latest = useRef({ source, onShown });
   useEffect(() => {
-    latest.current = source;
+    latest.current = { source, onShown };
   });
 
   const [item, setItem] = useState(/** @type {import('../lib/cornerInfo.js').CornerSnapshot | null} */ (null));
   const [loads, setLoads] = useState(0);
+  // The item on screen, for picking the next one outside a state updater
+  // (so the snapshot can be handed to onShown without a side effect inside
+  // an updater, which StrictMode would run twice).
+  const shown = useRef(/** @type {import('../lib/cornerInfo.js').CornerSnapshot | null} */ (null));
 
   const advance = useCallback(() => {
-    const src = latest.current;
-    const now = Date.now();
-    setItem((prev) => {
-      const id = nextCornerId(cornerIds(src), prev?.id ?? null);
-      return id ? snapshotCorner(id, src, now) : null;
-    });
+    const { source: src, onShown: tell } = latest.current;
+    const id = nextCornerId(cornerIds(src), shown.current?.id ?? null);
+    const next = id ? snapshotCorner(id, src, Date.now()) : null;
+    shown.current = next;
+    setItem(next);
     setLoads((n) => n + 1);
+    tell?.(next);
   }, []);
 
   useEffect(() => {

@@ -5,8 +5,8 @@ import { isFresh } from '../lib/freshness.js';
 import { TONIGHT_STALE_MS } from '../lib/constants.js';
 
 // How often the ticker re-checks its own freshness against the clock.
-// Coarser than DataCycle's 1s clock tick — this only has to notice a
-// quiet print server within a minute or two, not animate a face.
+// Coarse on purpose — this only has to notice a quiet print server within a
+// minute or two, not animate a face.
 const FRESHNESS_CHECK_MS = 30000;
 
 const ROW_SPECS = [
@@ -35,14 +35,12 @@ export function tonightRows(tonight) {
  * awards earned, friends brought).
  *
  * This joins the stage as a persistent low-profile strip rather than
- * another face in DataCycle's rotation: DataCycle holds one
- * operator-configured widget (clock/tally/weather) at a time, but these
- * four counts read best together as a single glanceable row, and they're
- * driven by the realtime feed rather than a Settings toggle — mixing the
- * two would mean either breaking the counts into four separate rotation
- * slots (crowding out the clock/weather the operator asked for) or
- * teaching DataCycle about a fifth, differently-shaped data source. A
- * quiet strip of its own keeps both simple.
+ * another item in the corner rotation (src/lib/cornerInfo.js), which holds
+ * one operator-configured item (clock/tally/weather) at a time: these four
+ * counts read best together as a single glanceable row, and they're driven
+ * by the realtime feed rather than a Settings toggle. Breaking them into
+ * four rotation slots would crowd out the clock and weather the operator
+ * asked for. A quiet strip of its own keeps both simple.
  *
  * `active` (false while a check-in banner holds the stage) unmounts it
  * via AnimatePresence instead of leaning on z-index alone — a clean dip

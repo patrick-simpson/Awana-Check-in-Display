@@ -333,24 +333,26 @@ html, body, #root {
 }
 .slide-stinger__wave--back {
   height: 118%;
-  bottom: -2%;
 }
 .slide-stinger__wave--front {
   height: 108%;
-  bottom: -2%;
 }
+/* The solid bodies under each wave. They start below each crest (so no flat
+   edge ever pokes above a wave) and run 22% past the box's bottom, which is
+   what keeps the bottom of the screen covered while the stinger holds 14%
+   high (STINGER_Y in ManualSlideshow.jsx). */
 .slide-stinger__fill {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -2%;
+  bottom: -22%;
 }
 .slide-stinger__fill--back {
-  height: 92%;
+  height: 112%;
   background: var(--brand-sun);
 }
 .slide-stinger__fill--front {
-  height: 84%;
+  height: 104%;
   background: var(--brand-orange);
 }
 .manual-slide {
@@ -1441,7 +1443,7 @@ html, body, #root {
   50%      { opacity: 0.35; }
 }
 
-/* ── Top-right corner stack: clock / weather / status ───── */
+/* ── Top-right corner stack: status, then weather / WAITING ───── */
 .corner-stack {
   position: absolute;
   top: var(--safe-inset);
@@ -1466,8 +1468,13 @@ html, body, #root {
   justify-items: end;
 }
 /* The outgoing and incoming chips cross over in the same spot. */
-.corner-bottom > .corner-chip {
+.corner-bottom > .corner-chip,
+.corner-top > .corner-chip {
   grid-area: 1 / 1;
+}
+.corner-top {
+  display: grid;
+  justify-items: end;
 }
 .corner-chip {
   display: flex;
@@ -2810,7 +2817,7 @@ input:focus-visible {
 
 /* ── Tonight ticker (onTonight): lobby stat strip ─────────────────── */
 /* A persistent low-profile strip, bottom-center, well clear of the
-   bottom-left settings gear and bottom-right DataCycle corner. Sits
+   bottom-left settings gear and the bottom-right corner chip. Sits
    below the celebration banner's z-index as a belt-and-suspenders (it
    also unmounts via `active` while a banner is up, see TonightTicker.jsx),
    so a stray frame mid-transition still can't visually fight a banner. */
@@ -2819,7 +2826,7 @@ input:focus-visible {
   bottom: var(--safe-inset);
   /* Centered WITHOUT translateX: framer-motion drives this element's
      transform (the y rise), which silently discarded a CSS translate and
-     let the strip drift right into the DataCycle corner. */
+     let the strip drift right into the corner chip. */
   left: 0;
   right: 0;
   margin-inline: auto;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cornerIds, nextCornerId, snapshotCorner } from './cornerInfo.js';
+import { cornerIds, nextCornerId, snapshotCorner, TALLY_SYNC_NOTE } from './cornerInfo.js';
 
 const src = (extra = {}) => ({ clock: true, tally: 23, weather: { temp: 58.4, code: 3, isDay: true }, ...extra });
 
@@ -40,7 +40,19 @@ describe('snapshotCorner', () => {
   });
 
   it('freezes the tally, bottom corner', () => {
-    expect(snapshotCorner('tally', src(), at)).toMatchObject({ label: 'Tonight', value: '23', corner: 'bottom' });
+    expect(snapshotCorner('tally', src(), at)).toMatchObject({
+      label: 'Tonight', value: '23', corner: 'bottom', note: null, correction: null,
+    });
+  });
+
+  it('carries a correction into the tally it explains (#351), and only the tally', () => {
+    const correction = { from: 80, to: 78 };
+    const t = snapshotCorner('tally', src({ tally: 78, correction }), at);
+    expect(t).toMatchObject({ value: '78', note: TALLY_SYNC_NOTE, correction });
+    expect(t.correction).toBe(correction);
+    expect(t.spoken).toBe(`78 checked in tonight, ${TALLY_SYNC_NOTE}`);
+    expect(snapshotCorner('clock', src({ correction }), at).note).toBeUndefined();
+    expect(snapshotCorner('weather', src({ correction }), at).note).toBeUndefined();
   });
 
   it('names the weather and rounds the temperature, top corner', () => {

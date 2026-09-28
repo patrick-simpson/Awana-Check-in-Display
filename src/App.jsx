@@ -55,7 +55,7 @@ import {
 } from './lib/firstOfNight.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
 import { useBuildReload } from './hooks/useBuildReload.js';
-import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, TALLY_SYNC_NOTE_MS } from './lib/constants.js';
+import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -137,12 +137,16 @@ export default function App() {
   // …and the visible half of the same event (#351): when a broadcast moves the
   // counter by MORE than one, say so under the number. A wall that jumps 38 →
   // 45, or counts down after an operator undo, otherwise looks broken to
-  // everyone standing in the lobby. { from, to } for the wording; cleared by a
-  // plain timeout, deliberately NOT the celebration queue — an explanation must
-  // never be able to displace a milestone toast.
+  // everyone standing in the lobby. { from, to } for the wording. The corner
+  // shows the tally only at its own slide loads, frozen in between, so this is
+  // a LATCH rather than a timer: the next tally snapshot carries it (the note
+  // then sits under the corrected number for that one load) and clears it.
+  // Deliberately NOT the celebration queue: an explanation must never be able
+  // to displace a milestone toast.
   const [tallySync, setTallySync] = useState(/** @type {{from: number, to: number}|null} */ (null));
-  const tallySyncTimerRef = useRef(null);
-  useEffect(() => () => clearTimeout(tallySyncTimerRef.current), []);
+  // A correction to a counter nobody can see explains nothing later on.
+  const showTallyRef = useRef(config.showTally);
+  useEffect(() => { showTallyRef.current = config.showTally; }, [config.showTally]);
   const { hasSeen, markSeen, stats: seenStats } = useSeenEvents();
   // `specialDates` is the shared schedule's break-week table (#342) — the same
   // file the projector reads. resolvePhase already applies it (a cancelled
@@ -160,6 +164,7 @@ export default function App() {
   const {
     current: celebration,
     enqueue: enqueueCelebration,
+    depth: celebrationDepth,
   } = useCelebrationQueue(MILESTONE_TOAST_MS, { held: checkInsHeld });
 
   // Confetti fires when a celebration reaches the SCREEN, not when it is
@@ -238,10 +243,8 @@ export default function App() {
       // One-step deltas are ordinary broadcast ordering (our bump() and the
       // printer's total crossing paths) and happen constantly — narrating
       // those would be noise, and would teach the room to ignore the note.
-      if (Math.abs(delta) > 1) {
+      if (Math.abs(delta) > 1 && showTallyRef.current) {
         setTallySync({ from: tally.total - delta, to: tally.total });
-        clearTimeout(tallySyncTimerRef.current);
-        tallySyncTimerRef.current = setTimeout(() => setTallySync(null), TALLY_SYNC_NOTE_MS);
       }
     }
   }, [config.clubMilestoneEvery, enqueueCelebration, syncTally]);
@@ -661,15 +664,22 @@ export default function App() {
   // celebration, the checkout board in any visible state, an open panel, or an
   // event that landed in the last few seconds. There is no deadline, so a rush
   // simply postpones the reload until it is over.
+  //
+  // Anyone WAITING counts too: behind a slide that holds check-ins the stage
+  // can be empty for minutes with children in line, and the line lives only
+  // in memory. A reload then would drop them for good (they are already
+  // marked seen, so no recap brings them back).
   const buildReloadBusy = useCallback(() => (
     currentEvent != null
+    || pending > 0
     || celebration != null
+    || celebrationDepth() > 0
     || settingsOpen
     || slideEditorOpen
     || debugOpen
     || boardDecision.state !== BOARD_HIDDEN
     || (lastEventAt != null && Date.now() - lastEventAt < BUILD_QUIET_MS)
-  ), [currentEvent, celebration, settingsOpen, slideEditorOpen, debugOpen,
+  ), [currentEvent, pending, celebration, celebrationDepth, settingsOpen, slideEditorOpen, debugOpen,
     boardDecision.state, lastEventAt]);
   useBuildReload(buildReloadBusy);
 
@@ -690,6 +700,9 @@ export default function App() {
   // slide, the placeholder) cannot, so a timer on the slideshow delay
   // stands in. The connection status sticker is not in the rotation: a
   // dead pipe must never be silent, so it never waits its turn.
+  const clearShownCorrection = useCallback((shown) => {
+    if (shown?.correction) setTallySync((latched) => (latched === shown.correction ? null : latched));
+  }, []);
   const slideDriven = !FLAGS.overlay && config.backgroundSource === 'manual'
     && (autoSlides.length + visibleManualSlides.length) > 1;
   const corner = useCornerItem(
@@ -697,13 +710,23 @@ export default function App() {
       clock: config.showClock === true,
       tally: config.showTally ? count : 0,
       weather: showWeatherChip ? weather : null,
+      correction: config.showTally ? tallySync : null,
     },
-    { fallbackMs: slideDriven ? null : Math.max(5000, (Number(config.slideshowDelaySec) || 8) * 1000) },
+    {
+      fallbackMs: slideDriven ? null : Math.max(5000, (Number(config.slideshowDelaySec) || 8) * 1000),
+      // The correction has reached the corner, frozen into this tally
+      // snapshot, so the latch is spent; the next tally load is ordinary.
+      onShown: clearShownCorrection,
+    },
   );
   const advanceCorner = corner.advance;
+  // A slide that holds check-ins is not a load the corner counts: it is
+  // hidden there, so an item picked on it would be skipped unseen (with the
+  // default three-slide deck and three items, the same one every lap). The
+  // first ordinary slide after it picks up where the corner left off.
   const handleSlide = useCallback((info) => {
     setSlideInfo(info);
-    if (info.key !== 'none') advanceCorner();
+    if (info.key !== 'none' && !info.special) advanceCorner();
   }, [advanceCorner]);
   // Hidden while a slide holds check-ins: a poster is its own moment. (While
   // a name is up the slideshow is paused, so the corner simply holds still;
@@ -713,7 +736,7 @@ export default function App() {
   // The sync note is opt-out (#351). Gated at RENDER, not at capture, so
   // turning it off in Settings hides one that is already up rather than
   // leaving a stuck note behind.
-  const syncNote = config.showTallySyncNote !== false && tallySync != null;
+  const syncNote = config.showTallySyncNote !== false;
 
   // Themed skin — 'auto' resolves by season, and because it derives
   // from todayStr it rolls over at midnight without a reload, like
@@ -968,16 +991,16 @@ export default function App() {
               corner="bottom"
               loads={corner.loads}
               hidden={cornerHidden}
-              note={syncNote ? 'synced with the check-in desk' : null}
+              showNote={syncNote}
               size="calc(3.1 * min(1vw, 1.7778vh))"
             />
           </div>
         </ErrorBoundary>
       )}
 
-      {/* Lobby "tonight" stat strip. Independent of widgetDisplayMode
+      {/* Lobby "tonight" stat strip. Not part of the corner rotation
           (it's realtime print-server data, not an operator-configured
-          corner widget) — only overlay mode (transparent OBS/ProPresenter
+          corner item) — only overlay mode (transparent OBS/ProPresenter
           source, banners + confetti only) hides it. Yields to an active
           check-in banner via `active`; see TonightTicker.jsx. */}
       {!overlay && (
@@ -996,38 +1019,13 @@ export default function App() {
         </ErrorBoundary>
       )}
 
-      {/* Top-right corner stack: the corner info's top corner (the weather),
-          the WAITING chip while a slide holds check-ins, and the status
-          sticker, flowing under one another so nothing ever overlaps. The
-          status sticker is a problem indicator, not corner info: it shows
-          whenever there is a problem, whatever slide is up. */}
+      {/* Top-right corner stack: the status sticker, then one slot shared by
+          the corner info's top corner (the weather) and the WAITING chip
+          while a slide holds check-ins. The status sticker is a problem
+          indicator, not corner info: it shows whenever there is a problem,
+          whatever slide is up. */}
       {!overlay && (
         <div className="corner-stack">
-          <CornerChip
-            item={corner.item}
-            corner="top"
-            loads={corner.loads}
-            hidden={cornerHidden}
-            size="calc(2.5 * min(1vw, 1.7778vh))"
-          />
-          {/* Arrivals held behind a poster or a marked slide: say how many
-              are waiting, so the room knows the names are coming. */}
-          <AnimatePresence>
-            {checkInsHeld && pending > 0 && (
-              <M.div
-                key="waiting"
-                className="corner-chip corner-chip--waiting"
-                role="status"
-                aria-label={`${pending} ${pending === 1 ? 'child' : 'children'} waiting to be welcomed`}
-                initial={{ opacity: 0, scale: 0.6 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9, transition: { duration: DUR.exit, ease: EASE.exit } }}
-                transition={{ duration: DUR.pop, ease: EASE.pop }}
-              >
-                <StepChip label="WAITING" value={pending} size="calc(2.5 * min(1vw, 1.7778vh))" />
-              </M.div>
-            )}
-          </AnimatePresence>
           {showStatus && (
             <StickerChip
               className={`status-dot ${status}`}
@@ -1070,6 +1068,37 @@ export default function App() {
               )}
             </StickerChip>
           )}
+          {/* The rotating slot sits UNDER the problem indicator, so the corner
+              info coming and going never moves it; the weather and the
+              WAITING chip never show together (the corner is hidden while
+              a slide holds check-ins) and cross over in one cell. */}
+          <div className="corner-top">
+            <CornerChip
+              item={corner.item}
+              corner="top"
+              loads={corner.loads}
+              hidden={cornerHidden}
+              size="calc(2.5 * min(1vw, 1.7778vh))"
+            />
+            {/* Arrivals held behind a poster or a marked slide: say how many
+                are waiting, so the room knows the names are coming. */}
+            <AnimatePresence>
+              {checkInsHeld && pending > 0 && (
+                <M.div
+                  key="waiting"
+                  className="corner-chip corner-chip--waiting"
+                  role="status"
+                  aria-label={`${pending} ${pending === 1 ? 'child' : 'children'} waiting to be welcomed`}
+                  initial={{ opacity: 0, scale: 0.6 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9, transition: { duration: DUR.exit, ease: EASE.exit } }}
+                  transition={{ duration: DUR.pop, ease: EASE.pop }}
+                >
+                  <StepChip label="WAITING" value={pending} size="calc(2.5 * min(1vw, 1.7778vh))" />
+                </M.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       )}
 

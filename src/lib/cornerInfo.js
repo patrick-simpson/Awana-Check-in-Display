@@ -32,14 +32,27 @@ export function formatClock(ms) {
 /** @typedef {'clock' | 'tally' | 'weather'} CornerId */
 
 /**
+ * `correction` is a tally reconciliation the room has not seen yet (#351): a
+ * broadcast that moved the count by more than one. It rides into the next
+ * tally snapshot, so "synced with the check-in desk" always sits under the
+ * CORRECTED number, frozen with it, rather than under whatever number the
+ * corner happened to be holding when the broadcast landed.
+ *
  * @typedef {{
  *   clock: boolean,
  *   tally: number,
  *   weather: { temp: number, code: number, isDay?: boolean, units?: string } | null,
+ *   correction?: object | null,
  * }} CornerSource
  *
- * @typedef {{ id: CornerId, label: string, value: string, spoken: string, corner: 'top' | 'bottom' }} CornerSnapshot
+ * @typedef {{
+ *   id: CornerId, label: string, value: string, spoken: string, corner: 'top' | 'bottom',
+ *   note?: string | null, correction?: object | null,
+ * }} CornerSnapshot
  */
+
+/** Under the tally when it carries a correction (#351). */
+export const TALLY_SYNC_NOTE = 'synced with the check-in desk';
 
 /**
  * The items that have something to say right now, in rotation order. The
@@ -86,7 +99,16 @@ export function snapshotCorner(id, src, now) {
   }
   if (id === 'tally') {
     const n = Math.max(0, Math.round(src.tally));
-    return { id, label: 'Tonight', value: String(n), spoken: `${n} checked in tonight`, corner: 'bottom' };
+    const correction = src.correction ?? null;
+    return {
+      id,
+      label: 'Tonight',
+      value: String(n),
+      spoken: correction ? `${n} checked in tonight, ${TALLY_SYNC_NOTE}` : `${n} checked in tonight`,
+      corner: 'bottom',
+      note: correction ? TALLY_SYNC_NOTE : null,
+      correction,
+    };
   }
   if (id === 'weather' && src.weather) {
     const { label } = weatherPresentation(src.weather.code, src.weather.isDay);
