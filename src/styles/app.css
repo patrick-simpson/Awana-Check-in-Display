@@ -496,74 +496,92 @@ html, body, #root {
 }
 
 /* ── Typed slides: editor panel ──────────────────────────── */
-/* "Hold check-ins while this slide is up" (stage 4). */
-.slide-card-hold {
-  display: flex;
-  gap: 0.6rem;
-  align-items: flex-start;
-  margin: 0.4rem 0 0.2rem;
-  cursor: pointer;
-}
-.slide-card-hold input {
-  margin-top: 0.2rem;
-  flex: none;
-}
-.slide-card-hold .hint {
-  display: block;
-}
 /* Same pinned header / scrolling body / pinned actions column as Settings
-   (.panel--tabbed); the compound selector outranks .panel--tabbed's width. */
+   (.panel--tabbed), and the same kit card: each slide is a white card on
+   the pale field, named by a corner tab carrying its index line. */
 .panel--tabbed.panel--slides {
-  width: min(53.75rem, 94vw);
+  width: min(62rem, 94vw);
 }
+.slide-card {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  column-gap: 1.35rem;
+  align-items: start;
+  background: #ffffff;
+  border: 1.5px solid var(--panel-card-line);
+  border-radius: 16px;
+  padding: 0 1.35rem 1.1rem;
+  margin-bottom: 1.1rem;
+  overflow: hidden;
+}
+.slide-card > .slide-card-tab {
+  grid-column: 1 / -1;
+  justify-self: start;
+  position: relative;
+  max-width: calc(100% + 1.35rem);
+  margin: 0 0 1rem -1.35rem;
+}
+.slide-card-tab .brand-tab__content {
+  padding: 0.7rem 3.1rem 1.25rem 1.35rem;
+}
+.slide-card-preview { grid-column: 1; }
+.slide-card-fields { grid-column: 2; }
 .slide-card-index {
-  font-size: 0.8rem;
-  font-weight: 800;
+  font-family: var(--font-condensed);
+  font-size: 1.1rem;
+  font-weight: 400;
+  line-height: 1;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--awana-blue);
-  margin-bottom: 0.5rem;
+  color: #ffffff;
+  white-space: nowrap;
 }
-.slide-card-index:focus { outline: 2px solid var(--awana-orange); outline-offset: 2px; border-radius: 4px; }
+/* The focus target after a move: on the blue tab the ring is white. Scoped
+   under .panel so it outranks the panels' Awana-blue `.panel :focus-visible`
+   ring below, which a KEYBOARD move matches (a blue ring on the blue tab
+   cannot be seen); a mouse move only ever matched this rule. The 2px offset
+   keeps the ring on the blob, clear of the tab's tapering tail. */
+.panel .slide-card-index:focus { outline: 3px solid #ffffff; outline-offset: 2px; border-radius: 4px; }
 /* Show-window badges (#345) on the editor's index line. The row itself is
    never hidden when a window closes — the operator has to be able to find
-   and fix the slide that stopped showing. */
+   and fix the slide that stopped showing. Small stickers on the tab. */
 .slide-window-badge {
   display: inline-block;
-  margin-left: 0.5rem;
-  padding: 0.1rem 0.5rem;
+  margin-left: 0.55rem;
+  padding: 0.22rem 0.55rem 0.18rem;
   border-radius: 999px;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  vertical-align: middle;
+  font-size: 0.82rem;
+  letter-spacing: 0.07em;
+  vertical-align: 1px;
 }
 .slide-window-badge.is-expired {
-  background: rgba(220, 38, 38, 0.14);
-  color: #b42318;
+  background: #ffffff;
+  color: var(--brand-sparks-deep);
 }
 .slide-window-badge.is-scheduled {
-  background: rgba(245, 158, 11, 0.18);
-  color: #8a5300;
+  background: var(--brand-sun);
+  color: var(--brand-ink);
 }
 .slide-card-fields .slide-counter { display: block; text-align: right; margin-top: 0.2rem; }
 .slide-empty {
-  padding: 1.5rem;
-  border: 2px dashed rgba(51, 66, 79, 0.25);
-  border-radius: var(--radius-md);
+  position: relative;
+  isolation: isolate;
+  margin: 0.25rem 0 1.25rem;
+  padding: 1.6rem 1.5rem;
+  border: 2px solid var(--brand-blue);
+  border-radius: 16px;
   text-align: center;
-  color: var(--ink-soft);
-  margin-bottom: 1rem;
+  font-size: 1.02rem;
+  color: var(--panel-ink);
 }
-.slide-card {
-  display: flex;
-  gap: 1rem;
-  align-items: flex-start;
-  background: #ffffff;
-  border: 2px solid rgba(51, 66, 79, 0.12);
-  border-radius: var(--radius-md);
-  padding: 1rem;
-  margin-bottom: 1rem;
+.slide-empty::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--brand-cloud);
+  translate: 6px 5px;
 }
 .slide-card-preview {
   position: relative;
@@ -573,7 +591,8 @@ html, body, #root {
   border-radius: var(--radius-sm);
   overflow: hidden;
   pointer-events: none;
-  box-shadow: var(--shadow-soft);
+  /* Flat, like the kit: a keyline and a hard offset, no blur. */
+  box-shadow: 0 0 0 1.5px var(--panel-card-line), 4px 4px 0 var(--brand-sky);
 }
 /* A fixed 1600×900 stage scaled down, so the thumbnail shows the same
    composition the TV will. */
@@ -622,63 +641,115 @@ html, body, #root {
   white-space: nowrap;
 }
 .slide-card-video-meta {
-  font-size: 0.9rem;
-  color: var(--ink-soft);
+  font-size: 0.98rem;
+  color: var(--panel-muted);
   margin-bottom: 0.75rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .slide-card-video-meta strong {
-  color: var(--ink);
+  color: var(--panel-ink);
 }
 .slide-card-fields {
-  flex: 1;
   min-width: 0;
 }
 .slide-card-fields .field {
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
 }
 .slide-card-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 0 1.1rem;
 }
 .slide-card-row .field {
   flex: 1 1 190px;
+}
+/* "Hold check-ins while this slide is up" (stage 4): its own keyline row,
+   warm while it is on, so a held slide reads as held at a glance. */
+.slide-card-hold {
+  display: flex;
+  gap: 0.8rem;
+  align-items: flex-start;
+  margin: 0.2rem 0 0.95rem;
+  padding: 0.8rem 0.95rem;
+  border: 2px solid var(--panel-card-line);
+  border-radius: 14px;
+  background: var(--panel-field);
+  cursor: pointer;
+}
+.slide-card-hold:has(input:checked) {
+  border-color: var(--brand-sun);
+  background: var(--brand-cream);
+}
+.slide-card-hold input {
+  flex: none;
+}
+.slide-card-hold .hint {
+  display: block;
+  margin-top: 0.15rem;
+  font-weight: 400;
 }
 .slide-card-controls {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
+.panel .slide-card-controls button {
+  min-height: 38px;
+  padding: 0.4rem 0.9rem 0.35rem;
+  font-size: 0.98rem;
+}
 .slide-editor-error {
-  padding: 0.7rem 0.9rem;
-  border-radius: var(--radius-sm);
-  background: rgba(225, 75, 75, 0.1);
-  border: 1px solid rgba(225, 75, 75, 0.4);
-  color: var(--awana-red);
-  font-size: 0.9rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 2px solid var(--brand-sparks-deep);
+  border-left-width: 6px;
+  color: var(--brand-sparks-deep);
+  font-size: 0.95rem;
   font-weight: 700;
   margin-bottom: 0.75rem;
 }
+/* Background source: the choices as kit chips; the chosen one is blue. */
 .radio-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem 1.25rem;
+  gap: 0.6rem;
 }
-.radio-option {
-  display: flex;
+.panel .radio-option {
+  display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.45rem 1.05rem 0.45rem 0.75rem;
+  border: 2px solid var(--panel-keyline);
+  border-radius: 999px;
+  background: #ffffff;
   font-weight: 700;
   cursor: pointer;
 }
-.radio-option input[type='radio'] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--awana-orange-deep);
+.panel .radio-option:has(input:checked) {
+  border-color: var(--brand-blue);
+  background: var(--brand-cloud);
+  color: var(--brand-blue-deep);
+  box-shadow: 0 3px 0 var(--brand-blue);
+}
+.panel .radio-option input[type='radio'] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border: 2px solid var(--panel-keyline);
+  border-radius: 50%;
+  background: #ffffff;
   cursor: pointer;
+}
+.panel .radio-option input[type='radio']:checked {
+  border-color: var(--brand-blue);
+  background: radial-gradient(circle, var(--brand-blue) 0 42%, #ffffff 48%);
 }
 
 /* Transparent overlay layer: the check-in moment lives here. */
@@ -1039,253 +1110,466 @@ html, body, #root {
 /* Faint, not gone: a volunteer at an unconfigured TV must be able to find the way in. */
 .settings-gear.idle { opacity: 0.12; pointer-events: auto; }
 
-/* ── Panels: catalog paper — cream, charcoal ink, orange CTAs ── */
+/* ── Panels: the operator's kit card ─────────────────────────────────────
+   Settings, the slide editor and the debug panel (and the first-run card,
+   which is a .panel too) speak the printer dashboard's language from the
+   approved mockup: an Awana-blue header band carrying the white Awana Clubs
+   mark and a Londrina title, white cards on a pale field named by the kit's
+   corner tabs, Figtree for everything read, Londrina for tabs and buttons,
+   the hot sticker for the ONE primary action, Awana-blue focus rings, and
+   status readouts on the chip's plate-and-keyline. Flat, like the kit:
+   depth is a hard offset, never a blur. An operator tool on the lobby TV,
+   so it stays calm, dark-on-light and legible at arm's length. */
 .panel-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(17, 24, 39, 0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  /* The chip charcoal (#030404 at 50%): a flat scrim, no blur to pay for. */
+  background: rgba(3, 4, 4, 0.5);
   display: grid;
   place-items: center;
   z-index: 100;
+}
+.panel,
+.debug {
+  --panel-ink: var(--brand-ink);
+  /* 7.5:1 on white; every hint is read, so none of it may go faint. */
+  --panel-muted: #4F5561;
+  /* The dashboard's pale field, the card keyline, and the control keyline
+     (3.6:1 on white, the non-text contrast a field's edge needs). */
+  --panel-field: #F2F6FB;
+  --panel-card-line: #DCE4EF;
+  --panel-keyline: #7A879B;
+  --panel-placeholder: #6B7280;
+  --panel-radius: 22px;
+  --panel-pad: 2rem;
+  font-family: var(--font-body);
+  color: var(--panel-ink);
 }
 .panel {
   width: min(36.25rem, 92vw);
   max-height: 88vh;
   overflow-y: auto;
-  background: linear-gradient(180deg, #fffdf7 0%, var(--awana-cream) 100%);
-  color: var(--ink);
+  background: #ffffff;
   border: 0;
-  border-radius: var(--radius-lg);
+  border-radius: var(--panel-radius);
   padding: 2.25rem;
-  box-shadow: var(--shadow-deep);
+  box-shadow: 0.6rem 0.6rem 0 rgba(3, 4, 4, 0.32);
   scrollbar-width: thin;
-  scrollbar-color: rgba(51, 66, 79, 0.35) transparent;
+  scrollbar-color: var(--panel-keyline) transparent;
 }
 .panel::-webkit-scrollbar { width: 8px; }
 .panel::-webkit-scrollbar-thumb {
-  background: rgba(51, 66, 79, 0.3);
+  background: var(--panel-keyline);
   border-radius: 999px;
 }
 .panel h2 {
   margin: 0 0 1.25rem;
-  font-family: var(--font-display);
+  font-family: var(--font-condensed);
   font-size: 2rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--awana-orange-deep);
+  color: var(--panel-ink);
 }
+/* Section headings: Londrina tracked caps. Inside a card they ride the
+   card's corner tab (.panel-card__tab below). */
 .panel h3.section {
-  margin: 1.75rem 0 0.85rem;
-  padding-top: 1.25rem;
-  border-top: 2px dashed rgba(51, 66, 79, 0.15);
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-family: var(--font-condensed);
+  font-size: 1.1rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--awana-blue);
+  color: var(--brand-blue-deep);
 }
-.panel h3.section:first-of-type { margin-top: 1rem; }
-/* A section heading that opens a tab needs no rule above it. */
-.panel-body > h3.section:first-child { margin-top: 0.25rem; padding-top: 0; border-top: 0; }
 
-/* ── Tabbed settings panel ───────────────────────────────── */
-/* The panel becomes a fixed-height column: header + tab rail pinned on
-   top, fields scrolling in the middle, Save/Cancel always visible at
-   the bottom — crucial when driving a TV from a couch. */
+/* One short entrance on the settle curve, opacity and translate only.
+   The zero-animation rule removes it, and the panel then simply is. It
+   animates `translate`, not `transform`, so April Fools' rotation (which
+   owns transform) is left alone. */
+@keyframes panel-enter {
+  from { opacity: 0; translate: 0 0.75rem; }
+}
+.panel--tabbed,
+.debug {
+  animation: panel-enter var(--brand-dur-settle) var(--brand-ease-settle) both;
+}
+
+/* ── Tabbed panels: Settings and the slide editor ────────────────────────
+   A fixed-height column: the header band and the tab rail pinned on top,
+   the cards scrolling on the pale field, the actions always visible at the
+   bottom (crucial when driving a TV from a couch). */
 .panel--tabbed {
-  width: min(52rem, 94vw);
-  height: min(52rem, 90vh);
-  max-height: 88vh;
+  width: min(60rem, 94vw);
+  height: min(56rem, 92vh);
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 1.75rem 0 1.5rem;
+  padding: 0 0 0.9rem;
 }
+/* The band: mark | title over the session line | the status readout. */
 .panel--tabbed .panel-header {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  padding: 0 2rem;
+  column-gap: 1.35rem;
+  row-gap: 0.3rem;
+  padding: 1.05rem var(--panel-pad) 1.1rem;
+  background: var(--brand-blue);
+  color: #ffffff;
+  flex-shrink: 0;
 }
-.panel--tabbed .panel-header h2 { margin: 0; }
-.panel--tabbed .panel-header .status-line {
+.panel-mark {
+  display: block;
+  width: 7rem;
+  height: auto;
+  user-select: none;
+}
+.panel--tabbed .panel-header .panel-mark { grid-column: 1; grid-row: 1 / span 2; }
+.panel--tabbed .panel-header h2 {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: end;
   margin: 0;
-  padding: 0.45rem 0.9rem;
-  font-size: 0.8rem;
+  font-size: 2.15rem;
+  color: #ffffff;
 }
+.panel--tabbed .panel-header .hint.panel-sub {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: start;
+  color: #ffffff;
+  font-size: 0.92rem;
+}
+.panel--tabbed .panel-header .status-line {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  max-width: 24rem;
+  margin: 0;
+}
+/* Something is wrong (printer failures, a crashed layer, the central config,
+   the wake lock, demo mode): a white note across the band, keyed in the
+   Sparks red, or sunflower for the softer ones. */
+.panel .panel-header .hint.panel-alert {
+  grid-column: 1 / -1;
+  margin-top: 0.45rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 12px;
+  border-left: 6px solid var(--brand-sparks-deep);
+  background: #ffffff;
+  color: var(--panel-ink);
+  font-size: 0.92rem;
+}
+.panel .panel-header .hint.panel-alert--warn { border-left-color: var(--brand-sun); }
+.panel .panel-header .hint.panel-alert code { color: var(--panel-ink); }
+
+/* The tab rail: Londrina tracked caps; the open tab is the blue chip. */
 .panel-tabs {
   display: flex;
-  gap: 0.25rem;
-  margin-top: 1rem;
-  padding: 0 2rem;
-  border-bottom: 2px dashed rgba(51, 66, 79, 0.15);
+  gap: 0.35rem;
+  padding: 0.7rem var(--panel-pad) 0.75rem;
+  background: #ffffff;
+  border-bottom: 2px solid var(--panel-card-line);
   overflow-x: auto;
   scrollbar-width: none;
   flex-shrink: 0;
 }
 .panel-tabs::-webkit-scrollbar { display: none; }
 .panel button.panel-tab {
-  /* Overrides the generic .panel button pill look — tabs are flat
-     type with an orange underline, like the catalog section headers. */
+  /* Overrides the generic .panel button look: a tab is type, not a key. */
   appearance: none;
-  border: 0;
-  border-radius: 8px 8px 0 0;
-  background: none;
-  padding: 0.65rem 0.8rem 0.75rem;
   min-height: 44px;
-  font-family: var(--font-condensed);
-  font-weight: 600;
-  font-size: 0.88rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-  cursor: pointer;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
+  padding: 0.55rem 1.05rem 0.5rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 1.08rem;
+  letter-spacing: 0.07em;
+  color: var(--panel-muted);
   white-space: nowrap;
-  transition: color 0.15s ease, border-color 0.15s ease;
 }
-.panel button.panel-tab:hover { color: var(--ink); background: rgba(247, 164, 28, 0.08); }
+.panel button.panel-tab:hover { color: var(--panel-ink); background: var(--brand-cloud); }
+.panel button.panel-tab:active { transform: none; }
 .panel button.panel-tab[aria-selected='true'] {
-  color: var(--awana-orange-deep);
-  border-bottom: 3px solid var(--awana-orange);
+  color: #ffffff;
+  background: var(--brand-blue);
+  box-shadow: 0 3px 0 var(--brand-blue-deep);
 }
-.panel button.panel-tab:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(247, 164, 28, 0.4);
-}
+
+/* The body: cards on the pale field. */
 .panel-body {
   flex: 1;
   overflow-y: auto;
-  padding: 1.25rem 2rem 0.5rem;
+  padding: 1.35rem var(--panel-pad) 0.6rem;
+  background: var(--panel-field);
   scrollbar-width: thin;
-  scrollbar-color: rgba(51, 66, 79, 0.35) transparent;
+  scrollbar-color: var(--panel-keyline) transparent;
 }
 .panel-body::-webkit-scrollbar { width: 8px; }
 .panel-body::-webkit-scrollbar-thumb {
-  background: rgba(51, 66, 79, 0.3);
+  background: var(--panel-keyline);
   border-radius: 999px;
 }
 .panel-body:focus { outline: none; }
-.panel--tabbed .actions {
-  margin-top: 1rem;
-  padding: 1.25rem 2rem 0;
-  border-top: 2px dashed rgba(51, 66, 79, 0.15);
-  flex-shrink: 0;
+
+/* A card: white on the field, like the dashboard's. A titled one wears the
+   kit's corner tab at its top-left, bleeding off the corner (the card clips
+   it), with the section heading in its fat end. */
+.panel-card {
+  background: #ffffff;
+  border: 1.5px solid var(--panel-card-line);
+  border-radius: 16px;
+  padding: 1.15rem 1.4rem 0.35rem;
+  margin-bottom: 1.1rem;
+  overflow: hidden;
 }
-.panel .toggle-title { font-weight: 800; }
-.panel .tab-intro {
-  margin-bottom: 1.25rem;
-  padding: 0.65rem 1rem;
-  border-radius: var(--radius-md);
-  background: rgba(51, 66, 79, 0.06);
+.panel-card > .panel-card__tab {
+  position: relative;
+  width: max-content;
+  max-width: calc(100% + 1.4rem);
+  margin: -1.15rem 0 1rem -1.4rem;
 }
+.panel-card__tab .brand-tab__content {
+  padding: 0.75rem 3.1rem 1.3rem 1.4rem;
+}
+.panel-card__tab h3.section { color: #ffffff; }
+
+/* A readout: the chip's plate and keyline on a light surface. The keyline
+   is the box; the plate is printed a little out of register behind it. */
+.panel .tab-intro,
+.panel .calendar-preview,
+.panel .notice-warn,
+.panel .panel-note {
+  position: relative;
+  isolation: isolate;
+  margin-bottom: 1.2rem;
+  padding: 0.75rem 1.05rem;
+  border: 2px solid var(--brand-blue);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--panel-ink);
+  font-size: 0.95rem;
+}
+.panel .tab-intro::before,
+.panel .calendar-preview::before,
+.panel .notice-warn::before,
+.panel .panel-note::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--brand-cloud);
+  translate: 5px 4px;
+}
+/* A published deck is being ignored: sunflower, not red; nothing is broken. */
+.panel .notice-warn { border-color: var(--brand-orange-deep); }
+.panel .notice-warn::before { background: var(--brand-cream); }
 .panel .calendar-preview {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
-  margin-top: 0.75rem;
-  padding: 0.65rem 1rem;
-  border-radius: var(--radius-md);
-  background: rgba(247, 164, 28, 0.12);
-  border: 1px solid rgba(247, 164, 28, 0.35);
-  font-size: 0.85rem;
+  margin: 0.25rem 0 1.2rem;
   font-weight: 700;
-  color: var(--ink);
 }
-.panel button.small {
-  padding: 0.35rem 0.8rem;
-  font-size: 0.8rem;
-}
-.panel .lookup-row {
+/* Connection tab summary: three short lines, one fact each. */
+.panel .conn-summary > div + div { margin-top: 0.3rem; }
+.panel .panel-intro { display: block; margin-bottom: 1.1rem; }
+
+/* The status readout in the band: the kit's chip, literally: a white
+   keyline over its plate, printed out of register. */
+.panel .status-line {
+  position: relative;
+  isolation: isolate;
   display: flex;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding: 0.55rem 1rem;
+  border: 2px solid #ffffff;
+  border-radius: 14px;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.3;
 }
-.panel .lookup-row input { flex: 1; }
-.panel .lookup-row button { flex-shrink: 0; }
-.panel .hint.lookup-done { color: #2e7d32; font-weight: 700; }
-.panel .hint.lookup-error { color: var(--awana-red); font-weight: 700; }
+.panel .status-line::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  /* On the blue band the plate is the band's own deep shade, as the
+     mockup's dashboard draws its PRINTER / ONLINE chip. */
+  background: var(--brand-cubbies-deep);
+  translate: 5px 4px;
+}
+.panel .status-line .dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--panel-card-line);
+  box-shadow: 0 0 0 2px #ffffff;
+}
+.panel .status-line.connected .dot    { background: var(--brand-tnt); }
+.panel .status-line.connecting .dot   { background: var(--brand-sun); animation: pulse 1.2s ease-in-out infinite; }
+.panel .status-line.disconnected .dot { background: var(--brand-sparks); }
+
+/* ── Fields ─────────────────────────────────────────────────────────── */
 .panel .field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 1.15rem;
+  gap: 0.4rem;
+  margin-bottom: 1.2rem;
 }
 .panel label,
 .panel .field-label {
-  font-size: 0.9rem;
-  font-weight: 800;
-  color: var(--ink);
-  letter-spacing: 0.02em;
+  font-size: 1.02rem;
+  font-weight: 700;
+  color: var(--panel-ink);
+  letter-spacing: 0;
 }
 .panel .hint {
-  font-size: 0.82rem;
-  color: var(--ink-soft);
+  font-size: 0.93rem;
+  color: var(--panel-muted);
   line-height: 1.45;
 }
+.panel .hint strong { color: var(--panel-ink); }
+.panel .hint.lookup-done { color: var(--brand-tnt-deep); font-weight: 700; }
+.panel .hint.lookup-error,
+.panel .hint.hint--warn { color: var(--brand-sparks-deep); font-weight: 700; }
 .panel code {
-  background: rgba(51, 66, 79, 0.08);
-  border: 1px solid rgba(51, 66, 79, 0.12);
   padding: 1px 6px;
   border-radius: 6px;
-  font-family: 'Menlo', 'Consolas', monospace;
-  font-size: 0.9em;
+  border: 1px solid var(--panel-card-line);
+  background: var(--panel-field);
+  color: var(--panel-ink);
+  font-family: ui-monospace, 'Cascadia Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 0.88em;
 }
 .panel input[type='text'],
 .panel input[type='password'],
 .panel input[type='number'],
 .panel input[type='url'],
 .panel input[type='time'],
+.panel input[type='date'],
 .panel textarea,
 .panel select {
   width: 100%;
-  padding: 0.7rem 0.9rem;
-  border-radius: var(--radius-sm);
-  border: 2px solid rgba(51, 66, 79, 0.18);
+  min-height: 46px;
+  padding: 0.65rem 0.9rem;
+  border-radius: 12px;
+  border: 2px solid var(--panel-keyline);
   background: #ffffff;
-  color: var(--ink);
+  color: var(--panel-ink);
   font: inherit;
-  font-size: 0.95rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-size: 1.02rem;
 }
+.panel input::placeholder,
+.panel textarea::placeholder { color: var(--panel-placeholder); }
+.panel .field > input[type='number'] { max-width: 16rem; }
 .panel textarea {
   resize: vertical;
   min-height: 4.5rem;
   line-height: 1.4;
 }
+.panel select {
+  appearance: none;
+  padding-right: 2.6rem;
+  background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 11'%3E%3Cpath d='M1.7 1.7 9 8.6l7.3-6.9' fill='none' stroke='%23231F20' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 0.95rem center / 0.95rem auto;
+  cursor: pointer;
+}
+.panel input[type='file'] {
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--panel-muted);
+}
+.panel input[type='file']::file-selector-button {
+  margin-right: 0.8rem;
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--panel-keyline);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--panel-ink);
+  font-family: var(--font-condensed);
+  font-size: 1rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+/* Focus: Awana blue, everywhere in the panels (the page-wide orange ring
+   is the lobby's). Fields also take the blue keyline. */
+.panel :focus-visible,
+.debug :focus-visible {
+  outline: 3px solid var(--brand-blue);
+  outline-offset: 2px;
+}
+/* A date field's calendar button is its own tab stop, and while it holds
+   focus the field itself is not :focus (Chrome), only :focus-within. */
+.panel input[type='date']:focus-within,
 .panel input:focus,
 .panel textarea:focus,
 .panel select:focus {
-  outline: none;
-  border-color: var(--awana-orange);
-  box-shadow: 0 0 0 3px rgba(247, 164, 28, 0.3);
+  border-color: var(--brand-blue);
+  outline: 3px solid var(--brand-blue);
+  outline-offset: 2px;
 }
+
+/* The kit checkbox: a keyline box that fills Awana blue and pops the kit's
+   own check doodle. */
 .panel input[type='checkbox'] {
-  width: 20px;
-  height: 20px;
-  accent-color: var(--awana-orange-deep);
-  cursor: pointer;
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
   flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  border: 2px solid var(--panel-keyline);
+  border-radius: 9px;
+  background: #ffffff;
+  cursor: pointer;
 }
+.panel input[type='checkbox']::before {
+  content: '';
+  width: 19px;
+  height: 19px;
+  background: #ffffff;
+  -webkit-mask: url('../../shared/brand/doodles/check.svg') center / contain no-repeat;
+  mask: url('../../shared/brand/doodles/check.svg') center / contain no-repeat;
+  scale: 0;
+  transition: scale var(--brand-dur-quick) var(--brand-ease-pop);
+}
+.panel input[type='checkbox']:checked {
+  border-color: var(--brand-blue);
+  background: var(--brand-blue);
+}
+.panel input[type='checkbox']:checked::before { scale: 1; }
+
+/* The toggle row is a real <label>: whole row clickable, checkbox named. */
 .panel .toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.8rem 0;
-  border-top: 1px solid rgba(51, 66, 79, 0.1);
+  gap: 1.25rem;
+  padding: 0.85rem 0;
+  border-top: 1.5px solid var(--panel-card-line);
 }
 .panel .toggle:first-of-type { border-top: 0; }
 .panel h3.section + .toggle { border-top: 0; }
-/* The toggle row is a real <label>: whole row clickable, checkbox named. */
+/* A card that opens on a toggle (or on a field that does) needs no extra
+   air above it: the card's own padding is the gap. */
+.panel-card > .toggle:first-child,
+.panel-card > .field:first-child > .toggle:first-child { padding-top: 0.1rem; }
 .panel label.toggle {
   font-size: inherit;
   font-weight: inherit;
@@ -1295,10 +1579,36 @@ html, body, #root {
 .panel .toggle-copy {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.2rem;
   min-width: 0;
 }
+.panel .toggle-title { font-size: 1.02rem; font-weight: 700; }
 .panel .toggle-copy .hint { display: block; }
+
+/* The club's own chip, where the panel lists the clubs (club phrases),
+   as the dashboard lists them: Londrina caps on the club colour. */
+.panel .club-chip {
+  display: inline-block;
+  margin-right: 0.15rem;
+  padding: 0.3rem 0.75rem 0.28rem;
+  border-radius: 999px;
+  background: var(--club);
+  color: #ffffff;
+  font-family: var(--font-condensed);
+  font-size: 0.98rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 0 var(--club-deep);
+  vertical-align: 1px;
+}
+.panel .panel-phrases {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  column-gap: 1.25rem;
+}
+
 /* Disabled controls must LOOK disabled — the login button a volunteer meets
    first on a new screen used to render exactly like a live one. */
 .panel button:disabled,
@@ -1308,152 +1618,255 @@ html, body, #root {
   opacity: 0.45;
   cursor: not-allowed;
 }
+.panel button:disabled { box-shadow: none; }
 .panel button:disabled:hover { background: #ffffff; }
-.panel button.primary:disabled:hover { filter: none; }
-.panel .hint.hint--warn { color: var(--awana-red); font-weight: 700; }
-/* Connection tab summary: three short lines, one fact each. */
-.panel .conn-summary > div + div { margin-top: 0.3rem; }
-/* "A published deck arrived but this screen is set to X": amber, not red — nothing is broken. */
-.panel .notice-warn {
-  margin-bottom: 1rem;
-  padding: 0.65rem 1rem;
-  border-radius: var(--radius-md);
-  background: rgba(247, 164, 28, 0.12);
-  border: 1px solid rgba(247, 164, 28, 0.35);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--ink);
-}
-.panel .status-line {
+.panel button.primary:disabled:hover { background: var(--brand-hot); }
+.panel .lookup-row {
   display: flex;
+  gap: 0.6rem;
   align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  padding: 0.65rem 1rem;
-  border-radius: var(--radius-md);
-  background: rgba(51, 66, 79, 0.06);
-  font-weight: 700;
-  font-size: 0.9rem;
 }
-.panel .status-line .dot {
-  width: 10px; height: 10px; border-radius: 50%;
-  background: var(--status-idle);
-}
-.panel .status-line.connected .dot    { background: #43a047; }
-.panel .status-line.connecting .dot   { background: var(--awana-orange); animation: pulse 1.2s ease-in-out infinite; }
-.panel .status-line.disconnected .dot { background: var(--awana-red); }
+.panel .lookup-row input { flex: 1; }
+.panel .lookup-row button { flex-shrink: 0; }
+
+/* ── Buttons: Londrina caps on kit pills with a hard offset shadow ──────
+   The press moves the button, not its shadow (only transform animates). */
 .panel .actions {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.65rem;
   justify-content: flex-end;
   margin-top: 1.75rem;
   flex-wrap: wrap;
 }
 .panel button,
 .panel .actions label {
-  padding: 0.7rem 1.35rem;
-  border-radius: 14px;
-  border: 2px solid rgba(51, 66, 79, 0.2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 44px;
+  padding: 0.5rem 1.15rem 0.45rem;
+  border-radius: 999px;
+  border: 2px solid var(--panel-ink);
   background: #ffffff;
-  color: var(--ink);
-  font: inherit;
-  font-weight: 800;
+  color: var(--panel-ink);
+  font-family: var(--font-condensed);
+  font-size: 1.08rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  box-shadow: 0 3px 0 var(--panel-ink);
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: transform var(--brand-dur-quick) var(--brand-ease-settle);
 }
 .panel button:hover,
-.panel .actions label:hover { background: rgba(51, 66, 79, 0.06); }
+.panel .actions label:hover { background: var(--brand-cloud); }
 .panel button:active,
-.panel .actions label:active { transform: scale(0.97); }
+.panel .actions label:active { transform: translateY(2px); }
 
-/* The Save control is a <jelly-button> web component. Custom properties
-   pierce the shadow boundary — and outer-document rules on the host win
-   over its :host variant — so the vendored component takes the catalog
-   CTA palette and the same footprint as its sibling buttons. */
-.panel jelly-button {
-  --jelly-fill: var(--awana-orange-deep);
-  --jelly-label: #ffffff;
-  --jelly-button-height: 46px;
-  --jelly-button-min-width: 130px;
-  --jelly-button-font-size: 15px;
-  --jelly-button-radius: 14px;
-}
-.panel button.primary {
-  background: linear-gradient(135deg, var(--awana-gold) 0%, var(--awana-orange-deep) 100%);
-  color: #fff;
-  border-color: transparent;
-  box-shadow: 0 6px 20px rgba(242, 107, 33, 0.4);
-}
-.panel button.primary:hover { filter: brightness(1.06); }
-.panel button.danger {
-  background: #fff;
-  border-color: rgba(225, 75, 75, 0.4);
-  color: var(--awana-red);
-}
-.panel button.danger:hover { background: rgba(225, 75, 75, 0.08); }
+/* The quiet ones: tools and in-field actions. */
 .panel button.ghost {
-  border-style: dashed;
+  border-color: var(--panel-keyline);
+  box-shadow: 0 3px 0 var(--panel-keyline);
 }
-/* Second-rank action: outlined in the CTA orange (Save slides when Publish is primary). */
+/* Second rank: outlined in Awana blue (Save slides when Publish leads). */
 .panel button.secondary {
-  border-color: var(--awana-orange-deep);
-  color: var(--awana-orange-deep);
+  border-color: var(--brand-blue);
+  color: var(--brand-blue-deep);
+  box-shadow: 0 3px 0 var(--brand-blue);
 }
-.panel button.secondary:hover { background: rgba(242, 107, 33, 0.08); }
+/* The ONE primary action of a view: the hot sticker. */
+.panel button.primary {
+  border-color: var(--brand-hot);
+  background: var(--brand-hot);
+  color: #ffffff;
+  box-shadow: 0 4px 0 var(--brand-hot-deep);
+}
+.panel button.primary:hover { background: color-mix(in srgb, var(--brand-hot) 88%, var(--brand-hot-deep)); }
+.panel button.danger {
+  border-color: var(--brand-sparks-deep);
+  color: var(--brand-sparks-deep);
+  box-shadow: 0 3px 0 var(--brand-sparks-deep);
+}
+.panel button.danger:hover { background: var(--brand-sparks-tint); }
+.panel button.small {
+  min-height: 36px;
+  padding: 0.35rem 0.85rem 0.3rem;
+  font-size: 0.95rem;
+}
 
-/* ── Debug panel ───────────────────────────────────────── */
+/* The Save control is a <jelly-button> web component, restyled only through
+   its documented custom properties (outer-document rules on the host win
+   over its :host defaults): the hot sticker fill, the label voice, the
+   pill, and an Awana-blue focus ring. Its canvas body takes the kit's hard
+   offset as a zero-blur drop shadow. */
+.panel jelly-button {
+  --jelly-fill: var(--brand-hot);
+  --jelly-label: #ffffff;
+  --jelly-ring: var(--brand-blue);
+  --jelly-font-display: var(--font-condensed);
+  /* rem, like the rest of the panel, so a 1440p/4K root lifts it too. */
+  --jelly-button-height: 3.125rem;
+  --jelly-button-min-width: 8.75rem;
+  --jelly-button-padding-inline: 1.75rem;
+  --jelly-button-font-size: 1.25rem;
+  --jelly-button-radius: 999px;
+  filter: drop-shadow(0 4px 0 var(--brand-hot-deep));
+}
+/* The label's caps and tracking go on the documented inner part, because
+   the inner <button> resets both (the browser's own button style). */
+.panel jelly-button::part(button) {
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+/* The pinned foot of a tabbed panel. */
+.panel--tabbed .actions {
+  margin: 0;
+  padding: 0.95rem var(--panel-pad) 0.25rem;
+  gap: 0.55rem;
+  background: #ffffff;
+  border-top: 2px solid var(--panel-card-line);
+  flex-shrink: 0;
+}
+.panel--tabbed .actions button {
+  padding-inline: 0.95rem;
+  font-size: 1.02rem;
+}
+
+/* Shorter screens (a 720p TV): the chrome gives the cards the room. */
+@media (max-height: 820px) {
+  .panel--tabbed { height: 94vh; max-height: 94vh; padding-bottom: 0.6rem; }
+  .panel--tabbed .panel-header { padding-block: 0.7rem 0.75rem; row-gap: 0.15rem; }
+  .panel--tabbed .panel-header .panel-mark { width: 5.6rem; }
+  .panel--tabbed .panel-header h2 { font-size: 1.8rem; }
+  .panel--tabbed .panel-header .hint.panel-sub { font-size: 0.85rem; line-height: 1.35; }
+  .panel--tabbed .panel-header .status-line { padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+  .panel-tabs { padding-block: 0.45rem 0.5rem; }
+  .panel button.panel-tab { min-height: 40px; padding-block: 0.45rem 0.4rem; }
+  .panel-body { padding-top: 1rem; }
+  .panel--tabbed .actions { padding-top: 0.6rem; gap: 0.45rem; }
+  .panel--tabbed .actions button { min-height: 40px; padding-block: 0.4rem 0.35rem; }
+  .panel--tabbed jelly-button { --jelly-button-height: 2.75rem; }
+  .panel .hint.panel-legal { margin-top: 0.4rem; font-size: 0.72rem; }
+  .panel .panel-header .hint.panel-alert { margin-top: 0.3rem; padding: 0.35rem 0.8rem; font-size: 0.85rem; line-height: 1.35; }
+  .panel .panel-header .panel-alert button.small { min-height: 30px; padding-block: 0.2rem 0.15rem; font-size: 0.88rem; }
+}
+.panel .hint.panel-legal {
+  margin: 0.55rem 0 0;
+  padding: 0 var(--panel-pad);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+/* ── Debug panel ───────────────────────────────────────────────────────
+   The same kit card, parked top-left over the lobby: the header band with
+   its readouts as keyline chips, the simulators in two columns that scroll
+   under it, and Close pinned at the foot so a 720p screen can get out. */
 .debug {
   position: absolute;
   top: 1.5rem;
   left: 1.5rem;
-  padding: 1.25rem;
-  background: linear-gradient(180deg, #fffdf7 0%, var(--awana-cream) 100%);
-  color: var(--ink);
-  border-radius: 22px;
-  display: grid;
-  gap: 0.5rem;
-  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  width: min(48rem, calc(100% - 3rem));
+  max-height: calc(100% - 3rem);
+  overflow: hidden;
+  background: var(--panel-field);
+  border-radius: var(--panel-radius);
   z-index: 200;
-  box-shadow: var(--shadow-deep);
+  box-shadow: 0.6rem 0.6rem 0 rgba(3, 4, 4, 0.32);
 }
+.debug-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 1.1rem;
+  padding: 0.95rem 1.35rem 1rem;
+  background: var(--brand-blue);
+  color: #ffffff;
+  flex-shrink: 0;
+}
+.debug-header .panel-mark { width: 5.6rem; grid-row: 1 / span 2; }
 .debug h3 {
-  margin: 0 0 0.25rem;
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  margin: 0;
+  font-family: var(--font-condensed);
+  font-size: 1.55rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--awana-orange-deep);
+  color: #ffffff;
+}
+.debug-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  grid-auto-rows: max-content;
+  align-content: start;
+  min-height: 0;
+  gap: 0.6rem;
+  padding: 1.05rem 1.35rem 1.15rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--panel-keyline) transparent;
 }
 .debug button {
-  padding: 0.6rem 0.9rem;
-  border-radius: var(--radius-sm);
-  border: 2px solid rgba(51, 66, 79, 0.15);
-  background: #fff;
-  color: var(--ink);
+  min-height: 46px;
+  padding: 0.6rem 0.95rem;
+  border-radius: 12px;
+  border: 2px solid var(--panel-keyline);
+  background: #ffffff;
+  color: var(--panel-ink);
+  box-shadow: 0 3px 0 var(--panel-keyline);
   cursor: pointer;
   text-align: left;
   font: inherit;
-  font-weight: 700;
-  font-size: 0.9rem;
-  transition: background 0.15s ease, transform 0.1s ease;
+  font-weight: 650;
+  font-size: 0.97rem;
+  line-height: 1.25;
+  transition: transform var(--brand-dur-quick) var(--brand-ease-settle);
 }
-.debug button:hover { background: rgba(247, 164, 28, 0.12); }
-.debug button:active { transform: scale(0.98); }
-.debug .close-hint {
-  font-size: 0.75rem;
-  color: var(--ink-soft);
-  margin-top: 0.25rem;
+.debug button:hover { background: var(--brand-cloud); }
+.debug button:active { transform: translateY(2px); }
+.debug-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.35rem 0.85rem;
+  background: #ffffff;
+  border-top: 2px solid var(--panel-card-line);
+  flex-shrink: 0;
+}
+/* Close is a plain kit button (Londrina caps, ink keyline). */
+.debug .debug-footer button {
+  min-height: 44px;
+  padding: 0.5rem 1.4rem 0.45rem;
+  border-radius: 999px;
+  border-color: var(--panel-ink);
+  box-shadow: 0 3px 0 var(--panel-ink);
+  font-family: var(--font-condensed);
+  font-weight: 400;
+  font-size: 1.08rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   text-align: center;
 }
+.debug .close-hint {
+  font-size: 0.88rem;
+  color: var(--panel-muted);
+}
 .debug kbd {
-  padding: 1px 5px;
-  border-radius: 4px;
-  border: 1px solid rgba(51, 66, 79, 0.3);
-  border-bottom-width: 2px;
-  background: #fff;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1.5px solid var(--panel-keyline);
+  border-bottom-width: 3px;
+  background: #ffffff;
+  color: var(--panel-ink);
   font-family: inherit;
-  font-size: 0.95em;
+  font-size: 0.92em;
+  font-weight: 700;
 }
 
 /* ── Connection status dot ─────────────────────────────── */
@@ -1646,16 +2059,35 @@ html, body, #root {
 }
 
 /* ── Debug stats row ───────────────────────────────────── */
+/* Live readouts in the debug panel's header band, each on the kit chip's
+   plate and keyline (a white keyline over the band's deep plate, offset). */
 .debug-stats {
+  grid-column: 2;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem 0.9rem;
-  font-size: 0.75rem;
+  gap: 0.5rem 0.55rem;
+  margin-top: 0.6rem;
+}
+.debug-stats > span {
+  position: relative;
+  isolation: isolate;
+  padding: 0.22rem 0.6rem 0.24rem;
+  border: 1.5px solid #ffffff;
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 0.84rem;
   font-weight: 700;
-  color: var(--ink-soft);
-  padding: 0.35rem 0.1rem 0.5rem;
-  border-bottom: 1px dashed rgba(51, 66, 79, 0.2);
-  margin-bottom: 0.25rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.debug-stats > span::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--brand-cubbies-deep);
+  translate: 3px 2px;
 }
 
 /* ── Shared interaction states ─────────────────────────── */
@@ -1668,11 +2100,14 @@ input:focus-visible {
 /* Respect users (and underpowered signage sticks) that prefer less motion. */
 @media (prefers-reduced-motion: reduce) {
   .status-dot.connecting .dot,
-  .panel .status-line.connecting .dot {
+  .panel .status-line.connecting .dot,
+  .panel--tabbed,
+  .debug {
     animation: none;
   }
   .settings-gear,
   .panel button,
+  .panel input[type='checkbox']::before,
   .debug button {
     transition: none;
   }
@@ -1687,9 +2122,14 @@ input:focus-visible {
    automatically, with no per-rule opt-in to remember. Framer-motion's
    own JS-driven animations (opacity fades, etc.) are handled separately
    by ZeroAnimationContext in src/lib/motion.jsx, since CSS can't reach
-   those. */
+   those. `*` never matches a pseudo-element and neither property is
+   inherited, so ::before / ::after are named too (the panels' checkbox
+   pops its check on a ::before; src/lib/zeroAnimationCss.test.js fails
+   any pseudo-element that animates without being named here). */
 .zero-animation-mode,
-.zero-animation-mode * {
+.zero-animation-mode *,
+.zero-animation-mode *::before,
+.zero-animation-mode *::after {
   animation: none !important;
   transition: none !important;
 }
@@ -1752,51 +2192,65 @@ input:focus-visible {
     max-height: 94vh;
     max-height: 94dvh;
     padding: 1.4rem 1.15rem;
-    border-radius: 20px;
+    border-radius: 18px;
   }
+  .panel,
+  .debug { --panel-pad: 1.15rem; }
   .panel--tabbed {
     width: 96vw;
     height: 94vh;
     height: 94dvh;
     max-height: 94dvh;
-    padding: 1rem 0 0.85rem;
+    padding: 0 0 0.6rem;
   }
-  .panel--tabbed .panel-header { padding: 0 1.15rem; gap: 0.5rem; }
-  .panel--tabbed .panel-header h2 { font-size: 1.35rem; }
+  .panel--tabbed .panel-header { padding: 0.6rem var(--panel-pad) 0.65rem; column-gap: 0.75rem; }
+  .panel--tabbed .panel-header .panel-mark { width: 4.5rem; }
+  .panel--tabbed .panel-header h2 { font-size: 1.45rem; }
+  .panel--tabbed .panel-header .hint.panel-sub { font-size: 0.78rem; }
+  /* The status readout drops under the title instead of squeezing it. */
   .panel--tabbed .panel-header .status-line {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    max-width: none;
+    margin-top: 0.35rem;
     padding: 0.3rem 0.7rem;
-    font-size: 0.72rem;
-  }
-  .panel-tabs { padding: 0 1.15rem; margin-top: 0.5rem; gap: 0; }
-  .panel button.panel-tab {
-    padding: 0.5rem 0.55rem 0.6rem;
-    min-height: 40px;
     font-size: 0.78rem;
-    letter-spacing: 0.04em;
   }
-  .panel-body { padding: 0.9rem 1.15rem 0.4rem; }
+  .panel-tabs { padding: 0.45rem var(--panel-pad); gap: 0.15rem; }
+  .panel button.panel-tab {
+    min-height: 40px;
+    padding: 0.45rem 0.65rem 0.4rem;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+  }
+  .panel-body { padding: 0.9rem var(--panel-pad) 0.4rem; }
+  .panel-card { padding: 0.9rem 1rem 0.2rem; }
+  .panel-card > .panel-card__tab { margin: -0.9rem 0 0.8rem -1rem; }
   .panel h2 { font-size: 1.5rem; margin-bottom: 0.9rem; }
 
-  /* The six pinned actions compress into tidy rows of small buttons. */
+  /* The pinned actions compress into tidy rows of small buttons. */
   .panel--tabbed .actions {
-    margin-top: 0.6rem;
-    padding: 0.75rem 1.15rem 0;
+    padding: 0.65rem var(--panel-pad) 0.15rem;
     gap: 0.45rem;
     justify-content: center;
   }
   .panel .actions button,
   .panel .actions label {
     flex: 1 1 auto;
-    padding: 0.5rem 0.8rem;
-    font-size: 0.82rem;
-    border-radius: 11px;
+    min-height: 38px;
+    padding: 0.4rem 0.75rem 0.35rem;
+    font-size: 0.92rem;
   }
   .panel jelly-button {
-    --jelly-button-height: 40px;
-    --jelly-button-min-width: 90px;
-    --jelly-button-font-size: 14px;
-    --jelly-button-radius: 11px;
+    --jelly-button-height: 2.6rem;
+    --jelly-button-min-width: 6rem;
+    --jelly-button-font-size: 1.05rem;
   }
+  .slide-card { grid-template-columns: minmax(0, 1fr); padding: 0 1rem 1rem; }
+  .slide-card > .slide-card-tab { margin-left: -1rem; }
+  .slide-card-preview { margin-bottom: 0.9rem; }
+  .slide-card-fields { grid-column: 1; }
+  .debug { top: 0.75rem; left: 0.75rem; width: calc(100% - 1.5rem); max-height: calc(100% - 1.5rem); }
 
   /* Bigger touch target for the gear on phones. */
   .settings-gear { width: 52px; height: 52px; }
@@ -3104,17 +3558,24 @@ input:focus-visible {
    TV screenshot during setup must not hand over the one secret that matters. */
 .display-key-row {
   display: flex;
-  gap: 8px;
+  gap: 0.6rem;
   align-items: center;
   flex-wrap: wrap;
 }
 .display-key-row input { flex: 1 1 16ch; min-width: 0; }
+/* The masked value is a readout, so it sits on a plain keyline plate (full
+   ink: a faded secret-status line is the one a volunteer misreads). */
 .display-key-value {
   flex: 1 1 16ch;
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: 0.85em;
-  opacity: 0.85;
+}
+.panel code.display-key-value {
+  padding: 0.6rem 0.85rem;
+  border: 2px solid var(--panel-card-line);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  line-height: 1.3;
 }
 
 /* ── Who's still here board ──────────────────────────────────────────────────
@@ -3285,10 +3746,37 @@ input:focus-visible {
 .stage.april-fools .setup-card { transform: rotate(180deg); }
 
 /* Settings → Connection: the by-hand key fields fold away behind the login. */
-details.advanced-fields { margin-top: 0.75rem; border-top: 2px dashed rgba(51, 66, 79, 0.15); padding-top: 0.75rem; }
-details.advanced-fields > summary { cursor: pointer; font-weight: 700; opacity: 0.8; padding: 0.25rem 0; }
-details.advanced-fields > summary:hover { opacity: 1; }
+details.advanced-fields { margin: 0.25rem 0 0.9rem; border-top: 1.5px solid var(--panel-card-line, #DCE4EF); padding-top: 0.85rem; }
+/* The fold's handle: Londrina tracked caps in Awana blue, the kit chevron. */
+details.advanced-fields > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 40px;
+  padding: 0.2rem 0.1rem;
+  border-radius: 8px;
+  list-style: none;
+  cursor: pointer;
+  font-family: var(--font-condensed);
+  font-size: 1.05rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--brand-blue-deep);
+}
+details.advanced-fields > summary::-webkit-details-marker { display: none; }
+details.advanced-fields > summary::before {
+  content: '';
+  width: 0.62rem;
+  height: 1rem;
+  background: currentColor;
+  -webkit-mask: url('../../shared/brand/doodles/chevron.svg') center / contain no-repeat;
+  mask: url('../../shared/brand/doodles/chevron.svg') center / contain no-repeat;
+  rotate: 180deg;
+}
+details.advanced-fields[open] > summary::before { rotate: 270deg; }
+details.advanced-fields > summary:hover { color: var(--brand-blue); }
 details.advanced-fields[open] > summary { margin-bottom: 0.5rem; }
+details.advanced-fields > .hint { display: block; margin-bottom: 0.9rem; }
 
 /* ── Large canvases: 1440p / 4K at 100% OS scaling ──────────────────
    Every headline ceiling in this file is a rem clamp, so lifting the root

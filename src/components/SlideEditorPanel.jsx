@@ -22,6 +22,8 @@ import { collectGarbage, getVideo, makeVideoId, putVideo } from '../lib/videoSto
 import { localDateStr } from '../lib/calendarLogic.js';
 import { publishDeck } from '../lib/publishDeck.js';
 import { loadPublishToken } from '../lib/publishToken.js';
+import CornerTab from './brand/CornerTab.jsx';
+import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
 
 const THEME_OPTIONS = [
   { value: 'auto', label: 'Auto (rotate)' },
@@ -328,8 +330,9 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     <div className="panel-backdrop" onClick={requestClose}>
       <div className="panel panel--tabbed panel--slides" role="dialog" aria-label="Typed slides" onClick={(e) => e.stopPropagation()}>
         <div className="panel-header">
+          <img className="panel-mark" src={awanaClubsMark} alt="" draggable="false" />
           <h2>Typed Slides</h2>
-          <div className="hint">
+          <div className="hint panel-sub">
             {slides.length} of {MAX_SLIDES} slides
             {seededDeck ? ` · opened from published rev ${seededDeck.deckRev}` : ''}
             {dirty ? ' · unsaved changes' : ''}
@@ -337,7 +340,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
         </div>
 
         <div className="panel-body">
-          <div className="hint" style={{ marginBottom: '1rem' }}>
+          <div className="hint panel-intro">
             Free-type the background slides — no PowerPoint needed — and mix in local video
             files. Videos are stored on <strong>this device only</strong> and never uploaded.
             {config.backgroundSource !== 'manual' && (
@@ -347,7 +350,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
           </div>
 
           {seededDeck && (
-            <div className="hint" style={{ marginBottom: '1rem' }}>
+            <div className="hint panel-note">
               <strong>This editor opened the published deck (rev {seededDeck.deckRev})</strong> plus
               this device&rsquo;s own video slides — what this screen is showing.
               <strong> Save slides</strong> keeps video slides (and their order) showing on this
@@ -366,6 +369,19 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
 
           {slides.map((slide, i) => (
             <div className="slide-card" key={slide.id} ref={(el) => { cardRefs.current[slide.id] = el; }}>
+              {/* The index line names the card with the kit's corner tab, as
+                  the dashboard's cards are named. Same element, same focus
+                  target after a move; it now reads before the preview. */}
+              <CornerTab color="var(--brand-blue)" className="slide-card-tab">
+                <div className="slide-card-index" tabIndex={-1}>
+                  Slide {i + 1} of {slides.length}{isVideoSlide(slide) ? ' · video' : ''}
+                  {/* The row is never hidden when its window closes — an
+                      operator has to be able to see and fix the slide that
+                      stopped showing. */}
+                  {slideExpired(slide, today) && <span className="slide-window-badge is-expired">Expired</span>}
+                  {slideScheduled(slide, today) && <span className="slide-window-badge is-scheduled">Starts later</span>}
+                </div>
+              </CornerTab>
               <div className="slide-card-preview" aria-hidden>
                 <div className="slide-card-frame">
                   {isVideoSlide(slide) ? (
@@ -389,14 +405,6 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
               </div>
 
               <div className="slide-card-fields">
-                <div className="slide-card-index" tabIndex={-1}>
-                  Slide {i + 1} of {slides.length}{isVideoSlide(slide) ? ' · video' : ''}
-                  {/* The row is never hidden when its window closes — an
-                      operator has to be able to see and fix the slide that
-                      stopped showing. */}
-                  {slideExpired(slide, today) && <span className="slide-window-badge is-expired">Expired</span>}
-                  {slideScheduled(slide, today) && <span className="slide-window-badge is-scheduled">Starts later</span>}
-                </div>
                 {isVideoSlide(slide) ? (
                   <>
                     <div className="slide-card-video-meta">

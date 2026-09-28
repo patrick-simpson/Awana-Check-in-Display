@@ -10,13 +10,15 @@ import { geocodeLocation } from '../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../lib/calendarLogic.js';
 import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 import { NIGHT_THEME_VALUES, skinOptions } from '../lib/skins.js';
-import { getAllClubs } from '../lib/clubs.js';
+import { getAllClubs, getClubPalette } from '../lib/clubs.js';
 import { useDisplayKey } from '../hooks/useDisplayKey.js';
 import { useDisplayLogin } from '../hooks/useDisplayLogin.js';
 import { maskDisplayKey } from '../lib/displayKey.js';
 import { isPlausibleKey } from '../lib/envelope.js';
 import { loadDisplayKey } from '../lib/displayKey.js';
 import { loadPublishToken, maskPublishToken, savePublishToken } from '../lib/publishToken.js';
+import CornerTab from './brand/CornerTab.jsx';
+import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
 
 const TABS = [
   { id: 'connection', label: 'Connection' },
@@ -296,12 +298,13 @@ export default function SettingsPanel({
     <div className="panel-backdrop" onClick={requestClose}>
       <div className="panel panel--tabbed" role="dialog" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
         <div className="panel-header">
+          <img className="panel-mark" src={awanaClubsMark} alt="" draggable="false" />
           <h2>Settings</h2>
           <div className={`status-line ${status}`}>
             <span className="dot" />
             <span>{statusText}</span>
           </div>
-          <div className="hint" style={{ marginTop: '0.35rem' }}>
+          <div className="hint panel-sub">
             {lastEventAt
               ? `Last event ${Math.max(0, Math.round((openedAt - lastEventAt) / 60000))} min ago`
               : 'No events yet this session'}
@@ -313,7 +316,7 @@ export default function SettingsPanel({
               : ''}
           </div>
           {opsFailures?.length > 0 && (
-            <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
+            <div className="hint panel-alert">
               Printer reported failures{opsFailures[0]?.club ? ` (latest: ${opsFailures[0].club}` : ' (latest'}
               {' at '}
               {new Date(opsFailures[0].at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})
@@ -321,13 +324,13 @@ export default function SettingsPanel({
             </div>
           )}
           {layerFaults?.length > 0 && (
-            <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
+            <div className="hint panel-alert">
               A screen layer crashed and is being retried every 30 s: {layerFaults.join(', ')}. If it keeps
               failing, reload the page (F5) — and report it.
             </div>
           )}
           {remoteConfigError && (
-            <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
+            <div className="hint panel-alert">
               The central config for this screen &mdash; from this page&rsquo;s <code>?config=</code> URL,
               or from the address the display login handed it &mdash; could not be
               applied ({remoteConfigError}) — this display is running on its baked
@@ -335,14 +338,14 @@ export default function SettingsPanel({
             </div>
           )}
           {wakeLockStatus && wakeLockStatus !== 'active' && wakeLockStatus !== 'off' && wakeLockStatus !== 'requesting' && (
-            <div className="hint" style={{ marginTop: '0.25rem', color: '#ffcc80' }}>
+            <div className="hint panel-alert panel-alert--warn">
               {wakeLockStatus === 'unsupported'
                 ? 'This browser has no Screen Wake Lock — the TV may sleep mid-club; disable sleep in the device settings instead.'
                 : 'The browser refused the screen wake lock (battery saver?) — the TV may sleep mid-club.'}
             </div>
           )}
           {demoActive && (
-            <div className="hint" style={{ marginTop: '0.25rem', color: '#ff8a80' }}>
+            <div className="hint panel-alert">
               Demo mode — a sample or simulated check-in was fired on this screen, so the red “not real
               check-ins” badge stays up until the page reloads.{' '}
               <button
@@ -470,7 +473,7 @@ export default function SettingsPanel({
           <button onClick={requestClose}>Cancel</button>
           <jelly-button variant="mint" onClick={save}>Save</jelly-button>
         </div>
-        <div className="hint" style={{ marginTop: '0.6rem', opacity: 0.8 }}>
+        <div className="hint panel-legal">
           Awana® and the Awana club names are trademarks of Awana Clubs International.
           This display is an independent church project — NOT AFFILIATED OR ENDORSED BY
           AWANA CLUBS INTERNATIONAL.
@@ -536,6 +539,23 @@ function Toggle({ checked, onChange, title, hint, disabled }) {
   );
 }
 
+// One white card on the panel's pale field, like the printer dashboard's
+// cards. A titled card names its section with the kit's corner tab (the
+// colour only tells the sections apart); the heading inside it is the same
+// <h3 className="section"> the tab always had.
+function PanelCard({ title, tab = 'var(--brand-blue)', children }) {
+  return (
+    <div className="panel-card">
+      {title ? (
+        <CornerTab color={tab} className="panel-card__tab">
+          <h3 className="section">{title}</h3>
+        </CornerTab>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
 function ConnectionTab({ form, set, status, nameStatus, lastEventAt, secure, displayKey, login }) {
   // The by-hand fields fold away behind the login — unless they are the
   // fix: no Pusher connection, or no secure crypto.
@@ -580,6 +600,7 @@ function ConnectionTab({ form, set, status, nameStatus, lastEventAt, secure, dis
         {status !== 'off' && <div><strong>Names:</strong> {namesLine}</div>}
       </div>
 
+      <PanelCard>
       <DisplayLoginField status={status} secure={secure} login={login} />
 
       <details
@@ -623,6 +644,7 @@ function ConnectionTab({ form, set, status, nameStatus, lastEventAt, secure, dis
 
         <DisplayKeyField secure={secure} />
       </details>
+      </PanelCard>
     </>
   );
 }
@@ -870,6 +892,7 @@ function BackgroundTab({
           {' '}<span className="hint">then press Save.</span>
         </div>
       )}
+      <PanelCard>
       <div className="field">
         <label>Background source</label>
         <div className="radio-row">
@@ -908,7 +931,9 @@ function BackgroundTab({
           Edit slides… (Ctrl+Shift+E)
         </button>
       </div>
+      </PanelCard>
 
+      <PanelCard>
       <SlideSyncSection
         form={form}
         set={set}
@@ -917,7 +942,9 @@ function BackgroundTab({
         onForgetSyncedDeck={onForgetSyncedDeck}
         loggedIn={loggedIn}
       />
+      </PanelCard>
 
+      <PanelCard>
       {form.backgroundSource === 'pptx' && <PptxUploadField />}
 
       {form.backgroundSource === 'video' && <VideoUploadField />}
@@ -956,6 +983,7 @@ function BackgroundTab({
           </span>
         </div>
       )}
+      </PanelCard>
     </>
   );
 }
@@ -1109,6 +1137,7 @@ function PublishTokenField() {
 function BannersTab({ form, set, setForm }) {
   return (
     <>
+      <PanelCard>
       <div className="field">
         <label htmlFor="std">Standard banner duration (ms)</label>
         <input
@@ -1139,8 +1168,9 @@ function BannersTab({ form, set, setForm }) {
         title="Sound on"
         hint="Play a short chime alongside each welcome animation."
       />
+      </PanelCard>
 
-      <h3 className="section">Celebrations</h3>
+      <PanelCard title="Celebrations" tab="var(--brand-journey)">
 
       <div className="field">
         <label htmlFor="confettiLevel">Confetti intensity</label>
@@ -1234,18 +1264,25 @@ function BannersTab({ form, set, setForm }) {
           roster arrives encrypted.
         </>}
       />
+      </PanelCard>
 
-      <h3 className="section">Club phrases</h3>
+      <PanelCard title="Club phrases" tab="var(--brand-trek)">
       <span className="hint" style={{ display: 'block', marginBottom: '0.75rem' }}>
         A short line under the child’s name on their welcome banner, one per club. Leave a club blank for no
         line. Up to 80 characters.
       </span>
+      <div className="panel-phrases">
       {getAllClubs().map((name) => {
         const key = name.toLowerCase();
         const id = `phrase-${key.replace(/[^a-z0-9]/g, '-')}`;
+        const club = getClubPalette(name);
         return (
           <div className="field" key={key}>
-            <label htmlFor={id}>{name} phrase</label>
+            {/* The club's own chip: the label still reads "Puggles phrase". */}
+            <label htmlFor={id}>
+              <span className="club-chip" style={{ '--club': club.primary, '--club-deep': club.deep }}>{name}</span>
+              {' '}phrase
+            </label>
             <input
               id={id}
               type="text"
@@ -1257,6 +1294,8 @@ function BannersTab({ form, set, setForm }) {
           </div>
         );
       })}
+      </div>
+      </PanelCard>
     </>
   );
 }
@@ -1265,7 +1304,7 @@ function DisplayTab({ form, set }) {
   const boardOn = form.checkoutBoardMode !== 'off';
   return (
     <>
-      <h3 className="section">Corner widgets</h3>
+      <PanelCard title="Corner widgets">
 
       <p className="hint">
         One item at a time: the time, tonight's tally or the weather, changing with each
@@ -1293,8 +1332,9 @@ function DisplayTab({ form, set }) {
         title="Show connection status dot"
         hint="Tiny corner indicator. Even when off, it appears by itself if the connection drops or the screen is not set up."
       />
+      </PanelCard>
 
-      <h3 className="section">Who&apos;s still here</h3>
+      <PanelCard title={<>Who&apos;s still here</>} tab="var(--brand-puggles-deep)">
 
       <div className="field">
         <label htmlFor="cbmode">Who&apos;s still here board</label>
@@ -1347,8 +1387,9 @@ function DisplayTab({ form, set }) {
           </div>
         </>
       )}
+      </PanelCard>
 
-      <h3 className="section">Look &amp; atmosphere</h3>
+      <PanelCard title={<>Look &amp; atmosphere</>} tab="var(--brand-journey)">
 
       <div className="field">
         <label htmlFor="nightTheme">Themed night skin</label>
@@ -1405,8 +1446,9 @@ function DisplayTab({ form, set }) {
         title="Wash the background in the arriving club's color"
         hint="While a child's banner is up, the background scene briefly breathes that child's own club color, so the whole screen belongs to them for a few seconds. Off by default because it competes with a themed skin you chose on purpose. Skipped over a video or uploaded PowerPoint background, and in panic mode."
       />
+      </PanelCard>
 
-      <h3 className="section">Screen</h3>
+      <PanelCard title="Screen" tab="var(--brand-trek)">
 
       <Toggle
         checked={form.keepScreenAwake}
@@ -1435,6 +1477,7 @@ function DisplayTab({ form, set }) {
         title="Simplified mode (panic switch)"
         hint="Strips the screen to a placeholder background and the clock while banners keep working. Also toggles live with Ctrl+Shift+X."
       />
+      </PanelCard>
     </>
   );
 }
@@ -1486,6 +1529,7 @@ function CalendarTab({ form, set, setForm, calendar }) {
 
   return (
     <>
+      <PanelCard>
       <Toggle
         checked={form.calendarEnabled}
         onChange={set('calendarEnabled')}
@@ -1538,6 +1582,9 @@ function CalendarTab({ form, set, setForm, calendar }) {
         title="Nights-remaining slide" hint="A countdown nudge once fewer than 10 club nights remain." />
       <Toggle checked={form.seasonPromos} onChange={set('seasonPromos')}
         title="Fall event promos" hint="Poster Contest, BARF Night, Parents' Night. Animated, dated, retire themselves." />
+      </PanelCard>
+
+      <PanelCard>
       <Toggle checked={form.showWeatherChip} onChange={set('showWeatherChip')}
         title="Corner weather" hint="The temperature and the sky, top-right, in the corner rotation. The reading refreshes every 15 minutes; works over any background." />
 
@@ -1575,6 +1622,7 @@ function CalendarTab({ form, set, setForm, calendar }) {
           <option value="celsius">Celsius (°C)</option>
         </select>
       </div>
+      </PanelCard>
     </>
   );
 }
