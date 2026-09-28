@@ -24,7 +24,8 @@ subject to three rules:
    `*.github.io` — "Awana" appears only in the URL *path* (the repo
    name), never the domain. Do not attach a custom domain containing
    "Awana" or any program name to this site.
-2. **No Awana logos without permission.** See
+2. **No Awana logos without permission.** This project does use the
+   logos, by the owner's decision, without having asked. See
    [Bundled artwork](#bundled-artwork--permission-status) below.
 3. **The disclaimer above must appear prominently.** It is posted at
    the top of this file and the README, in the signage Settings panel,
@@ -36,20 +37,29 @@ in each document or page; later uses may omit it.
 
 ## Bundled artwork — permission status
 
-`src/assets/clubs/` and `shared/art/` contain official Awana club
-wordmarks, mascot art, and curriculum clipart. Under the guidelines,
-using Awana **logos** (as opposed to the name) in custom signage
-requires **written permission** from Awana Clubs International.
+`shared/brand/logos/` holds the official 2026–27 club wordmarks and the
+Awana Clubs mark, extracted as vector art from the Awana Clubs 2026–27
+product catalog (`scripts/brand/extract-catalog-brand.py`; see
+`shared/brand/README.md`). `src/assets/clubs/` and `shared/art/` hold
+older wordmarks, the mascot art and curriculum clipart. Under the
+guidelines, using Awana **logos** (as opposed to the name) in custom
+signage requires **written permission** from Awana Clubs International.
 
-**Status: permission has not yet been granted.** A request should be
-sent to <permission@awana.org> (a draft is below; allow 2–3 weeks for
-processing). If Awana declines, the bundled art must be removed and
-the display will fall back to text club names in club colors.
+**Status: permission has not been requested.** On 2026-09-27 the owner
+decided to use the full official branding (club marks, the Awana Clubs
+mark and the catalog's design language) on the church's own club
+screens, the Journey kiosk and the label printer, as internal use, and
+accepted that choice knowingly. Note that the deployed pages, the
+repositories and the label printer's installer are publicly reachable,
+so "internal" describes who the screens are for, not who can see the
+files. If the church ever wants written permission, the draft request
+below still applies; allow 2–3 weeks for processing. If Awana ever asks
+for the art to come down, remove `shared/brand/logos/` and the older art
+and the screens fall back to text club names in club colors.
 
-**If you fork this repository:** any permission granted to the
-original church does **not** transfer to you. Before deploying a fork
-that shows the bundled art, request your own permission from
-<permission@awana.org>, or remove the art.
+**If you fork this repository:** the owner's decision covers this church
+only. Before deploying a fork that shows the bundled art, request your
+own permission from <permission@awana.org>, or remove the art.
 
 ## License scope
 

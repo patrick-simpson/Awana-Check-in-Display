@@ -1,14 +1,25 @@
 {
   "version": 1,
-  "church": { "name": "KVBC", "displayName": "Kennebec Valley Bible Church" },
-  "brand": { "yellow": "#FFC107", "orange": "#F7941D" },
+  "church": {
+    "name": "KVBC",
+    "displayName": "Kennebec Valley Bible Church"
+  },
+  "brand": {
+    "yellow": "#FFC107",
+    "orange": "#F7941D"
+  },
   "clubs": {
     "puggles": {
       "name": "Puggles",
-      "color": "#F7941D",
-      "aliases": ["puggle"],
+      "color": "#1DB6D9",
+      "deep": "#1A627C",
+      "tint": "#BCDCEE",
+      "aliases": [
+        "puggle"
+      ],
       "art": {
-        "logo": "art/puggles-logo.png",
+        "logo": "brand/logos/puggles-color.svg",
+        "logoWhite": "brand/logos/puggles-white.svg",
         "characters": [
           "art/puggles-char-alice.png",
           "art/puggles-char-maya.png",
@@ -20,22 +31,46 @@
     },
     "cubbies": {
       "name": "Cubbies",
-      "color": "#0072CE",
-      "aliases": ["cubbie", "cubby"],
-      "art": { "logo": "art/cubbies-logo.png" }
+      "color": "#4C72B8",
+      "deep": "#2F4F8A",
+      "tint": "#C4DDF3",
+      "aliases": [
+        "cubbie",
+        "cubby"
+      ],
+      "art": {
+        "logo": "brand/logos/cubbies-color.svg",
+        "logoWhite": "brand/logos/cubbies-white.svg"
+      }
     },
     "sparks": {
       "name": "Sparks",
-      "color": "#E8192C",
-      "aliases": ["spark"],
-      "art": { "logo": "art/sparks-logo.png" }
+      "color": "#F04A4B",
+      "deep": "#B82B32",
+      "tint": "#FDDACF",
+      "aliases": [
+        "spark"
+      ],
+      "art": {
+        "logo": "brand/logos/sparks-color.svg",
+        "logoWhite": "brand/logos/sparks-white.svg"
+      }
     },
     "tnt": {
       "name": "T&T",
-      "color": "#00A651",
-      "aliases": ["t&t", "t & t", "tt", "truth & training", "truth and training"],
+      "color": "#58BD79",
+      "deep": "#2F8A4E",
+      "tint": "#D0E9D5",
+      "aliases": [
+        "t&t",
+        "t & t",
+        "tt",
+        "truth & training",
+        "truth and training"
+      ],
       "art": {
-        "logo": "art/tnt-logo.png",
+        "logo": "brand/logos/tnt-color.svg",
+        "logoWhite": "brand/logos/tnt-white.svg",
         "title": "art/tnt-title-agents-of-grace.png",
         "characters": [
           "art/tnt-char-chase.png",
@@ -49,15 +84,27 @@
     },
     "trek": {
       "name": "Trek",
-      "color": "#0083C9",
+      "color": "#047E71",
+      "deep": "#02554C",
+      "tint": "#CCEAEC",
       "aliases": [],
-      "art": { "logo": "art/trek-logo.png", "monochrome": true }
+      "art": {
+        "logo": "brand/logos/trek-color.svg",
+        "logoWhite": "brand/logos/trek-white.svg",
+        "monochrome": true
+      }
     },
     "journey": {
       "name": "Journey",
-      "color": "#46566B",
+      "color": "#8A649D",
+      "deep": "#56467F",
+      "tint": "#DED5EA",
       "aliases": [],
-      "art": { "logo": "art/journey-logo.png", "monochrome": true }
+      "art": {
+        "logo": "brand/logos/journey-color.svg",
+        "logoWhite": "brand/logos/journey-white.svg",
+        "monochrome": true
+      }
     }
   }
 }

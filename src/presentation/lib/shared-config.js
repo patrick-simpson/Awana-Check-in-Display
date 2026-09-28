@@ -139,9 +139,18 @@ export function parseThemeConfig(raw) {
     const aliases = Array.isArray(v.aliases)
       ? v.aliases.filter((a) => typeof a === 'string')
       : [];
+    // Optional catalog shades (2026-27 brand kit). Present means valid:
+    // a typo'd hex fails the build like a bad `color` does.
+    const shades = {};
+    for (const k of ['deep', 'tint']) {
+      if (v[k] === undefined) continue;
+      if (typeof v[k] !== 'string' || !HEX_RE.test(v[k])) fail(`theme.json clubs.${id}.${k}: bad hex color`);
+      shades[k] = v[k];
+    }
     const art = {};
     if (isRecord(v.art)) {
       if (typeof v.art.logo === 'string') art.logo = v.art.logo;
+      if (typeof v.art.logoWhite === 'string') art.logoWhite = v.art.logoWhite;
       if (typeof v.art.title === 'string') art.title = v.art.title;
       if (typeof v.art.group === 'string') art.group = v.art.group;
       if (v.art.monochrome === true) art.monochrome = true;
@@ -149,7 +158,7 @@ export function parseThemeConfig(raw) {
         art.characters = v.art.characters.filter((c) => typeof c === 'string');
       }
     }
-    clubs[id] = { name: v.name, color: v.color, aliases, art };
+    clubs[id] = { name: v.name, color: v.color, ...shades, aliases, art };
   }
   // Every club the schedule can reference must be themed.
   for (const id of CLUB_IDS) {

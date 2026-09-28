@@ -13,6 +13,13 @@ const MIME = {
   '.json': 'application/json',
   '.png': 'image/png',
   '.md': 'text/markdown',
+  // The brand kit (shared/brand/): an <img> will not render an SVG served
+  // as application/octet-stream, and a browser refuses mistyped fonts/CSS.
+  '.svg': 'image/svg+xml',
+  '.css': 'text/css',
+  '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
+  '.txt': 'text/plain',
 };
 
 // Hosts the repo-root `shared/` directory (schedule.json, theme.json,

@@ -31,8 +31,8 @@ describe('getClubPalette', () => {
     const sparks = getClubPalette('Sparks');
     expect(sparks.name).toBe('Sparks');
     expect(sparks.confetti.length).toBeGreaterThan(1);
-    // Every club ships official wordmark art (catalog extractions plus
-    // the club-supplied Trek/Journey marks via prepare-club-gfx.py).
+    // Every club ships its official 2026-27 wordmark (white knockout,
+    // vector, from the shared brand kit).
     for (const club of getAllClubs()) {
       expect(getClubPalette(club).logo, `logo for ${club}`).toBeTruthy();
     }
@@ -51,13 +51,13 @@ describe('getClubPalette', () => {
 
   // The milestone toast bursts in these exact values (#332), so pin them.
   it('exposes a confetti palette for every club, and a default for a typo', () => {
-    expect(getClubPalette('Sparks').confetti[0]).toBe('#E14B4B');
+    expect(getClubPalette('Sparks').confetti[0]).toBe('#F04A4B');
     for (const club of getAllClubs()) {
       const { confetti } = getClubPalette(club);
       expect(Array.isArray(confetti)).toBe(true);
       expect(confetti.length).toBeGreaterThan(0);
     }
-    expect(getClubPalette('Sparkles!!').confetti).toEqual(['#F7A41C', '#FFB300', '#FFFFFF']);
+    expect(getClubPalette('Sparkles!!').confetti).toEqual(['#FAA41D', '#FCB614', '#FFFFFF']);
   });
 
   it('no longer carries taglines or age ranges — banners show titles only', () => {

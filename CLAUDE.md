@@ -91,6 +91,38 @@ its type, and standalone behaviour (`window.self === window.top`) is exactly
 what it always was. Both sides have to agree on the string, so changing it
 means landing both repos together.
 
+## Brand kit — `shared/brand/` (2026-27 catalog)
+
+Owner decision 2026-09-27: every screen in the family (lobby signage,
+projector, Journey kiosk, label printer) wears the Awana 2026-27 catalog's
+design language and full official branding. `shared/brand/` is the one
+canonical kit: `tokens.json` (club primary/deep/tint, house colors, fonts,
+the motion table), `tokens.css` (the same as `--brand-*` properties),
+`fonts.css` + `fonts/` (Galindo, Londrina Solid, Figtree; WOFF2 for the web,
+TTF for the printer's canvas; OFL), `logos/` (every club mark as white
+knockout / full color / one color, plus the Awana Clubs mark), `shapes/`
+and `doodles/`. Read its README before changing it.
+
+- **Three spellings of one palette.** `tokens.json`, `tokens.css` and
+  `shared/theme.json` must agree; `src/lib/brandKit.test.js` fails if they
+  drift. Edit all three together, and the projector's `--color-club-*` in
+  `src/presentation/index.css` too (`shared-config.test.js` pins those to
+  theme.json).
+- **Puggles is blue** (`#1DB6D9`, its wordmark and duck), not the orange its
+  catalog page uses: the owner's call, pinned by a test.
+- **theme.json is what the screens actually render**, not `clubs.js`: once
+  it loads, its values win field by field. Its optional `deep` and `tint`
+  beat the derived guesses, and `art.logoWhite` (the knockout) beats
+  `art.logo` (full color, for light fields) on banners, which sit on the
+  club's own color. `clubs.js` carries the same catalog values as the
+  pre-load fallback.
+- **Mirrors.** Journey-Display (`public/brand/`) and the printer
+  (`print-server/public/brand/`) carry byte-identical copies with drift
+  checks, so neither depends on the network at showtime. Change the kit
+  here first, then re-copy it into both.
+- `scripts/brand/extract-catalog-brand.py` regenerates the marks and shapes
+  from a catalog PDF (not committed), for next season.
+
 ## Tech stack snapshot
 
 - React 18 + Vite (plain JavaScript)

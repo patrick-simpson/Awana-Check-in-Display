@@ -32,11 +32,24 @@ function safeArtUrl(baseUrl, rel) {
   }
 }
 
+const hexOrNull = (v) => (typeof v === 'string' && HEX_RE.test(v) ? v : null);
+
 /**
  * Strict-parse a fetched shared theme.json into
  *   { [clubKey]: { name, primary, deep, accent, confetti, logoUrl, aliases } }
  * Returns null when the payload is unusable; individual bad clubs are
  * dropped rather than poisoning the rest.
+ *
+ * `deep` and `tint` are optional: the 2026-27 catalog gives every club a
+ * hand-picked deep shade and pale band color, and when theme.json carries
+ * them they win over the old derived guesses (a formula can't pick the
+ * catalog's Journey lavender). A bad value falls back to the formula
+ * rather than dropping the club.
+ *
+ * Banners sit on the club's own color, so the logo they need is the
+ * white knockout: `art.logoWhite` wins over `art.logo` (the full-color
+ * mark, which is for light backgrounds and vanished on its own wave,
+ * e.g. Trek's black ink on Trek's color).
  */
 export function sanitizeTheme(raw, baseUrl) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
@@ -44,19 +57,19 @@ export function sanitizeTheme(raw, baseUrl) {
   const out = {};
   for (const [key, club] of Object.entries(raw.clubs)) {
     if (!club || typeof club !== 'object') continue;
-    const color = typeof club.color === 'string' && HEX_RE.test(club.color) ? club.color : null;
+    const color = hexOrNull(club.color);
     if (!color) continue;
     const entry = {
       name: typeof club.name === 'string' ? club.name.slice(0, 30) : undefined,
       primary: color,
-      deep: darken(color, 0.78),
-      accent: lighten(color, 0.65),
+      deep: hexOrNull(club.deep) ?? darken(color, 0.78),
+      accent: hexOrNull(club.tint) ?? lighten(color, 0.65),
       confetti: [color, lighten(color, 0.45), '#FFFFFF'],
       aliases: Array.isArray(club.aliases)
         ? club.aliases.filter((a) => typeof a === 'string').map((a) => a.toLowerCase()).slice(0, 8)
         : [],
     };
-    const logo = club.art && safeArtUrl(baseUrl, club.art.logo);
+    const logo = club.art && (safeArtUrl(baseUrl, club.art.logoWhite) || safeArtUrl(baseUrl, club.art.logo));
     if (logo) entry.logoUrl = logo;
     out[key.toLowerCase()] = entry;
   }

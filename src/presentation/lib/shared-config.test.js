@@ -37,9 +37,10 @@ describe('shipped shared files', () => {
     }
   });
 
-  it('every art path in theme.json exists in shared/art', () => {
+  it('every art path in theme.json exists under shared/', () => {
     const paths = Object.values(THEME.clubs).flatMap((c) => [
       ...(c.art.logo ? [c.art.logo] : []),
+      ...(c.art.logoWhite ? [c.art.logoWhite] : []),
       ...(c.art.title ? [c.art.title] : []),
       ...(c.art.group ? [c.art.group] : []),
       ...(c.art.characters ?? []),
@@ -146,6 +147,26 @@ describe('parseThemeConfig validation', () => {
         },
       }),
     ).toThrow(/bad hex color/);
+  });
+
+  const club = (extra) => ({ name: 'C', color: '#123456', ...extra });
+  const theme = (sparks) => ({
+    version: 1,
+    church: { name: 'X', displayName: 'X' },
+    clubs: { puggles: club(), cubbies: club(), sparks, tnt: club(), trek: club(), journey: club() },
+  });
+
+  it('keeps the optional catalog deep and tint, and the white mark', () => {
+    const t = parseThemeConfig(theme(club({ deep: '#B82B32', tint: '#FDDACF', art: { logo: 'a.svg', logoWhite: 'w.svg' } })));
+    expect(t.clubs.sparks.deep).toBe('#B82B32');
+    expect(t.clubs.sparks.tint).toBe('#FDDACF');
+    expect(t.clubs.sparks.art.logoWhite).toBe('w.svg');
+    expect(t.clubs.puggles.deep).toBeUndefined();
+  });
+
+  it('fails the build on a typo in deep or tint, like a bad color', () => {
+    expect(() => parseThemeConfig(theme(club({ deep: 'red' })))).toThrow(/clubs\.sparks\.deep: bad hex color/);
+    expect(() => parseThemeConfig(theme(club({ tint: '#12345' })))).toThrow(/clubs\.sparks\.tint: bad hex color/);
   });
 });
 
