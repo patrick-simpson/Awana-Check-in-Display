@@ -534,8 +534,12 @@ html, body, #root {
   color: #ffffff;
   white-space: nowrap;
 }
-/* The focus target after a move: on the blue tab the ring is white. */
-.slide-card-index:focus { outline: 3px solid #ffffff; outline-offset: 4px; border-radius: 4px; }
+/* The focus target after a move: on the blue tab the ring is white. Scoped
+   under .panel so it outranks the panels' Awana-blue `.panel :focus-visible`
+   ring below, which a KEYBOARD move matches (a blue ring on the blue tab
+   cannot be seen); a mouse move only ever matched this rule. The 2px offset
+   keeps the ring on the blob, clear of the tab's tapering tail. */
+.panel .slide-card-index:focus { outline: 3px solid #ffffff; outline-offset: 2px; border-radius: 4px; }
 /* Show-window badges (#345) on the editor's index line. The row itself is
    never hidden when a window closes — the operator has to be able to find
    and fix the slide that stopped showing. Small stickers on the tab. */
@@ -2116,9 +2120,14 @@ input:focus-visible {
    automatically, with no per-rule opt-in to remember. Framer-motion's
    own JS-driven animations (opacity fades, etc.) are handled separately
    by ZeroAnimationContext in src/lib/motion.jsx, since CSS can't reach
-   those. */
+   those. `*` never matches a pseudo-element and neither property is
+   inherited, so ::before / ::after are named too (the panels' checkbox
+   pops its check on a ::before; src/lib/zeroAnimationCss.test.js fails
+   any pseudo-element that animates without being named here). */
 .zero-animation-mode,
-.zero-animation-mode * {
+.zero-animation-mode *,
+.zero-animation-mode *::before,
+.zero-animation-mode *::after {
   animation: none !important;
   transition: none !important;
 }
