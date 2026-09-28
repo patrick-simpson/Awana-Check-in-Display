@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import NoticeBanner from './NoticeBanner.jsx';
+import NoticeBanner, { noticeFit } from './NoticeBanner.jsx';
 import { NOTICE_MAX_AGE_MS } from '../lib/constants.js';
 
 // Same rationale as TonightTicker.test.jsx / DataCycle.test.jsx: the
@@ -92,5 +92,32 @@ describe('NoticeBanner', () => {
     render(<NoticeBanner notice={notice({ level: 'warn' })} />);
     act(() => vi.advanceTimersByTime(NOTICE_MAX_AGE_MS - 60000));
     expect(screen.getByRole('status')).toBeTruthy();
+  });
+});
+
+describe('noticeFit / the band', () => {
+  afterEach(cleanup);
+  const long = 'Parents: pick-up tonight moves to the gym doors on the north side because of the parking lot work. Please drive around the back and wait in the loop — volunteers in orange will walk each child out.';
+
+  it('shouts a critical notice bigger than a band notice, and steps long ones down', () => {
+    const band = noticeFit('info', 'Doors close at 6:15 tonight.');
+    const takeover = noticeFit('critical', 'CLUB CANCELLED TONIGHT');
+    expect(takeover.size).toBeGreaterThan(band.size);
+    expect(noticeFit('info', long).size).toBeLessThan(band.size);
+    expect(noticeFit('critical', long).size).toBeLessThan(takeover.size);
+    // The flag tab over the band leaves less height: a smaller ceiling.
+    expect(noticeFit('info', 'Doors close at 6:15 tonight.', true).size).toBeLessThan(band.size);
+  });
+
+  it('keeps every word of the message, in order, across its lines', () => {
+    const { container } = render(<NoticeBanner notice={{ level: 'warn', message: long, at: Date.now() }} />);
+    expect(container.querySelector('.notice-banner-message').textContent).toBe(long);
+  });
+
+  it('a band notice steps aside while a toast holds the band; a critical one never does', () => {
+    const { container, rerender } = render(<NoticeBanner notice={{ level: 'info', message: 'Hi', at: Date.now() }} yielding />);
+    expect(container.querySelector('.notice-banner--info').classList.contains('is-yielding')).toBe(true);
+    rerender(<NoticeBanner notice={{ level: 'critical', message: 'Hi', at: Date.now() + 1 }} yielding />);
+    expect(container.querySelector('.notice-banner--critical').classList.contains('is-yielding')).toBe(false);
   });
 });

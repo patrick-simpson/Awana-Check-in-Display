@@ -27,11 +27,17 @@ describe('ParticleLayer', () => {
     expect(a).toBe(b);
   });
 
-  it('only sparkles carry a glyph; snow and rain are pure shapes', () => {
+  it('only sparkles carry a glyph (the kit\'s own doodles); snow and rain are pure shapes', () => {
     const sparkle = render(<ParticleLayer effect="sparkle" />).container;
-    expect(sparkle.querySelector('.particle').textContent).toBe('✦');
+    const first = sparkle.querySelector('.particle');
+    expect(first.querySelector('svg path')).not.toBeNull();
+    // No generic text star any more: the field is the catalog's doodle set.
+    expect(first.textContent).toBe('');
+    const kinds = new Set([...sparkle.querySelectorAll('.particle')].map((p) => p.className));
+    expect(kinds.size).toBeGreaterThan(2);
     cleanup();
     const snow = render(<ParticleLayer effect="snow" />).container;
     expect(snow.querySelector('.particle').textContent).toBe('');
+    expect(snow.querySelector('.particle svg')).toBeNull();
   });
 });

@@ -1,5 +1,8 @@
 import { M } from '../lib/motion.jsx';
+import { DUR, EASE, SHAPES, beats } from '../lib/brand.js';
 import { getClubPalette } from '../lib/clubs.js';
+import { OVERLAY, fitBoard } from '../lib/overlayFit.js';
+import { useFontsReady } from '../hooks/useFontsReady.js';
 import {
   BOARD_ANONYMOUS,
   BOARD_EMPTY,
@@ -22,6 +25,19 @@ import {
 // string below is chosen so a volunteer reads it as "who has not been checked
 // out yet" and never as "the building is clear" — because acting on the second
 // meaning when the first is what we know is how a child gets left behind.
+//
+// The look (rebrand stage 4b-2) is the kit's card, the printer dashboard's:
+// a white card with a hard offset shadow and a wavy corner tab carrying its
+// title, each name a chip in its club's colour, the count in Galindo. While
+// it is up it takes the middle of the room and the slide copy steps back
+// behind it (App's `board-up` stage class), as it does for a name: pickup is
+// the one part of the night when this list matters more than the slides, and
+// reserving room for up to sixty names would shrink every slide all evening.
+
+// The name chips' fit, in u: the card's inner width (70u less 2 x 2.2u of
+// padding), and the height left in the centre region after the tab (4.7u),
+// the foot (~3.9u) and the bottom padding (1.6u) (app.css).
+const NAMES = { width: OVERLAY.centre.width - 4.6, height: OVERLAY.centre.bottom - OVERLAY.centre.top - 10.4, max: 2.1, min: 1.05 };
 
 /**
  * @param {object} props
@@ -33,6 +49,7 @@ import {
  *   "simplified mode" switch.
  */
 export default function CheckoutBoard({ decision, checkout, calm }) {
+  useFontsReady();
   const state = decision?.state;
   if (state !== BOARD_NAMES && state !== BOARD_ANONYMOUS
       && state !== BOARD_EMPTY && state !== BOARD_STALE) {
@@ -42,73 +59,98 @@ export default function CheckoutBoard({ decision, checkout, calm }) {
   const entries = checkout?.entries || [];
   const groups = state === BOARD_NAMES ? groupByClub(entries) : [];
   const count = entries.length;
+  const fit = state === BOARD_NAMES ? fitBoard(groups, NAMES) : null;
 
   const anim = calm
     ? {}
     : {
-        initial: { opacity: 0, y: 16, scale: 0.97 },
-        animate: { opacity: 1, y: 0, scale: 1 },
-        transition: { type: 'spring', stiffness: 260, damping: 24 },
+        initial: { opacity: 0, y: '6%', scale: 0.96 },
+        animate: { opacity: 1, y: '0%', scale: 1 },
+        transition: { duration: DUR.settle, ease: EASE.settle },
       };
 
   return (
-    <M.section className={`checkout-board ${state}`} aria-live="polite" {...anim}>
-      <h2 className="checkout-title">Still to be picked up</h2>
+    <div className="checkout-region">
+      <M.section
+        className={`checkout-board ${state}`}
+        aria-live="polite"
+        style={fit ? { '--name-size': `calc(${fit.size} * var(--u))` } : undefined}
+        {...anim}
+      >
+        <div className="checkout-tab">
+          <svg viewBox={SHAPES.tab.viewBox} preserveAspectRatio="none" aria-hidden="true" focusable="false">
+            <path d={SHAPES.tab.d} fill="currentColor" />
+          </svg>
+          <h2 className="checkout-title">Still to be picked up</h2>
+        </div>
 
-      {state === BOARD_EMPTY && (
-        <p className="checkout-line good">
-          Everyone has been checked out. Thanks for a great night!
-        </p>
-      )}
-
-      {state === BOARD_ANONYMOUS && (
-        // Deliberately no names and no exact number. At this point in the
-        // evening a count of one or two, on a public wall, is a statement about
-        // specific unattended children — and their first names were already on
-        // this same screen earlier tonight.
-        <p className="checkout-line">
-          Almost everyone has been picked up. Please see the check-in desk.
-        </p>
-      )}
-
-      {state === BOARD_STALE && (
-        <p className="checkout-line warn">
-          This list stopped updating about {decision.ageMin} min ago
-          {' '}— please check with the check-in desk rather than relying on it.
-        </p>
-      )}
-
-      {state === BOARD_NAMES && (
-        <>
-          <ul className="checkout-clubs">
-            {/* Each club row eases in on a slight stagger — quiet, no
-                springs: this is a reference list a volunteer scans, not a
-                celebration. Club labels take the palette's pale accent so
-                the board speaks the same color-coding as the banners. */}
-            {groups.map((g, i) => (
-              <M.li
-                key={g.club}
-                className="checkout-club"
-                style={{ '--club-accent': getClubPalette(g.club).accent }}
-                initial={calm ? false : { opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: 0.1 + i * 0.07, ease: 'easeOut' }}
-              >
-                <span className="checkout-club-name">{g.club}</span>
-                <span className="checkout-names">{g.names.join(' · ')}</span>
-              </M.li>
-            ))}
-          </ul>
-          <p className="checkout-foot">
-            {/* "not checked out yet", never "still in the building" — the data
-                cannot support the stronger claim, and the weaker one is what a
-                volunteer needs to act on anyway. */}
-            {count} not checked out yet
-            {typeof checkout?.printed === 'number' && ` · ${checkout.printed} labels printed tonight`}
-            {decision.ageMin > 1 && ` · updated ${decision.ageMin} min ago`}
+        {state === BOARD_EMPTY && (
+          <p className="checkout-line good">
+            Everyone has been checked out. Thanks for a great night!
           </p>
-        </>
-      )}
-    </M.section>
+        )}
+
+        {state === BOARD_ANONYMOUS && (
+          // Deliberately no names and no exact number. At this point in the
+          // evening a count of one or two, on a public wall, is a statement about
+          // specific unattended children — and their first names were already on
+          // this same screen earlier tonight.
+          <p className="checkout-line">
+            Almost everyone has been picked up. Please see the check-in desk.
+          </p>
+        )}
+
+        {state === BOARD_STALE && (
+          <p className="checkout-line warn">
+            This list stopped updating about {decision.ageMin} min ago
+            {' '}— please check with the check-in desk rather than relying on it.
+          </p>
+        )}
+
+        {state === BOARD_NAMES && (
+          <>
+            <ul className="checkout-clubs">
+              {/* One run of chips per club, each name in its club's colour so
+                  the board speaks the same colour-coding as the banners; the
+                  rows ease in a beat apart. Quiet, no springs: this is a
+                  reference list a volunteer scans, not a celebration. */}
+              {groups.map((g, i) => {
+                const club = getClubPalette(g.club);
+                return (
+                  <M.li
+                    key={g.club}
+                    className="checkout-club"
+                    style={{ '--club': club.primary, '--club-deep': club.deep || club.primary }}
+                    initial={calm ? false : { opacity: 0, y: '0.5em' }}
+                    animate={{ opacity: 1, y: '0em' }}
+                    transition={{ duration: DUR.settle, delay: beats(1 + i * 0.7), ease: EASE.settle }}
+                  >
+                    <span className="checkout-club-name">{g.club}</span>
+                    <span className="checkout-names">
+                      {g.names.map((name, j) => (
+                        // A real separator between chips, so the list still
+                        // reads (and copies) as "Demo Kid · Sample Star".
+                        <span key={`${name}-${j}`} className="checkout-name">
+                          {j ? <span className="checkout-sep"> · </span> : null}
+                          <span className="checkout-name__chip">{name}</span>
+                        </span>
+                      ))}
+                    </span>
+                  </M.li>
+                );
+              })}
+            </ul>
+            <p className="checkout-foot">
+              {/* "not checked out yet", never "still in the building" — the data
+                  cannot support the stronger claim, and the weaker one is what a
+                  volunteer needs to act on anyway. */}
+              <span className="checkout-count">{count}</span> not checked out yet
+              {typeof checkout?.printed === 'number' && ` · ${checkout.printed} labels printed tonight`}
+              {decision.ageMin > 1 && ` · updated ${decision.ageMin} min ago`}
+            </p>
+          </>
+        )}
+      </M.section>
+    </div>
   );
 }

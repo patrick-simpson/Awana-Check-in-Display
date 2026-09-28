@@ -140,7 +140,8 @@ and `doodles/`. Read its README before changing it.
   are poster-only and the brand tokens never touch a `.promo-*` rule;
   `src/lib/promoFonts.test.js` pins both directions.
 - **Kit primitives** (`src/components/brand/`: StepChip, Wave, CornerTab,
-  Sticker, DoodleCluster) are M elements, timed from `src/lib/brand.js`
+  Sticker, DoodleCluster) are M elements, timed from `src/lib/brand.js`; the
+  one static primitive, StepPlate, only draws a measured outline
   (one 100 ms beat, the wipe / settle / pop / exit curves).
   `zeroAnimation.test.jsx` renders each through the real framer-motion under
   zero-animation mode, and `src/lib/motionImports.test.js` fails any signage
@@ -364,6 +365,51 @@ The typed slideshow and the check-in queue take turns instead of competing
 - **Problem indicators are not corner info.** The status sticker (connection,
   printer failures, name faults, layer faults) shows whenever there is a
   problem, on any slide.
+
+## The lobby's overlays (rebrand stage 4b-2)
+
+Everything that sits on the lobby wears the kit, so the screen reads as one
+catalog page. Two shapes carry it all:
+
+- **The stepped chip.** `StepChip` for one value ("UP NEXT / +3", the corner
+  chips; `icon` puts the weather's sky doodle, `WeatherGlyph`, at the head of
+  the value block), and **`StepPlate`** (`src/components/brand/`) for content
+  of any size: the same silhouette measured off the real label and body boxes
+  (`plateOutline` in `src/lib/brand.js`, redrawn by a ResizeObserver, never
+  per frame). The status sticker (`StickerChip`), the notices and the
+  milestone toasts are StepPlates. `.step-plate__echo` is a hidden copy of the
+  plate that a skinned night paints in `--skin-a`.
+- **The white kit card** (the printer dashboard's): the pickup board with its
+  wavy corner tab and club-colour name chips, and the first-run setup card.
+
+Where things go is one table, `OVERLAY` in `src/lib/overlayFit.js`, measured
+against the corner tab, the top-right stack, the copy's `LAYOUT` and the
+house waves:
+
+- **The top band** (50u wide, centred, from 1.4u down to 10.4u, above the
+  highest the copy can rise) holds a band notice (info / warn) and the
+  milestone toasts, ONE at a time: a toast borrows the band and the notice
+  lifts out of its way (`yielding`) and comes back as it leaves.
+- **The flag strip** hangs from the top edge above it: the demo, rehearsal
+  and simplified-mode tabs; while one hangs the band starts under it
+  (`.stage.has-flags`) and the fits use their compact ceilings.
+- **The centre** (12u to 46u of the 16:9 box) is taken over by a critical
+  notice and by the pickup board; the slide copy steps fully aside behind
+  them (`.stage.notice-takeover`, `.stage.board-up`), as it steps back for a
+  name. On an OBS overlay feed a critical notice keeps to the band instead.
+- The ticker is house-blue count chips on the waves, between the gear and the
+  corner chip (its four counts are the room's, so not club colours); "+N more
+  coming" rides the club's wave above its mark.
+
+Every size is fitted by measurement (`fitShout`, `fitParagraph` with
+`balanceLines`, `fitBoard`), so a 40-character name, a 200-character notice or
+a 60-name board steps down inside its band rather than spilling onto the
+headline, and plates hug their text. Toast plates: a club's own milestone
+wears the club's colour and wordmark (and keeps them on a skinned night); the
+room's attendance is hot; handbook progress is Awana blue. The sparkle
+particles throw the kit's doodles; snow and rain keep their shapes, flat.
+Every loop here ends at rest, and the weather glyph is frozen with the corner
+snapshot (`glyph`), like the words beside it.
 
 ## Tonight counter: the printer's tally is the source of truth
 

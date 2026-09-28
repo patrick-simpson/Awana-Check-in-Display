@@ -63,6 +63,12 @@ describe('snapshotCorner', () => {
     expect(w.label.length).toBeGreaterThan(0);
   });
 
+  it('freezes the weather\'s sky doodle with its words', () => {
+    expect(snapshotCorner('weather', src(), at).glyph).toBe('cloud');
+    expect(snapshotCorner('weather', src({ weather: { temp: 40, code: 0, isDay: false } }), at).glyph).toBe('moon');
+    expect(snapshotCorner('clock', src(), at).glyph).toBeUndefined();
+  });
+
   it('has nothing to show for weather with no reading', () => {
     expect(snapshotCorner('weather', src({ weather: null }), at)).toBeNull();
   });

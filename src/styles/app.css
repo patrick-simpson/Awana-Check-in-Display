@@ -135,12 +135,21 @@ html, body, #root {
 /* Full-bleed stage that fills the display. dvh tracks the real visible
    height on phones, where the browser chrome eats into 100vh. */
 .stage {
+  /* The lobby's unit, 1% of a 16:9 stage's width, for every overlay on it
+     (the scene and the check-in moment set the same). */
+  --u: min(1vw, 1.7778vh);
+  /* The top band's top edge (src/lib/overlayFit.js OVERLAY): under the
+     demo / rehearsal tab while one hangs from the top edge. */
+  --band-top: calc(1.4 * var(--u));
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+}
+.stage.has-flags {
+  --band-top: calc(3.1 * var(--u));
 }
 
 /* Overlay mode (?overlay=1): the page becomes a transparent layer for
@@ -734,6 +743,10 @@ html, body, #root {
   width: calc(17 * var(--u));
   height: calc(6.4 * var(--u));
   display: grid;
+  /* One cell exactly the slot's size: an auto row would take the art's own
+     height, and the near-square T&T mark then overflowed 17u x 6.4u to
+     ~16u tall and ran off the bottom of the screen. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
 }
 .checkin__mark {
   grid-area: 1 / 1;
@@ -858,6 +871,18 @@ html, body, #root {
   opacity: 0.28;
   transform: scale(0.97);
 }
+/* The same step back, all the way, for the two things that take the middle
+   of the room over (rebrand stage 4b-2): a critical notice and the pickup
+   board. Their opaque plates sit on the copy's own box, so a faded
+   headline would only show as a ghost round their edges; it steps aside
+   entirely and comes back when they go. */
+.stage.notice-takeover .background-placeholder .placeholder-copy,
+.stage.notice-takeover .manual-slideshow .manual-slide-copy,
+.stage.board-up .background-placeholder .placeholder-copy,
+.stage.board-up .manual-slideshow .manual-slide-copy {
+  opacity: 0;
+  transform: scale(0.97);
+}
 /* The idle gear would sit on the club's mark; it still comes back the
    moment an operator moves the mouse. */
 .stage.checkin-active .settings-gear.idle {
@@ -866,7 +891,10 @@ html, body, #root {
 
 /* Ambient particle layer (#26): snow / rain / sparkles behind the widgets.
    Pure CSS animation over a deterministic particle set — no JS per frame.
-   z-index 1: above the background scene, below everything that talks. */
+   z-index 1: above the background scene, below everything that talks. Flat,
+   like everything in the kit: no glow, no gradient. Snow and rain keep their
+   own shapes; the sparkle field throws the kit's doodles (ParticleLayer.jsx),
+   a few of them in the season's pair on a skinned night. */
 .particle-layer {
   position: absolute;
   inset: 0;
@@ -879,7 +907,6 @@ html, body, #root {
   top: -3vh;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.55);
   animation: particle-snow-fall linear infinite;
 }
 @keyframes particle-snow-fall {
@@ -891,9 +918,9 @@ html, body, #root {
 }
 .particle-rain .particle {
   top: -12vh;
-  width: 2px;
-  border-radius: 2px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(210, 230, 255, 0.9) 100%);
+  width: max(2px, calc(0.12 * var(--u)));
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
   animation: particle-rain-fall linear infinite;
 }
 @keyframes particle-rain-fall {
@@ -901,57 +928,50 @@ html, body, #root {
   100% { transform: translate3d(-6vw, 112vh, 0) rotate(8deg); }
 }
 .particle-sparkle .particle {
+  width: 1em;
+  height: 1em;
   color: #fff;
-  text-shadow: 0 0 8px rgba(255, 235, 160, 0.9);
   opacity: 0;
   animation: particle-sparkle-twinkle ease-in-out infinite;
 }
+.particle-sparkle .particle svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.particle-sparkle .particle--dot,
+.particle-sparkle .particle--ring {
+  width: 0.55em;
+  height: 0.55em;
+}
+.stage[data-skin] .particle-sparkle .particle:nth-child(3n + 1) { color: var(--skin-a); }
+.stage[data-skin] .particle-sparkle .particle:nth-child(5n + 2) { color: var(--skin-b); }
 @keyframes particle-sparkle-twinkle {
   0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
-  50%      { opacity: 0.85; transform: scale(1) rotate(45deg); }
+  50%      { opacity: 0.9; transform: scale(1) rotate(45deg); }
 }
 
-/* ── Sticker chips ─────────────────────────────────────────
-   The catalog's AGES/GRADES badge treatment, shared by every fixed
-   widget (StickerChip.jsx): dark tab, chunky cream die-cut border with
-   an offset halo ring, and a little condensed label tab slapped over
-   the top edge. Dark fill + blur keeps them readable over any slide.
-   Tilt comes from framer-motion (never CSS transform) so it composes
-   with entry/exit animations. */
+/* ── Sticker chips (StickerChip.jsx) ───────────────────────
+   A kit chip for content longer than one value: the stepped plate
+   (StepPlate, see "Brand kit primitives" below) with a Londrina label on
+   its pill. Its tilt and pop ride framer-motion, never a CSS transform. */
 .sticker-chip {
   position: relative;
-  background: var(--sticker-bg);
-  border: 3px solid var(--sticker-edge);
-  border-radius: var(--sticker-radius);
-  outline: 2px solid var(--sticker-edge-halo);
-  outline-offset: 3px;
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  box-shadow: var(--shadow-soft);
-}
-.sticker-chip-label {
-  position: absolute;
-  top: -0.85em;
-  left: 12px;
-  padding: 0.14em 0.65em 0.18em;
-  font-family: var(--font-condensed);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  color: #fff;
-  background: linear-gradient(135deg, var(--awana-orange) 0%, var(--awana-orange-deep) 100%);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(20, 26, 40, 0.35);
-  transform: rotate(-2deg);
+  transform-origin: 85% 30%;
 }
 .sticker-chip-spark {
   position: absolute;
-  top: -9px;
-  right: -6px;
-  color: var(--awana-gold-pale);
+  top: calc(-0.5 * var(--u));
+  right: calc(-0.4 * var(--u));
+  width: calc(1.3 * var(--u));
+  color: #fff;
   pointer-events: none;
+}
+.sticker-chip-spark svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 /* ── Countdown timer ───────────────────────────────────── */
@@ -1012,28 +1032,43 @@ html, body, #root {
   margin-top: 0.2rem;
 }
 
-/* ── Settings gear button ──────────────────────────────── */
+/* ── Settings gear button ──────────────────────────────────
+   A round kit chip: the chip charcoal printed a little out of register
+   behind a white keyline ring, the gear in white. */
 .settings-gear {
+  --gear-line: max(2px, calc(0.14 * var(--u)));
   position: absolute;
   left: var(--safe-inset);
   bottom: var(--safe-inset);
-  width: 46px;
-  height: 46px;
+  width: max(46px, calc(2.9 * var(--u)));
+  height: max(46px, calc(2.9 * var(--u)));
   border-radius: 50%;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: transparent;
+  border: var(--gear-line) solid #fff;
   color: #fff;
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: opacity 0.35s ease, transform 0.25s ease, background 0.2s ease;
+  transition:
+    opacity var(--brand-dur-exit) var(--brand-ease-settle),
+    transform var(--brand-dur-quick) var(--brand-ease-pop);
   padding: 0;
-  box-shadow: var(--shadow-soft);
   z-index: 50;
 }
-.settings-gear:hover { background: rgba(255, 255, 255, 0.25); transform: rotate(45deg) scale(1.05); }
+.settings-gear::before {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--gear-line));
+  border-radius: 50%;
+  background: var(--brand-chip);
+  transform: translate(calc(0.22 * var(--u)), calc(0.13 * var(--u)));
+  z-index: -1;
+}
+.settings-gear svg {
+  width: 48%;
+  height: 48%;
+}
+.settings-gear:hover { transform: rotate(45deg) scale(1.05); }
 /* Faint, not gone: a volunteer at an unconfigured TV must be able to find the way in. */
 .settings-gear.idle { opacity: 0.12; pointer-events: auto; }
 
@@ -1454,27 +1489,42 @@ html, body, #root {
   font-size: 0.95em;
 }
 
-/* ── Connection status dot ─────────────────────────────── */
+/* ── Connection status sticker (the SIGNAL chip) ─────────────
+   The kit chip in the corner stack: SIGNAL on the pill, the pipe's state on
+   the block with a flat status dot, the printer's count as a hot pill, and
+   any fault in words on its own sunflower strip. Sized in u with a pixel
+   floor, and capped at 19u wide so its longest wording wraps inside the
+   stack instead of reaching into the top band. */
 .status-dot {
+  --plate-label: max(11px, calc(1.05 * var(--u)));
+  font-family: var(--font-body);
+  color: #fff;
+}
+.status-dot .sticker-chip-body {
+  max-width: calc(19 * var(--u));
+  padding: calc(0.5 * var(--u)) calc(0.9 * var(--u)) calc(0.6 * var(--u)) calc(0.75 * var(--u));
+}
+.status-dot .status-line {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-condensed);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: var(--text-on-glass-muted);
-  padding: 0.45rem 1rem;
+  gap: 0.2em 0.5em;
+  font-size: max(12px, calc(1.2 * var(--u)));
+  font-weight: 700;
+  line-height: 1.2;
 }
 .status-dot .dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--status-idle);
-  box-shadow: 0 0 8px currentColor;
+  flex: none;
+  width: 0.62em;
+  height: 0.62em;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 0 0 0.12em rgba(255, 255, 255, 0.9);
 }
-.status-dot.connected .dot    { background: var(--status-ok); }
-.status-dot.connecting .dot   { background: var(--awana-orange); animation: pulse 1.2s ease-in-out infinite; }
-.status-dot.disconnected .dot { background: var(--awana-red); }
-.status-dot.off .dot          { background: var(--status-idle); }
+.status-dot.connected .dot    { background: var(--brand-tnt); }
+.status-dot.connecting .dot   { background: var(--brand-sun); animation: pulse 1.2s ease-in-out infinite; }
+.status-dot.disconnected .dot { background: var(--brand-hot); }
+.status-dot.off .dot          { background: rgba(255, 255, 255, 0.45); }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -1489,10 +1539,8 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  /* Roomier than the old pill stack: each sticker's label tab pokes
-     ~0.85em above its top edge and needs air, plus the tilts. */
-  gap: 1.05rem;
-  padding-top: 10px;
+  gap: calc(0.9 * var(--u));
+  z-index: 36;
 }
 
 /* ── Corner info (CornerChip.jsx): one stepped chip at a time ─────── */
@@ -1529,118 +1577,96 @@ html, body, #root {
   text-shadow: 0 1px 0 rgba(3, 4, 4, 0.45);
 }
 
-/* ── Milestone toast ───────────────────────────────────── */
-/* Stacked like the catalog's "RECOMMENDED 2026-2027" pill: small
-   condensed line over the big display line, sparkles at the corners. */
+/* ── Milestone toast (MilestoneToast.jsx) ─────────────────
+   A kit chip in the top band: a Londrina kicker on the pill, one Galindo
+   line on the block (sized by the fit, --toast-line), three sparkles on its
+   shoulder. The band sits between the corner tab and the top-right stack,
+   above the highest the slide copy can rise, and far above the check-in
+   wave (src/lib/overlayFit.js OVERLAY). Centred with inset + auto margins:
+   framer-motion owns `transform`. */
 .milestone-toast {
+  --plate-label: calc(1.45 * var(--u));
+  --toast-shadow: rgba(3, 4, 4, 0.28);
+  --toast-doodle: #fff;
   position: absolute;
-  top: 8%;
-  /* framer-motion owns `transform` while animating, so horizontal
-     centering must never ride translateX — inset + auto margins keep
-     every centered overlay honest under animation. */
+  top: var(--band-top);
   left: 0;
   right: 0;
   margin-inline: auto;
-  width: min(90vw, 640px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1.4rem;
-  padding: 1.1rem 2rem 1.3rem;
-  background: linear-gradient(135deg, var(--awana-orange) 0%, var(--awana-orange-deep) 100%);
-  border: 4px solid var(--sticker-edge);
-  border-radius: var(--radius-lg);
-  outline: 3px solid var(--sticker-edge-halo);
-  outline-offset: 4px;
-  box-shadow: var(--shadow-deep);
+  width: fit-content;
+  max-width: calc(50 * var(--u));
   z-index: 40;
+  pointer-events: none;
+  transform-origin: 50% 0%;
 }
-.milestone-toast .milestone-lines {
+.milestone-toast--hot { --toast-shadow: var(--brand-hot-deep); }
+.milestone-toast--handbook { --toast-shadow: var(--brand-blue-deep); }
+.milestone-toast--club { --toast-shadow: var(--club-deep); }
+.milestone-toast .milestone-label {
+  letter-spacing: 0.09em;
+}
+.milestone-toast .milestone-body {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.1rem;
+  gap: calc(1 * var(--u));
+  padding: calc(0.6 * var(--u)) calc(1.2 * var(--u)) calc(0.6 * var(--u));
 }
 .milestone-toast .milestone-count {
-  font-family: var(--font-display);
-  font-size: clamp(2.2rem, 5vw, 3.8rem);
-  font-weight: 800;
-  line-height: 1;
-  color: #fff;
-  font-variant-numeric: tabular-nums;
+  display: block;
+  font-family: var(--font-shout);
+  font-size: var(--toast-line, calc(3 * var(--u)));
+  font-weight: 400;
+  line-height: 1.02;
+  white-space: nowrap;
   text-transform: uppercase;
-  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.14);
-}
-.milestone-toast .milestone-label {
-  font-family: var(--font-condensed);
-  font-size: clamp(1rem, 1.9vw, 1.4rem);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.92);
-}
-.milestone-toast .milestone-sparkle {
-  display: inline-flex;
   color: #fff;
-  opacity: 0.9;
+  text-shadow: 0.05em 0.05em 0 var(--toast-shadow);
 }
-
-/* Club wordmark inside the milestone toast (#332). The `.banner`-scoped
-   club rules above are deliberately NOT reused: this is a 640px pill, not
-   a lower-third band, and the wordmark art runs up to 800px wide — dropped
-   in unstyled it would render at intrinsic size and blow the toast apart. */
+.milestone-toast .milestone-count__line {
+  display: block;
+}
+/* The club's wordmark on its own colour (#332). Its art runs up to 800px
+   wide, so the slot pins its height and caps its width. */
 .milestone-toast .milestone-badge {
   display: inline-flex;
   align-items: center;
-  flex-shrink: 0;
+  flex: none;
 }
 .milestone-toast .club-logo-slot {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: clamp(34px, 5.2vh, 58px);
+  height: calc(3.4 * var(--u));
   flex-shrink: 0;
 }
 .milestone-toast .club-logo {
   height: 100%;
   width: auto;
-  max-width: clamp(96px, 13vw, 180px);
+  max-width: calc(7.4 * var(--u));
   object-fit: contain;
-  filter:
-    drop-shadow(0 3px 0 rgba(0, 0, 0, 0.14))
-    drop-shadow(0 8px 18px rgba(0, 0, 0, 0.26));
 }
-/* Wordmark only here — the mascot sticker is banner-scale art and would
-   crowd a pill that already carries two sparkles and two lines of text. */
+/* Wordmark only here: the mascot sticker is banner-scale art. */
 .milestone-toast .club-mascot { display: none; }
+.milestone-toast .club-title-fallback {
+  font-family: var(--font-condensed);
+  font-size: calc(1.6 * var(--u));
+  text-transform: uppercase;
+}
+.milestone-toast .milestone-doodles {
+  overflow: visible;
+}
 
-/* ── "More coming" queue chip ──────────────────────────── */
+/* ── "+N more coming" (App.jsx .up-next) ───────────────────
+   A stepped chip ("UP NEXT / +3") on the club's own wave, above its mark
+   (the check-in moment's .checkin__mark-slot ends 9.6u up). */
 .up-next {
   position: absolute;
-  /* Below the demo-mode pill's row, so a training rush never stacks the
-     two on top of each other. */
-  top: calc(var(--safe-inset) + 26px);
-  left: 0;
-  right: 0;
-  margin-inline: auto;
-  width: 220px;
-  text-align: center;
-  padding: 0.5rem 0;
-  font-family: var(--font-condensed);
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-on-glass);
-  background: var(--sticker-bg);
-  border: 3px solid var(--sticker-edge);
-  border-radius: var(--sticker-radius);
-  outline: 2px solid var(--sticker-edge-halo);
-  outline-offset: 3px;
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  box-shadow: var(--shadow-soft);
+  left: calc(3.6 * var(--u));
+  bottom: calc(11 * var(--u));
   z-index: 30;
+  line-height: 0;
+  pointer-events: none;
+  transform-origin: 20% 80%;
 }
 
 /* ── Debug stats row ───────────────────────────────────── */
@@ -1703,9 +1729,6 @@ input:focus-visible {
 
 /* ── Narrow screens: compact chrome, wrappable banner ────── */
 @media (max-width: 700px) {
-  /* Corner stickers shrink so they don't dominate a phone screen. */
-  .sticker-chip { border-width: 2px; border-radius: 14px; }
-  .sticker-chip-label { font-size: 0.62rem; top: -0.9em; left: 9px; }
   .corner-stack { gap: 0.85rem; }
   .countdown {
     min-width: 0;
@@ -1720,24 +1743,12 @@ input:focus-visible {
   .welcome-back-seal { width: clamp(72px, 20vw, 110px); top: -22%; }
   .first-time-burst span { font-size: clamp(0.7rem, 2.6vw, 0.95rem); }
 
-  .milestone-toast {
-    width: min(94vw, 640px);
-    gap: 0.5rem;
-  }
-  .milestone-toast .milestone-count { font-size: clamp(1.6rem, 7vw, 2.4rem); }
-  .milestone-toast .club-logo-slot { height: clamp(26px, 6vw, 40px); }
-  .milestone-toast .club-logo { max-width: clamp(72px, 22vw, 130px); }
-
-  .tonight-ticker {
-    max-width: 92vw;
-    gap: 0.4rem 1.2rem;
-    padding: 0.55rem 1.1rem 0.7rem;
-  }
-  .tonight-ticker-value { font-size: 1.4rem; }
-  .tonight-ticker-label { font-size: 0.62rem; }
-
-  .notice-banner--warn,
-  .notice-banner--info { width: 92vw; }
+  /* The lobby's u makes the overlays tiny on a phone; give the ones a
+     leader reads there a floor, and let the band use the width. */
+  .milestone-toast,
+  .notice-banner--info,
+  .notice-banner--warn { max-width: 92vw; }
+  .tonight-ticker { max-width: 92vw; flex-wrap: wrap; }
 }
 
 /* ── Small screens in EITHER direction: compact panels ────
@@ -1805,8 +1816,6 @@ input:focus-visible {
    slide type is sized in u (see .catalog-scene), which already follows the
    height on a short screen, so it needs nothing here. ─────── */
 @media (max-height: 560px) {
-  .sticker-chip { border-width: 2px; border-radius: 12px; }
-  .sticker-chip-label { font-size: 0.58rem; top: -0.9em; left: 8px; }
   .corner-stack { gap: 0.8rem; }
   .countdown {
     min-width: 0;
@@ -2689,91 +2698,96 @@ input:focus-visible {
 
 /* ── Wave 1: presentation variants + operator surfaces ─────────────── */
 
-/* Printer-problem count riding the Signal sticker. */
+/* Printer-problem count riding the Signal sticker: a hot pill. */
 .status-dot .ops-count {
-  margin-left: 0.4em;
-  color: #ff5252;
-  font-weight: 800;
+  flex: none;
+  padding: 0.08em 0.5em 0.1em;
+  border-radius: 999px;
+  background: var(--brand-hot);
+  color: #fff;
+  font-family: var(--font-condensed);
+  font-weight: 400;
+  letter-spacing: 0.05em;
 }
 
 /* Names arrive encrypted; when a screen can't read them it must SAY so, not
    just quietly stop showing banners — that is indistinguishable from a quiet
-   night. Amber rather than red: no child is missing a label, the wall is just
-   less welcoming until someone pastes the key. Wraps onto its own line because
-   the messages are sentences, not a status word. */
+   night. Sunflower rather than hot: no child is missing a label, the wall is
+   just less welcoming until someone pastes the key. Its own strip under the
+   state, because the messages are sentences, not a status word; ink on
+   sunflower so it reads on any background the plate sits over. */
 .status-dot .name-fault {
   display: block;
-  margin-top: 0.25em;
-  color: #ffc046;
-  font-weight: 800;
-  font-size: 0.72em;
-  letter-spacing: 0.04em;
-  line-height: 1.25;
-  max-width: 22ch;
+  margin-top: 0.45em;
+  padding: 0.28em 0.55em 0.3em;
+  border-radius: 0.4em;
+  background: var(--brand-sun);
+  color: var(--brand-ink);
+  font-family: var(--font-condensed);
+  font-weight: 400;
+  font-size: max(11px, calc(1.1 * var(--u)));
+  letter-spacing: 0.05em;
+  line-height: 1.15;
+  text-transform: uppercase;
 }
 
-/* "simplified mode" pill — quiet confirmation that panic mode is on. */
+/* "simplified mode": quiet confirmation that panic mode is on, a charcoal
+   tab in the flag strip beside the demo and rehearsal tabs (below). */
 .panic-pill {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%) rotate(-0.5deg);
-  background: rgba(20, 20, 24, 0.82);
-  color: #ffd257;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 210, 87, 0.4);
-  z-index: 40;
-  pointer-events: none;
+  background: var(--brand-ink);
+  color: var(--brand-sun);
 }
 
-/* Demo-mode badge. Sits TOP-centre rather than bottom so it can't be confused
-   with the simplified-mode pill, and is deliberately louder (red, no rotation):
-   its whole job is to stop someone reading a simulated banner as a real child
-   arriving. Above the banner z-index so a burst of fake check-ins can't cover
-   it. */
+/* Demo-mode badge and rehearsal watermark: kit tabs hanging from the top
+   edge, side by side in one strip (.top-flags), above the top band, which
+   moves down under them (.stage.has-flags). The demo tab is the hot sticker
+   colour and never rotates: its whole job is to stop someone reading a
+   simulated banner as a real child arriving. Rehearsal (#19) is sunflower:
+   an armed mode on the PRINTER, cleared by its next tally. Above the
+   banner z-index so a burst of fake check-ins can't cover them. */
+.top-flags {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: fit-content;
+  display: flex;
+  gap: calc(0.6 * var(--u));
+  z-index: 61;
+  pointer-events: none;
+}
+.demo-pill,
+.rehearsal-pill,
+.panic-pill {
+  --flag-deep: var(--brand-hot-deep);
+  display: flex;
+  align-items: center;
+  height: calc(2.5 * var(--u));
+  min-height: 24px;
+  padding: calc(0.2 * var(--u)) calc(1.1 * var(--u)) 0;
+  font-family: var(--font-condensed);
+  font-size: max(11px, calc(1.15 * var(--u)));
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: max(2px, calc(0.13 * var(--u))) solid #fff;
+  border-top: 0;
+  border-radius: 0 0 calc(0.8 * var(--u)) calc(0.8 * var(--u));
+  box-shadow: calc(0.25 * var(--u)) calc(0.18 * var(--u)) 0 var(--flag-deep);
+}
 .demo-pill {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(120, 20, 24, 0.9);
+  background: var(--brand-hot);
   color: #fff;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 120, 120, 0.55);
-  z-index: 60;
-  pointer-events: none;
 }
-
-/* Rehearsal watermark (#19): sibling of .demo-pill, but amber — rehearsal is
-   an armed mode on the PRINTER, not a local simulation, and it clears itself
-   from the next tally rather than needing a reload. Sits just below the demo
-   pill's slot so both can show at once without overlapping. */
 .rehearsal-pill {
-  position: absolute;
-  top: 52px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(146, 64, 14, 0.92);
-  color: #fff;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(253, 230, 138, 0.6);
-  z-index: 60;
-  pointer-events: none;
+  --flag-deep: var(--brand-orange-deep);
+  background: var(--brand-sun);
+  color: var(--brand-ink);
+}
+.panic-pill {
+  --flag-deep: rgba(3, 4, 4, 0.45);
 }
 
 /* ── Local .pptx renderer ──────────────────────────────────────────── */
@@ -2821,232 +2835,163 @@ input:focus-visible {
     0.035em 0.035em 0 var(--skin-a),
     0.07em 0.07em 0 var(--skin-b);
 }
-.stage[data-skin] .milestone-toast {
-  border-color: var(--skin-a);
+/* The room-wide chrome wears the season too: a room-wide toast's plate
+   gets an echo in the skin's first colour printed behind it and its
+   sparkles take the second, the "+N more coming" chip's keyline takes the
+   second, and a few sparkle particles take the pair. A club's own toast
+   keeps the club's colours at Christmas too, the same rule the confetti
+   follows (lib/confetti.js). */
+.stage[data-skin] .milestone-toast:not(.milestone-toast--club) {
+  --toast-doodle: var(--skin-b);
 }
-.stage[data-skin] .up-next {
-  border-color: var(--skin-b);
+.stage[data-skin] .milestone-toast:not(.milestone-toast--club) .step-plate__echo {
+  display: block;
+  fill: var(--skin-a);
 }
-
-/* Club milestone toast variant (#36) — takes the club's color. */
-.milestone-toast.club-milestone {
-  border-color: var(--club-primary, #f7a41c);
-}
-.milestone-toast.club-milestone .milestone-label {
-  color: var(--club-primary, #f7a41c);
-}
-
-/* Kid milestone toast (#10, round 3) — one child's 5th/10th/25th/50th club
-   night, from the sealed checkin flag. Club-colored like the club variant,
-   with a golden star edge so it reads as personal, not statistical. */
-.milestone-toast.kid-milestone {
-  border-color: var(--club-primary, #f7a41c);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(255, 210, 87, 0.35);
-}
-.milestone-toast.kid-milestone .milestone-label {
-  color: var(--club-primary, #f7a41c);
+.stage[data-skin] .up-next .step-chip__keyline {
+  stroke: var(--skin-b);
 }
 
 /* ── Tonight ticker (onTonight): lobby stat strip ─────────────────── */
-/* A persistent low-profile strip, bottom-center, well clear of the
-   bottom-left settings gear and the bottom-right corner chip. Sits
-   below the celebration banner's z-index as a belt-and-suspenders (it
-   also unmounts via `active` while a banner is up, see TonightTicker.jsx),
-   so a stray frame mid-transition still can't visually fight a banner. */
+/* The kit's count chips (the printer dashboard's club chips: a pill, white
+   Londrina caps, a Galindo number) in the house blue, on the house waves
+   bottom-centre. Its widest night (four stats, three-digit counts) runs
+   ~55u, inside the 60u between the settings gear (ends ~4u) and the corner
+   chip (from ~80u). Below the check-in wave's z-index as a belt-and-braces
+   (it also unmounts via `active` while a banner is up, see
+   TonightTicker.jsx). Centred without translateX: framer-motion owns the
+   transform. */
 .tonight-ticker {
   position: absolute;
-  bottom: var(--safe-inset);
-  /* Centered WITHOUT translateX: framer-motion drives this element's
-     transform (the y rise), which silently discarded a CSS translate and
-     let the strip drift right into the corner chip. */
+  bottom: calc(1.8 * var(--u));
   left: 0;
   right: 0;
   margin-inline: auto;
   width: fit-content;
+  max-width: calc(60 * var(--u));
   z-index: 3;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: center;
-  flex-wrap: wrap;
-  gap: 0 2.2rem;
-  max-width: min(72vw, 860px);
-  padding: 0.7rem 1.8rem 0.85rem;
-  background: var(--sticker-bg);
-  border: 2px solid var(--sticker-edge);
-  border-radius: var(--radius-lg);
+  gap: calc(0.8 * var(--u));
   pointer-events: none;
 }
 .tonight-ticker-stat {
-  display: flex;
+  display: inline-flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: calc(0.45 * var(--u));
+  padding: calc(0.5 * var(--u)) calc(1.1 * var(--u)) calc(0.45 * var(--u));
+  border-radius: 999px;
+  background: var(--brand-blue);
+  color: #fff;
   white-space: nowrap;
+  box-shadow: calc(0.22 * var(--u)) calc(0.22 * var(--u)) 0 var(--brand-blue-deep);
 }
 .tonight-ticker-value {
   display: inline-block;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3.4vmin, 2.4rem);
-  font-weight: 800;
+  font-family: var(--font-shout);
+  font-size: calc(2.2 * var(--u));
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  color: var(--awana-yellow);
 }
 .tonight-ticker-label {
   font-family: var(--font-condensed);
-  font-size: clamp(0.68rem, 1.3vmin, 0.85rem);
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: calc(1.2 * var(--u));
+  letter-spacing: 0.08em;
+  line-height: 1;
   text-transform: uppercase;
-  color: var(--text-on-glass-muted);
 }
 
 /* ── Notice banner (onNotice): church-authored announcements ──────── */
+/* The kit's stepped chip (StepPlate): a Londrina label on the pill, the
+   message in Figtree on the block, sized by NoticeBanner's fit
+   (--notice-size). info and warn sit in the top band (between the corner
+   tab and the top-right stack, above the highest the copy rises); a toast
+   borrows the band while it is up. critical takes the middle of the room
+   over, the slide copy stepping back behind it. Centred with inset + auto
+   margins: framer-motion owns `transform`. */
 .notice-banner {
   position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
   pointer-events: none;
 }
 .notice-banner-eyebrow {
-  font-family: var(--font-condensed);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.1em;
 }
 .notice-banner-message {
-  font-family: var(--font-display);
+  display: block;
+  font-family: var(--font-body);
   font-weight: 700;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
-
-/* Critical: unmissable — full-width, pinned to the very top, the
-   highest z-index on the stage (above the check-in banner's z-index:10,
-   the milestone toast's 40, and the settings gear's 50) so a genuine
-   "CLUB CANCELLED TONIGHT" always wins, no matter what else is on
-   screen. Still below the Settings/Slide-editor/Debug panels (100+) —
-   an operator working in those already knows the notice is there. */
-.notice-banner--critical {
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 60;
-  gap: 0.2rem;
-  padding: 1rem max(24px, 3vw) 1.15rem;
-  background: linear-gradient(135deg, var(--awana-red) 0%, #a52424 100%);
-  border-bottom: 4px solid rgba(255, 255, 255, 0.4);
-  box-shadow: var(--shadow-deep);
-}
-.notice-banner--critical .notice-banner-eyebrow {
-  font-size: clamp(0.85rem, 2vw, 1.05rem);
-  color: rgba(255, 255, 255, 0.88);
-}
-.notice-banner--critical .notice-banner-message {
-  font-size: clamp(1.3rem, 4vw, 2.3rem);
+  font-size: var(--notice-size, calc(1.8 * var(--u)));
+  line-height: 1.2;
   color: #fff;
-  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
+  overflow-wrap: break-word;
+  text-wrap: balance;
 }
-
-/* Warn: a softer centered strip — still comfortably above idle content
-   (banner:10, tonight-ticker:3) but quieter than the critical bar. */
+.notice-banner-message.is-set .notice-banner-line {
+  display: block;
+  white-space: nowrap;
+}
+.notice-banner--info,
 .notice-banner--warn {
-  top: var(--safe-inset);
-  /* No translateX — framer-motion owns this element's transform. */
+  --plate-label: calc(1.25 * var(--u));
+  top: var(--band-top);
   left: 0;
   right: 0;
   margin-inline: auto;
+  width: fit-content;
+  max-width: calc(50 * var(--u));
   z-index: 35;
-  gap: 0.15rem;
-  width: min(80vw, 760px);
-  padding: 0.7rem 1.6rem 0.8rem;
-  background: linear-gradient(135deg, var(--awana-orange) 0%, var(--awana-orange-deep) 100%);
-  border: 3px solid var(--sticker-edge);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-soft);
+  transform-origin: 50% 0%;
 }
-.notice-banner--warn .notice-banner-eyebrow {
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.85);
+.notice-banner--info .notice-banner-body,
+.notice-banner--warn .notice-banner-body {
+  padding: calc(0.55 * var(--u)) calc(1.1 * var(--u)) calc(0.6 * var(--u));
 }
+/* Warn: sunflower, so ink type. */
+.notice-banner--warn .notice-banner-eyebrow,
 .notice-banner--warn .notice-banner-message {
-  font-size: clamp(1rem, 2.2vw, 1.4rem);
-  color: #fff;
+  color: var(--brand-ink);
 }
 
-/* Info: the quietest — a small glass chip in the top-left corner
-   (mirroring the top-right corner-stack), well under the banner so it
-   never needs to fight for attention. */
-.notice-banner--info {
-  top: var(--safe-inset);
-  left: var(--safe-inset);
-  z-index: 5;
-  gap: 0.1rem;
-  width: min(60vw, 420px);
-  padding: 0.5rem 1.1rem 0.6rem;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+/* Critical: unmissable. The hot chip, big, centred on the copy's own box
+   (12u to 46u of the 16:9 frame, which is centred on any screen), at the
+   highest z-index on the stage (above the check-in moment's 10, the
+   toast's 40 and the gear's 50) so "CLUB CANCELLED TONIGHT" always wins.
+   Still below the Settings / slide editor / debug panels (100+). */
+.notice-banner--critical {
+  --plate-label: calc(2 * var(--u));
+  top: calc(50% - 16.125 * var(--u));
+  bottom: calc(50% - 17.875 * var(--u));
+  left: 0;
+  right: 0;
+  margin: auto;
+  width: fit-content;
+  height: fit-content;
+  max-width: calc(70 * var(--u));
+  z-index: 60;
 }
-.notice-banner--info .notice-banner-eyebrow {
-  font-size: 0.65rem;
-  color: var(--text-on-glass-muted);
-}
-.notice-banner--info .notice-banner-message {
-  font-size: 0.92rem;
-  color: var(--text-on-glass);
-}
-
-/* Night-milestone toast (the 100th kid). Warmer and slightly larger than the
-   routine every-Nth toast so a named threshold reads as an occasion — the
-   whole reason it isn't just another interval. */
-.milestone-toast.night-milestone {
-  border-color: var(--awana-gold, #f7a41c);
-  box-shadow: 0 10px 30px rgba(247, 164, 28, 0.28);
-}
-.milestone-toast.night-milestone .milestone-label {
-  color: var(--awana-gold, #f7a41c);
-  letter-spacing: 0.1em;
-}
-.milestone-toast.night-milestone .milestone-count {
-  font-size: 2.1rem;
-}
-
-/* Handbook milestones (#358) — books finished / awards earned tonight. The
-   night-milestone treatment (this IS a room-wide occasion) with a green edge,
-   so "10 books finished tonight!" is distinguishable at a glance from "100
-   kids tonight!" on a wall nobody is reading closely. */
-/* #4caf50 literal rather than a new token: it is the same green already in
-   the house milestone confetti palette (lib/confetti.js MILESTONE_COLORS),
-   and the token block above holds the catalog brand colours only. */
-.milestone-toast.handbook-milestone {
-  border-color: #4caf50;
-  box-shadow: 0 10px 30px rgba(76, 175, 80, 0.28);
-}
-.milestone-toast.handbook-milestone .milestone-label {
-  color: #4caf50;
-}
-
-/* First-arrival flourish (#335) — the night's opening moment, which happens
-   exactly once. Deliberately NOT carried on border-color: the skin rule
-   `.stage[data-skin] .milestone-toast` above has higher specificity and would
-   repaint it on any themed night. The shadow and the label colour are ours
-   alone. No @keyframes either — the entrance already comes from the M.div
-   toast, so reduceMotion zeroes it with nothing extra to remember. */
-.milestone-toast.first-milestone {
-  box-shadow:
-    0 10px 34px rgba(247, 164, 28, 0.34),
-    0 0 0 3px rgba(255, 210, 87, 0.4);
-}
-.milestone-toast.first-milestone .milestone-label {
-  color: var(--awana-gold, #f7a41c);
+.notice-banner--critical .notice-banner-eyebrow {
   letter-spacing: 0.12em;
 }
-.milestone-toast.first-milestone .milestone-count {
-  font-size: 2rem;
+.notice-banner--critical .notice-banner-body {
+  padding: calc(1.1 * var(--u)) calc(2 * var(--u)) calc(1.3 * var(--u));
+}
+.notice-banner--critical .notice-banner-message {
+  font-weight: 800;
+  line-height: 1.15;
+  text-shadow: 0.05em 0.05em 0 var(--brand-hot-deep);
+}
+/* An OBS / ProPresenter overlay feed has no slide to step back: the alert
+   keeps to the top band there, smaller, over whatever the feed shows. */
+.stage.overlay .notice-banner--critical {
+  --plate-label: calc(1.4 * var(--u));
+  top: var(--band-top);
+  bottom: auto;
+  height: auto;
+  max-width: calc(60 * var(--u));
+}
+.stage.overlay .notice-banner--critical .notice-banner-message {
+  font-size: min(var(--notice-size), calc(2.6 * var(--u)));
 }
 
 /* ── Weather mood over the season's scene ──────────────────────────────
@@ -3115,60 +3060,73 @@ input:focus-visible {
   opacity: 0.85;
 }
 
-/* ── Who's still here board ──────────────────────────────────────────────────
-   Bottom-centre, below the ticker. Deliberately quieter than a check-in banner:
-   this is a reference list a volunteer scans, not an announcement, and it must
-   never compete with a child arriving at the door. */
-.checkout-board {
+/* ── Who's still here board (CheckoutBoard.jsx) ─────────────────────────────
+   The kit's card, the printer dashboard's: white, a hard offset shadow in
+   the house blue, and a wavy corner tab carrying the title. Each name is a
+   chip in its club's colour (Galindo on the club, a hard shadow in its deep
+   shade), each club's run of chips led by its name in Londrina; the count
+   in the foot is Galindo. While it is up it takes the middle of the room,
+   centred on the copy's own box (12u to 46u of the 16:9 frame), and the
+   slide copy steps back behind it (.stage.board-up). The name size comes
+   from the component's fit (--name-size): every chip metric below is in
+   em of it, which is the model src/lib/overlayFit.js boardRowsHeight uses. */
+.checkout-region {
   position: absolute;
-  /* Clear of the bottom-right corner stack (clock / weather / signal) and of
-     the tonight ticker below it — the board is a reference list, so it may never
-     sit on top of either. */
-  bottom: 128px;
-  /* Centered without translateX — framer-motion owns this element's
-     transform (see .tonight-ticker). */
   left: 0;
   right: 0;
-  margin-inline: auto;
-  width: fit-content;
-  max-width: min(70vw, 980px);
-  padding: 18px 26px 14px;
-  /* The same die-cut sticker chrome as the corner widgets, so the board
-     reads as part of the set — still dark and deliberately quieter than
-     any banner: a reference list, not an announcement. */
-  background: var(--sticker-bg);
-  border: 3px solid var(--sticker-edge);
-  border-radius: calc(var(--sticker-radius) + 4px);
-  outline: 2px solid var(--sticker-edge-halo);
-  outline-offset: 3px;
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  color: #fff;
-  text-align: center;
-  z-index: 3;
-  box-shadow: var(--shadow-soft);
+  top: calc(50% - 16.125 * var(--u));
+  bottom: calc(50% - 17.875 * var(--u));
+  display: grid;
+  place-items: center;
+  z-index: 5;
+  pointer-events: none;
 }
-
-/* The board's title rides its top edge as the catalog label tab —
-   same treatment as every sticker-chip label. */
-.checkout-title {
+.checkout-board {
+  --name-size: calc(2 * var(--u));
+  position: relative;
+  max-width: calc(70 * var(--u));
+  min-width: calc(30 * var(--u));
+  padding: calc(4.7 * var(--u)) calc(2.2 * var(--u)) calc(1.6 * var(--u));
+  background: #fff;
+  color: var(--brand-ink);
+  border-radius: calc(1.3 * var(--u));
+  box-shadow: calc(0.5 * var(--u)) calc(0.5 * var(--u)) 0 var(--brand-blue);
+  overflow: hidden;
+  text-align: left;
+}
+.checkout-tab {
   position: absolute;
-  top: -0.85em;
-  left: 16px;
+  left: 0;
+  top: 0;
+  height: calc(3.7 * var(--u));
+  padding: 0 calc(6 * var(--u)) calc(0.3 * var(--u)) calc(2.2 * var(--u));
+  display: flex;
+  align-items: center;
+  color: var(--brand-blue);
+}
+.checkout-tab svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.checkout-title {
+  position: relative;
   margin: 0;
-  padding: 0.14em 0.65em 0.18em;
   font-family: var(--font-condensed);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-weight: 400;
+  font-size: calc(1.5 * var(--u));
+  letter-spacing: 0.1em;
+  line-height: 1;
   text-transform: uppercase;
   white-space: nowrap;
   color: #fff;
-  background: linear-gradient(135deg, var(--awana-orange) 0%, var(--awana-orange-deep) 100%);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(20, 26, 40, 0.35);
-  transform: rotate(-2deg);
 }
+.checkout-board.stale {
+  box-shadow: calc(0.5 * var(--u)) calc(0.5 * var(--u)) 0 var(--brand-hot);
+}
+.checkout-board.stale .checkout-tab { color: var(--brand-hot); }
 
 .checkout-clubs {
   list-style: none;
@@ -3176,58 +3134,83 @@ input:focus-visible {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: calc(0.7 * var(--name-size));
+  font-size: var(--name-size);
 }
-
 .checkout-club {
   display: flex;
-  gap: 12px;
-  align-items: baseline;
-  justify-content: center;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45em;
 }
-
 .checkout-club-name {
+  padding: 0 0.55em 0 0;
   font-family: var(--font-condensed);
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: 0.62em;
+  letter-spacing: 0.08em;
+  line-height: 1;
   text-transform: uppercase;
-  /* Tinted per club from the palette's pale accent (inline style) —
-     the same color-coding the banners speak, readable on the dark tab. */
-  color: var(--club-accent, rgba(255, 255, 255, 0.7));
-  min-width: 7ch;
-  text-align: right;
+  color: var(--club-deep);
 }
-
 .checkout-names {
-  font-family: var(--font-display);
-  font-size: 1.4rem;
-  font-weight: 700;
-  line-height: 1.3;
+  display: contents;
+}
+.checkout-name {
+  display: inline-flex;
+}
+/* The separator is real text (the list still reads as "Kid · Kid"), but
+   the chips' own gaps carry it on screen. */
+.checkout-sep {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.checkout-name__chip {
+  display: inline-block;
+  height: 1.75em;
+  line-height: 1.75em;
+  padding: 0 0.65em;
+  border-radius: 999px;
+  background: var(--club);
+  color: #fff;
+  font-family: var(--font-shout);
+  font-weight: 400;
+  white-space: nowrap;
+  text-shadow: 0.06em 0.06em 0 var(--club-deep);
 }
 
 /* The footer carries the honest wording — "not checked out yet", the label
    count, and the data's age. It is small but must never be omitted: without it
    the list reads as a verified headcount, which it is not. */
 .checkout-foot {
-  margin: 10px 0 0;
-  font-size: 0.78rem;
-  opacity: 0.62;
+  margin: calc(1.3 * var(--u)) 0 0;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: calc(1.3 * var(--u));
+  color: #4b5058;
 }
-
+.checkout-count {
+  margin-right: 0.12em;
+  font-family: var(--font-shout);
+  font-size: calc(2.5 * var(--u));
+  line-height: 1;
+  color: var(--brand-ink);
+  vertical-align: -0.08em;
+}
 .checkout-line {
   margin: 0;
-  font-size: 1.2rem;
-  font-weight: 700;
+  max-width: calc(52 * var(--u));
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: calc(2.1 * var(--u));
+  line-height: 1.25;
+  color: var(--brand-ink);
+  text-wrap: balance;
 }
-.checkout-line.good { color: #8ce99a; }
-.checkout-line.warn { color: #ffc046; }
-
-/* Stale and anonymous states are single lines, so they need less room. */
-.checkout-board.stale,
-.checkout-board.anonymous,
-.checkout-board.empty { padding: 12px 22px; }
+.checkout-line.warn { color: var(--brand-hot-deep); }
 
 /* ─── April Fools (#21) ─────────────────────────────────────────────────────
    config.aprilFools flips the whole stage upside down — but ONLY on April 1st
@@ -3242,44 +3225,86 @@ input:focus-visible {
 .stage.april-fools .debug { transform: rotate(180deg); }
 .stage.april-fools .settings-gear:hover { transform: rotate(225deg) scale(1.05); }
 
-/* ── First-run card (signage): a .panel parked above the gear ─────── */
+/* ── First-run card (signage): a kit card parked above the gear ─────
+   The printer dashboard's card: white, a hard offset in the house blue,
+   the heading as a hot Londrina kicker, Figtree to read, the kit's one hot
+   button for the way in and an outline button beside it. Still a .panel,
+   so it keeps the panel's hint and kbd styles. Sized in em off a root in
+   the lobby's u (with a 12px floor, because a volunteer reads it from
+   arm's length), so on a 720p TV it shrinks with the headline it sits
+   beside instead of running into it. */
 .panel.setup-card {
   position: absolute;
   left: var(--safe-inset);
-  bottom: calc(var(--safe-inset) + 64px);
-  width: min(26rem, 90vw);
+  bottom: calc(var(--safe-inset) + max(46px, calc(2.9 * var(--u))) + 14px);
+  font-size: max(12px, calc(0.78 * var(--u)));
+  width: min(27em, 90vw);
   max-height: none;
   overflow: visible;
-  padding: 1.1rem 1.25rem;
+  padding: 1.15em 1.3em 1.2em;
+  background: #fff;
+  color: var(--brand-ink);
+  border-radius: 1.1em;
+  box-shadow: 0.35em 0.35em 0 var(--brand-blue);
+  font-family: var(--font-body);
   z-index: 45;
 }
 .setup-card h3 {
-  margin: 0 0 0.5rem;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  font-weight: 800;
+  margin: 0 0 0.45em;
+  font-family: var(--font-condensed);
+  font-size: 1.3em;
+  font-weight: 400;
   letter-spacing: 0.06em;
+  line-height: 1.1;
   text-transform: uppercase;
-  color: var(--awana-orange-deep);
+  color: var(--brand-hot);
 }
 .setup-card ol {
-  margin: 0 0 0.6rem;
-  padding-left: 1.2rem;
-  font-size: 0.9rem;
+  margin: 0 0 0.6em;
+  padding-left: 1.3em;
+  font-size: 0.95em;
   line-height: 1.45;
 }
-.setup-card li + li { margin-top: 0.35rem; }
-.setup-card li.done { color: var(--ink-soft); text-decoration: line-through; }
+.setup-card li::marker {
+  font-family: var(--font-condensed);
+  color: var(--brand-hot);
+}
+.setup-card li + li { margin-top: 0.35em; }
+.setup-card .hint { font-size: 0.85em; }
+.setup-card li.done { color: #6b7079; text-decoration: line-through; }
 .setup-card kbd {
   font: inherit;
   font-size: 0.8em;
   padding: 0 0.35em;
-  border: 1px solid rgba(51, 66, 79, 0.25);
+  border: 1px solid rgba(35, 31, 32, 0.25);
   border-bottom-width: 2px;
   border-radius: 4px;
   background: #fff;
 }
-.setup-card .actions { margin-top: 0.75rem; justify-content: flex-start; }
+.setup-card .actions { margin-top: 0.8em; justify-content: flex-start; gap: 0.6em; }
+.panel.setup-card .actions button {
+  padding: 0.5em 1.1em 0.45em;
+  border-radius: 999px;
+  font-family: var(--font-condensed);
+  font-size: 1.15em;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+.panel.setup-card .actions button.primary {
+  background: var(--brand-hot);
+  color: #fff;
+  border: 2px solid var(--brand-hot);
+  box-shadow: 0.18em 0.18em 0 var(--brand-hot-deep);
+}
+.panel.setup-card .actions button.primary:hover { filter: none; background: #F36B3C; }
+.panel.setup-card .actions button.ghost {
+  background: transparent;
+  color: var(--brand-ink);
+  border: 2px solid var(--brand-ink);
+}
+.panel.setup-card .actions button.ghost:hover { background: rgba(35, 31, 32, 0.06); }
 .stage.april-fools .setup-card { transform: rotate(180deg); }
 
 /* Settings → Connection: the by-hand key fields fold away behind the login. */
@@ -3389,5 +3414,71 @@ details.advanced-fields[open] > summary { margin-bottom: 0.5rem; }
   width: 100%;
   height: 100%;
   display: block;
+  overflow: visible;
+}
+/* The stepped plate (StepPlate.jsx): the chip's silhouette around any
+   content. --plate-label is the label's font size; every other length is a
+   multiple of the pill's height (--plate-pill), the kit chip's proportions
+   (brand.js PLATE). The outline is drawn from the measured boxes behind the
+   label and the body. */
+.step-plate {
+  --plate-label: 1rem;
+  --plate-pill: calc(2.05 * var(--plate-label));
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: auto;
+  justify-items: start;
+  color: #fff;
+  vertical-align: top;
+}
+.step-plate__shape {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.step-plate__fill { fill: var(--brand-chip); }
+.step-plate__keyline { stroke: #fff; }
+.step-plate__echo { display: none; }
+.step-plate__label {
+  position: relative;
+  box-sizing: border-box;
+  height: var(--plate-pill);
+  min-width: calc(3.93 * var(--plate-label));
+  padding: calc(0.1 * var(--plate-label)) calc(0.75 * var(--plate-label)) 0;
+  margin-right: calc(0.435 * var(--plate-pill));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-condensed);
+  font-size: var(--plate-label);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.step-plate__body {
+  position: relative;
+  justify-self: stretch;
+  margin-left: calc(0.73 * var(--plate-pill));
+  margin-top: calc(-0.087 * var(--plate-pill));
+}
+.step-plate--bare .step-plate__body {
+  margin: 0;
+}
+/* A stepped chip's glyph (the weather's sky doodle), on the chip's em grid. */
+.step-chip__icon {
+  position: absolute;
+  display: block;
+  color: #fff;
+  line-height: 0;
+  pointer-events: none;
+}
+.weather-glyph {
+  display: block;
+  width: 100%;
+  height: 100%;
   overflow: visible;
 }

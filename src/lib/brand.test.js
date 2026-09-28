@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import tokens from '../../shared/brand/tokens.json';
-import { BEAT, beats, EASE, DUR, parseShape, SHAPES, DOODLES, chipGeometry, measureEm, BRAND_CLUBS, HOUSE } from './brand.js';
+import { BEAT, beats, EASE, DUR, parseShape, SHAPES, DOODLES, chipGeometry, measureEm, BRAND_CLUBS, HOUSE, PLATE, plateOutline } from './brand.js';
 
 describe('motion table', () => {
   it('reads one beat, the four curves and the durations straight from tokens.json', () => {
@@ -102,5 +102,54 @@ describe('club colors', () => {
   it('re-exports the kit palette', () => {
     expect(BRAND_CLUBS.puggles.primary).toBe('#1DB6D9');
     expect(HOUSE.hot).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  });
+});
+
+describe('chipGeometry with a glyph', () => {
+  it('is the plain chip when there is no glyph', () => {
+    expect(chipGeometry(2, 1.6, 0)).toEqual(chipGeometry(2, 1.6));
+    expect(chipGeometry(2, 1.6).icon).toBeNull();
+  });
+
+  it('widens the value block for the glyph, and keeps the value clear of it', () => {
+    const plain = chipGeometry(2, 1.6);
+    const g = chipGeometry(2, 1.6, 1.15);
+    expect(g.width).toBeGreaterThan(plain.width);
+    expect(g.height).toBe(plain.height);
+    expect(g.icon.size).toBe(1.15);
+    // The glyph sits inside the block, and the value's text starts after it.
+    expect(g.icon.x).toBeGreaterThanOrEqual(0.84);
+    expect(g.value.x - g.value.width / 2).toBeGreaterThanOrEqual(g.icon.x + g.icon.size);
+    expect(g.d).not.toMatch(/NaN|Infinity/);
+  });
+});
+
+describe('plateOutline (the stepped plate around any content)', () => {
+  const box = { pillW: 80, pillH: 30, left: 22, top: 27, width: 400, height: 120 };
+
+  it('draws the chip silhouette off real boxes', () => {
+    const d = plateOutline(box);
+    expect(d).toMatch(/^M15,0 /);
+    expect(d).not.toMatch(/NaN|Infinity/);
+    // It reaches the plate's far corner.
+    expect(d).toContain('L400,');
+  });
+
+  it('always steps the block out past the pill', () => {
+    const d = plateOutline({ ...box, width: 70 });
+    const right = Math.max(...[...d.matchAll(/L([\d.]+),/g)].map((m) => Number(m[1])));
+    expect(right).toBeGreaterThanOrEqual(80 + PLATE.step * 30 - 0.01);
+  });
+
+  it('is a plain rounded block with no pill', () => {
+    const d = plateOutline({ pillW: 0, pillH: 0, left: 0, top: 0, width: 200, height: 40 });
+    expect(d).not.toMatch(/NaN|Infinity/);
+    expect(d.match(/A/g)).toHaveLength(4);
+  });
+
+  it('shares the stepped chip\'s proportions', () => {
+    expect(PLATE.pillPerLabel).toBeCloseTo(1.15 / 0.56);
+    expect(PLATE.inset).toBeGreaterThan(0.5);
+    expect(PLATE.top).toBeLessThan(1);
   });
 });

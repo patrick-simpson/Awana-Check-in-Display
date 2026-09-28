@@ -14,9 +14,8 @@ import SlideEditorPanel from './components/SlideEditorPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
 import SetupCard from './components/SetupCard.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
-import { Mark } from './components/Doodles.jsx';
 import StickerChip from './components/StickerChip.jsx';
-import ClubBadge from './components/ClubBadge.jsx';
+import MilestoneToast from './components/MilestoneToast.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useCornerItem } from './hooks/useCornerItem.js';
@@ -40,8 +39,9 @@ import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
 import {
   AWARD_MILESTONES, BOOK_MILESTONES, awardMilestoneCopy, bookMilestoneCopy,
-  crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight,
+  crossedMilestones, isBigMilestone, nightMilestoneCopy,
 } from './lib/milestones.js';
+import { isFresh } from './lib/freshness.js';
 import { setRemoteDefaults } from './hooks/useConfig.js';
 import { FLEET_CONFIG_URL_CHANGE_EVENT, loadFleetConfigUrl, resolveRemoteConfigUrl } from './lib/fleetConfigUrl.js';
 import { getClubPalette } from './lib/clubs.js';
@@ -55,7 +55,7 @@ import {
 } from './lib/firstOfNight.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
 import { useBuildReload } from './hooks/useBuildReload.js';
-import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
+import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, NOTICE_MAX_AGE_MS, OPS_FAILURES_MAX } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -902,6 +902,32 @@ export default function App() {
     return () => document.documentElement.classList.remove('zero-animation-mode');
   }, [config.reduceMotion]);
 
+  // Who holds which part of the room (rebrand stage 4b-2; the bands are in
+  // src/lib/overlayFit.js). Two things take the middle over while they are
+  // up, and the slide copy steps back behind them the way it does for a
+  // name: a critical notice (the room must read it before anything else)
+  // and the pickup board (the one time that list matters more than the
+  // slides). A demo, rehearsal or simplified-mode tab hanging from the top
+  // edge pushes the top band down under it. The critical notice is judged
+  // with the same freshness rule the banner applies to itself; `boardNow`
+  // is the 30 s ticker both share.
+  const criticalUp = !overlay && notice?.level === 'critical' && Boolean(notice?.message)
+    && isFresh(notice?.at, NOTICE_MAX_AGE_MS, boardNow);
+  const boardUp = !overlay && !currentEvent && boardDecision.state !== BOARD_HIDDEN;
+  // The simplified-mode confirmation hangs there too: at the bottom it sat
+  // on the tonight strip, which simplified mode keeps.
+  const panicUp = !overlay && config.panicMode === true;
+  const flagsUp = demoActive || rehearsalActive || panicUp;
+  const stageClass = [
+    'stage',
+    overlay && 'overlay',
+    aprilFools && 'april-fools',
+    currentEvent && !overlay && 'checkin-active',
+    criticalUp && 'notice-takeover',
+    boardUp && 'board-up',
+    flagsUp && 'has-flags',
+  ].filter(Boolean).join(' ');
+
   return (
     // "user" makes framer-motion honor the OS-level prefers-reduced-motion
     // setting for every transform animation (the CSS media query and
@@ -918,7 +944,7 @@ export default function App() {
     <ZeroAnimationContext.Provider value={config.reduceMotion}>
     <MotionConfig reducedMotion={config.reduceMotion ? 'always' : 'user'}>
     <div
-      className={`stage ${overlay ? 'overlay' : ''} ${aprilFools ? 'april-fools' : ''} ${currentEvent && !overlay ? 'checkin-active' : ''}`}
+      className={stageClass}
       data-skin={skin !== 'none' ? skin : undefined}
       style={{
         ...(chroma ? { background: chroma } : null),
@@ -977,7 +1003,7 @@ export default function App() {
           notice must reach an OBS/ProPresenter feed too, not just the
           lobby TV. */}
       <ErrorBoundary label="notice-banner" eventKey={`${notice?.at ?? ''}|${boardNow}`} onError={() => recordLayerFault('notice')}>
-        <NoticeBanner notice={notice} />
+        <NoticeBanner notice={notice} yielding={celebration != null} compact={flagsUp} />
       </ErrorBoundary>
 
       {/* The corner info's bottom corner (the time or tonight's tally); the
@@ -1030,24 +1056,28 @@ export default function App() {
             <StickerChip
               className={`status-dot ${status}`}
               label="Signal"
-              tilt={-1}
               aria-live="polite"
               aria-label={`Connection status: ${status}${opsFailures.length ? `, ${opsFailures.length} printer problem(s)` : ''}`}
             >
-              <span className="dot" />
-              <span>
-                {status === 'off' ? 'not set up' : status}
-                {/* While the pipe is down, show what pusher-js is doing
-                    about it — "disconnected" alone reads as dead-forever. */}
-                {status !== 'connected' && retry
-                  ? ` · retry ${retry.attempts}${retry.delaySec ? ` in ~${retry.delaySec}s` : '…'}`
-                  : ''}
-              </span>
-              {opsFailures.length > 0 && (
-                <span className="ops-count" title="Printer problems tonight — see Settings">
-                  ⚠ {opsFailures.length}
+              {/* The kit chip (StepPlate): SIGNAL on the pill, the state on the
+                  block. One line for the pipe (and the printer's count),
+                  then any fault in words on its own sunflower strip. */}
+              <span className="status-line">
+                <span className="dot" />
+                <span className="status-word">
+                  {status === 'off' ? 'not set up' : status}
+                  {/* While the pipe is down, show what pusher-js is doing
+                      about it — "disconnected" alone reads as dead-forever. */}
+                  {status !== 'connected' && retry
+                    ? ` · retry ${retry.attempts}${retry.delaySec ? ` in ~${retry.delaySec}s` : '…'}`
+                    : ''}
                 </span>
-              )}
+                {opsFailures.length > 0 && (
+                  <span className="ops-count" title="Printer problems tonight — see Settings">
+                    ⚠ {opsFailures.length}
+                  </span>
+                )}
+              </span>
               {/* Name faults get WORDS, not a colour. "disconnected" at least
                   tells an operator to look at the network; a silent absence of
                   banners tells them nothing, so this says which side to fix. */}
@@ -1103,110 +1133,33 @@ export default function App() {
       )}
 
 
-      {/* One toast, three sources — see useCelebrationQueue. `kind` picks the
-          copy and styling; the queue guarantees only one is ever on screen.
-          A club's own milestone ('club' / 'kid') wears that club's palette
-          and wordmark (#332); the room-wide ones stay Awana gold. */}
-      <AnimatePresence>
-        {celebration != null && (
-          <M.div
-            key={`celebration-${celebration.kind}-${celebration.club ?? ''}-${celebration.firstName ?? ''}-${celebration.count}`}
-            className={
-              celebration.kind === 'club'
-                ? 'milestone-toast club-milestone'
-                : celebration.kind === 'night'
-                  ? 'milestone-toast night-milestone'
-                  : celebration.kind === 'kid'
-                    ? 'milestone-toast kid-milestone'
-                    : celebration.kind === 'books' || celebration.kind === 'awards'
-                      // Handbook progress (#358) is a room-wide occasion like a
-                      // night threshold, plus a green edge of its own so the
-                      // room can tell "ten books" from "a hundred kids".
-                      ? `milestone-toast night-milestone handbook-milestone ${celebration.kind}-milestone`
-                      : celebration.kind === 'first'
-                        // The night's opening moment (#335) — see app.css for
-                        // why its identity rides the shadow, not the border.
-                        ? 'milestone-toast first-milestone'
-                        : 'milestone-toast'
-            }
-            style={celebrationClub
-              ? { rotate: 1.1, '--club-primary': celebrationClub.primary }
-              : { rotate: -1.2 }}
-            initial={{ opacity: 0, y: 46, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 280, damping: 16 } }}
-            exit={{ opacity: 0, y: -20, scale: 0.94, transition: { duration: 0.35, ease: 'easeIn' } }}
-          >
-            {/* Corner sparkles twinkle for the whole time the toast is up. */}
-            <M.span
-              className="milestone-sparkle milestone-sparkle--left"
-              aria-hidden
-              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8], rotate: [0, 16, 0] }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <Mark kind="sparkle" size={30} />
-            </M.span>
-            {/* The club's own wordmark. `rawName` is deliberately NOT passed:
-                an unknown club would otherwise render ClubBadge's title pill,
-                duplicating the text already in .milestone-label. A typo club
-                gets no badge and the warm-orange default confetti — the toast
-                stays exactly as it was. The label wrapper supplies the
-                variant orchestration ClubBadge's own variants expect, which
-                the toast's object animate/initial cannot. */}
-            {celebrationClub?.logo && (
-              <M.span className="milestone-badge" initial="hidden" animate="show">
-                <ClubBadge club={celebrationClub} />
-              </M.span>
-            )}
-            <div className="milestone-lines">
-              {/* `night`, `books` and `awards` all carry their own copy (see
-                  lib/milestones.js), so they read off label/headline rather
-                  than growing a branch each; `club`, `kid` and the every-Nth
-                  `tally` toast compose theirs from the payload. */}
-              <span className="milestone-label">
-                {celebration.kind === 'club' ? celebration.club
-                  : celebration.kind === 'kid' ? `${celebration.firstName}’s`
-                    : celebration.label ? celebration.label
-                      : 'Checked in tonight'}
-              </span>
-              <span className="milestone-count">
-                {celebration.kind === 'club' ? `${celebration.count} kids strong!`
-                  : celebration.kind === 'kid' ? `${ordinalNight(celebration.count)} club night!`
-                    : celebration.headline ? celebration.headline
-                      : `${celebration.count} kids!`}
-              </span>
-            </div>
-            <M.span
-              className="milestone-sparkle milestone-sparkle--right"
-              aria-hidden
-              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8], rotate: [0, -16, 0] }}
-              transition={{ duration: 2.2, delay: 0.9, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <Mark kind="sparkle" size={36} />
-            </M.span>
-          </M.div>
-        )}
-      </AnimatePresence>
+      {/* One toast, three sources — see useCelebrationQueue. The queue
+          guarantees only one is ever on screen; MilestoneToast picks the copy,
+          the plate (a club's own colours and wordmark on a club milestone,
+          #332) and its place in the top band. */}
+      <MilestoneToast celebration={celebration} club={celebrationClub} compact={flagsUp} />
 
+      {/* "+N more coming" while a run has a line behind it, as a kit chip on
+          the club's own wave above its mark: the names it counts ride the
+          same wave. Hidden while a slide holds check-ins (the WAITING chip
+          counts the line then). */}
       <AnimatePresence>
         {!overlay && !checkInsHeld && pending >= BURST_THRESHOLD && (
           <M.div
             key="up-next"
             className="up-next"
-            style={{ rotate: 0.6 }}
-            initial={{ opacity: 0, y: 16, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 320, damping: 20 } }}
-            exit={{ opacity: 0, y: 16, transition: { duration: 0.3 } }}
+            role="status"
+            aria-label={`${pending} more coming`}
+            initial={{ opacity: 0, scale: 0.6 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9, transition: { duration: DUR.exit, ease: EASE.exit } }}
+            transition={{ duration: DUR.pop, ease: EASE.pop }}
           >
-            +{pending} more coming
+            <StepChip label="UP NEXT" value={`+${pending}`} size="calc(2.5 * min(1vw, 1.7778vh))" />
           </M.div>
         )}
       </AnimatePresence>
 
-      {!overlay && config.panicMode && (
-        <div className="panic-pill" title="Simplified mode is on — toggle with Ctrl+Shift+X or in Settings → Display">
-          simplified mode
-        </div>
-      )}
 
       {/* Once a simulated event has been fired, say so for the rest of the
           session. A volunteer walking past the lobby TV during training must
@@ -1217,15 +1170,26 @@ export default function App() {
           night, so every banner on this screen is practice. Same rule as
           the demo pill — a passer-by must never mistake a rehearsal banner
           for a real child arriving. Follows the tally flag live. */}
-      {rehearsalActive && (
-        <div className="rehearsal-pill" title="The print server is in rehearsal mode. Check-ins on this screen are practice, not real arrivals.">
-          rehearsal — practice run, not real check-ins
-        </div>
-      )}
-
-      {demoActive && (
-        <div className="demo-pill" title="A simulated event has been fired on this screen. Reload to clear.">
-          demo mode — not real check-ins
+      {/* The demo, rehearsal and simplified-mode flags hang from the top
+          edge as kit tabs, side by side, in their own strip above the top
+          band (which moves down while they hang). */}
+      {flagsUp && (
+        <div className="top-flags">
+          {panicUp && (
+            <div className="panic-pill" title="Simplified mode is on — toggle with Ctrl+Shift+X or in Settings → Display">
+              simplified mode
+            </div>
+          )}
+          {demoActive && (
+            <div className="demo-pill" title="A simulated event has been fired on this screen. Reload to clear.">
+              demo mode — not real check-ins
+            </div>
+          )}
+          {rehearsalActive && (
+            <div className="rehearsal-pill" title="The print server is in rehearsal mode. Check-ins on this screen are practice, not real arrivals.">
+              rehearsal — practice run, not real check-ins
+            </div>
+          )}
         </div>
       )}
 
