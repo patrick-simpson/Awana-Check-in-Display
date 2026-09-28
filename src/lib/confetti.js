@@ -65,11 +65,6 @@ export function setConfettiSkin(profile) {
 
 const skinColors = () => (skinProfile && skinProfile.colors.length ? skinProfile.colors : null);
 const skinShapes = () => (skinProfile && skinProfile.shapes.length ? skinProfile.shapes : null);
-// Spread helper: only override a burst's own shapes when the skin has some.
-const shapeOverride = () => {
-  const shapes = skinShapes();
-  return shapes ? { shapes } : null;
-};
 
 // ── The catalog's own confetti (rebrand stage 3) ─────────────────────────────
 // The 2026-27 catalog scatters four-point sparkles and dots, never squares or
@@ -115,9 +110,16 @@ const MILESTONE_COLORS = ['#FAA41D', '#FCB614', '#FFFFFF', '#F15A28', '#4C72B8',
 const BIRTHDAY_COLORS = ['#FFFFFF', '#FCB614', '#FFE8C2', '#F15A28', '#FAA41D'];
 const FIRST_TIMER_COLORS = ['#FFFFFF', '#FCB614', '#FFE8C2', '#FAA41D'];
 
-// Where the check-in moment's sticker sits (src/components/CheckInMoment.jsx):
-// 6u from the right edge, its centre 28u up a 56.25u-tall 16:9 stage.
+// Where the check-in moment's sticker sits on a 16:9 stage (6u from the
+// right edge, its centre 28u up a 56.25u-tall stage). The moment passes the
+// sticker's measured centre instead; this is only the fallback for when it
+// cannot (no layout, e.g. a crashed or already-gone moment).
 const STICKER_ORIGIN = { x: 0.87, y: 0.5 };
+const unit = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
+/** @param {{ x?: number, y?: number } | undefined} origin */
+const stickerOrigin = (origin) => (origin && unit(origin.x) && unit(origin.y)
+  ? { x: origin.x, y: origin.y }
+  : STICKER_ORIGIN);
 
 /**
  * Standard celebration: two low side cannons of sparkles and dots in the
@@ -135,8 +137,9 @@ export function fireStandard(colors) {
  * Birthday: a burst of sparkles and dots out of the HAPPY BIRTHDAY sticker,
  * then side cannons for a second and a half.
  * @param {string[]} [clubColors]
+ * @param {{ x: number, y: number }} [origin]  the sticker's centre, 0..1 of the viewport
  */
-export function fireBirthday(clubColors) {
+export function fireBirthday(clubColors, origin) {
   if (off()) return;
   // The season dresses the room, so it dresses this burst too (#340); with no
   // skin profile it is the warm sticker palette, with the child's club
@@ -149,7 +152,7 @@ export function fireBirthday(clubColors) {
   confetti({
     ...BASE,
     particleCount: scaled(120), spread: 110, startVelocity: 34, ticks: 230,
-    origin: STICKER_ORIGIN, angle: 110, colors, shapes, scalar: 1.25,
+    origin: stickerOrigin(origin), angle: 110, colors, shapes, scalar: 1.25,
   });
   setTimeout(() => {
     (function frame() {
@@ -171,22 +174,24 @@ export function fireBirthday(clubColors) {
 /**
  * First-timer: a gentle shower of sparkles out of the NEW! sticker, drifting
  * down slowly, then a soft second puff.
+ * @param {{ x: number, y: number }} [origin]  the sticker's centre, 0..1 of the viewport
  */
-export function fireFirstTimer() {
+export function fireFirstTimer(origin) {
   if (off()) return;
   const colors = FIRST_TIMER_COLORS;
   const shapes = brandShapes();
+  const from = stickerOrigin(origin);
   confetti({
     ...BASE,
     particleCount: scaled(110), spread: 130, startVelocity: 30, ticks: 260,
-    origin: STICKER_ORIGIN, angle: 115, colors, shapes, scalar: 1.25,
+    origin: from, angle: 115, colors, shapes, scalar: 1.25,
     gravity: 0.6,
   });
   setTimeout(() => {
     confetti({
       ...BASE,
       particleCount: scaled(36), spread: 360, startVelocity: 14, ticks: 200,
-      origin: STICKER_ORIGIN, colors, shapes, scalar: 1.0,
+      origin: from, colors, shapes, scalar: 1.0,
     });
   }, 500);
 }
@@ -230,7 +235,7 @@ export function fireMilestone(opts) {
     shapes: skinShapes() ?? brandShapes(),
   });
   setTimeout(() => {
-    const cannons = { ...BASE, spread: 70, ticks: 220, colors, scalar: 1.15, ...shapeOverride() };
+    const cannons = { ...BASE, spread: 70, ticks: 220, colors, scalar: 1.15, shapes: skinShapes() ?? brandShapes() };
     const n = scaled(big ? 110 : 70);
     confetti({ ...cannons, particleCount: n, angle: 60, origin: { x: 0, y: 0.85 } });
     confetti({ ...cannons, particleCount: n, angle: 120, origin: { x: 1, y: 0.85 } });

@@ -664,12 +664,21 @@ html, body, #root {
 /* Each cell stacks the outgoing and incoming versions of its line in one
    grid area, so a flip crosses over in place instead of reflowing. */
 .checkin__cell {
+  position: relative;
   display: grid;
   width: 100%;
 }
 .checkin__cell > * {
   grid-area: 1 / 1;
   align-self: end;
+}
+/* The outgoing copy on a flip leaves the flow the moment it starts to go,
+   so only the incoming child sizes the cell; the cells above then glide to
+   their new place (layout="position") instead of snapping twice. */
+.checkin__cell > .is-leaving {
+  position: absolute;
+  left: 0;
+  bottom: 0;
 }
 .checkin__kicker {
   font-family: var(--font-condensed);
@@ -725,7 +734,9 @@ html, body, #root {
   font-size: calc(2.05 * var(--u));
   text-transform: uppercase;
 }
-.checkin.first-timer .checkin__sticker .brand-sticker__text {
+/* Sized by the sticker's own moment, not the root's: an outgoing HAPPY
+   BIRTHDAY! keeps its size while a first-timer's NEW! flips in. */
+.checkin__sticker--first .brand-sticker__text {
   font-size: calc(3.4 * var(--u));
 }
 .checkin__doodles {
@@ -743,14 +754,16 @@ html, body, #root {
    the wave drops. Plain CSS transitions, so ?lowPower=1's blanket rule
    turns them into an instant switch. The posters are left alone: they are
    printed art, and stage 4 holds check-ins while one is up. */
-.placeholder-copy,
-.manual-slide-copy {
+.background-placeholder .placeholder-copy,
+.manual-slideshow .manual-slide-copy {
   transition:
     opacity var(--brand-dur-settle) var(--brand-ease-settle),
     transform var(--brand-dur-settle) var(--brand-ease-settle);
 }
-.stage.checkin-active .placeholder-copy,
-.stage.checkin-active .manual-slide-copy {
+/* Scoped to the live background: the slide editor's thumbnails reuse
+   .manual-slide-copy and must keep showing what the TV will show. */
+.stage.checkin-active .background-placeholder .placeholder-copy,
+.stage.checkin-active .manual-slideshow .manual-slide-copy {
   opacity: 0.28;
   transform: translateX(-50%) scale(0.97);
 }

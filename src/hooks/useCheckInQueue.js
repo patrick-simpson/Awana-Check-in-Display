@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import { BURST_THRESHOLD } from '../lib/constants.js';
 import { checkInQueueReducer, holdMsFor, INITIAL_QUEUE_STATE } from '../lib/checkInQueue.js';
+import { RUN_EXIT_MS } from '../lib/checkInMoment.js';
 
 /**
  * FIFO queue for check-in events: one child on screen at a time, each for
@@ -54,10 +55,14 @@ export function useCheckInQueue(config) {
   }, [currentId, hold]);
 
   // The short breath between runs, so an exit and the next entrance never
-  // clip into each other.
-  const gapMs = Number.isFinite(config.gapBetweenBannersMs) && config.gapBetweenBannersMs >= 0
+  // clip into each other. Never shorter than the run's own exit: the next
+  // run only mounts once the last one has left, and its first child's hold
+  // must not tick away while they are not on screen yet. Under zero
+  // animation the exit is instant, so the configured gap is the whole wait.
+  const configuredGap = Number.isFinite(config.gapBetweenBannersMs) && config.gapBetweenBannersMs >= 0
     ? config.gapBetweenBannersMs
     : 0;
+  const gapMs = config.reduceMotion === true ? configuredGap : Math.max(configuredGap, RUN_EXIT_MS);
   useEffect(() => {
     if (!gap) return undefined;
     const t = setTimeout(() => dispatch({ type: 'gap-done' }), gapMs);

@@ -32,7 +32,11 @@ afterEach(() => vi.useRealTimers());
 describe('the catalog sparkle', () => {
   it('builds the kit sparkle once, with an explicit matrix, and throws it with dots', () => {
     fireStandard(['#F04A4B']);
-    fireMilestone();
+    fireMilestone({ big: true });
+    fireBirthday();
+    fireFirstTimer();
+    // Every wave, the delayed cannons and puffs included: no default squares.
+    vi.runAllTimers();
     expect(confetti.shapeFromPath).toHaveBeenCalledTimes(1);
     const arg = confetti.shapeFromPath.mock.calls[0][0];
     expect(arg.path).toBe(DOODLES.sparkle.d);
@@ -60,6 +64,13 @@ describe('the catalog sparkle', () => {
   it('a club colour set rides the standard cannons as given', () => {
     fireStandard(['#F04A4B', '#FDDACF']);
     expect(confetti.mock.calls[0][0].colors).toEqual(['#F04A4B', '#FDDACF']);
+  });
+
+  it('a measured sticker centre wins over the 16:9 fallback, and a bad one is ignored', () => {
+    fireFirstTimer({ x: 0.9, y: 0.62 });
+    fireBirthday(undefined, { x: 2, y: NaN });
+    expect(confetti.mock.calls[0][0].origin).toEqual({ x: 0.9, y: 0.62 });
+    expect(confetti.mock.calls[1][0].origin).toEqual({ x: 0.87, y: 0.5 });
   });
 
   it('birthday and first-timer bursts start at the sticker', () => {

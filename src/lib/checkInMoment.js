@@ -121,3 +121,23 @@ export function nameSizeU(name, measure) {
  * name animates per word instead, which reads the same from across a lobby.
  */
 export const PER_LETTER_MAX = 14;
+
+/* ── How long a run takes to leave ───────────────────────────────── */
+
+// The waves drop last when a run ends (seconds): the front wave, then the
+// deep one behind it. CheckInMoment.jsx reads these, so the two can't drift.
+export const WAVE_EXIT = {
+  front: { delay: 0.12, duration: 0.48 },
+  back: { delay: 0.19, duration: 0.48 },
+};
+
+/**
+ * The whole run's exit, in ms, rounded up with a frame to spare. The queue
+ * never starts the next run's hold before this has passed: the Overlay only
+ * mounts a new run once the old one has fully left (AnimatePresence
+ * mode="wait"), so a shorter gap would spend the next child's time on screen
+ * on the previous child's exit.
+ */
+export const RUN_EXIT_MS = Math.ceil(
+  Math.max(...Object.values(WAVE_EXIT).map((w) => (w.delay + w.duration) * 1000)) + 30,
+);

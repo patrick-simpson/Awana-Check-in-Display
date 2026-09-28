@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useCheckInQueue } from './useCheckInQueue.js';
 import { MAX_QUEUE } from '../lib/constants.js';
+import { RUN_EXIT_MS } from '../lib/checkInMoment.js';
 
 const config = {
   standardDisplayMs: 6000,
@@ -47,13 +48,41 @@ describe('useCheckInQueue', () => {
     act(() => vi.advanceTimersByTime(6000));
     expect(result.current.currentEvent).toBeNull();
 
-    // Arriving during the gap waits it out, then raises a fresh wave.
+    // Arriving during the gap waits it out, then raises a fresh wave. The
+    // gap is never shorter than the run's own exit (the configured 400 ms
+    // is), or Noah's hold would tick away while Amelia's wave was still
+    // dropping and his moment not yet mounted.
     act(() => result.current.enqueue({ firstName: 'Noah' }));
     expect(result.current.currentEvent).toBeNull();
-    act(() => vi.advanceTimersByTime(400));
+    act(() => vi.advanceTimersByTime(RUN_EXIT_MS - 1));
+    expect(result.current.currentEvent).toBeNull();
+    act(() => vi.advanceTimersByTime(1));
     expect(result.current.currentEvent.firstName).toBe('Noah');
     expect(result.current.run).toBe(2);
     expect(result.current.step).toBe(0);
+  });
+
+  it('a gap longer than the exit is honoured as configured, and zero still waits out the exit', () => {
+    for (const [gap, expected] of [[1500, 1500], [0, RUN_EXIT_MS]]) {
+      const { result, unmount } = renderHook(() => useCheckInQueue({ ...config, gapBetweenBannersMs: gap }));
+      act(() => result.current.enqueue({ firstName: 'Amelia' }));
+      act(() => vi.advanceTimersByTime(6000));
+      act(() => result.current.enqueue({ firstName: 'Noah' }));
+      act(() => vi.advanceTimersByTime(expected - 1));
+      expect(result.current.currentEvent).toBeNull();
+      act(() => vi.advanceTimersByTime(1));
+      expect(result.current.currentEvent.firstName).toBe('Noah');
+      unmount();
+    }
+  });
+
+  it('under zero animation (?lowPower=1) the exit is instant, so only the configured gap applies', () => {
+    const { result } = renderHook(() => useCheckInQueue({ ...config, reduceMotion: true }));
+    act(() => result.current.enqueue({ firstName: 'Amelia' }));
+    act(() => vi.advanceTimersByTime(6000));
+    act(() => result.current.enqueue({ firstName: 'Noah' }));
+    act(() => vi.advanceTimersByTime(400));
+    expect(result.current.currentEvent.firstName).toBe('Noah');
   });
 
   it('holds birthday and first-timer banners longer', () => {
@@ -89,7 +118,7 @@ describe('useCheckInQueue', () => {
 
     act(() => result.current.skipCurrent());
     expect(result.current.currentEvent).toBeNull();
-    act(() => vi.advanceTimersByTime(400));
+    act(() => vi.advanceTimersByTime(RUN_EXIT_MS));
     expect(result.current.currentEvent.firstName).toBe('Emma');
   });
 

@@ -15,6 +15,7 @@ vi.mock('../lib/audio.js', () => ({
 import { fireBirthday, fireFirstTimer, fireStandard } from '../lib/confetti.js';
 import { playChime } from '../lib/audio.js';
 import { ZeroAnimationContext } from '../lib/motion.jsx';
+import { getClubPalette } from '../lib/clubs.js';
 import CheckInMoment from './CheckInMoment.jsx';
 import Overlay from './Overlay.jsx';
 
@@ -117,11 +118,12 @@ describe('CheckInMoment', () => {
       const { rerender } = render(still(<CheckInMoment event={event} audioEnabled />));
       expect(playChime).toHaveBeenCalledTimes(1);
       expect(fireStandard).not.toHaveBeenCalled();
-      act(() => vi.advanceTimersByTime(500));
+      act(() => vi.advanceTimersByTime(499));
+      expect(fireStandard).not.toHaveBeenCalled();
+      act(() => vi.advanceTimersByTime(1));
       expect(fireStandard).toHaveBeenCalledTimes(1);
-      const colors = fireStandard.mock.calls[0][0];
-      expect(colors).toContain('#FFFFFF');
-      expect(colors[0]).toMatch(/^#[0-9A-F]{6}$/i);
+      const sparks = getClubPalette('Sparks');
+      expect(fireStandard.mock.calls[0][0]).toEqual([sparks.primary, sparks.accent, '#FFFFFF', '#FCB614']);
       // A re-render for the same child (a font load, a sound toggle) never re-fires.
       rerender(still(<CheckInMoment event={event} audioEnabled={false} />));
       act(() => vi.advanceTimersByTime(2000));
@@ -138,10 +140,13 @@ describe('CheckInMoment', () => {
       render(still(<CheckInMoment event={kid({ isFirstTimer: true })} />));
       act(() => vi.advanceTimersByTime(899));
       expect(fireBirthday).not.toHaveBeenCalled();
+      expect(fireFirstTimer).not.toHaveBeenCalled();
       act(() => vi.advanceTimersByTime(1));
       expect(fireBirthday).toHaveBeenCalledTimes(1);
       expect(fireFirstTimer).toHaveBeenCalledTimes(1);
       expect(fireStandard).not.toHaveBeenCalled();
+      const sparks = getClubPalette('Sparks');
+      expect(fireBirthday.mock.calls[0][0]).toEqual([sparks.primary, sparks.accent]);
     } finally {
       vi.useRealTimers();
     }
@@ -182,5 +187,61 @@ describe('Overlay (one moment per run)', () => {
     rerender(still(<Overlay currentEvent={kid({ firstName: 'Noah' })} run={2} />));
     await waitFor(() => expect(container.querySelector('.checkin')).not.toBeNull());
     expect(container.querySelector('.checkin')).not.toBe(first);
+  });
+});
+
+describe('CheckInMoment flips', () => {
+  it('the outgoing copy steps out of the flow and keeps its own club colours', () => {
+    // Real presence (no zero animation), so the old name is still exiting
+    // when the assertion runs.
+    const a = kid({ firstName: 'Maya', club: 'Sparks' });
+    const b = kid({ firstName: 'Owen', club: 'Cubbies' });
+    const { container, rerender } = render(<CheckInMoment event={a} step={0} />);
+    rerender(<CheckInMoment event={b} step={1} />);
+    const names = [...container.querySelectorAll('.checkin__name')];
+    expect(names).toHaveLength(2);
+    const [leaving, arriving] = names[0].classList.contains('is-leaving') ? names : names.reverse();
+    expect(leaving.getAttribute('aria-label')).toBe('MAYA');
+    expect(leaving.classList.contains('is-leaving')).toBe(true);
+    expect(arriving.classList.contains('is-leaving')).toBe(false);
+    expect(leaving.style.getPropertyValue('--club-deep')).toBe(getClubPalette('Sparks').deep);
+    expect(arriving.style.getPropertyValue('--club-deep')).toBe(getClubPalette('Cubbies').deep);
+  });
+
+  it("each sticker carries its own moment's size, not the root's", () => {
+    const { container } = render(still(<CheckInMoment event={kid({ isFirstTimer: true })} />));
+    expect(container.querySelector('.checkin__sticker').classList.contains('checkin__sticker--first')).toBe(true);
+  });
+
+  it('aims the sticker bursts at the sticker as laid out on this screen', () => {
+    vi.useFakeTimers();
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function rectOf() {
+      return this.classList?.contains('checkin__sticker-slot')
+        ? { left: 800, top: 300, width: 100, height: 100, right: 900, bottom: 400, x: 800, y: 300 }
+        : { left: 0, top: 0, width: 0, height: 0, right: 0, bottom: 0, x: 0, y: 0 };
+    });
+    try {
+      render(still(<CheckInMoment event={kid({ isFirstTimer: true })} />));
+      act(() => vi.advanceTimersByTime(900));
+      expect(fireFirstTimer).toHaveBeenCalledTimes(1);
+      expect(fireFirstTimer.mock.calls[0][0]).toEqual({ x: 850 / window.innerWidth, y: 350 / window.innerHeight });
+    } finally {
+      rect.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('a child who flips away before their burst never gets a stray one', () => {
+    vi.useFakeTimers();
+    try {
+      const { rerender } = render(still(<CheckInMoment event={kid()} step={0} />));
+      act(() => vi.advanceTimersByTime(300));
+      rerender(still(<CheckInMoment event={kid({ firstName: 'Owen' })} step={1} />));
+      act(() => vi.advanceTimersByTime(3000));
+      // Only the second child's burst: the first one's timer was cleared.
+      expect(fireStandard).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, useIsPresent } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
 import { getClubPalette } from '../lib/clubs.js';
 import { fireBirthday, fireFirstTimer, fireStandard } from '../lib/confetti.js';
@@ -7,7 +7,7 @@ import { playBirthdayChime, playChime, playFirstTimerChime } from '../lib/audio.
 import { nameAccent } from '../lib/nameAccent.js';
 import { DUR, EASE, measureEm } from '../lib/brand.js';
 import {
-  kickerFor, momentFor, nameSizeU, PER_LETTER_MAX, stickerFor, sublineFor,
+  kickerFor, momentFor, nameSizeU, PER_LETTER_MAX, stickerFor, sublineFor, WAVE_EXIT,
 } from '../lib/checkInMoment.js';
 import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
@@ -85,7 +85,69 @@ function useFlipTracking(event, clubKey) {
   return seen.changed;
 }
 
-function Name({ text, entrance, timing, size, wraps }) {
+/**
+ * A per-child copy's class, plus `is-leaving` from the moment its exit
+ * starts: the leaving copy steps out of the flow at once (app.css), so only
+ * the incoming child sizes its cell and nothing above it jumps twice.
+ */
+function useLeaving(base) {
+  return useIsPresent() ? base : `${base} is-leaving`;
+}
+
+// The club colours ride on each per-child copy as well as the root, so a
+// leaving name and kicker keep the colours they arrived in while the next
+// club's wave sweeps in over them.
+const clubInk = (club) => ({ '--club-deep': club.deep, '--club-tint': club.accent });
+
+function Kicker({ text, delay, club }) {
+  return (
+    <M.div
+      className={useLeaving('checkin__kicker')}
+      style={clubInk(club)}
+      initial={{ opacity: 0, y: '0.5em' }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, transition: { duration: 0.18, ease: EASE.exit } }}
+      transition={{ duration: 0.32, delay, ease: EASE.settle }}
+    >
+      {text}
+    </M.div>
+  );
+}
+
+function Line({ text, delay }) {
+  return (
+    <M.p
+      className={useLeaving('checkin__line')}
+      initial={{ opacity: 0, y: '0.4em' }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, transition: { duration: 0.18, ease: EASE.exit } }}
+      transition={{ duration: 0.36, delay, ease: EASE.settle }}
+    >
+      {text}
+    </M.p>
+  );
+}
+
+const NO_CONFETTI = () => {};
+
+/**
+ * The sticker's centre as a 0..1 fraction of the viewport, measured when a
+ * burst fires: the sticker is laid out in u, so where it sits depends on the
+ * screen's shape. Undefined (confetti.js then uses its 16:9 fallback) when
+ * there is nothing laid out to measure.
+ */
+function stickerOrigin(root) {
+  const r = root?.querySelector?.('.checkin__sticker-slot')?.getBoundingClientRect?.();
+  if (!r || !r.width || !window.innerWidth || !window.innerHeight) return undefined;
+  return { x: (r.left + r.width / 2) / window.innerWidth, y: (r.top + r.height / 2) / window.innerHeight };
+}
+
+// The cells above a changing line glide to their new place rather than
+// snapping (framer-motion layout animation, instant under ?lowPower=1).
+const GLIDE = { duration: DUR.settle, ease: EASE.settle };
+
+function Name({ text, entrance, timing, size, wraps, club }) {
+  const className = useLeaving(`checkin__name${wraps ? ' checkin__name--wraps' : ''}`);
   const from = LETTER_FROM[entrance] ?? LETTER_FROM.pop;
   const perLetter = [...text].length <= PER_LETTER_MAX;
   const words = text.split(' ').filter(Boolean);
@@ -104,8 +166,8 @@ function Name({ text, entrance, timing, size, wraps }) {
   );
   return (
     <h1
-      className={`checkin__name${wraps ? ' checkin__name--wraps' : ''}`}
-      style={{ fontSize: u(size) }}
+      className={className}
+      style={{ fontSize: u(size), ...clubInk(club) }}
       aria-label={text}
     >
       {words.map((word, w) => (
@@ -145,16 +207,28 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
   const { size, wraps } = nameSizeU(display, (s) => measureEm(s));
   const accent = nameAccent(event.firstName);
 
-  // Confetti lands with the name (or with the sticker, for the two kinds
-  // that have one); replays and late arrivals stay quiet. See
-  // useCelebration for why this fires exactly once per child.
-  const tints = [club.primary, club.accent, '#FFFFFF', '#FCB614'];
+  // Confetti lands with the name (or out of the sticker, for the two kinds
+  // that have one). Only a live arrival bursts: celebrationProfile keeps a
+  // late arrival's chime ducked and a replayed recap silent, and neither
+  // throws confetti. Fired from this component's own effect so it can time
+  // the burst to the choreography and aim it at the measured sticker; once
+  // per child, and cleared if the child flips away or the run ends first.
+  const rootRef = useRef(null);
+  const live = event.presentation === 'live';
   const burstAt = (sticker ? t.sticker : t.name) * 1000;
-  const later = (fn) => () => { setTimeout(fn, burstAt); };
+  const { primary, accent: tint } = club;
+  useEffect(() => {
+    if (!live) return undefined;
+    const timer = setTimeout(() => {
+      const origin = stickerOrigin(rootRef.current);
+      if (moment === 'birthday') fireBirthday([primary, tint], origin);
+      else if (moment === 'first') fireFirstTimer(origin);
+      else fireStandard([primary, tint, '#FFFFFF', '#FCB614']);
+    }, burstAt);
+    return () => clearTimeout(timer);
+  }, [event.id, live, burstAt, moment, primary, tint]);
   useCelebration(event.id, audioEnabled, celebrationProfile(event.presentation, {
-    confetti: later(moment === 'birthday'
-      ? () => fireBirthday([club.primary, club.accent])
-      : moment === 'first' ? fireFirstTimer : () => fireStandard(tints)),
+    confetti: NO_CONFETTI,
     chime: moment === 'birthday' ? playBirthdayChime : moment === 'first' ? playFirstTimerChime : playChime,
   }));
 
@@ -162,6 +236,7 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
 
   return (
     <div
+      ref={rootRef}
       className={`checkin banner ${modeClass}${event.presentation !== 'live' ? ' calm' : ''}`}
       style={{ '--club-primary': club.primary, '--club-deep': club.deep, '--club-tint': club.accent }}
       data-club={clubKey}
@@ -173,7 +248,7 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
         className="checkin__layer checkin__layer--back"
         initial={{ y: '106%' }}
         animate={{ y: 0 }}
-        exit={{ y: '106%', transition: { duration: 0.48, delay: 0.19, ease: EASE.exit } }}
+        exit={{ y: '106%', transition: { ...WAVE_EXIT.back, ease: EASE.exit } }}
         transition={{ duration: DUR.wipe, ease: EASE.wipe }}
       >
         <AnimatePresence initial={false}>
@@ -194,7 +269,7 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
         className="checkin__layer checkin__layer--front"
         initial={{ y: '106%' }}
         animate={{ y: 0 }}
-        exit={{ y: '106%', transition: { duration: 0.48, delay: 0.12, ease: EASE.exit } }}
+        exit={{ y: '106%', transition: { ...WAVE_EXIT.front, ease: EASE.exit } }}
         transition={{ duration: DUR.wipe, delay: 0.07, ease: EASE.wipe }}
       >
         <AnimatePresence initial={false}>
@@ -239,39 +314,19 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
       </M.div>
 
       <M.div className="checkin__copy" exit={{ opacity: 0, y: u(-1.6), transition: LEAVE }}>
-        <div className="checkin__cell checkin__cell--kicker">
+        <M.div className="checkin__cell checkin__cell--kicker" layout="position" transition={GLIDE}>
           <AnimatePresence>
-            <M.div
-              key={kicker}
-              className="checkin__kicker"
-              initial={{ opacity: 0, y: '0.5em' }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, transition: { duration: 0.18, ease: EASE.exit } }}
-              transition={{ duration: 0.32, delay: t.kicker, ease: EASE.settle }}
-            >
-              {kicker}
-            </M.div>
+            <Kicker key={kicker} text={kicker} delay={t.kicker} club={club} />
           </AnimatePresence>
-        </div>
-        <div className="checkin__cell checkin__cell--name">
+        </M.div>
+        <M.div className="checkin__cell checkin__cell--name" layout="position" transition={GLIDE}>
           <AnimatePresence>
-            <Name key={event.id} text={display} entrance={accent.entrance} timing={t} size={size} wraps={wraps} />
+            <Name key={event.id} text={display} entrance={accent.entrance} timing={t} size={size} wraps={wraps} club={club} />
           </AnimatePresence>
-        </div>
+        </M.div>
         <div className="checkin__cell checkin__cell--line">
           <AnimatePresence>
-            {line && (
-              <M.p
-                key={line}
-                className="checkin__line"
-                initial={{ opacity: 0, y: '0.4em' }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, transition: { duration: 0.18, ease: EASE.exit } }}
-                transition={{ duration: 0.36, delay: t.line, ease: EASE.settle }}
-              >
-                {line}
-              </M.p>
-            )}
+            {line && <Line key={line} text={line} delay={t.line} />}
           </AnimatePresence>
         </div>
       </M.div>
@@ -281,7 +336,7 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
           {sticker && (
             <Sticker
               key={event.id}
-              className="checkin__sticker"
+              className={`checkin__sticker checkin__sticker--${moment}`}
               kind="starburst"
               tilt={-8}
               initial={{ opacity: 0, scale: 0.2, rotate: -40 }}

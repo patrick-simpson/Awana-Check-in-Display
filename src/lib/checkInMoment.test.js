@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { momentFor, kickerFor, sublineFor, stickerFor, nameSizeU, NAME_ROOM_U, NAME_MIN_U } from './checkInMoment.js';
+import { momentFor, kickerFor, sublineFor, stickerFor, nameSizeU, NAME_ROOM_U, NAME_MIN_U, RUN_EXIT_MS, WAVE_EXIT } from './checkInMoment.js';
 
 describe('momentFor', () => {
   it('ranks birthday over first-timer over welcome-back over welcome', () => {
@@ -89,5 +89,15 @@ describe('nameSizeU', () => {
   it('survives a measure that reports nothing', () => {
     expect(nameSizeU('MAYA', () => 0).size).toBe(10);
     expect(nameSizeU('', em(1)).size).toBe(10);
+  });
+});
+
+describe('RUN_EXIT_MS', () => {
+  it('covers the slowest wave drop, so the next run never starts its hold mid-exit', () => {
+    for (const w of Object.values(WAVE_EXIT)) {
+      expect(RUN_EXIT_MS).toBeGreaterThanOrEqual((w.delay + w.duration) * 1000);
+    }
+    // ...and not by much: the gap is dead air between two children.
+    expect(RUN_EXIT_MS).toBeLessThan(1000);
   });
 });
