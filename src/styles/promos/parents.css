@@ -1,10 +1,10 @@
 /* ── Promo: Parents' Night (showreel cut) ────────────────────
    The warm one: a cream ground in golden-hour light, a single rust line
    that draws a parent and a child and pours itself into a gold heart,
-   the rust ribbon header, three family polaroids and the title set
+   the rust ribbon header and the title set
    letter by letter. ParentsPromo.jsx owns the timing; this file owns
    the look. Layers, lowest first: texture 0, vignette 1, far/mid
-   hearts 2, the camera scene 3, polaroids 4, the copy 5, the header 6,
+   hearts 2, the camera scene 3, the copy 5, the header 6,
    near hearts 7, the light leaks 8, wordmark and chip 9. */
 
 .promo-slide--parents {
@@ -174,43 +174,6 @@
   background: #fbf1e1;
   color: #c85a2e;
   box-shadow: 0 8px 22px rgba(90, 40, 20, 0.3);
-}
-
-/* ── Polaroids ───────────────────────────────────────────── */
-.promo-par-pol {
-  position: absolute;
-  z-index: 4;
-  width: clamp(90px, min(11vw, 18vh), 230px);
-}
-.promo-par-pol--1 { left: 5vw; top: 23%; }
-.promo-par-pol--2 { left: 7vw; top: 57%; }
-.promo-par-pol--3 { right: 5.5vw; top: 37%; }
-.promo-par-pol-card {
-  display: flex;
-  flex-direction: column;
-  padding: 7% 7% 0;
-  background: #fffdf7;
-  border-radius: 3px;
-  box-shadow:
-    0 1px 0 rgba(140, 70, 30, 0.12),
-    0 14px 30px rgba(90, 40, 20, 0.22);
-}
-.promo-par-photo {
-  display: block;
-  width: 100%;
-  height: auto;
-  border-radius: 1px;
-}
-.promo-par-pol-caption {
-  display: block;
-  padding: 0.35em 0 0.5em;
-  font-family: var(--promo-font-display);
-  font-weight: 700;
-  font-size: clamp(0.7rem, min(1.05vw, 1.8vh), 1.3rem);
-  line-height: 1.1;
-  color: #c85a2e;
-  text-align: center;
-  white-space: nowrap;
 }
 
 /* ── The copy ────────────────────────────────────────────── */

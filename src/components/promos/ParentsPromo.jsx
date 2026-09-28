@@ -25,8 +25,6 @@ import {
 //   7.3  the rust wave header flows in from the left like a ribbon, a
 //        paler ribbon and a gold thread trailing it; the camera pulls
 //        back and the heart rises to its place on the poster (8.5).
-//   7.8  three family polaroids are tossed onto the flanks, overshoot
-//        and settle.
 //   8.6  "Parents' Night" assembles letter by letter with overshoot;
 //        wordmark and countdown chip land on the ribbon.
 //   9.6  gold rule, 9.9 the date rises through its mask, 10.4 the
@@ -306,72 +304,6 @@ const swell = (rest, peak, dur) => ({
   transition: { duration: dur, repeat: Infinity, ease: 'easeInOut' },
 });
 
-// ── Polaroids ────────────────────────────────────────────────
-// Tossed onto the table from the nearest edge: a spin, an overshoot, a
-// settle. `from` is the edge they come in over.
-const POLAROIDS = Object.freeze([
-  { id: 1, cls: 'promo-par-pol--1', caption: 'Club night', at: 7.8, from: '-45vw', spin: -38, rest: -9, over: 4 },
-  { id: 2, cls: 'promo-par-pol--2', caption: 'Best buddies', at: 8.05, from: '-45vw', spin: -24, rest: 5, over: -3 },
-  { id: 3, cls: 'promo-par-pol--3', caption: 'Proud of you', at: 8.25, from: '45vw', spin: 34, rest: 7, over: -4 },
-]);
-const tossed = (p) => landsAt(p.at, 0.95, {
-  opacity: [0, 1, 1, 1],
-  x: [p.from, `${(parseFloat(p.from) > 0 ? -1.2 : 1.2)}vw`, '-0.3vw', '0vw'],
-  y: ['8vh', '-1.5vh', '0.4vh', '0vh'],
-  rotate: [p.spin, p.rest + p.over, p.rest - p.over * 0.3, p.rest],
-}, EASE_OUT);
-const POL_BEAT = beatFrames(END_BEATS, 0.035);
-
-/** The three little illustrated snapshots: golden-hour parent and child. */
-function PolaroidPhoto({ id }) {
-  const sky = `promo-par-sky-${id}`;
-  return (
-    <svg className="promo-par-photo" viewBox="0 0 100 84" aria-hidden="true">
-      <defs>
-        <linearGradient id={sky} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={id === 2 ? '#f7d488' : '#f3b25e'} />
-          <stop offset="0.6" stopColor={id === 3 ? '#f6c9a0' : '#f9dca8'} />
-          <stop offset="1" stopColor="#fbeede" />
-        </linearGradient>
-      </defs>
-      <rect width="100" height="84" fill={`url(#${sky})`} />
-      <circle cx={id === 1 ? 70 : id === 2 ? 26 : 50} cy={id === 3 ? 30 : 46} r="13" fill="#fff4d6" opacity="0.9" />
-      <path d="M0 64 C24 54 44 58 62 62 C78 66 90 58 100 56 V84 H0Z" fill="#c85a2e" opacity="0.85" />
-      <path d="M0 72 C30 64 58 70 100 66 V84 H0Z" fill="#8f3b1f" />
-      {id === 1 && (
-        <g fill="#3d1f33">
-          <circle cx="38" cy="33" r="5" />
-          <path d="M31 42 Q38 38 45 42 L44 66 H40 L38 54 L36 66 H32 Z" />
-          <circle cx="56" cy="46" r="3.8" />
-          <path d="M51 53 Q56 50 61 53 L60 68 H57 L56 60 L55 68 H52 Z" />
-          <path d="M44 47 Q49 53 52 55" stroke="#3d1f33" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-        </g>
-      )}
-      {id === 2 && (
-        <g fill="#3d1f33">
-          <circle cx="54" cy="36" r="5" />
-          <path d="M47 45 Q54 41 61 45 L60 70 H56 L54 58 L52 70 H48 Z" />
-          <circle cx="54" cy="21" r="3.8" />
-          <path d="M49 28 Q54 26 59 28 L60 34 H48 Z" />
-          <path d="M49 29 L42 22 M59 29 L66 22" stroke="#3d1f33" strokeWidth="2.2" strokeLinecap="round" />
-        </g>
-      )}
-      {id === 3 && (
-        <g>
-          <path d="M50 22 C45 18 41 15 41 11 C41 8 43 6 46 6 C48 6 49 7 50 9 C51 7 52 6 54 6 C57 6 59 8 59 11 C59 15 55 18 50 22z" fill="#c85a2e" />
-          <g fill="#3d1f33">
-            <circle cx="42" cy="36" r="5" />
-            <path d="M35 45 Q42 41 49 45 L50 68 H45 L43 58 L41 68 H36 Z" />
-            <circle cx="57" cy="46" r="3.8" />
-            <path d="M52 53 Q57 50 62 53 L61 68 H58 L57 60 L56 68 H53 Z" />
-            <path d="M48 48 Q54 44 56 52" stroke="#3d1f33" strokeWidth="2.4" fill="none" strokeLinecap="round" />
-          </g>
-        </g>
-      )}
-    </svg>
-  );
-}
-
 // ── The copy ─────────────────────────────────────────────────
 /**
  * The title, set letter by letter: each glyph rises, overshoots and
@@ -510,15 +442,6 @@ export default function ParentsPromo({ promo, lines }) {
         </svg>
       </div>
       <Wordmark at={8.7} />
-
-      {POLAROIDS.map((p) => (
-        <M.div key={p.id} className={`promo-par-pol ${p.cls}`} aria-hidden="true" {...tossed(p)}>
-          <M.div className="promo-par-pol-card" {...POL_BEAT}>
-            <PolaroidPhoto id={p.id} />
-            <span className="promo-par-pol-caption">{p.caption}</span>
-          </M.div>
-        </M.div>
-      ))}
 
       <div className="promo-par-stack">
         <M.h2 className="promo-par-title" {...TITLE_BEAT}>

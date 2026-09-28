@@ -282,7 +282,7 @@ wins over readability, but every fact lands on the end card. Signage only
   - **Parents' Night** (cream / rust / gold, the warm one): a single rust
     line draws a parent and child holding hands and then a heart, which
     floods gold with rays and heartbeats, the ribbon header flows in,
-    polaroids are tossed in, and the title assembles letter by letter.
+    and the title assembles letter by letter.
     Its cream ground needs a warm vignette and a multiply grain, or the
     corners go grey.
 - **Copy lives next to its art.** Each poster exports its `DETAILS`
