@@ -243,6 +243,10 @@ Signage only (`index.html`); the projector and Journey never see them.
   imported, so **vitest fake timers cannot drive its crossfades** — the
   detail line's cadence is tested through `RotatingDetail` with real
   timers and short steps, and its copy through `detailsFor`.
+- **A promo poster holds check-ins** while it is up (see "The lobby
+  director" below): arrivals wait behind a WAITING chip and play at full
+  length on the next slide, and the stinger wave carries the lobby into and
+  out of each poster. The posters themselves are untouched.
 - Settings → Calendar & Weather → **"Fall event promos"**
   (`config.seasonPromos`) turns them off without touching the other
   auto-slides.
@@ -323,6 +327,43 @@ a birthday never shows a number).
   animation must be sampled in real time; paused-clock screenshots are only
   meaningful under `?lowPower=1`, which is what `e2e/signage.visual.spec.js`
   uses.
+
+## The lobby director: held slides and the corner (rebrand stage 4)
+
+The typed slideshow and the check-in queue take turns instead of competing
+(the approved mockup's rules; owner, 2026-09-27):
+
+- **Slides that hold check-ins.** A promo poster always holds; so does any
+  slide marked "Hold check-ins while this slide is up" (`holdCheckIns: true`,
+  `holdsCheckIns()` in `src/lib/slides.js`). While one is up the queue starts
+  no run (`hold` in `src/lib/checkInQueue.js`), a WAITING chip counts the
+  line, and the celebration queue (doors-open flourish, milestone toasts)
+  holds too, because a doors-open flourish names a child. When the held slide
+  ends, the waiting children play as one run, each for their full time. A run
+  already on screen is never cut off.
+- **Names pause the slideshow.** `ManualSlideshow`'s `paused` stops the slide
+  timer and KEEPS the time already spent (a video that ends meanwhile waits
+  too), so a slide is never skipped or restarted by a rush.
+- **A deck can never hold forever.** `special` is only reported for a deck
+  that can move on to an ordinary slide (more than one slide, at least one
+  not held); unmounting the slideshow reports `special: false`.
+- **The stinger.** A change that involves a held slide sweeps a full-screen
+  house wave over the lobby and swaps the slides while it covers; ordinary
+  changes crossfade. It ends off-screen, so `?lowPower=1` never shows it.
+- **`holdCheckIns` on the wire** is contract v5's optional slide field, literal
+  `true` or absent, never false (printer 6.16.0 publishes it;
+  `sanitizeSlidesChunk` and `sanitizeSlides` keep only `true`). Changing it
+  means the printer's canonical contract-vectors.json first.
+- **Corner info is ONE item at a time** (`src/lib/cornerInfo.js`,
+  `useCornerItem`, `CornerChip`): the time or tonight's tally bottom-right,
+  the weather top-right, as stepped chips. It moves on at each slide LOAD and
+  its value is frozen until the next one (the clock does not tick). The typed
+  slideshow reports loads; any other background uses a timer on the slideshow
+  delay. It hides on held slides. There is no layout or interval setting any
+  more (`widgetDisplayMode` / `cycleIntervalSec` are dropped as unknown keys).
+- **Problem indicators are not corner info.** The status sticker (connection,
+  printer failures, name faults, layer faults) shows whenever there is a
+  problem, on any slide.
 
 ## Tonight counter: the printer's tally is the source of truth
 

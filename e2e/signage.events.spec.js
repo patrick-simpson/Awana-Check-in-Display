@@ -119,10 +119,12 @@ test('a 20-kid rush queues rather than dropping banners', async ({ page }) => {
 });
 
 test('a tally broadcast reconciles the corner counter, including counting DOWN', async ({ page }) => {
-  // Force sticker mode so the corner counter renders immediately instead of
-  // waiting its turn in DataCycle's rotation.
+  // The corner shows one item at a time, moving on with each slide load. The
+  // placeholder background has no slides, so a timer on the slideshow delay
+  // stands in for the loads; with the clock off (and no weather in this
+  // hermetic run) the tally is the corner's only item, on every tick.
   await page.addInitScript(() => {
-    localStorage.setItem('awanaConfig.v1', JSON.stringify({ widgetDisplayMode: 'stickers' }));
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ showClock: false, backgroundSource: 'powerpoint', slideshowDelaySec: 5 }));
   });
   await goSignage(page);
   await openDebug(page);
@@ -136,16 +138,19 @@ test('a tally broadcast reconciles the corner counter, including counting DOWN',
   await rush.click();
   await rush.click();
 
-  const tallyCount = page.locator('.tally .tally-count');
-  await expect(tallyCount).toHaveText('80');
+  // The corner freezes its value at each load, so allow it a tick to catch
+  // up. (By name, not by class: at each load the outgoing and incoming chips
+  // briefly cross over.)
+  const tally = (n) => page.locator('.corner-chip--tally').getByRole('img', { name: `TONIGHT ${n}` });
+  await expect(tally(80)).toBeAttached({ timeout: 12000 });
 
   await page.getByRole('button', { name: 'Simulate club tally (counts)' }).click();
-  await expect(tallyCount).toHaveText('78');
-
   // #351 — an 80 → 78 correction is a two-step move, so the counter says
   // where it came from. Without this the room reads a counter that drops as
-  // a broken screen.
-  await expect(page.locator('.tally .tally-sync-note')).toHaveText(/synced with the check-in desk/i);
+  // a broken screen. (The note is live and brief; the number waits for the
+  // corner's next load, so check the note first.)
+  await expect(page.locator('.corner-chip--tally .corner-chip__note').first()).toHaveText(/synced with the check-in desk/i);
+  await expect(tally(78)).toBeAttached({ timeout: 12000 });
 });
 
 test('simulated events do not raise page errors', async ({ page }) => {

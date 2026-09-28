@@ -72,6 +72,12 @@ export default function BackgroundIframe({
   // config.reduceMotion's framer-motion wiring does, but avoiding the
   // ongoing JS/paint cost entirely, for weak/kiosk hardware.
   reduceMotion = false,
+  // The lobby director (App.jsx): pause the typed deck while names are on
+  // screen, and hear about each slide so check-ins can wait behind a poster
+  // or a slide marked "Hold check-ins". Only the typed deck has slides we
+  // can see; a PowerPoint embed or a video never holds anything.
+  paused = false,
+  onSlide,
 }) {
   // One array identity per (calendarSlides, manualSlides) pair — a fresh
   // array every render used to restart ManualSlideshow's hold timer on
@@ -131,7 +137,13 @@ export default function BackgroundIframe({
   if (backgroundSource === 'manual') {
     if (deck.length) {
       return (
-        <ManualSlideshow slides={deck} slideshowDelaySec={slideshowDelaySec} clubTint={clubTint} />
+        <ManualSlideshow
+          slides={deck}
+          slideshowDelaySec={slideshowDelaySec}
+          clubTint={clubTint}
+          paused={paused}
+          onSlide={onSlide}
+        />
       );
     }
   }

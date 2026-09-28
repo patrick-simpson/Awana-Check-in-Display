@@ -66,7 +66,6 @@ function seedForm(c) {
     keepScreenAwake: c.keepScreenAwake !== false,
     panicMode: !!c.panicMode,
     showClock: !!c.showClock,
-    widgetDisplayMode: c.widgetDisplayMode === 'stickers' ? 'stickers' : 'cycle',
     // Reads the one skin table. When this repeated the ids by hand, a saved
     // skin the list had never heard of (thanksgiving, easter, vbs) was silently
     // reset to 'none' the moment Settings was opened.
@@ -88,7 +87,6 @@ function seedForm(c) {
     checkoutBoardMode: ['pickup', 'always'].includes(c.checkoutBoardMode) ? c.checkoutBoardMode : 'off',
     checkoutBoardNamesAbove: c.checkoutBoardNamesAbove ?? 3,
     checkoutBoardStaleMin: c.checkoutBoardStaleMin ?? 8,
-    cycleIntervalSec: c.cycleIntervalSec ?? 3,
     milestoneEvery: c.milestoneEvery ?? 25,
     // Threshold LISTS (#358) — seeded through the same sanitizer the config
     // validator uses, so an old saved list is repaired, never silently reset.
@@ -123,7 +121,6 @@ function normalize(f) {
     clubMilestoneEvery: clamp(Math.round(f.clubMilestoneEvery) || 0, 0, 1000),
     checkoutBoardNamesAbove: clamp(Math.round(f.checkoutBoardNamesAbove) || 0, 0, 200),
     checkoutBoardStaleMin: clamp(Math.round(f.checkoutBoardStaleMin) || 8, 1, 120),
-    cycleIntervalSec: clamp(Math.round(f.cycleIntervalSec) || 3, 2, 120),
     calendarUrl: f.calendarUrl.trim(),
     calendarWelcomeText: f.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
     weatherLocationName: f.weatherLocationName.trim().slice(0, 80),
@@ -1264,62 +1261,22 @@ function BannersTab({ form, set, setForm }) {
 }
 
 function DisplayTab({ form, set }) {
-  const cycleMode = form.widgetDisplayMode !== 'stickers';
   const boardOn = form.checkoutBoardMode !== 'off';
   return (
     <>
       <h3 className="section">Corner widgets</h3>
 
-      <div className="field">
-        <label>Layout</label>
-        <div className="radio-row">
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="widgetDisplayMode"
-              value="cycle"
-              checked={cycleMode}
-              onChange={set('widgetDisplayMode')}
-            />
-            Animated cycle (recommended)
-          </label>
-          <label className="radio-option">
-            <input
-              type="radio"
-              name="widgetDisplayMode"
-              value="stickers"
-              checked={!cycleMode}
-              onChange={set('widgetDisplayMode')}
-            />
-            Classic corner stickers
-          </label>
-        </div>
-        <span className="hint">
-          The animated cycle shows one big data point at a time in the bottom-right corner —
-          time, tonight's tally and the weather — each tumbling in and out playfully. Classic
-          stickers pin them to the corners all at once.
-        </span>
-      </div>
-
-      {cycleMode && (
-        <div className="field">
-          <label htmlFor="cycleInterval">Seconds per item</label>
-          <input
-            id="cycleInterval" type="number" min="2" max="120" step="1"
-            value={form.cycleIntervalSec}
-            onChange={set('cycleIntervalSec')}
-          />
-          <span className="hint">
-            How long each data point holds the corner before the next one takes over.
-          </span>
-        </div>
-      )}
+      <p className="hint">
+        One item at a time: the time, tonight's tally or the weather, changing with each
+        slide. They step aside while a poster or a slide marked "Hold check-ins" is up. A
+        connection or printer problem always shows.
+      </p>
 
       <Toggle
         checked={form.showTally}
         onChange={set('showTally')}
         title="Tonight's check-in counter"
-        hint='A "checked in tonight" tally — joins the cycle, or sits top-left as a sticker. Counts only a number, resets daily.'
+        hint='A "checked in tonight" tally in the corner rotation. Counts only a number, resets daily.'
       />
 
       <Toggle

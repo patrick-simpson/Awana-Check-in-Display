@@ -15,10 +15,20 @@ import { RUN_EXIT_MS } from '../lib/checkInMoment.js';
  */
 export { BURST_THRESHOLD };
 
-export function useCheckInQueue(config) {
+/**
+ * @param {object} config
+ * @param {{ held?: boolean }} [lobby]  held: the slide on screen holds
+ *   check-ins (a promo poster or a slide marked "Hold check-ins"); arrivals
+ *   wait and start one run the moment it lifts.
+ */
+export function useCheckInQueue(config, { held = false } = {}) {
   const [state, dispatch] = useReducer(checkInQueueReducer, INITIAL_QUEUE_STATE);
   const nextIdRef = useRef(1);
   const { current, gap } = state;
+
+  useEffect(() => {
+    dispatch({ type: 'hold', held });
+  }, [held]);
 
   const enqueue = useCallback((payload) => {
     if (!payload || !payload.firstName) return;
@@ -78,5 +88,6 @@ export function useCheckInQueue(config) {
     enqueue,
     skipCurrent,
     pending: state.queue.length,
+    held: state.held,
   };
 }

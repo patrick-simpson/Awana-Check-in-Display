@@ -499,6 +499,7 @@ export function sanitizeSchedule(payload) {
  * @property {number} durationSec
  * @property {string} [showFrom] Optional bare local date, YYYY-MM-DD.
  * @property {string} [showUntil] Optional bare local date, YYYY-MM-DD.
+ * @property {true} [holdCheckIns] Hold check-in banners while this slide is up (literal true only).
  */
 
 /**
@@ -570,6 +571,9 @@ export function sanitizeSlidesChunk(payload) {
     if (showFrom) safe.showFrom = showFrom;
     const showUntil = showDate(entry.showUntil);
     if (showUntil) safe.showUntil = showUntil;
+    // "Hold check-ins while this slide is up" (contract: entryOptionalFields).
+    // Literal true only; anything else is dropped, never coerced, never false.
+    if (entry.holdCheckIns === true) safe.holdCheckIns = true;
     const id = cleanString(entry.id, ID_MAX);
     if (id) safe.id = id;
     slides.push(safe);

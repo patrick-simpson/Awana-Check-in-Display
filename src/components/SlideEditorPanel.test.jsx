@@ -280,6 +280,28 @@ describe('the show window (#345)', () => {
     expect('showFrom' in saved).toBe(false);
   });
 
+  it('a slide can be marked to hold check-ins, and unmarking leaves no trace', () => {
+    const props = baseProps({ config: { manualSlides: [text('s_1', 'Pick-up is at the gym doors')], backgroundSource: 'manual' } });
+    render(<SlideEditorPanel {...props} />);
+    const box = screen.getByRole('checkbox', { name: /Hold check-ins while this slide is up/ });
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole('button', { name: 'Save slides' }));
+    expect(props.onChange.mock.calls[0][0].manualSlides[0].holdCheckIns).toBe(true);
+    fireEvent.click(box);
+    fireEvent.click(screen.getByRole('button', { name: 'Save slides' }));
+    // Omitted, never false: an unmarked slide is byte-identical to before.
+    expect('holdCheckIns' in props.onChange.mock.calls[1][0].manualSlides[0]).toBe(false);
+  });
+
+  it('a video slide can hold check-ins too', () => {
+    const props = baseProps({ config: { manualSlides: [vid('s_v', 'vid_1')], backgroundSource: 'manual' } });
+    render(<SlideEditorPanel {...props} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: /Hold check-ins while this slide is up/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save slides' }));
+    expect(props.onChange.mock.calls[0][0].manualSlides[0].holdCheckIns).toBe(true);
+  });
+
   it('a video slide gets no date fields — the window is a text-slide idea', () => {
     render(<SlideEditorPanel {...baseProps({ config: { manualSlides: [vid('s_v', 'vid_1')], backgroundSource: 'manual' } })} />);
     expect(screen.queryByLabelText('Show until (optional)')).toBeNull();

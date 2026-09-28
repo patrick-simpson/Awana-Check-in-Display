@@ -151,27 +151,16 @@ describe('SettingsPanel (tabbed)', () => {
     expect(Object.keys(patch)).toEqual(['standardDisplayMs']);
   });
 
-  it('round-trips the widget display mode and cycle interval', () => {
+  it('the corner has no layout or interval to choose: one item at a time, with each slide', () => {
     const props = baseProps();
     render(<SettingsPanel {...props} />);
     tab('Display');
-
-    // Default mode is the animated cycle, defaulting to 3s, with its
-    // interval field shown.
-    expect(screen.getByLabelText('Animated cycle (recommended)').checked).toBe(true);
-    expect(screen.getByLabelText('Seconds per item').value).toBe('3');
-    fireEvent.change(screen.getByLabelText('Seconds per item'), { target: { value: '1' } });
-
-    fireEvent.click(screen.getByLabelText('Classic corner stickers'));
-    // The interval only matters in cycle mode, so the field hides.
+    expect(screen.queryByLabelText('Animated cycle (recommended)')).toBeNull();
+    expect(screen.queryByLabelText('Classic corner stickers')).toBeNull();
     expect(screen.queryByLabelText('Seconds per item')).toBeNull();
-
-    clickSave();
-    const patch = props.onChange.mock.calls[0][0];
-    expect(Object.keys(patch).sort()).toEqual(['cycleIntervalSec', 'widgetDisplayMode']);
-    expect(patch.widgetDisplayMode).toBe('stickers');
-    // Out-of-range interval edits still get clamped on save.
-    expect(patch.cycleIntervalSec).toBe(2);
+    expect(screen.getByText(/One item at a time/)).toBeTruthy();
+    // The item toggles are still here.
+    expect(screen.getByText("Tonight's check-in counter")).toBeTruthy();
   });
 
   it('seeds the form from savedConfig, never from the panic-masked config', () => {

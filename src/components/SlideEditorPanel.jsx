@@ -504,6 +504,23 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
                     </div>
                   </>
                 )}
+                {/* Rebrand stage 4: a slide the room should see without a
+                    check-in banner over it (a pick-up notice, a safety
+                    reminder). Arriving names wait behind a WAITING chip and
+                    then play, each for their full time, on the next slide. */}
+                <label className="slide-card-hold">
+                  <input
+                    type="checkbox"
+                    checked={slide.holdCheckIns === true}
+                    onChange={(e) => patch(slide.id, { holdCheckIns: e.target.checked ? true : undefined })}
+                  />
+                  <span>
+                    <strong>Hold check-ins while this slide is up</strong>
+                    <span className="hint">
+                      Arriving names wait, then play in full on the next slide. The fall event posters always do this.
+                    </span>
+                  </span>
+                </label>
                 <div className="slide-card-controls">
                   <button className="ghost" data-move="top" onClick={() => moveAndFocus(i, 0, slide.id, 'top')} disabled={i === 0} aria-label={`Move slide ${i + 1} to the top`}>Top</button>
                   <button className="ghost" data-move="up" onClick={() => moveAndFocus(i, i - 1, slide.id, 'up')} disabled={i === 0} aria-label={`Move slide ${i + 1} up`}>↑</button>

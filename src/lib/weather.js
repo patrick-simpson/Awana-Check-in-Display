@@ -11,7 +11,8 @@
 // to bathe the slide in, and a friendly label.
 // ─────────────────────────────────────────────────────────────
 
-// WMO code groups → { label, icon }. Icons name a WeatherGlyph variant.
+// WMO code groups → { label, icon }. The label names the weather on the
+// corner chip; the icon picks the scene theme and the night variant.
 const WMO = [
   { codes: [0], label: 'Clear skies', icon: 'sun' },
   { codes: [1], label: 'Mostly sunny', icon: 'sun' },

@@ -124,3 +124,74 @@ describe('checkInQueueReducer', () => {
     expect(reduce(INITIAL_QUEUE_STATE, { type: 'nope' })).toBe(INITIAL_QUEUE_STATE);
   });
 });
+
+describe('holding check-ins behind a special slide', () => {
+  const hold = (held) => ({ type: 'hold', held });
+
+  it('arrivals wait while held, in order, and play as one run when it lifts', () => {
+    let s = run(INITIAL_QUEUE_STATE, hold(true),
+      { type: 'enqueue', event: kid(1) },
+      { type: 'enqueue', event: kid(2) });
+    expect(s.current).toBeNull();
+    expect(s.queue.map((k) => k.id)).toEqual([1, 2]);
+    s = reduce(s, hold(false));
+    expect(s.current.id).toBe(1);
+    expect(s.run).toBe(1);
+    s = reduce(s, { type: 'hold-done', id: 1 });
+    // Same run: the second child flips in, full hold, no gap.
+    expect(s.current.id).toBe(2);
+    expect(s.run).toBe(1);
+    expect(s.step).toBe(1);
+  });
+
+  it('never cuts off a run already on screen', () => {
+    let s = run(INITIAL_QUEUE_STATE,
+      { type: 'enqueue', event: kid(1) },
+      { type: 'enqueue', event: kid(2) },
+      hold(true));
+    expect(s.current.id).toBe(1);
+    s = reduce(s, { type: 'hold-done', id: 1 });
+    expect(s.current.id).toBe(2);
+  });
+
+  it('a gap that closes while held waits; the lift then starts the run', () => {
+    let s = run(INITIAL_QUEUE_STATE,
+      { type: 'enqueue', event: kid(1) },
+      { type: 'hold-done', id: 1 },
+      hold(true),
+      { type: 'enqueue', event: kid(2) },
+      { type: 'gap-done' });
+    expect(s.current).toBeNull();
+    expect(s.gap).toBe(false);
+    s = reduce(s, hold(false));
+    expect(s.current.id).toBe(2);
+    expect(s.run).toBe(2);
+  });
+
+  it('lifting with the post-run gap still open lets the gap finish first', () => {
+    let s = run(INITIAL_QUEUE_STATE,
+      { type: 'enqueue', event: kid(1) },
+      { type: 'hold-done', id: 1 },
+      hold(true),
+      { type: 'enqueue', event: kid(2) },
+      hold(false));
+    expect(s.current).toBeNull();
+    expect(s.gap).toBe(true);
+    s = reduce(s, { type: 'gap-done' });
+    expect(s.current.id).toBe(2);
+  });
+
+  it('a repeated hold value is a no-op, and a lift with nobody waiting just clears it', () => {
+    const held = reduce(INITIAL_QUEUE_STATE, hold(true));
+    expect(reduce(held, hold(true))).toBe(held);
+    expect(reduce(held, hold(false))).toEqual(INITIAL_QUEUE_STATE);
+  });
+
+  it('holding never drops or reorders anyone, even past the cap', () => {
+    let s = reduce(INITIAL_QUEUE_STATE, hold(true));
+    for (let i = 1; i <= MAX_QUEUE + 5; i++) s = reduce(s, { type: 'enqueue', event: kid(i) });
+    // Nobody is on screen while held, so the whole line fits the cap.
+    expect(s.queue).toHaveLength(MAX_QUEUE);
+    expect(s.queue.map((k) => k.id)).toEqual(Array.from({ length: MAX_QUEUE }, (_, i) => i + 1));
+  });
+});

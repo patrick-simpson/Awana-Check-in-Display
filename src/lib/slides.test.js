@@ -21,7 +21,9 @@ import {
   slideSizeClass,
   videoSlideTimerMs,
   visibleSlides,
+  holdsCheckIns,
 } from './slides.js';
+import { isPromoSlide } from './promos.js';
 import { localDateStr } from './calendarLogic.js';
 
 describe('sanitizeSlides', () => {
@@ -449,5 +451,44 @@ describe('mergeSyncedDeck notices a changed show window', () => {
     // The published text wins; this device's video joins at the end.
     expect(out.map((s) => s.id)).toEqual(['srv_1', 's_v']);
     expect(out[0].showUntil).toBe('2026-09-16');
+  });
+});
+
+describe('holdCheckIns / holdsCheckIns', () => {
+  it('keeps the flag only when it is strictly true, on text and video slides', () => {
+    const [marked, unmarked, junk, video] = sanitizeSlides([
+      { text: 'Pick-up is at the gym doors', holdCheckIns: true },
+      { text: 'Bring your handbook', holdCheckIns: false },
+      { text: 'Junk flag', holdCheckIns: 'true' },
+      { type: 'video', videoId: 'v1', holdCheckIns: true },
+    ]);
+    expect(marked.holdCheckIns).toBe(true);
+    // Omitted, never false: an unmarked deck stays byte-identical.
+    expect('holdCheckIns' in unmarked).toBe(false);
+    expect('holdCheckIns' in junk).toBe(false);
+    expect(video.holdCheckIns).toBe(true);
+  });
+
+  it('holds for the promo posters and marked slides only', () => {
+    expect(holdsCheckIns({ type: 'promo' })).toBe(true);
+    expect(holdsCheckIns({ text: 'x', holdCheckIns: true })).toBe(true);
+    expect(holdsCheckIns({ text: 'x' })).toBe(false);
+    expect(holdsCheckIns({ text: 'x', holdCheckIns: 1 })).toBe(false);
+    expect(holdsCheckIns(null)).toBe(false);
+  });
+
+  it('agrees with isPromoSlide about what a poster is', () => {
+    for (const s of [{ type: 'promo' }, { type: 'video' }, { text: 'x' }, {}]) {
+      if (isPromoSlide(s)) expect(holdsCheckIns(s)).toBe(true);
+    }
+  });
+
+  it('a mark counts as a content change when merging a synced deck', () => {
+    const local = [{ id: 'a', text: 'One' }, { type: 'video', id: 'v', videoId: 'v1' }];
+    const synced = [{ id: 'a', text: 'One', holdCheckIns: true }];
+    // The fleet marked the slide: that is newer text, so the published deck
+    // (carrying the mark) wins over this device's unmarked copy.
+    const merged = mergeSyncedDeck(synced, local);
+    expect(merged.find((s) => s.text === 'One').holdCheckIns).toBe(true);
   });
 });

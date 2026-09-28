@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react';
+import { act, render, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCelebrationQueue } from './useCelebrationQueue.js';
 
@@ -117,5 +117,39 @@ describe('useCelebrationQueue', () => {
     expect(api.current.current).toBeNull();
     act(() => { api.current.enqueue({ kind: 'tally', count: 50 }); });
     expect(api.current.current).toMatchObject({ count: 50 });
+  });
+});
+
+describe('useCelebrationQueue while the lobby holds check-ins', () => {
+  it('brings nothing new forward while held, and catches up when the hold lifts', () => {
+    vi.useFakeTimers();
+    try {
+      const { result, rerender } = renderHook(({ held }) => useCelebrationQueue(3000, { held }), { initialProps: { held: true } });
+      act(() => { result.current.enqueue({ kind: 'first', firstName: 'Maya' }); });
+      expect(result.current.current).toBeNull();
+      rerender({ held: false });
+      expect(result.current.current).toMatchObject({ kind: 'first', firstName: 'Maya' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('lets a celebration already on screen finish when a hold begins', () => {
+    vi.useFakeTimers();
+    try {
+      const { result, rerender } = renderHook(({ held }) => useCelebrationQueue(3000, { held }), { initialProps: { held: false } });
+      act(() => { result.current.enqueue({ kind: 'tally', count: 25 }); });
+      act(() => { result.current.enqueue({ kind: 'tally', count: 50 }); });
+      expect(result.current.current).toMatchObject({ count: 25 });
+      rerender({ held: true });
+      expect(result.current.current).toMatchObject({ count: 25 });
+      act(() => vi.advanceTimersByTime(3000));
+      // The next one waits for the hold to lift.
+      expect(result.current.current).toBeNull();
+      rerender({ held: false });
+      expect(result.current.current).toMatchObject({ count: 50 });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

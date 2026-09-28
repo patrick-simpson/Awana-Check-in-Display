@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
+import { DUR, EASE } from '../lib/brand.js';
 import CatalogScene from './CatalogScene.jsx';
+import Wave from './brand/Wave.jsx';
 import PromoSlide from './PromoSlide.jsx';
 import { isPromoSlide } from '../lib/promos.js';
 import {
+  holdsCheckIns,
   isVideoSlide,
   resolveTheme,
   resolveSizeClass,
@@ -18,6 +21,62 @@ import { getVideo } from '../lib/videoStore.js';
 // wedging on a black screen.
 export const MISSING_VIDEO_SKIP_MS = 4000;
 
+// The stinger: when a transition involves a slide that holds check-ins (a
+// promo poster or a marked slide), a full-screen house wave sweeps up over
+// the lobby, the slides swap underneath it, and it sweeps on up and away
+// (the mockup's "wipe"). Ordinary slide-to-slide handoffs crossfade. The
+// swap happens while the wave covers the screen, so the slides' own change
+// waits for it.
+const STINGER_SEC = DUR.stinger * 2 + 0.08;
+// Mid-cover: the wave fills the screen from 47% to 53% of its run.
+const SWAP_AT = STINGER_SEC * 0.5;
+const SLIDE_VARIANTS = {
+  enter: { opacity: 0 },
+  show: (wipe) => ({
+    opacity: 1,
+    transition: wipe ? { duration: 0.01, delay: SWAP_AT } : { duration: 0.8, ease: 'easeInOut' },
+  }),
+  leave: (wipe) => ({
+    opacity: 0,
+    transition: wipe ? { duration: 0.01, delay: SWAP_AT } : { duration: 0.8, ease: 'easeInOut' },
+  }),
+};
+
+function Stinger() {
+  return (
+    <M.div
+      className="slide-stinger"
+      aria-hidden="true"
+      initial={{ y: '112%' }}
+      // Ends off the top: the frame ?lowPower=1 jumps to shows nothing.
+      animate={{ y: ['112%', '0%', '0%', '-112%'] }}
+      transition={{ duration: STINGER_SEC, times: [0, 0.47, 0.53, 1], ease: [EASE.wipe, 'linear', EASE.wipe] }}
+    >
+      <Wave className="slide-stinger__wave slide-stinger__wave--back" color="var(--brand-sun)" flip />
+      <div className="slide-stinger__fill slide-stinger__fill--back" />
+      <Wave className="slide-stinger__wave slide-stinger__wave--front" color="var(--brand-orange)" />
+      <div className="slide-stinger__fill slide-stinger__fill--front" />
+    </M.div>
+  );
+}
+
+/**
+ * Tracks which slide is up and how the lobby got there, captured once per
+ * slide (derived state, the CheckInMoment flip-tracking pattern): whether
+ * this change wipes (a held slide on either side) and a counter that keys
+ * the stinger.
+ */
+function useSlideTransition(key, special) {
+  const [seen, setSeen] = useState({ key, special, wipe: false, wipes: 0 });
+  if (seen.key !== key) {
+    const wipe = seen.special || special;
+    const next = { key, special, wipe, wipes: seen.wipes + (wipe ? 1 : 0) };
+    setSeen(next);
+    return next;
+  }
+  return seen;
+}
+
 /**
  * Plays the user's typed slides full-screen behind the check-in
  * banners — the no-PowerPoint background option. Same layering as the
@@ -27,7 +86,15 @@ export const MISSING_VIDEO_SKIP_MS = 4000;
  * unmuted autoplay is blocked). durationSec 0 = play to the end, then
  * advance; >0 = hold that long with the video looping underneath.
  */
-export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = null }) {
+/**
+ * `paused`: names are on screen, so the slide on screen keeps its place and
+ * its remaining time (the slideshow timer stops, it does not restart).
+ * `onSlide({ key, special })`: told on every slide change; `special` is
+ * whether that slide holds check-ins. A deck that could never move on to an
+ * ordinary slide (one slide, or only held ones) never holds, so a child's
+ * moment can never wait forever.
+ */
+export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = null, paused = false, onSlide }) {
   // A step counter that only ever goes UP, rather than an index that wraps:
   // the deck position is `step % length` and the LAP is `step / length`, and
   // the promo slot uses the lap to show a different promo each time round
@@ -68,11 +135,53 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
     ? null
     : isVideoSlide(slide) ? videoSlideTimerMs(slide) : slideDurationMs(held, slideshowDelaySec);
 
+  // Which slide is up, as one key: the step (so the same slide coming round
+  // again is a new showing) and its id (so an editor save that swaps what is
+  // at this position is too).
+  const slideKey = `${step}:${slide?.id ?? ''}`;
+  const canHold = slides.length > 1 && slides.some((s) => !holdsCheckIns(s));
+  const special = Boolean(slide) && canHold && holdsCheckIns(slide);
+  const transition = useSlideTransition(slideKey, special);
+
+  // The hold timer, pausable: time already spent on this slide survives a
+  // pause, so names on screen stop the clock instead of resetting it.
+  const timing = useRef({ key: '', spent: 0, startedAt: 0 });
   useEffect(() => {
-    if (holdMs == null) return undefined;
-    const timer = setTimeout(advance, holdMs);
-    return () => clearTimeout(timer);
-  }, [holdMs, safe, advance]);
+    const t = timing.current;
+    if (t.key !== slideKey) {
+      t.key = slideKey;
+      t.spent = 0;
+    }
+    if (holdMs == null || paused) return undefined;
+    t.startedAt = Date.now();
+    const timer = setTimeout(advance, Math.max(0, holdMs - t.spent));
+    return () => {
+      clearTimeout(timer);
+      t.spent += Date.now() - t.startedAt;
+    };
+  }, [holdMs, slideKey, paused, advance]);
+
+  // A video that ends while names are up waits for them before advancing.
+  const pending = useRef(false);
+  const pausedNow = useRef(paused);
+  useEffect(() => {
+    pausedNow.current = paused;
+    if (!paused && pending.current) {
+      pending.current = false;
+      advance();
+    }
+  }, [paused, advance]);
+  const finishVideo = useCallback(() => {
+    if (pausedNow.current) pending.current = true;
+    else advance();
+  }, [advance]);
+
+  useEffect(() => {
+    onSlide?.({ key: slideKey, special });
+  }, [onSlide, slideKey, special]);
+  // Leaving the slideshow (the background switched away) must never leave
+  // the lobby holding check-ins.
+  useEffect(() => () => onSlide?.({ key: 'none', special: false }), [onSlide]);
 
   if (!slides.length || !slide) return null;
 
@@ -80,14 +189,15 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
     <div className="manual-slideshow">
       {/* mode="sync" crossfades: the outgoing slide fades while the next
           fades in. Opacity-only, so it survives reducedMotion="user". */}
-      <AnimatePresence mode="sync" initial={false}>
+      <AnimatePresence mode="sync" initial={false} custom={transition.wipe}>
         <M.div
           key={slide.id}
           className="manual-slide"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: 'easeInOut' }}
+          custom={transition.wipe}
+          variants={SLIDE_VARIANTS}
+          initial="enter"
+          animate="show"
+          exit="leave"
         >
           {isVideoSlide(slide) ? (
             <VideoSlide
@@ -95,7 +205,7 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
               // A lone video loops forever (nothing to advance to);
               // a timed video loops so it never freezes mid-hold.
               loop={slides.length <= 1 || slide.durationSec > 0}
-              onFinished={slides.length > 1 ? advance : undefined}
+              onFinished={slides.length > 1 ? finishVideo : undefined}
             />
           ) : isPromoSlide(slide) ? (
             /* One slot, one promo per lap. The key stays `slide.id`, so the
@@ -113,6 +223,7 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
           )}
         </M.div>
       </AnimatePresence>
+      {transition.wipes > 0 && <Stinger key={transition.wipes} />}
     </div>
   );
 }

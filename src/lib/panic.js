@@ -15,7 +15,6 @@ export function applyPanicMode(config) {
     useLocalSlideshow: false,
     calendarEnabled: false,
     showWeatherChip: false,
-    widgetDisplayMode: 'stickers',
     showClock: true,
     showTally: false,
     countdownTargetTime: '',

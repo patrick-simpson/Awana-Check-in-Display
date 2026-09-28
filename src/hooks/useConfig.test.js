@@ -86,14 +86,12 @@ describe('sanitizeOverrides', () => {
     expect(sanitizeOverrides([1, 2])).toEqual({});
   });
 
-  it('keeps a valid widget display mode and cycle interval', () => {
-    const overrides = { widgetDisplayMode: 'stickers', cycleIntervalSec: 12 };
-    expect(sanitizeOverrides(overrides)).toEqual(overrides);
-    expect(sanitizeOverrides({ widgetDisplayMode: 'cycle' })).toEqual({ widgetDisplayMode: 'cycle' });
-    expect(sanitizeOverrides({ widgetDisplayMode: 'both' })).toEqual({});
-    expect(sanitizeOverrides({ cycleIntervalSec: 3 })).toEqual({ cycleIntervalSec: 3 });
-    expect(sanitizeOverrides({ cycleIntervalSec: 1 })).toEqual({});
-    expect(sanitizeOverrides({ cycleIntervalSec: '12' })).toEqual({});
+  it('drops the retired corner layout settings (one item at a time now, with each slide)', () => {
+    // A screen that saved these before the rebrand, or a fleet ?config=
+    // file that still carries them, simply loses them: there is nothing
+    // left for them to choose.
+    expect(sanitizeOverrides({ widgetDisplayMode: 'stickers', cycleIntervalSec: 12 })).toEqual({});
+    expect(sanitizeOverrides({ widgetDisplayMode: 'cycle', showClock: false })).toEqual({ showClock: false });
   });
 
   it('keeps a valid backgroundSource and drops anything else', () => {
