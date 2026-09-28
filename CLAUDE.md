@@ -47,7 +47,12 @@ mechanisms, because framer-motion and CSS need different enforcement:
   `App.jsx`, driven by `config.reduceMotion`) and forces
   `transition={{ type: false }}` — an instant jump to the target value,
   no fade, no repeat loop — **regardless of what transition the caller
-  passed**, including a hardcoded `repeat: Infinity`. This is why it's
+  passed**, including a hardcoded `repeat: Infinity`, and including one
+  NESTED inside a target (`exit={{ opacity: 0, transition: {...} }}`, an
+  `animate` target's own transition, a variant's): framer-motion lets a
+  nested transition beat the element's prop, so under zero animation M
+  strips those too (`stripTransition` / `stripVariants`). Before that, every
+  exit with its own timing still animated on the Pi. This is why it's
   stronger than `MotionConfig`'s `reducedMotion="always"` prop (also
   still set): that only ever gates transform/positional values (x, y,
   scale, rotate, width/height, top/left/right/bottom — framer-motion's
@@ -270,6 +275,54 @@ Signage only (`index.html`); the projector and Journey never see them.
   together** — deliberately hardcoded (owner's choice 2026-09-13),
   because the art is a recreation of specific printed posters, not
   something an operator types a date into.
+
+## The check-in moment (rebrand stage 3)
+
+Every arrival is one component, `src/components/CheckInMoment.jsx`: the
+catalog's club opener page played live. The child's club wave rises and
+carries the name (Galindo, `--font-shout`, sized by measurement so it never
+breaks between letters), the club's white mark rides the low side, three kit
+doodles land last, and the one hot sticker marks a birthday or a first-timer.
+The colour is always the child's club. What differs between a welcome, a
+welcome back, a first-timer, a birthday and a replayed recap is only the
+kicker, the one line under the name and the sticker, all pure functions in
+`src/lib/checkInMoment.js` (tests pin the wording, the ribbon rule and that
+a birthday never shows a number).
+
+- **Nobody's time is ever shortened** (owner, 2026-09-27). The queue is the
+  pure reducer in `src/lib/checkInQueue.js`: every child holds for their full
+  configured time (`holdMsFor`, which cannot even see the backlog). A RUN is
+  one stretch with the wave up; when a hold ends and someone is waiting, the
+  next child takes over in the same run (`step` + 1) with no gap and the name
+  FLIPS. The old burst shrink, `BURST_FLOOR_MS` and `burstFloorMs` are gone;
+  do not bring them back to "drain a backlog".
+- **The gap between runs is never shorter than the run's exit**
+  (`RUN_EXIT_MS`, derived from the `WAVE_EXIT` table the component also
+  reads). The Overlay keys the moment on `run` with `AnimatePresence
+  mode="wait"`, so a new run mounts only after the last has left; a shorter
+  gap would spend the next child's hold on the previous child's exit. Under
+  zero animation exits are instant and the configured gap alone applies.
+- **Flips cross over in place.** Per-child copy (kicker, name, line, sticker,
+  mark, a new club's wave) sits in small keyed AnimatePresences; the
+  outgoing copy gets `is-leaving` (via `useIsPresent`) the moment its exit
+  starts and leaves the flow, so only the incoming child sizes a cell, and
+  the cells above glide (`layout="position"`). Per-child copy carries its own
+  club colours and sticker size, so an outgoing name never repaints in the
+  next club's colours mid-exit. A newer club's wave stacks over the one it
+  replaces inside an isolated layer.
+- **Confetti** fires from the moment's own effect, once per LIVE child,
+  timed to land with the name or out of the sticker (aimed at the sticker's
+  measured centre), and cleared if the child flips away first. Bursts throw
+  the kit's four-point sparkle (a canvas-confetti path shape built once with
+  an explicit matrix; star fallback) and dots; season skins still win.
+- The slide behind **steps back** while a name is up (`.stage.checkin-active`,
+  scoped to the live background so the slide editor's thumbnails stay true),
+  and the idle settings gear hides so it never sits on the club's mark.
+- Testing: Playwright's `page.clock` does NOT drive framer-motion's opacity
+  (it runs on the browser's own animation timeline), so frames of a moving
+  animation must be sampled in real time; paused-clock screenshots are only
+  meaningful under `?lowPower=1`, which is what `e2e/signage.visual.spec.js`
+  uses.
 
 ## Tonight counter: the printer's tally is the source of truth
 
