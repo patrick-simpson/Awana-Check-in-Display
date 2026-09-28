@@ -1,9 +1,42 @@
 import React from 'react';
+import { Headline } from './Headline.jsx';
 
 /**
- * Per-view crash isolation with an on-brand fallback. Deliberately
- * dependency-free (plain divs + CSS keyframes only) so the fallback
- * itself can't fail.
+ * The on-brand "the show goes on" screen both error boundaries show: the
+ * kit's headline in sunflower, a Figtree line, and the one hot button.
+ * Deliberately dependency-free (plain elements and CSS only; the headline's
+ * static path never touches framer-motion) so the fallback itself can't
+ * fail.
+ */
+export const ErrorScreen = ({ message, detail, fullScreen = false }) => (
+  <div
+    className={`flex flex-col items-center justify-center p-8 ${fullScreen ? 'h-screen w-screen' : 'w-full h-full'}`}
+    style={{ background: '#000000', gap: 'calc(2 * var(--u))' }}
+  >
+    <Headline text="Oops!" color="var(--brand-sun)" size="var(--text-headline)" />
+    <p className="pj-body" style={{ fontSize: 'var(--text-body)', color: 'rgb(255 255 255 / 0.8)', fontWeight: 500 }}>
+      {message}
+    </p>
+    {detail && (
+      <p
+        className="pj-panel-note text-white/35 max-w-2xl overflow-auto text-center"
+        style={{ fontSize: 'calc(1.1 * var(--u))' }}
+      >
+        {detail}
+      </p>
+    )}
+    <button
+      onClick={() => window.location.reload()}
+      className="pj-hot-button"
+      style={{ fontSize: 'calc(1.8 * var(--u))', padding: '0.7em 1.8em', marginTop: 'calc(1 * var(--u))' }}
+    >
+      Reload
+    </button>
+  </div>
+);
+
+/**
+ * Per-view crash isolation with an on-brand fallback.
  */
 export class ViewErrorBoundary extends React.Component {
   constructor(props) {
@@ -18,42 +51,7 @@ export class ViewErrorBoundary extends React.Component {
   }
   render() {
     if (this.state.hasError) {
-      return (
-        <div
-          className="w-full h-full flex flex-col items-center justify-center gap-6"
-          style={{ background: '#000000' }}
-        >
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'var(--text-h1)',
-              lineHeight: 1,
-              color: '#FFC107',
-            }}
-          >
-            OOPS!
-          </h1>
-          <p
-            className="text-white/70 text-center"
-            style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-body-lg)' }}
-          >
-            The {this.props.label} screen hit a snag — the show goes on.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-8 py-3 rounded-full border-2 text-white uppercase transition-transform hover:scale-105"
-            style={{
-              fontFamily: 'var(--font-condensed)',
-              fontWeight: 800,
-              letterSpacing: '0.15em',
-              borderColor: '#FFC107',
-              background: '#1a1a1a',
-            }}
-          >
-            Reload
-          </button>
-        </div>
-      );
+      return <ErrorScreen message={`The ${this.props.label} screen hit a snag — the show goes on.`} />;
     }
     return this.props.children;
   }

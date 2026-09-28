@@ -7,9 +7,9 @@ import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ClubWave } from '../components/ClubWave.jsx';
 import { ConfettiBurst } from '../components/ConfettiBurst.jsx';
-import { Badge } from '../components/Badge.jsx';
-import { BigTimer, URGENT_COLOR } from '../components/BigTimer.jsx';
-import { GlowText } from '../components/GlowText.jsx';
+import { BigTimer } from '../components/BigTimer.jsx';
+import { Headline } from '../components/Headline.jsx';
+import { StepChip } from '../components/StepChip.jsx';
 import { useLowPower } from '../hooks/useLowPower.js';
 import { CakeArt } from '../../components/BirthdayArt.jsx';
 import { secondsUntil } from '../lib/schedule.js';
@@ -22,26 +22,32 @@ import { playStinger } from '../lib/stingers.js';
 import { birthdaysThisWeek, listNames } from '../lib/birthdays.js';
 import { countForClub } from '../lib/tally.js';
 import { mulberry32 } from '../lib/color.js';
+import { FAR_WAVE_KEEP, HOUSE, WARNING_TONES, shade } from '../lib/kit.js';
+import { chipGeometry, measureEm } from '../lib/chip.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
+import { holdThen, partVariants } from '../lib/landing.js';
 import { useBirthdays } from '../hooks/useBirthdays.js';
 
 /** Tally older than this is treated as gone (print server offline). */
 const TALLY_STALE_MS = 10 * 60 * 1000;
 
-/** Amber for the two-minute heads-up; the final call reuses the timer's
- *  own urgent red so the two screens speak one colour language. */
-const WARNING_COLORS = {
-  'two-minute': '#FFB627',
-  'final-thirty': URGENT_COLOR,
-};
+/** The chip row's size (the value's font size), in projector units. */
+const CHIP_U = 3.4;
+/** The widest the birthday chip may grow before it shrinks to fit, in units. */
+const BIRTHDAY_MAX_U = 36;
+
+/** The view's parts land just after its crossfade has begun. */
+const LAND_HOLD = 0.25;
 
 /**
- * Per-club game-time screen: catalog waves in the club color(s), the
- * club emblem (official logo art when available, typographic badge
- * otherwise), a timer to the window's end, official character art in
- * the lower corners, and a subtle live "checked in" count per club fed
- * by the print server's tally broadcast.
- * Combined windows (Puggles & Cubbies) get one wave per club.
+ * Per-club game-time screen, the approved mockup: the club's catalog waves
+ * along the top and bottom edges (its deep shade behind its colour), the
+ * club's white mark, GAME TIME! in the club's colour, a clock to the
+ * window's end with club-coloured colons, a stepped chip "GAME ENDS /
+ * 6:30 PM", official character art standing on the bottom wave, and a
+ * small live "CHECKED IN" chip per club (the print server's tally
+ * broadcast) in the top-right corner. Combined windows (Puggles & Cubbies)
+ * get both marks, and the second club's colours on the top edge.
  *
  * `tally` arrives as a prop (from useRealtime, via the display's
  * sanctioned sanitized socket) instead of the original repo's own
@@ -53,6 +59,7 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
   const clubs = gameWindow.clubs.map((id) => CLUBS[id]);
   const primary = clubs[0];
   const secondary = clubs[1];
+  const topClub = secondary ?? primary;
 
   // This week's (Sun–Sat) birthdays for the club(s) on screen.
   const roster = useBirthdays();
@@ -68,11 +75,11 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
   const seconds = secondsUntil(endsAt, now);
 
   // Wrap-up warning for the rotation boundary (lib/gameWarning.js). The
-  // treatment is deliberately restrained — a recoloured clock and one
-  // small badge, in the same register as the countdown screen, which no
-  // longer pops milestone cards at all.
+  // treatment is deliberately restrained: the figures recolour, and the
+  // one chip under the clock names the moment ("TWO MINUTES", "LAST 30
+  // SECONDS") while still carrying the end time on its label.
   const warning = warningFor(seconds);
-  const warnColor = WARNING_COLORS[warning];
+  const tone = WARNING_TONES[warning];
 
   // The last state we ANNOUNCED, not the last state rendered: a
   // re-render (a tally arriving, a birthday resolving) must never
@@ -97,153 +104,115 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
     <ScreenFrame
       layers={
         <>
-          <ClubWave color={primary.color} position="bottom" variant={0} height={36} />
-          <ClubWave
-            color={(secondary ?? primary).color}
-            position="top"
-            variant={1}
-            height={24}
-            intensity={secondary ? 0.8 : 0.45}
-          />
+          {/* The catalog's club waves along both edges: deep behind colour
+              along the top (the second club's, on a combined window), and
+              the club's own along the bottom, the far one slowly drifting. */}
+          <ClubWave color={shade(topClub.deep, FAR_WAVE_KEEP)} position="top" height={9} flip />
+          <ClubWave color={topClub.deep} position="top" height={6} delay={0.08} />
           <ParticleField />
           <SparkleDoodles
             seed={gameWindow.startMin}
-            colors={[...clubs.map((c) => c.color), '#FFFFFF', '#FFC107']}
+            colors={[...clubs.map((c) => c.color), '#FFFFFF', HOUSE.sun]}
             count={16}
           />
+          <ClubWave color={primary.deep} position="bottom" height={15} flip drift={!lowPower} />
+          <ClubWave color={primary.color} position="bottom" height={11} delay={0.08} />
           <CharacterArt clubs={clubs} seed={gameWindow.startMin} />
         </>
       }
     >
-      <div className="flex-1 flex flex-col items-center justify-center gap-7">
-        {/* Club emblems — official art when we have it, badge otherwise */}
-        <div className="flex gap-6 flex-wrap justify-center items-center">
-          {clubs.map((club) => (
-            <ClubEmblem key={club.id} club={club} />
-          ))}
-        </div>
-
-        {/* "GAME TIME!" with the catalog's playful tilt */}
-        <GlowText
-          as="h1"
-          size="h1"
-          font="display"
-          color={primary.color}
-          className="leading-none text-center select-none"
-          style={{ transform: 'rotate(-2deg)' }}
-        >
-          GAME TIME!
-        </GlowText>
-
-        {warning !== 'none' && (
-          <motion.div
-            key={warning}
-            data-warning={warning}
-            initial={lowPower ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DUR.base, ease: EASE.pop }}
-          >
-            {/* Motionless under low power (?vr=1 / reduced motion): the
-                warning is content, so it still renders — it just doesn't
-                animate in. No pulse or repeat loop in either case. */}
-            <Badge color={warnColor} size="md">
-              {WARNING_LABELS[warning]}
-            </Badge>
+      <div className="pj-frame">
+        <motion.div className="pj-game" initial="hidden" animate="shown">
+          {/* Club marks — the kit's white knockouts; the name in the club's
+              colour if a mark cannot load */}
+          <motion.div className="pj-game__marks" variants={partVariants(0, LAND_HOLD)}>
+            {clubs.map((club) => (
+              <ClubEmblem key={club.id} club={club} />
+            ))}
           </motion.div>
-        )}
 
-        <BigTimer seconds={seconds} color={primary.color} warnColor={warnColor} />
+          <Headline
+            text="GAME TIME!"
+            color={primary.color}
+            size="var(--text-game-headline)"
+            parts={{ start: 1, hold: LAND_HOLD }}
+            style={{ marginTop: 'calc(1.1 * var(--u))' }}
+          />
 
-        <GlowText
-          as="p"
-          size="body-lg"
-          font="body"
-          color="rgba(255,255,255,0.72)"
-          className="tracking-wide"
-        >
-          Game ends at {endTimeStr}
-        </GlowText>
-
-        {/* Subtle live check-in counts (print server tally broadcast) */}
-        <AnimatePresence>
-          {clubCounts.length > 0 && (
-            <motion.div
-              className="flex gap-3 justify-center"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ duration: DUR.base, ease: EASE.pop, delay: 0.4 }}
-            >
-              {clubCounts.map(({ club, count }) => (
-                <Badge key={club.id} color={club.color} size="sm" style={{ opacity: 0.85 }}>
-                  {clubCounts.length > 1 ? `${club.name}: ` : ''}
-                  {/* Remount on each increment: leaders see the arrival
-                      land as a little pop, same trick as the signage tally. */}
-                  <motion.span
-                    key={count}
-                    className="inline-block"
-                    initial={{ scale: 1.45, rotate: -6 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 15 }}
-                  >
-                    {count}
-                  </motion.span>
-                  {' checked in'}
-                </Badge>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* This week's birthdays for the club(s) on screen */}
-        {celebrants.length > 0 && (
-          <motion.div
-            className="flex flex-col items-center mt-2"
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: DUR.base, ease: EASE.pop, delay: 0.25 }}
-          >
-            {/* A cake above the greeting. This side of the app knows each
-                birthday's month and day but still NOT a year, so there is no
-                candle count and no age — same constraint as the signage banner.
-                Held still under low power (?vr=1 / reduced motion), where the
-                whole ambient layer is expected to stop. */}
-            <motion.span
-              className="block w-16 sm:w-20 mb-1"
-              aria-hidden
-              initial={{ y: 18, scale: 0.85, opacity: 0 }}
-              animate={{ y: 0, scale: 1, opacity: 1 }}
-              transition={{ duration: DUR.base, ease: EASE.pop, delay: 0.15 }}
-            >
-              <motion.span
-                className="block"
-                animate={lowPower ? undefined : { rotate: [0, -5, 5, 0], scale: [1, 1.06, 1] }}
-                transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: 0.9 }}
-              >
-                <CakeArt />
-              </motion.span>
-            </motion.span>
-            <GlowText
-              as="p"
-              size="script"
-              font="script"
-              color="#FFC107"
-              style={{ fontWeight: 600, transform: 'rotate(-2deg)' }}
-            >
-              happy birthday
-            </GlowText>
-            <GlowText
-              as="p"
-              size="script"
-              font="display"
+          <motion.div variants={partVariants(3, LAND_HOLD)}>
+            <BigTimer
+              seconds={seconds}
               color="#FFFFFF"
-              className="text-center max-w-6xl leading-tight"
-            >
-              {listNames(celebrants.map((b) => b.name))}
-            </GlowText>
+              accent={primary.color}
+              warnColor={tone?.digits}
+              size="var(--text-game-timer)"
+            />
+          </motion.div>
+
+          <motion.div className="pj-chip-row pj-game__chips" variants={partVariants(4, LAND_HOLD)}>
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={warning}
+                className="inline-block"
+                data-warning={warning !== 'none' ? warning : undefined}
+                initial={{ opacity: 0, scale: 0.7 }}
+                animate={{ opacity: 1, scale: 1, transition: { duration: DUR.pop, ease: EASE.pop } }}
+                exit={{ opacity: 0, scale: 0.85, transition: { duration: DUR.exit, ease: EASE.exit } }}
+              >
+                {warning === 'none' ? (
+                  <StepChip label="Game ends" value={endTimeStr} size={`calc(${CHIP_U} * var(--u))`} plate={primary.deep} />
+                ) : (
+                  <StepChip
+                    label={`Game ends ${endTimeStr}`}
+                    value={WARNING_LABELS[warning]}
+                    size={`calc(${CHIP_U} * var(--u))`}
+                    plate={tone.plate}
+                  />
+                )}
+              </motion.span>
+            </AnimatePresence>
+
+            {/* This week's birthdays for the club(s) on screen: the kit's one
+                hot chip, with the cake riding beside it. This side of the
+                app knows each birthday's month and day but still NOT a year,
+                so there is no candle count and no age — same constraint as
+                the signage banner. */}
+            {celebrants.length > 0 && (
+              <BirthdayChip names={listNames(celebrants.map((b) => b.name))} still={lowPower} />
+            )}
+          </motion.div>
+        </motion.div>
+      </div>
+
+      {/* Subtle live check-in counts (print server tally broadcast) */}
+      <AnimatePresence>
+        {clubCounts.length > 0 && (
+          <motion.div
+            className="pj-game__tally"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: DUR.pop, ease: EASE.pop } }}
+            exit={{ opacity: 0, y: -10, transition: { duration: DUR.exit, ease: EASE.exit } }}
+          >
+            {clubCounts.map(({ club, count }) => (
+              // Remount on each increment: leaders see the arrival land as a
+              // little pop, same trick as the signage tally.
+              <motion.span
+                key={`${club.id}-${count}`}
+                className="inline-block"
+                initial={{ scale: 1.25 }}
+                animate={{ scale: 1, transition: { duration: DUR.pop, ease: EASE.pop } }}
+              >
+                <StepChip
+                  label={clubCounts.length > 1 ? club.name : 'Checked in'}
+                  value={count}
+                  size="calc(2.3 * var(--u))"
+                  plate={club.deep}
+                />
+              </motion.span>
+            ))}
           </motion.div>
         )}
-      </div>
+      </AnimatePresence>
 
       {celebrants.length > 0 && <ConfettiBurst />}
     </ScreenFrame>
@@ -251,45 +220,78 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
 };
 
 /**
- * The club's official logo art (from shared/theme.json); a failed load
- * falls back to the typographic badge so a missing PNG can never blank
- * the screen. A crisp thin white halo (die-cut edge) plus a plain soft
- * ground shadow keep it grounded without any glow.
+ * The birthday chip: HAPPY BIRTHDAY over the names, on the kit's hot plate,
+ * shrinking to fit a long list rather than pushing the row off the wall.
+ * The cake beside it sways gently unless the ambient layers are held still.
+ */
+const BirthdayChip = ({ names, still }) => {
+  const label = 'HAPPY BIRTHDAY';
+  const widthEm = chipGeometry(measureEm(label), measureEm(names)).width;
+  const size = `min(calc(${CHIP_U} * var(--u)), calc(${(BIRTHDAY_MAX_U / widthEm).toFixed(3)} * var(--u)))`;
+  return (
+    <span className="pj-game__birthday">
+      <span className="pj-game__cake" aria-hidden="true">
+        <motion.span
+          className="block"
+          animate={still ? undefined : { rotate: [0, -5, 5, 0], scale: [1, 1.06, 1] }}
+          transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut', delay: 0.9 }}
+        >
+          <CakeArt />
+        </motion.span>
+      </span>
+      <StepChip label={label} value={names} size={size} plate={HOUSE.hot} />
+    </span>
+  );
+};
+
+/** A mark's optical area in square projector units (a wordmark reads smaller than
+ *  the T&T hexagon at the same area, so this runs a little over the mockup's 51). */
+const MARK_AREA_U2 = 60;
+/** No mark stands taller than this, in units. */
+const MARK_MAX_H_U = 6.9;
+
+/**
+ * The club's official mark (from shared/theme.json: the white knockout,
+ * which is what reads on black); a failed load falls back to the club's
+ * name in its own colour, so a missing file can never blank the screen.
+ * Marks differ wildly in shape (the T&T hexagon is square, the Cubbies
+ * wordmark 3.5 to 1), so each is sized to the same optical area rather than
+ * the same height.
  */
 const ClubEmblem = ({ club }) => {
   const [failed, setFailed] = useState(false);
-  const logo = THEME.clubs[club.id]?.art.logo;
+  const [ratio, setRatio] = useState(null);
+  const art = THEME.clubs[club.id]?.art ?? {};
+  const logo = art.logoWhite ?? art.logo;
 
   if (!logo || failed) {
     return (
-      <Badge color={club.color} size="md" sparkle>
+      <span className="pj-headline" style={{ color: club.color, fontSize: 'calc(4.4 * var(--u))' }}>
         {club.name}
-      </Badge>
+      </span>
     );
   }
+  const h = ratio ? Math.min(MARK_MAX_H_U, Math.sqrt(MARK_AREA_U2 / ratio)) : MARK_MAX_H_U;
   return (
     <motion.img
       src={artUrl(logo)}
       alt={club.name}
       onError={() => setFailed(true)}
+      onLoad={(e) => {
+        const { naturalWidth: w, naturalHeight: nh } = e.currentTarget;
+        if (w > 0 && nh > 0) setRatio(w / nh);
+      }}
       draggable={false}
       className="select-none"
-      style={{
-        height: 'clamp(4rem, 11vh, 9rem)',
-        width: 'auto',
-        filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.9)) drop-shadow(0 4px 12px rgba(0,0,0,0.4))',
-      }}
-      initial={{ opacity: 0, scale: 0.9, rotate: -2 }}
-      animate={{ opacity: 1, scale: 1, rotate: 0 }}
-      transition={{ duration: DUR.base, ease: EASE.pop }}
+      style={{ height: `calc(${h.toFixed(3)} * var(--u))`, width: 'auto', opacity: ratio ? undefined : 0 }}
     />
   );
 };
 
 /**
  * Official club character art in the lower corners — one per side,
- * seed-picked (stable per window) from the characters the theme ships.
- * Decorative layer only; sits with the waves behind the content.
+ * seed-picked (stable per window) from the characters the theme ships,
+ * standing on the bottom wave. Decorative layer only.
  */
 const CharacterArt = ({ clubs, seed }) => {
   const pool = clubs.flatMap(
@@ -303,33 +305,33 @@ const CharacterArt = ({ clubs, seed }) => {
   const second = rest.length > 0 ? rest[Math.floor(rand() * rest.length)] : null;
 
   const corners = [
-    { char: first, className: 'left-[3%]', rotate: -6, x: -40 },
-    ...(second ? [{ char: second, className: 'right-[3%]', rotate: 6, x: 40 }] : []),
+    { char: first, side: { left: 'calc(4 * var(--u))' }, rotate: -6, x: -40 },
+    ...(second ? [{ char: second, side: { right: 'calc(4.5 * var(--u))' }, rotate: 6, x: 40 }] : []),
   ];
 
   return (
     <>
-      {corners.map(({ char, className, rotate, x }) => (
-        <motion.img
-          key={char.path}
-          src={artUrl(char.path)}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          className={`absolute bottom-[4%] ${className} select-none pointer-events-none`}
-          style={{
-            height: 'clamp(9rem, 26vh, 20rem)',
-            width: 'auto',
-            filter: 'drop-shadow(0 6px 18px rgba(0,0,0,0.55))',
-          }}
-          initial={{ opacity: 0, y: 60, x, rotate: 0 }}
-          animate={{ opacity: 0.95, y: 0, x: 0, rotate }}
-          transition={{ duration: DUR.slow, ease: EASE.pop, delay: 0.5 }}
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-          }}
-        />
-      ))}
+      {corners.map(({ char, side, rotate, x }) => {
+        // Hold, then land: one keyframe list rather than initial + delay
+        // (see lib/landing.js), resting on its last value.
+        const land = holdThen(0.5, DUR.wipe, { opacity: 0, y: 60, x, rotate: 0 }, { opacity: 1, y: 0, x: 0, rotate }, EASE.pop);
+        return (
+          <motion.img
+            key={char.path}
+            src={artUrl(char.path)}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            className="pj-game__character select-none pointer-events-none"
+            style={side}
+            initial={{ opacity: 0, y: 60, x, rotate: 0 }}
+            animate={land}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        );
+      })}
     </>
   );
 };

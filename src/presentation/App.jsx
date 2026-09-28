@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppMode } from './types.js';
 import { FLAGS } from './lib/flags.js';
@@ -12,7 +12,8 @@ import { useRealtime } from './hooks/useRealtime.js';
 import { useWakeLock } from '../hooks/useWakeLock.js';
 import { useBuildReload } from '../hooks/useBuildReload.js';
 import { projectorIdle } from '../lib/buildReload.js';
-import { ViewErrorBoundary } from './components/ViewErrorBoundary.jsx';
+import { ViewErrorBoundary, ErrorScreen } from './components/ViewErrorBoundary.jsx';
+import { AwanaMark } from './components/AwanaMark.jsx';
 import { ResumePill } from './components/ResumePill.jsx';
 import { SetupChecklist } from './components/SetupChecklist.jsx';
 import { CountdownView } from './views/CountdownView.jsx';
@@ -83,9 +84,15 @@ export const App = () => {
   const buildReloadBusy = useCallback(() => !projectorIdle(state), [state]);
   useBuildReload(buildReloadBusy);
 
+  // A deliberately bare wall (the opening's closing blackout, the shutdown
+  // screen's idle blackout) takes the Awana Clubs mark with it. The views
+  // report it; a view that goes away reports false on its way out.
+  const [bare, setBare] = useState(false);
+
   return (
     <MotionConfig reducedMotion={FLAGS.vr ? 'always' : 'user'}>
     <div className="w-full h-full relative" style={{ background: '#000000' }}>
+      {/* One view at a time; exits run faster than entrances (the kit's rule). */}
       <AnimatePresence mode="wait">
         <motion.div
           key={stateKey(state)}
@@ -93,9 +100,8 @@ export const App = () => {
           data-mode={slugFor(state)}
           data-deck={state.mode === AppMode.SLIDESHOW ? state.deck : undefined}
           initial={{ opacity: 0, scale: 0.985 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 1.01 }}
-          transition={{ duration: DUR.mode, ease: EASE.smooth }}
+          animate={{ opacity: 1, scale: 1, transition: { duration: DUR.mode, ease: EASE.settle } }}
+          exit={{ opacity: 0, scale: 1.01, transition: { duration: DUR.mode / 2, ease: EASE.exit } }}
         >
           <ViewErrorBoundary label={labelFor(state)}>
             <ActiveView
@@ -105,10 +111,15 @@ export const App = () => {
               meetingTheme={advisoryTitle(scheduleAdvisory, now)}
               onSelect={select}
               firstGameIndex={firstGameIndex}
+              onBareChange={setBare}
             />
           </ViewErrorBoundary>
         </motion.div>
       </AnimatePresence>
+
+      {/* The Awana Clubs mark, like a broadcast logo: above every view, so no
+          slide change or view crossfade ever moves it. */}
+      <AwanaMark placement={state.mode === AppMode.GAME_TIME ? 'game' : 'default'} hidden={bare} />
 
       <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} socketStatus={socketStatus} />
       {isOverride && <ResumePill now={now} resumeAt={resumeAt} onStay={stay} />}
@@ -136,7 +147,7 @@ const slugFor = (state) =>
     [AppMode.SHUTDOWN]: 'shutdown',
   })[state.mode];
 
-const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex }) => {
+const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex, onBareChange }) => {
   switch (state.mode) {
     case AppMode.COUNTDOWN:
       return (
@@ -155,6 +166,7 @@ const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex 
           deck={state.deck}
           now={now}
           onExit={() => onSelect({ type: 'countdown' })}
+          onBareChange={onBareChange}
           onFinish={
             state.deck === 'opening' && firstGameIndex !== -1
               ? () => onSelect({ type: 'window', index: firstGameIndex })
@@ -165,7 +177,7 @@ const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex 
     case AppMode.SHUTDOWN:
       // `now` feeds the shutdown screen's idle blackout (it runs until
       // midnight, mostly to an empty room) — see lib/idleBlackout.js.
-      return <ShutdownView now={now} onRestart={() => onSelect({ type: 'countdown' })} />;
+      return <ShutdownView now={now} onRestart={() => onSelect({ type: 'countdown' })} onBareChange={onBareChange} />;
   }
 };
 
@@ -184,46 +196,11 @@ export class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          className="flex flex-col items-center justify-center h-screen w-screen p-8 gap-6"
-          style={{ background: '#000000' }}
-        >
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 'var(--text-h1)',
-              lineHeight: 1,
-              color: '#FFC107',
-            }}
-          >
-            OOPS!
-          </h1>
-          <p
-            className="text-white/70 text-center"
-            style={{ fontFamily: 'var(--font-body)', fontSize: 'var(--text-body-lg)' }}
-          >
-            Something went wrong — the show must go on.
-          </p>
-          <p
-            className="text-white/30 text-sm max-w-2xl overflow-auto text-center"
-            style={{ fontFamily: 'var(--font-condensed)', fontWeight: 600, letterSpacing: '0.05em' }}
-          >
-            {this.state.error?.toString()}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-8 py-3 rounded-full border-2 text-white uppercase transition-transform hover:scale-105"
-            style={{
-              fontFamily: 'var(--font-condensed)',
-              fontWeight: 800,
-              letterSpacing: '0.15em',
-              borderColor: '#FFC107',
-              background: '#1a1a1a',
-            }}
-          >
-            Reload
-          </button>
-        </div>
+        <ErrorScreen
+          message="Something went wrong — the show must go on."
+          detail={this.state.error?.toString()}
+          fullScreen
+        />
       );
     }
     return this.props.children;

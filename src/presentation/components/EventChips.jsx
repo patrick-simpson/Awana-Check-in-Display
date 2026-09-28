@@ -1,6 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { HOUSE } from '../lib/kit.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
+import { holdThen } from '../lib/landing.js';
 
 function formatDays(days) {
   if (days === 0) return 'today';
@@ -11,8 +13,9 @@ function formatDays(days) {
 }
 
 /**
- * Upcoming theme nights as plain blocky text lines — no pill, glow, or
- * emoji, matching the flat white-wall countdown treatment.
+ * Upcoming theme nights as plain lines in the label voice — no pill, glow,
+ * or emoji, matching the countdown's flattened-to-type treatment: the
+ * night's name in white, when it is in Awana orange.
  */
 export const EventChips = ({ events }) => {
   const special = events.filter((e) => e.isSpecial).slice(0, 4);
@@ -21,24 +24,17 @@ export const EventChips = ({ events }) => {
   return (
     // data-live: content depends on the real calendar/wall clock, so
     // visual-regression tests mask this region (e2e/countdown.visual.spec.js).
-    <div className="mt-8 flex flex-col items-center gap-2" data-live>
+    <div className="flex flex-col items-center" style={{ marginTop: 'calc(2.4 * var(--u))', gap: 'calc(0.9 * var(--u))' }} data-live>
       {special.map((event, idx) => (
         <motion.p
           key={`${event.title}-${event.daysUntil}`}
-          className="uppercase text-center whitespace-nowrap"
-          style={{
-            fontFamily: 'var(--font-condensed)',
-            fontWeight: 800,
-            letterSpacing: '0.08em',
-            fontSize: 'clamp(1.1rem, 1.8vw, 2.2rem)',
-            color: '#FFFFFF',
-          }}
+          className="pj-kicker text-center whitespace-nowrap"
+          style={{ fontSize: 'calc(2.2 * var(--u))', letterSpacing: '0.08em', marginRight: '-0.08em', color: '#FFFFFF' }}
           initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: DUR.base, ease: EASE.smooth, delay: idx * 0.1 }}
+          animate={holdThen(0.2 + idx * 0.1, DUR.settle, { opacity: 0, y: 12 }, { opacity: 1, y: 0 }, EASE.settle)}
         >
           {event.title}
-          <span style={{ color: 'rgba(255,255,255,0.55)' }}> · {formatDays(event.daysUntil)}</span>
+          <span style={{ color: HOUSE.orange }}> · {formatDays(event.daysUntil)}</span>
         </motion.p>
       ))}
     </div>

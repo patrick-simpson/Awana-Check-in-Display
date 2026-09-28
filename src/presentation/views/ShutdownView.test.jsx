@@ -95,6 +95,23 @@ describe('ShutdownView idle blackout', () => {
     expect(container.textContent).toMatch(/SEE YOU NEXT WEEK/i);
   });
 
+  it('reports the blackout as a bare wall (App takes the Awana Clubs mark with it)', () => {
+    const onBareChange = vi.fn();
+    const { rerender, unmount } = render(<ShutdownView now={START} onRestart={() => {}} onBareChange={onBareChange} />);
+    expect(onBareChange).toHaveBeenLastCalledWith(false);
+    rerender(<ShutdownView now={at(BLACKOUT_AFTER_MIN)} onRestart={() => {}} onBareChange={onBareChange} />);
+    expect(onBareChange).toHaveBeenLastCalledWith(true);
+    act(() => {
+      fireEvent.mouseMove(window);
+    });
+    expect(onBareChange).toHaveBeenLastCalledWith(false);
+    rerender(<ShutdownView now={at(2 * BLACKOUT_AFTER_MIN)} onRestart={() => {}} onBareChange={onBareChange} />);
+    expect(onBareChange).toHaveBeenLastCalledWith(true);
+    unmount();
+    // Leaving the view always gives the mark back.
+    expect(onBareChange).toHaveBeenLastCalledWith(false);
+  });
+
   it('never blacks out without a clock to measure against', () => {
     const { container, rerender } = render(view(undefined));
     rerender(view(undefined));

@@ -1,20 +1,27 @@
 import React from 'react';
 import { DigitReel } from './DigitReel.jsx';
+import { HOUSE, URGENT_COLOR } from '../lib/kit.js';
 
-/** The countdown's urgent red — exported so other screens' warning
- *  treatments can reuse the exact colour instead of re-typing it. */
-export const URGENT_COLOR = '#E8192C';
+export { URGENT_COLOR };
 
 /**
- * The huge projector timer. Owns d/h/m/s decomposition, per-digit
- * reels in fixed-width cells, colon pulse, urgency treatment, and the
- * click-to-skip affordance.
+ * The huge projector timer, flattened to type: Galindo figures in fixed
+ * cells (see DigitReel), the colons in an accent colour (Awana orange on the
+ * countdown, the club's colour on game time), the colon pulse, the final
+ * minute's urgency (the kit's hot red-orange and two pulse rings), and the
+ * click-to-skip affordance. Owns the d/h/m/s decomposition.
+ *
+ * `size` is the figures' font size (a CSS length); `daysSize` is used when
+ * the count is still a day or more out, which reads "6d 23h 30m".
  */
 export const BigTimer = ({
   seconds,
   color = '#FFFFFF',
+  accent = HOUSE.orange,
   urgencyEnabled = false,
   warnColor,
+  size = 'var(--text-timer)',
+  daysSize = 'var(--text-timer-days)',
   onClick,
 }) => {
   const days = Math.floor(seconds / 86400);
@@ -24,28 +31,20 @@ export const BigTimer = ({
 
   const isUrgent = urgencyEnabled && seconds > 0 && seconds < 60;
   // `warnColor` is the caller's own urgency treatment (the game screen's
-  // wrap-up warning): it recolours the digits and nothing else — no
-  // pulse rings, which stay tied to `urgencyEnabled`.
-  const activeColor = isUrgent ? URGENT_COLOR : (warnColor ?? color);
-  const sizeVar = days > 0 ? 'var(--text-timer-days)' : 'var(--text-timer)';
-
-  const digitStyle = {
-    fontSize: sizeVar,
-    fontFamily: 'var(--font-display)',
-    color: activeColor,
-  };
+  // wrap-up warning): it recolours the figures and the colons and nothing
+  // else; the pulse rings stay tied to `urgencyEnabled`.
+  const override = isUrgent ? URGENT_COLOR : warnColor;
+  const figure = override ?? color;
+  const mark = override ?? accent;
 
   const unit = (label) => (
-    <span
-      className="opacity-50"
-      style={{ fontSize: `calc(${sizeVar} * 0.42)`, marginLeft: '0.08em', marginRight: '0.3em' }}
-    >
+    <span className="pj-timer__unit" style={{ color: mark }}>
       {label}
     </span>
   );
 
   const colon = (
-    <span style={{ animation: 'colonPulse 1s ease-in-out infinite', marginInline: '0.04em' }}>:</span>
+    <span className="pj-timer__colon" style={{ color: mark }}>:</span>
   );
 
   const reels = (text, prefix) =>
@@ -56,6 +55,7 @@ export const BigTimer = ({
       className="cursor-pointer group/timer relative flex items-center justify-center select-none"
       onClick={onClick}
       title={onClick ? 'Click to skip' : undefined}
+      data-timer
     >
       {isUrgent && (
         <>
@@ -71,7 +71,7 @@ export const BigTimer = ({
       )}
 
       {days > 0 ? (
-        <div className="leading-none flex items-end" style={digitStyle}>
+        <div className="pj-timer flex items-baseline" style={{ fontSize: daysSize, color: figure }}>
           {reels(String(days), 'd')}
           {unit('d')}
           {reels(String(hours).padStart(2, '0'), 'h')}
@@ -80,7 +80,7 @@ export const BigTimer = ({
           {unit('m')}
         </div>
       ) : (
-        <div className="leading-none flex items-center" style={digitStyle}>
+        <div className="pj-timer flex items-center" style={{ fontSize: size, color: figure }}>
           {hours > 0 && (
             <>
               {reels(String(hours), 'h')}
@@ -95,13 +95,8 @@ export const BigTimer = ({
 
       {onClick && (
         <span
-          className="absolute -bottom-8 right-0 text-white/0 group-hover/timer:text-white/40 transition-colors uppercase"
-          style={{
-            fontFamily: 'var(--font-condensed)',
-            fontWeight: 700,
-            fontSize: 'clamp(0.7rem, 0.9vw, 1.1rem)',
-            letterSpacing: '0.2em',
-          }}
+          className="pj-kicker absolute -bottom-8 right-0 text-white/0 group-hover/timer:text-white/40 transition-colors"
+          style={{ fontSize: 'clamp(0.8rem, 1vw, 1.2rem)' }}
         >
           Click to skip →
         </span>

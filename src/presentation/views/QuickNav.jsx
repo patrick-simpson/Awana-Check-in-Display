@@ -34,7 +34,7 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketSta
           means every screen below is wrong, so it must not hide. */}
       {skewMs !== null && (
         <div
-          className="absolute top-3 right-3 px-3 py-1 rounded-full text-[0.65rem] uppercase text-amber-300 bg-amber-500/15 border border-amber-400/40"
+          className="absolute top-3 right-3 px-3 py-1 rounded-full text-[0.65rem] uppercase text-[var(--brand-sun)] bg-[var(--brand-sun)]/15 border border-[var(--brand-sun)]/45"
           style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.1em' }}
           title="This device's clock disagrees with the web server — the countdown and schedule may be wrong. Fix the system clock / enable network time."
         >
@@ -60,7 +60,7 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketSta
           {isOverride && (
             <button
               onClick={onResume}
-              className="mt-2 px-3 py-1.5 text-xs uppercase text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all border border-emerald-400/20 text-center"
+              className="mt-2 px-3 py-1.5 text-xs uppercase text-[var(--brand-tnt)] hover:bg-[var(--brand-tnt)]/15 rounded-lg transition-all border border-[var(--brand-tnt)]/40 text-center"
               style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.12em' }}
             >
               Resume Schedule
@@ -71,8 +71,7 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketSta
           <TogglesRow />
           <DisplaySettings socketStatus={socketStatus} />
           <p
-            className="mt-2 pt-2 border-t border-white/10 px-3 pb-1 text-[0.55rem] uppercase text-gray-500 text-right leading-relaxed"
-            style={{ fontFamily: 'var(--font-condensed)', fontWeight: 700, letterSpacing: '0.1em' }}
+            className="pj-panel-note mt-2 pt-2 border-t border-white/10 px-3 pb-1 text-[0.62rem] text-white/45 text-right leading-relaxed"
           >
             Awana® is a trademark of Awana Clubs International.
             <br />
@@ -118,7 +117,7 @@ const SkipWeeks = ({ now, cfg }) => {
     >
       <button
         onClick={() => setOpen((v) => !v)}
-        className="px-3 py-1.5 text-xs uppercase text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all text-right flex items-center justify-end gap-2"
+        className="px-3 py-1.5 text-xs uppercase text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-all text-right flex items-center justify-end gap-2"
         style={{ fontWeight: 700 }}
       >
         Skip Weeks
@@ -129,20 +128,20 @@ const SkipWeeks = ({ now, cfg }) => {
           {upcoming.length > 0 && (
             <ul className="flex flex-col items-end gap-1">
               {upcoming.map(([key, val]) => (
-                <li key={key} className="flex items-center gap-2 text-[0.65rem] uppercase text-gray-400">
+                <li key={key} className="flex items-center gap-2 text-[0.65rem] uppercase text-white/60">
                   <span style={{ fontWeight: 700 }}>
                     {key} — no club{val.label ? ` (${val.label})` : ''}
                   </span>
                   {key in overlay ? (
                     <button
                       onClick={() => removeSkipDate(key)}
-                      className="text-red-400/70 hover:text-red-400 transition-colors"
+                      className="text-[var(--brand-hot)]/80 hover:text-[var(--brand-hot)] transition-colors"
                       style={{ fontWeight: 700 }}
                     >
                       Undo
                     </button>
                   ) : (
-                    <span className="text-gray-600" title="Baked into shared/schedule.json — edit the file to change">
+                    <span className="text-white/30" title="Baked into shared/schedule.json — edit the file to change">
                       (shared)
                     </span>
                   )}
@@ -158,12 +157,12 @@ const SkipWeeks = ({ now, cfg }) => {
           />
           <button
             onClick={add}
-            className="px-3 py-1 text-xs uppercase text-amber-300 hover:bg-amber-400/10 rounded-lg transition-all border border-amber-400/25"
+            className="px-3 py-1 text-xs uppercase text-[var(--brand-sun)] hover:bg-[var(--brand-sun)]/15 rounded-lg transition-all border border-[var(--brand-sun)]/40"
             style={{ fontWeight: 800 }}
           >
             Mark “no club”
           </button>
-          <p className="text-[0.6rem] uppercase text-gray-500 text-right" style={{ fontWeight: 700 }}>
+          <p className="pj-panel-note text-[0.7rem] text-white/50 text-right">
             {error ? error : 'This device only · shared/schedule.json is the master copy'}
           </p>
         </div>
@@ -203,13 +202,13 @@ const ToggleButton = ({ label, hint, on, onToggle }) => (
     onClick={onToggle}
     title={hint}
     className={`px-3 py-1.5 text-xs uppercase rounded-lg transition-all text-right flex items-center justify-end gap-2 ${
-      on ? 'text-emerald-300 bg-emerald-400/10' : 'text-gray-400 hover:text-white hover:bg-white/10'
+      on ? 'text-[var(--brand-tnt)] bg-[var(--brand-tnt)]/15' : 'text-white/60 hover:text-white hover:bg-white/10'
     }`}
     style={{ fontFamily: 'var(--font-condensed)', fontWeight: 700, letterSpacing: '0.12em' }}
   >
     {label}
     <span
-      className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${on ? 'bg-emerald-400' : 'bg-gray-600'}`}
+      className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${on ? 'bg-[var(--brand-tnt)]' : 'bg-white/25'}`}
     />
   </button>
 );
@@ -237,18 +236,18 @@ const BirthdayStatus = () => {
       className="mt-2 pt-2 border-t border-white/10 flex flex-col gap-1"
       style={{ fontFamily: 'var(--font-condensed)', letterSpacing: '0.12em' }}
     >
-      <div className="px-3 py-1.5 flex items-center justify-end gap-2 text-xs uppercase text-gray-400" style={{ fontWeight: 700 }}>
+      <div className="px-3 py-1.5 flex items-center justify-end gap-2 text-xs uppercase text-white/60" style={{ fontWeight: 700 }}>
         {roster.length > 0 ? `${roster.length} birthdays · synced live` : 'Birthdays sync from check-in'}
         <span style={{ letterSpacing: 0 }}>🎂</span>
       </div>
       {roster.length > 0 && (
-        <div className="px-3 flex items-center justify-end gap-2 text-[0.65rem] uppercase text-gray-500">
+        <div className="px-3 flex items-center justify-end gap-2 text-[0.65rem] uppercase text-white/45">
           <button
             onClick={() => {
               clearBirthdays();
               setNotice({ text: 'Cleared — refills on the next broadcast', ok: true });
             }}
-            className="text-red-400/70 hover:text-red-400 transition-colors"
+            className="text-[var(--brand-hot)]/80 hover:text-[var(--brand-hot)] transition-colors"
             style={{ fontWeight: 700 }}
           >
             Clear
@@ -257,8 +256,7 @@ const BirthdayStatus = () => {
       )}
       {notice && (
         <p
-          className={`px-3 text-right text-[0.65rem] uppercase ${notice.ok ? 'text-emerald-400' : 'text-amber-400'}`}
-          style={{ fontWeight: 700 }}
+          className={`pj-panel-note px-3 text-right text-[0.7rem] ${notice.ok ? 'text-[var(--brand-tnt)]' : 'text-[var(--brand-sun)]'}`}
         >
           {notice.text}
         </p>
@@ -342,12 +340,12 @@ const DisplaySettings = ({ socketStatus }) => {
   else if (frameStatus === 'miss') loginLine = 'Print server has not published lately';
   else loginLine = 'Waiting for the print server…';
   const tone = loginNote ? loginTone : lineTone;
-  const toneClass = tone === 'ok' ? 'text-emerald-400' : tone === 'bad' ? 'text-red-400' : 'text-gray-400';
+  const toneClass = tone === 'ok' ? 'text-[var(--brand-tnt)]' : tone === 'bad' ? 'text-[var(--brand-hot)]' : 'text-white/60';
 
   const inputStyle =
-    'px-2 py-1 text-xs rounded bg-white/10 border border-white/15 text-white placeholder-gray-500 outline-none focus:border-white/40 w-40 disabled:opacity-40';
-  const pillGrey = 'px-3 py-1 text-xs uppercase text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all border border-white/15';
-  const pillGreen = 'px-3 py-1 text-xs uppercase text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all border border-emerald-400/20 disabled:opacity-40';
+    'px-2 py-1 text-xs rounded bg-white/10 border border-white/15 text-white placeholder-white/40 outline-none focus:border-white/40 w-40 disabled:opacity-40';
+  const pillGrey = 'px-3 py-1 text-xs uppercase text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-all border border-white/15';
+  const pillGreen = 'px-3 py-1 text-xs uppercase text-[var(--brand-tnt)] hover:bg-[var(--brand-tnt)]/15 rounded-lg transition-all border border-[var(--brand-tnt)]/40 disabled:opacity-40';
 
   const saveKey = () => {
     const next = keyDraft.trim();
@@ -364,7 +362,7 @@ const DisplaySettings = ({ socketStatus }) => {
     >
       <button
         onClick={() => setOpen((v) => !v)}
-        className="px-3 py-1.5 text-xs uppercase text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-all text-right flex items-center justify-end gap-2"
+        className="px-3 py-1.5 text-xs uppercase text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-all text-right flex items-center justify-end gap-2"
         style={{ fontWeight: 700 }}
       >
         Display Settings
@@ -372,7 +370,7 @@ const DisplaySettings = ({ socketStatus }) => {
       </button>
       {open && (
         <div className="px-3 pb-1 flex flex-col items-end gap-1.5">
-          <label className="text-[0.6rem] uppercase text-gray-500" style={{ fontWeight: 700 }}>
+          <label className="text-[0.6rem] uppercase text-white/45" style={{ fontWeight: 700 }}>
             Display login
           </label>
           {loginStatus !== 'logged-in' ? (
@@ -393,7 +391,7 @@ const DisplaySettings = ({ socketStatus }) => {
                 <button
                   onClick={() => setReveal((v) => !v)}
                   aria-pressed={reveal}
-                  className="px-2 py-0.5 text-[0.6rem] uppercase text-gray-400 hover:text-white rounded"
+                  className="px-2 py-0.5 text-[0.6rem] uppercase text-white/60 hover:text-white rounded"
                   style={{ fontWeight: 700 }}
                 >
                   {reveal ? 'Hide' : 'Show'}
@@ -419,20 +417,20 @@ const DisplaySettings = ({ socketStatus }) => {
               Log out
             </button>
           )}
-          <p className={`text-xs uppercase text-right ${toneClass}`} style={{ fontWeight: 700 }}>
+          <p className={`pj-panel-note text-[0.75rem] text-right ${toneClass}`}>
             {loginNote || loginLine}
           </p>
 
           <button
             onClick={() => setAdvanced((v) => !v)}
-            className="px-2 py-0.5 text-[0.6rem] uppercase text-gray-500 hover:text-white rounded transition-all"
+            className="px-2 py-0.5 text-[0.6rem] uppercase text-white/45 hover:text-white rounded transition-all"
             style={{ fontWeight: 700 }}
           >
             {advanced ? '▴ Advanced' : '▾ Advanced (paste keys by hand)'}
           </button>
           {advanced && (
             <>
-              <label className="text-[0.6rem] uppercase text-gray-500" style={{ fontWeight: 700 }}>
+              <label className="text-[0.6rem] uppercase text-white/45" style={{ fontWeight: 700 }}>
                 Live data key (Pusher, public)
               </label>
               <input
@@ -453,25 +451,25 @@ const DisplaySettings = ({ socketStatus }) => {
               />
               <button
                 onClick={save}
-                className="px-3 py-1 text-xs uppercase text-emerald-400 hover:bg-emerald-400/10 rounded-lg transition-all border border-emerald-400/20"
+                className="px-3 py-1 text-xs uppercase text-[var(--brand-tnt)] hover:bg-[var(--brand-tnt)]/15 rounded-lg transition-all border border-[var(--brand-tnt)]/40"
                 style={{ fontWeight: 800 }}
               >
                 Save
               </button>
-              <p className="text-[0.6rem] uppercase text-gray-500 text-right" style={{ fontWeight: 700 }}>
+              <p className="pj-panel-note text-[0.7rem] text-white/50 text-right">
                 {saved ? 'Saved — applies immediately' : 'Powers live counts + birthday sync'}
               </p>
 
-              <label className="text-[0.6rem] uppercase text-gray-500 mt-1" style={{ fontWeight: 700 }}>
+              <label className="text-[0.6rem] uppercase text-white/45 mt-1" style={{ fontWeight: 700 }}>
                 Display key (names + birthdays)
               </label>
               {!secure ? (
-                <p className="text-xs text-red-400 text-right" style={{ fontWeight: 700 }}>
+                <p className="pj-panel-note text-[0.75rem] text-[var(--brand-hot)] text-right">
                   Insecure page — encrypted names cannot be read here. Open this page over https://
                 </p>
               ) : displayKey && !editingKey ? (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-300" style={{ fontFamily: 'monospace', letterSpacing: 0 }}>
+                  <span className="text-xs text-white/80" style={{ fontFamily: 'monospace', letterSpacing: 0 }}>
                     {maskDisplayKey(displayKey)}
                   </span>
                   <button onClick={() => setEditingKey(true)} className={pillGrey} style={{ fontWeight: 800 }}>Replace</button>
@@ -509,7 +507,7 @@ const DisplaySettings = ({ socketStatus }) => {
                 </div>
               )}
               {keyNote && (
-                <p className="text-[0.65rem] uppercase text-gray-400 text-right" style={{ fontWeight: 700 }}>{keyNote}</p>
+                <p className="pj-panel-note text-[0.7rem] text-white/60 text-right">{keyNote}</p>
               )}
             </>
           )}
@@ -523,7 +521,7 @@ const NavButton = ({ label, active, dotColor, onClick }) => (
   <button
     onClick={onClick}
     className={`px-3 py-1.5 text-xs uppercase rounded-lg transition-all text-right flex items-center justify-end gap-2 ${
-      active ? 'text-white bg-white/20' : 'text-gray-400 hover:text-white hover:bg-white/10'
+      active ? 'text-[var(--brand-ink)] bg-white' : 'text-white/60 hover:text-white hover:bg-white/10'
     }`}
     style={{ fontFamily: 'var(--font-condensed)', fontWeight: 700, letterSpacing: '0.12em' }}
   >

@@ -565,6 +565,63 @@ The full Awana Presentation Tool, migrated from KVBC-Awana-Countdown
   in `lib/shared-config.js` like the other shared files — malformed
   content fails the build, never the projector.
 
+### The projector in the brand kit (rebrand stage 6)
+
+The approved mockup: the same brand on pure black. The countdown is type
+alone, the Awana Clubs mark is back, and the catalog arrives through the
+type, the club colours and marks, the stepped chip and the edge waves.
+
+- **How it gets the kit without breaking isolation.** `shared/` belongs to
+  the whole family, so the projector reads it the way it already read
+  `schedule.json`: `index.css` `@import`s `shared/brand/tokens.css` (bundled
+  and hashed at build time, exactly like the lobby's `app.css`), and
+  `lib/kit.js` / `lib/motion-tokens.js` import `shared/brand/tokens.json`.
+  Fonts are the same `@fontsource` files the lobby bundles (Galindo,
+  Londrina Solid 400, Figtree, Baloo 2 as the fallback for letters Galindo
+  lacks), so the service worker precaches one copy for both pages and
+  nothing is fetched at showtime. The mark and the club wave come in as
+  build assets / `?raw` from `shared/brand/`. It never imports
+  `src/lib/brand.js`, `src/lib/motion.jsx` or `src/components/brand/*`:
+  `src/presentation/isolation.test.js` enforces the whole allowlist, and
+  `lib/chip.test.js` pins the projector's own stepped-chip geometry to the
+  lobby's so the two cannot drift.
+- **Units.** Everything is sized in `--u` (1% of the widest 16:9 frame
+  that fits the window) off the mockup, on a centred `.pj-frame`; edge
+  waves and the mark use the real screen edges.
+- **One headline** (`components/Headline.jsx`, Galindo caps, words never
+  broken, `fit` sizes a title to one line by measurement), one kicker
+  (Londrina), one body (Figtree), one stepped chip (`StepChip.jsx`, which
+  replaced the pill Badge everywhere: game ends / warnings / tally /
+  birthdays / theme / upcoming nights / the ESC toast / the resume pill).
+- **Timing is the kit's**: `DUR`/`EASE` are the kit table (beat, quick,
+  exit, settle, pop, wipe, stinger; four curves) plus the projector's own
+  `mode` (view crossfade) and `sweep`. `motion-tokens.test.js` pins CSS to
+  JS and both to the kit.
+- **The mark is a broadcast logo**: `AwanaMark` renders once in `App.jsx`,
+  outside every view, so no slide change or crossfade moves it. It drops
+  lower and smaller on game time (clear of the top waves) and fades away
+  only for a bare wall: views report it through `onBareChange` (the
+  opening's closing blackout, the shutdown idle blackout).
+- **Slide changes are the sweep, not the old 3D flip**: every kicker,
+  headline word, body word and chip is a PART that inherits its slide's
+  `hidden`/`shown`/`gone` variant (`lib/landing.js`, keyframe lists, never
+  `initial` + `delay`); the outgoing parts climb away one after another,
+  `ColorSweep` crosses the bottom edge once in the six club colours
+  (`lib/sweep.js`; ← sweeps the other way) and rests OFF the wall, so
+  `?vr=1` / reduced motion never show it; the next parts land after the
+  last has left. The pledge clock belongs to the deck, so it holds still.
+- **Game time**: the club's deep-behind-colour waves on both edges (the
+  far bottom one drifting), the white club mark sized by optical area, the
+  headline in the club colour, white figures with club-colour colons, a
+  "GAME ENDS / 6:30 PM" chip that becomes "GAME ENDS 6:30 PM / TWO
+  MINUTES" (sun figures, orange-deep plate) and "... / LAST 30 SECONDS"
+  (hot figures, hot-deep plate), a hot HAPPY BIRTHDAY chip with the cake
+  (still no age), and small CHECKED IN chips top-right. T&T is its catalog
+  green.
+- The countdown's figures are Galindo in fixed 0.70em cells (Galindo has
+  no tabular figures; the widest ink, the zero, is 0.688em), clipped top
+  and bottom only so the roll never shaves a figure.
+
 ## Privacy invariant — DO NOT relax
 
 **One strict allowlist sanitizer per event type** — see

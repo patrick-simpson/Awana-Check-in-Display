@@ -1,50 +1,68 @@
 import React from 'react';
-
-const PATHS = {
-  0: [
-    'M0,300 C180,210 360,330 560,280 C760,230 900,320 1100,270 C1260,230 1360,280 1440,250 L1440,560 L0,560 Z',
-    'M0,360 C220,280 420,390 640,340 C860,290 1040,380 1240,330 C1330,308 1400,330 1440,315 L1440,560 L0,560 Z',
-    'M0,430 C260,370 480,460 720,415 C960,370 1180,445 1440,400 L1440,560 L0,560 Z',
-  ],
-  1: [
-    'M0,260 C200,320 420,220 640,280 C860,340 1080,240 1280,300 C1360,322 1410,300 1440,310 L1440,560 L0,560 Z',
-    'M0,330 C240,390 460,300 700,350 C940,400 1160,320 1440,370 L1440,560 L0,560 Z',
-    'M0,420 C280,470 520,390 780,435 C1040,480 1240,410 1440,450 L1440,560 L0,560 Z',
-  ],
-};
-
-const LAYER_OPACITY = [0.1, 0.2, 0.42];
+import { motion } from 'framer-motion';
+import waveSvg from '../../../shared/brand/shapes/wave-journey.svg?raw';
+import { DUR, EASE } from '../lib/motion-tokens.js';
 
 /**
- * The signature 2026–27 catalog element: an organic wave sweeping in
- * from a screen edge in the club color. Three stacked translucent
- * layers over pure black read like the catalog's section-opener waves.
+ * Pull the viewBox and path out of the kit's single-shape wave SVG. A kit
+ * file that is not a plain `<svg viewBox><path d/></svg>` throws here at
+ * import, which fails the build rather than a screen.
+ * @param {string} svg
+ */
+export function parseWave(svg) {
+  const viewBox = svg.match(/viewBox="([^"]+)"/)?.[1];
+  const d = svg.match(/\sd="([^"]+)"/)?.[1];
+  if (!viewBox || !d) throw new Error('brand kit wave is not a single-path SVG');
+  return { viewBox, d };
+}
+
+/** The catalog's club wave (shared/brand/shapes/), the same curve the lobby draws. */
+export const WAVE = parseWave(waveSvg);
+
+/**
+ * The catalog's club wave: the S-curved colour field that rises from the
+ * edge of every club opener page. Flat and solid, like the catalog; two
+ * layers (a far one in the club's deep shade, a near one in its colour)
+ * make an edge. It stretches to its box: `height` is a percentage of the
+ * screen's height, `position` the edge it grows from (a top wave is the same
+ * curve turned upside down), `flip` mirrors it so two layers can cross.
+ *
+ * It rises in from its edge on the kit's wipe curve (`delay` staggers a
+ * pair), and `drift` sways it slowly sideways (bleeding past both edges so
+ * the ends never show). Both are transform-only: under ?vr=1 and reduced
+ * motion the entrance jumps to its resting place and the drift is killed.
  */
 export const ClubWave = ({
   color,
   position = 'bottom',
-  variant = 0,
-  height = 34,
-  intensity = 1,
-  animate = true,
-}) => (
-  <div
-    className={`absolute inset-x-0 pointer-events-none overflow-hidden ${animate ? 'animate-wave-drift' : ''}`}
-    style={{
-      [position]: 0,
-      height: `${height}vh`,
-      transform: position === 'top' ? 'scaleY(-1)' : undefined,
-    }}
-    aria-hidden="true"
-  >
-    <svg
-      viewBox="0 0 1440 560"
-      preserveAspectRatio="none"
-      className="absolute inset-0 w-full h-full"
+  height = 12,
+  flip = false,
+  drift = false,
+  delay = 0,
+  className = '',
+}) => {
+  const top = position === 'top';
+  return (
+    <motion.div
+      className={`pj-wave ${className}`.trim()}
+      style={{ [position]: 0, height: `${height}%`, left: drift ? '-4%' : 0, right: drift ? '-4%' : 0 }}
+      aria-hidden="true"
+      initial={{ y: top ? '-101%' : '101%' }}
+      animate={{ y: '0%' }}
+      transition={{ duration: DUR.wipe, ease: EASE.wipe, delay }}
     >
-      {PATHS[variant].map((d, i) => (
-        <path key={i} d={d} fill={color} opacity={LAYER_OPACITY[i] * intensity} />
-      ))}
-    </svg>
-  </div>
-);
+      <div className={`pj-wave__turn ${top ? 'is-top' : ''}`}>
+        <div className={drift ? 'pj-wave__drift' : 'pj-wave__still'}>
+          <svg
+            viewBox={WAVE.viewBox}
+            preserveAspectRatio="none"
+            style={flip ? { transform: 'scaleX(-1)' } : undefined}
+            focusable="false"
+          >
+            <path d={WAVE.d} fill={color} />
+          </svg>
+        </div>
+      </div>
+    </motion.div>
+  );
+};

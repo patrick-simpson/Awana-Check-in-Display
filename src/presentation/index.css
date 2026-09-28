@@ -1,56 +1,57 @@
 /* ════════════════════════════════════════════════════════════════════
-   KVBC Awana Presentation Tool — design system
-   Fonts are bundled locally via @fontsource (projector-safe: no runtime
-   Google Fonts requests). Display language follows the 2026–27 Awana
-   catalog: chunky rounded caps, condensed sub-heads, sparkle doodles,
-   organic club-color waves — all glowing over pure #000000.
+   KVBC Awana Presentation Tool: the family brand kit on pure black.
+   The projector wears the Awana 2026-27 catalog like every other screen
+   in the family (shared/brand/README.md): Galindo shouts (headlines,
+   the big figures), Londrina Solid labels (kickers, chips' small line,
+   buttons), Figtree is read (the pledges, notes). The catalog arrives
+   through the type, the club colours and marks, the stepped chip, and
+   the club waves, all over #000000: it is projected onto a blank wall.
+
+   Fonts are bundled from @fontsource (the same files the lobby bundles,
+   so the service worker precaches one copy for both pages and nothing is
+   fetched from the network at showtime). The kit's own tokens.css is
+   pulled into this bundle at build time, exactly as the lobby's app.css
+   does, so the --brand-* values ARE the kit's file and cannot drift.
 
    This stylesheet is loaded ONLY by the presentation page
    (countdown.html → src/presentation/main.jsx). Tailwind's source
    scanning is pinned to this subtree so the signage app's class strings
-   never leak in — and the signage CSS graph never sees Tailwind at all.
+   never leak in, and the signage CSS graph never sees Tailwind at all.
    ════════════════════════════════════════════════════════════════════ */
-@import "@fontsource/lilita-one";
-@import "@fontsource/barlow-condensed/600.css";
-@import "@fontsource/barlow-condensed/700.css";
-@import "@fontsource/barlow-condensed/800.css";
-@import "@fontsource-variable/nunito-sans";
-@import "@fontsource-variable/caveat";
+@import "@fontsource/galindo";
+@import "@fontsource/londrina-solid/400.css";
+@import "@fontsource-variable/figtree";
+/* Baloo 2 draws the letters Galindo lacks (Ș, Ț, Vietnamese), so a
+   birthday name stays in one chunky voice, as it does in the lobby. */
+@import "@fontsource-variable/baloo-2";
+@import "../../shared/brand/tokens.css";
 
 @import "tailwindcss" source(none);
 @source "./";
 @source "../../countdown.html";
 
 @theme {
-  /* ── Typography ─────────────────────────────────────────────── */
-  --font-display: "Lilita One", "Arial Black", system-ui, sans-serif;
-  --font-condensed: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
-  --font-body: "Nunito Sans Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-script: "Caveat Variable", "Comic Sans MS", cursive;
+  /* ── The kit's three voices ─────────────────────────────────── */
+  /* shout: headlines, the big figures, chip values */
+  --font-display: "Galindo", "Baloo 2 Variable", "Arial Rounded MT Bold", system-ui, sans-serif;
+  /* label: kickers, the chip's small line, buttons, the operator menu */
+  --font-condensed: "Londrina Solid", "Arial Narrow", system-ui, sans-serif;
+  /* read: the pledges, closing lines, notes */
+  --font-body: "Figtree Variable", "Figtree", "Segoe UI", system-ui, sans-serif;
 
-  /* ── Awana brand palette (single source of truth) ───────────── */
-  --color-brand-red: #E8192C;
-  --color-brand-blue: #0072CE;
-  --color-brand-green: #00A651;
-  --color-brand-yellow: #FFC107;
-  --color-brand-orange: #F7941D;
-  --color-amber-hot: #FFB627;
-
-  /* Per-club colors — 2026–27 catalog mapping */
+  /* Per-club colors: theme.json's values (shared-config.test.js pins
+     them), which are the kit's (src/lib/brandKit.test.js pins those). */
+  --color-club-puggles: #1DB6D9;
+  --color-club-cubbies: #4C72B8;
   --color-club-sparks: #F04A4B;
   --color-club-tnt: #58BD79;
-  --color-club-cubbies: #4C72B8;
-  --color-club-puggles: #1DB6D9;
-
-  /* Ink scale (text over black) */
-  --color-ink-hi: #FFFFFF;
-  --color-ink-mid: rgb(255 255 255 / 0.72);
-  --color-ink-low: rgb(255 255 255 / 0.42);
+  --color-club-trek: #047E71;
+  --color-club-journey: #8A649D;
 
   /* ── Ambient keyframes (infinite loops stay in CSS) ─────────── */
   @keyframes waveDrift {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50%      { transform: translateY(-1.5%) scale(1.03); }
+    from { transform: translateX(0); }
+    to   { transform: translateX(-8%); }
   }
   @keyframes particleFloat {
     0%   { transform: translateY(0);       opacity: 0; }
@@ -157,28 +158,42 @@
 }
 
 :root {
-  /* ── Timing scale — mirrored in src/presentation/lib/motion-tokens.js ── */
-  --dur-fast: 150ms;
-  --dur-base: 300ms;
-  --dur-slow: 600ms;
+  /* ── Timing: the kit's motion table (shared/brand/tokens.json) plus the
+        projector's own two; mirrored in src/presentation/lib/motion-tokens.js
+        (motion-tokens.test.js pins CSS to JS and both to the kit). ── */
+  --dur-beat: 100ms;
+  --dur-quick: 200ms;
+  --dur-exit: 280ms;
+  --dur-settle: 520ms;
+  --dur-pop: 460ms;
+  --dur-wipe: 640ms;
+  --dur-stinger: 560ms;
   --dur-mode: 800ms;
+  --dur-sweep: 1100ms;
+  --ease-wipe: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-settle: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
 
-  /* ── Radius scale ─────────────────────────────────────────────── */
-  --radius-chip: 999px;
-  --radius-card: 1.5rem;
+  /* ── The projector unit: 1% of the width of the largest 16:9 frame that
+        fits the window, so a 1280x720 and a 1920x1080 wall look the same,
+        and a 4:3 or ultrawide window letterboxes rather than overflowing.
+        Every size below is measured off the approved mockup in these units. */
+  --u: min(1vw, 1.7778vh);
 
-  /* ── Type scale (projector: huge, clamped for dev windows) ───── */
-  --text-timer: clamp(6rem, 20vw, 26rem);
-  --text-timer-days: clamp(3.5rem, 10vw, 13rem);
-  --text-display: clamp(4rem, 13vw, 17rem);
-  --text-h1: clamp(3rem, 8vw, 10rem);
-  --text-pledge: clamp(2.5rem, 5.4vw, 6.5rem);
-  --text-eyebrow: clamp(1.1rem, 1.8vw, 2.2rem);
-  --text-body-lg: clamp(1.4rem, 2.4vw, 2.75rem);
-  --text-script: clamp(1.75rem, 3vw, 3.5rem);
-  --tracking-eyebrow: 0.35em;
+  /* ── Type scale (in projector units) ────────────────────────── */
+  --text-timer: calc(17.5 * var(--u));      /* the countdown's figures */
+  --text-timer-days: calc(13 * var(--u));   /* "6d 23h 30m" */
+  --text-game-timer: calc(16 * var(--u));   /* the game clock */
+  --text-headline: calc(7.6 * var(--u));    /* slide headlines */
+  --text-game-headline: calc(7 * var(--u)); /* GAME TIME! */
+  --text-kicker: calc(2.6 * var(--u));
+  --text-body: calc(3 * var(--u));
+  --text-note: calc(2 * var(--u));
+
+  /* Galindo and Londrina ship one weight each: never let the browser smear
+     a fake bold over them when an operator rule asks for 700 or 800. */
+  font-synthesis-weight: none;
 }
 
 @layer base {
@@ -196,18 +211,285 @@
   }
 }
 
-/* ── Brand bar: static crayon stripes (hard color blocks, no blend) ── */
-.brand-bar-stripes {
-  background: repeating-linear-gradient(90deg,
-    var(--color-brand-red) 0, var(--color-brand-red) 60px,
-    var(--color-brand-yellow) 60px, var(--color-brand-yellow) 120px,
-    var(--color-brand-blue) 120px, var(--color-brand-blue) 180px,
-    var(--color-brand-green) 180px, var(--color-brand-green) 240px);
+/* ── The kit's type ─────────────────────────────────────────────── */
+.pj-headline {
+  font-family: var(--font-display);
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: 0.98;
+  text-align: center;
+  text-wrap: balance;
+}
+.pj-headline .w,
+.pj-body .w {
+  display: inline-block;
+  white-space: nowrap;
+}
+.pj-kicker {
+  font-family: var(--font-condensed);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  /* letter-spacing leaves a trailing gap; pull it back to optical centre */
+  margin-right: -0.14em;
+}
+.pj-body {
+  font-family: var(--font-body);
+  font-weight: 600;
+  line-height: 1.32;
+  text-align: center;
+  text-wrap: balance;
 }
 
-/* ── Club wave drift ── */
-.animate-wave-drift {
-  animation: waveDrift 14s ease-in-out infinite;
+/* ── The Awana Clubs mark (a broadcast logo, above every view) ── */
+.pj-mark {
+  position: absolute;
+  z-index: 30;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── The stepped chip (StepChip.jsx) ────────────────────────────── */
+.pj-chip {
+  display: inline-block;
+  position: relative;
+  line-height: 0;
+  vertical-align: middle;
+  flex: none;
+}
+.pj-chip svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ── The club wave (ClubWave.jsx, ColorSweep.jsx) ───────────────── */
+.pj-wave {
+  position: absolute;
+  pointer-events: none;
+}
+.pj-wave__turn,
+.pj-wave__drift,
+.pj-wave__still {
+  position: absolute;
+  inset: 0;
+}
+.pj-wave__turn.is-top {
+  transform: scaleY(-1);
+}
+.pj-wave svg {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.pj-wave__drift {
+  animation: waveDrift 14s ease-in-out infinite alternate;
+}
+.pj-sweep {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ── The big figures (BigTimer.jsx, DigitReel.jsx) ──────────────── */
+.pj-timer {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 1.12;
+}
+.pj-reel {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  height: 1.12em;
+  line-height: 1.12em;
+  vertical-align: bottom;
+  /* clip the roll top and bottom only, never a figure's sides */
+  clip-path: inset(0 -0.4em);
+}
+.pj-reel__digit {
+  display: inline-block;
+}
+.pj-timer__colon {
+  display: inline-block;
+  margin-inline: 0.03em;
+  animation: colonPulse 1s ease-in-out infinite;
+}
+.pj-timer__unit {
+  font-family: var(--font-condensed);
+  text-transform: uppercase;
+  font-size: 0.36em;
+  letter-spacing: 0.06em;
+  margin: 0 0.9em 0 0.2em;
+}
+.pj-timer__unit:last-child {
+  margin-right: 0;
+}
+
+/* ── Layout: every view is laid out on a 16:9 frame in projector units,
+      centred in the window; edge waves and the mark use the real edges. ── */
+.pj-frame {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: calc(100 * var(--u));
+  height: calc(56.25 * var(--u));
+}
+.pj-countdown,
+.pj-shutdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.pj-countdown {
+  padding-bottom: calc(1.6 * var(--u));
+}
+/* A slide's text block: kicker at a fixed height, so it holds its place
+   from one slide to the next (the approved mockup). */
+.pj-slide {
+  position: absolute;
+  left: calc(8 * var(--u));
+  right: calc(8 * var(--u));
+  top: calc(15 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.pj-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: calc(1.4 * var(--u)) calc(1.6 * var(--u));
+}
+.pj-slide-clock {
+  position: absolute;
+  z-index: 25;
+  top: calc(3.3 * var(--u));
+  right: calc(3.4 * var(--u));
+  font-size: calc(2.3 * var(--u));
+  color: rgb(255 255 255 / 0.85);
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* One fixed cell per figure, for a ticking clock in a face with no
+   tabular figures (Londrina). */
+.pj-fig {
+  display: inline-block;
+  width: 0.52em;
+  text-align: center;
+}
+.pj-game {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(5.4 * var(--u));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.pj-game__marks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(3 * var(--u));
+  height: calc(6.9 * var(--u));
+}
+.pj-game__chips {
+  /* the figures' 1.12em line leaves room below them; the chip tucks up
+     into it, where the mockup has it */
+  margin-top: calc(-1.4 * var(--u));
+}
+.pj-game__birthday {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(0.8 * var(--u));
+}
+.pj-game__cake {
+  display: block;
+  width: calc(6.4 * var(--u));
+}
+.pj-game__tally {
+  position: absolute;
+  z-index: 20;
+  top: calc(5.6 * var(--u));
+  right: calc(3.2 * var(--u));
+  display: flex;
+  gap: calc(1 * var(--u));
+}
+.pj-game__character {
+  position: absolute;
+  bottom: calc(2.4 * var(--u));
+  height: calc(16 * var(--u));
+  width: auto;
+}
+
+/* ── Operator chrome: the kit's buttons and panels on black ─────── */
+/* The one hot button: Londrina on the hot red-orange with a hard offset
+   shadow (flat, never a blur). */
+.pj-hot-button {
+  font-family: var(--font-condensed);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: #FFFFFF;
+  background: var(--brand-hot);
+  border-radius: 999px;
+  box-shadow: 0.18em 0.18em 0 var(--brand-hot-deep);
+  transition: transform var(--dur-quick) var(--ease-pop), box-shadow var(--dur-quick) var(--ease-pop);
+}
+.pj-hot-button:hover {
+  transform: translate(-0.06em, -0.06em);
+  box-shadow: 0.24em 0.24em 0 var(--brand-hot-deep);
+}
+.pj-hot-button:active {
+  transform: translate(0.12em, 0.12em);
+  box-shadow: 0.06em 0.06em 0 var(--brand-hot-deep);
+}
+/* The quiet one: a white keyline pill for "Start over", "Prev / Next". */
+.pj-line-button {
+  font-family: var(--font-condensed);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: rgb(255 255 255 / 0.55);
+  border: 2px solid rgb(255 255 255 / 0.3);
+  border-radius: 999px;
+  transition: color var(--dur-quick) ease, border-color var(--dur-quick) ease, background-color var(--dur-quick) ease;
+}
+.pj-line-button:hover {
+  color: #FFFFFF;
+  border-color: rgb(255 255 255 / 0.8);
+}
+/* Floating operator panels (the menu, the setup note, the slide nav):
+   the kit's ink, a white keyline, and a hard offset shadow in the chip's
+   charcoal. Legible over any view and never a blur. */
+.pj-panel {
+  background: var(--brand-ink);
+  border: 2px solid rgb(255 255 255 / 0.28);
+  border-radius: 14px;
+  box-shadow: 6px 6px 0 rgb(3 4 4 / 0.9);
+}
+.pj-panel-note {
+  font-family: var(--font-body);
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 /* ── Particle float ── */

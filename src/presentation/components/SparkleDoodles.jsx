@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
 import { mulberry32 } from '../lib/color.js';
 import { useLowPower } from '../hooks/useLowPower.js';
+import { CELEBRATION, HOUSE } from '../lib/kit.js';
 
 const KINDS = ['sparkle', 'sparkle', 'star', 'dot', 'ring', 'squiggle', 'zigzag'];
 
-const BRAND = ['#FFC107', '#FFFFFF', '#E8192C', '#0072CE', '#00A651', '#F7941D'];
+// The family kit's colours: every club, the sun, white and Awana orange.
+const BRAND = [...CELEBRATION, HOUSE.orange];
 
 /**
  * Hand-drawn catalog doodads — 4-point sparkles, stars, dots, rings,

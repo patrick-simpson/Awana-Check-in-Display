@@ -73,3 +73,49 @@ test('display settings: passphrase typeable, advanced fold holds the display key
   await expect(page.getByText(/add the live data key under Advanced first/i)).toBeVisible();
   await expect(page.getByPlaceholder('paste the 44-character key')).toBeVisible();
 });
+
+// The closing deck ends on "Upcoming Awana Nights" and holds it through
+// pickup. The church's feed carries a long special title most weeks, and a
+// long title takes a row of its own, so at a fixed chip size the fourth row
+// fell off the bottom of the wall. Five nights, three with long names (the
+// feed's own 2026-09-30 run), dated from the real today because the feed
+// parser filters on the real clock, not ?now=.
+test('the Upcoming Awana Nights slide keeps every night it shows inside the wall', async ({ page }) => {
+  const day = (weeks) => {
+    const d = new Date(Date.now() + (weeks * 7 + 1) * 86_400_000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const titles = [
+    'Awana meeting (Making Bracelets)',
+    'Awana meeting (Making Bracelets)',
+    'Bring a Friend Night - Posters due',
+    'Awana meeting',
+    'Awana meeting',
+  ];
+  await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
+  await page.route('**/calendar-feed.json', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      sourceUrl: 'https://example.invalid/calendar/index',
+      events: titles.map((title, i) => ({ date: day(i), kind: 'club', title, isCancelled: false })),
+    }),
+  }));
+  await page.goto('/countdown.html?now=2026-09-16T19:31:00');
+  const view = page.locator('[data-mode="slideshow"][data-deck="closing"]');
+  await expect(view).toBeVisible();
+  await expect(view.locator('[data-slide="goodnight"]')).toBeVisible();
+  await page.keyboard.press('Space');
+  const row = view.locator('.pj-chip-row');
+  await expect(row).toBeVisible();
+  await expect(row.locator('.pj-chip')).toHaveCount(5);
+  // The chips rise 0.5em as they land: wait for the list to come to rest.
+  await expect
+    .poll(() => row.evaluate((el) => {
+      const frame = el.closest('.pj-frame').getBoundingClientRect();
+      const bottom = Math.max(...[...el.querySelectorAll('.pj-chip')].map((c) => c.getBoundingClientRect().bottom));
+      return bottom <= Math.min(frame.bottom, window.innerHeight);
+    }), { timeout: 10_000 })
+    .toBe(true);
+});

@@ -1,68 +1,47 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { DUR, EASE } from '../lib/motion-tokens.js';
 import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ConfettiBurst } from '../components/ConfettiBurst.jsx';
-import { Badge } from '../components/Badge.jsx';
-import { Eyebrow } from '../components/Eyebrow.jsx';
-import { GlowText } from '../components/GlowText.jsx';
+import { Headline, fittedU } from '../components/Headline.jsx';
+import { Kicker } from '../components/Kicker.jsx';
+import { BodyText } from '../components/BodyText.jsx';
+import { StepChip } from '../components/StepChip.jsx';
+import { wordCount } from '../components/Words.jsx';
+import { HOUSE } from '../lib/kit.js';
+import { chipGeometry, fitChipList, measureEm } from '../lib/chip.js';
+import { useFontsReady } from '../hooks/useFontsReady.js';
+import { ambientVariants, partVariants } from '../lib/landing.js';
 
 /**
- * One slide, laid out by its explicit `layout` field (the old version
- * guessed from slide id and body length).
+ * One slide, laid out by its explicit `layout` field, in the kit's three
+ * voices: a Londrina kicker names it, a Galindo headline shouts it, Figtree
+ * carries anything the room reads. Every kicker, headline word, body word
+ * and chip is a PART: it inherits its slide's hidden / shown / gone state
+ * from SlideshowView and lands (or leaves upward) on its own beat, in
+ * reading order (lib/landing.js). `hold` is how long the slide waits before
+ * its first part lands: long enough for the outgoing slide's words to leave.
  */
-export const Slide = ({ slide, now, events, onNext }) => {
-  // The ceremony ends on a deliberate blackout: no logo, no clock, no
-  // divider, no ambient layers — checked before anything below reads
+export const Slide = ({ slide, now, events, hold = 0, onNext }) => {
+  // The ceremony ends on a deliberate blackout: no logo (App hides the mark),
+  // no clock, no ambient layers. Checked before anything below reads
   // slide.title (the doodle seed) so a black slide truly renders nothing else.
   if (slide.layout === 'black') return <div className="w-full h-full" style={{ background: '#000000' }} />;
-
-  const timeString = now.toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-  });
 
   return (
     <ScreenFrame
       layers={
-        <>
+        <motion.div className="absolute inset-0" variants={ambientVariants(hold)}>
           <ParticleField />
           <SparkleDoodles seed={slide.id.length + slide.title.length} count={slide.layout === 'celebration' ? 22 : 10} />
-        </>
+        </motion.div>
       }
     >
-      {/* Header row — clock only, and only on slides that ask for it
-          (the Awana wordmark was retired from every view by operator
-          request; a slide without a clock keeps the wall clean black). */}
-      {slide.showClock && (
-        <>
-          <div className="flex items-center justify-end px-10 py-5 flex-shrink-0">
-            <div
-              className="text-slate-200 tabular-nums select-none"
-              style={{
-                fontFamily: 'var(--font-condensed)',
-                fontWeight: 700,
-                fontSize: 'clamp(1.25rem, 1.8vw, 2.25rem)',
-                letterSpacing: '0.08em',
-              }}
-            >
-              {timeString}
-            </div>
-          </div>
-          <div className="relative mx-10 flex-shrink-0">
-            <div className="h-px bg-white/10" />
-            <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent mt-px" />
-          </div>
-        </>
-      )}
-
-      {/* Body */}
-      <div className="flex-1 flex flex-col items-center justify-center px-16 pb-10 min-h-0">
-        <SlideBody slide={slide} events={events} />
+      <div className="pj-frame">
+        <div className="pj-slide">
+          <SlideBody slide={slide} now={now} events={events} hold={hold} />
+        </div>
       </div>
 
       {slide.layout === 'celebration' && <ConfettiBurst />}
@@ -79,153 +58,176 @@ export const Slide = ({ slide, now, events, onNext }) => {
   );
 };
 
-const SlideBody = ({ slide, events }) => {
+/** A slide headline: the mockup's 7.6u, on one line across the text block when it can. */
+const HEADLINE_FIT = { maxU: 7.6, widthU: 82 };
+
+/** "Wednesday night": the welcome's kicker, from the evening it is. */
+export const nightOf = (now) => `${(now ?? new Date()).toLocaleDateString([], { weekday: 'long' })} night`;
+
+const SlideBody = ({ slide, now, events, hold }) => {
   switch (slide.layout) {
     case 'celebration':
-      return (
-        <>
-          <CrayonHeadline text={slide.title} gradient="white" size="display" />
-          {slide.subtitle && <ScriptLine text={slide.subtitle} color="#FFC107" />}
-        </>
-      );
-
     case 'welcome':
       return (
         <>
-          <Eyebrow className="mb-6">{slide.title}</Eyebrow>
-          <CrayonHeadline text={slide.title} gradient="white" size="display" />
-          {slide.subtitle && <ScriptLine text={slide.subtitle} color="#FFFFFF" />}
+          <Kicker size="var(--text-kicker)" part={{ index: 0, hold }}>{nightOf(now)}</Kicker>
+          <Headline
+            text={slide.title}
+            fit={HEADLINE_FIT}
+            parts={{ start: 1, hold }}
+            style={{ marginTop: 'calc(1.4 * var(--u))' }}
+          />
+          {slide.subtitle && (
+            <BodyText
+              text={slide.subtitle}
+              size="var(--text-body)"
+              parts={{ start: 1 + wordCount(slide.title), hold }}
+              style={{ marginTop: 'calc(2 * var(--u))' }}
+            />
+          )}
         </>
       );
 
     case 'pledge':
       return (
         <>
-          <p
-            className="text-white text-center max-w-[90rem] leading-snug"
-            style={{
-              fontFamily: 'var(--font-condensed)',
-              fontWeight: 700,
-              fontSize: 'var(--text-pledge)',
-            }}
-          >
-            {slide.body}
-          </p>
+          <Kicker size="var(--text-kicker)" part={{ index: 0, hold }}>{slide.title}</Kicker>
+          <BodyText
+            text={slide.body}
+            size="var(--text-body)"
+            parts={{ start: 1, hold }}
+            style={{ marginTop: 'calc(2 * var(--u))' }}
+          />
         </>
       );
 
     case 'closing':
       return (
         <>
-          <CrayonHeadline text={slide.title} gradient="amber" size="h1" />
-          {slide.body && <ScriptLine text={slide.body} color="#FFC107" />}
+          <Headline text={slide.title} fit={HEADLINE_FIT} parts={{ start: 0, hold }} />
+          {slide.body && (
+            <BodyText
+              text={slide.body}
+              size="var(--text-body)"
+              parts={{ start: wordCount(slide.title), hold }}
+              style={{ marginTop: 'calc(2 * var(--u))' }}
+            />
+          )}
         </>
       );
 
     case 'coming-up':
       return (
         <>
-          <CrayonHeadline text={slide.title} gradient="amber" size="h1" />
-          <ComingUpList events={events ?? []} />
+          <Headline text={slide.title} fit={COMING_UP.headline} parts={{ start: 0, hold }} />
+          <ComingUpList title={slide.title} events={events ?? []} start={wordCount(slide.title)} hold={hold} />
         </>
       );
   }
 };
 
-/** Upcoming calendar events for the closing "Coming up" slide. */
-const COMING_UP_COLORS = ['#FFC107', '#E8192C', '#0072CE', '#00A651', '#F7941D'];
+/** "WED SEP 23": the chip label for one upcoming night. */
+export const nightLabel = (date) =>
+  date
+    .toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+    .replace(/,/g, '')
+    .toUpperCase();
 
-const ComingUpList = ({ events }) => {
+/**
+ * The coming-up slide's layout, in projector units. `top`, `gapX`/`gapY`,
+ * `headlineLine` and `frame` restate index.css (.pj-slide's top, .pj-chip-row's
+ * gaps, .pj-headline's line-height, .pj-frame's height); Slide.test.jsx pins
+ * them to it. The list may run down to `bottom`, which keeps a title-safe
+ * margin clear above the frame's bottom edge.
+ */
+export const COMING_UP = {
+  headline: { maxU: 5.6, widthU: 84 },
+  headlineLine: 0.98,
+  top: 15,
+  listGap: 3.4,
+  frame: 56.25,
+  bottom: 51.75,
+  row: 80,
+  gapX: 1.6,
+  gapY: 1.4,
+  /** The chips' size when the nights fit easily. */
+  maxU: 3.2,
+  /** Never smaller than this with more than one night left: the old pill badges' ~1.8u, and then some. */
+  minU: 2,
+};
+
+/**
+ * Where the coming-up list sits and how big its chips are: sized to the
+ * room left under the headline, so five nights with long names (the
+ * church's feed lists "Awana meeting (Making Bracelets)" most weeks, and a
+ * long name takes a row of its own) still end inside the wall. Below
+ * COMING_UP.minU it shows the soonest nights that fit rather than shrinking
+ * further.
+ * @param {string} title the slide's headline
+ * @param {Array<{ label: string, value: string }>} chips
+ */
+export function comingUpLayout(title, chips) {
+  const c = COMING_UP;
+  const headU = fittedU(title, c.headline);
+  const headLines = Math.max(1, Math.ceil((measureEm(String(title).toUpperCase()) * headU) / c.headline.widthU));
+  const listTopU = c.top + headU * c.headlineLine * headLines + c.listGap;
+  const widths = chips.map(({ label, value }) => chipGeometry(measureEm(label.toUpperCase()), measureEm(value)).width);
+  const { sizeU, count } = fitChipList(widths, {
+    maxU: c.maxU,
+    minU: c.minU,
+    rowU: c.row,
+    heightU: c.bottom - listTopU,
+    gapXU: c.gapX,
+    gapYU: c.gapY,
+  });
+  // Rounded down, so the CSS never asks for a hair more than the fit allowed.
+  return { listTopU, sizeU: Math.floor(sizeU * 1000) / 1000, count };
+}
+
+/**
+ * Upcoming calendar nights for the closing "Coming up" slide, as stepped
+ * chips: the date over the night's name. A special night (a theme night, a
+ * party) gets the kit's one hot red-orange; an ordinary club night the
+ * house blue.
+ */
+const ComingUpList = ({ title, events, start, hold }) => {
+  // The fit measures the chips' text: measure again once the faces land.
+  useFontsReady();
   const upcoming = events.slice(0, 5);
   if (upcoming.length === 0) {
-    return <ScriptLine text="See you next week!" color="#FFC107" />;
+    return (
+      <BodyText
+        text="See you next week!"
+        size="var(--text-body)"
+        parts={{ start, hold }}
+        style={{ marginTop: 'calc(2 * var(--u))' }}
+      />
+    );
   }
+  const chips = upcoming.map((event) => ({ event, label: nightLabel(event.date), value: event.title }));
+  const { sizeU, count } = comingUpLayout(title, chips);
   return (
-    <div className="mt-10 flex flex-col items-center gap-4">
-      {upcoming.map((event, idx) => (
-        <motion.div
+    <div
+      className="pj-chip-row"
+      data-chip-u={sizeU}
+      style={{ marginTop: `calc(${COMING_UP.listGap} * var(--u))`, maxWidth: `calc(${COMING_UP.row} * var(--u))` }}
+    >
+      {chips.slice(0, count).map(({ event, label, value }, idx) => (
+        // A flex box, not inline-block: no line box, so a row stands exactly
+        // as tall as its chips (which is what the fit counts).
+        <motion.span
           key={`${event.title}-${event.daysUntil}`}
-          initial={{ opacity: 0, x: idx % 2 === 0 ? -24 : 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: DUR.base, ease: EASE.smooth, delay: 0.15 + idx * 0.12 }}
+          className="flex"
+          variants={partVariants(start + idx, hold)}
         >
-          <Badge color={COMING_UP_COLORS[idx % COMING_UP_COLORS.length]} size="md" sparkle={event.isSpecial}>
-            <span style={{ letterSpacing: 0 }}>{event.isSpecial ? '⭐' : '📅'}</span>
-            {event.title}
-            <span className="opacity-70">
-              · {event.date.toLocaleDateString([], { month: 'short', day: 'numeric' })}
-            </span>
-          </Badge>
-        </motion.div>
+          <StepChip
+            label={label}
+            value={value}
+            size={`calc(${sizeU} * var(--u))`}
+            plate={event.isSpecial ? HOUSE.hot : HOUSE.blueDeep}
+          />
+        </motion.span>
       ))}
     </div>
   );
 };
-
-/**
- * Display headline styled like construction-paper cutout letters: for
- * `gradient="white"`, each character keeps the tiny alternating tilt
- * and vertical nudge — hand-placed one letter at a time — but in plain
- * white (the rainbow color cycling was retired by operator request).
- * `gradient="amber"` stays a single flat catalog gold. No blur, no
- * gradient-clip animation — solid crisp color only.
- */
-const CrayonHeadline = ({ text, gradient, size }) => {
-  if (gradient !== 'white') {
-    return (
-      <h1
-        className="leading-none text-center"
-        style={{ fontFamily: 'var(--font-display)', fontSize: `var(--text-${size})`, color: '#FFC107' }}
-      >
-        {text}
-      </h1>
-    );
-  }
-
-  // Letters are individual inline-blocks, so wrapping must happen at the
-  // word level — otherwise the browser can break mid-word ("A|WANA").
-  let letterIndex = 0;
-  return (
-    <h1
-      className="leading-none text-center"
-      style={{ fontFamily: 'var(--font-display)', fontSize: `var(--text-${size})` }}
-    >
-      {text.split(' ').map((word, w) => (
-        <React.Fragment key={w}>
-          {w > 0 && ' '}
-          <span className="inline-block whitespace-nowrap">
-            {word.split('').map((char, i) => {
-              const n = letterIndex++;
-              return (
-                <span
-                  key={i}
-                  style={{
-                    display: 'inline-block',
-                    color: '#FFFFFF',
-                    transform: `rotate(${n % 2 === 0 ? -2 : 2}deg) translateY(${n % 2 === 0 ? 0 : '0.05em'})`,
-                  }}
-                >
-                  {char}
-                </span>
-              );
-            })}
-          </span>
-        </React.Fragment>
-      ))}
-    </h1>
-  );
-};
-
-/** Casual handwritten accent line (catalog script labels). */
-const ScriptLine = ({ text, color }) => (
-  <GlowText
-    as="p"
-    size="script"
-    font="script"
-    color={color}
-    className="mt-8 text-center"
-    style={{ fontWeight: 600 }}
-  >
-    {text}
-  </GlowText>
-);
