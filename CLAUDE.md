@@ -176,6 +176,67 @@ and `doodles/`. Read its README before changing it.
   (baselines under `e2e/__screenshots__`, regenerate via the
   update-snapshots workflow)
 
+## About page (`public/about.html`)
+
+A plain static showcase page for church leadership, published at
+`https://patrick-simpson.github.io/Awana-Check-in-Display/about.html`. It is
+one of three "family" pages (with the Club Label Printer home and Journey
+Display's `about.html`) that share one design system. Rules:
+
+- **Static, outside the Vite graph.** `public/about.html` and
+  `public/family.css` are copied into `dist/` as-is; the page's own styling
+  lives in an inline `<style>` block in `about.html` (there is no
+  `about.css`). The page is not a Vite entry and must never import React,
+  Tailwind, `app.css`, the signage bundle or any service-worker
+  registration. Because Vite copies `public/` outside the rollup bundle, the
+  `serviceWorker()` plugin never sees these files: they are not in the
+  precache manifest and carry no `awana-build` stamp, so the self-update
+  poller ignores them.
+- **Bump `family.css?v=` whenever `family.css` changes, on BOTH about pages**
+  (this one and Journey-Display's `public/about.html`, which links it the
+  same way). A browser that already has the signage's service worker still
+  serves this page through it: the HTML network-first, but the stylesheet
+  cache-first under the current build's cache name, which a CSS-only deploy
+  never changes. A new query string is a new cache key, so the bump is what
+  gets a restyled `family.css` to a signage device. Page-only styling needs
+  no bump: it is inline, so it travels with the network-first HTML.
+- **`family.css` is byte-identical across the three repos** (this one,
+  Journey-Display, Print-TwoTimTwo-Labels). The canonical copy is
+  `Print-TwoTimTwo-Labels/styles/family.css` and its spec is
+  `Print-TwoTimTwo-Labels/docs/FAMILY-DESIGN.md`; never edit this copy,
+  only replace it with the canonical file. Page-only styling goes in
+  `about.html`'s `<style>` block, every class prefixed `cid-`.
+- **No Awana art on this page.** The owner uses the official Awana branding
+  (club marks, the Awana Clubs mark, the catalog's design language) on the
+  church's OWN screens (TRADEMARKS.md, 2026-09-27). This public showcase page
+  is not one of those screens, and by the owner's choice it shows no logos,
+  club wordmarks, mascots or curriculum clipart, and no shape copied from
+  `shared/brand/` (its waves, starburst and doodles are drawn fresh). Screens
+  on the page are hand-built CSS/SVG recreations of the CURRENT signage look:
+  the 2026-27 club colors from `shared/brand/tokens.json`, the brand faces
+  (Figtree, Galindo, Londrina Solid) and the projector's Lilita One, loaded
+  from Google Fonts. Each one is `role="img"` with a full `aria-label`,
+  captioned "Recreated for illustration", with generic first names only.
+  Club names appear only as plain text (where the real screen shows a club
+  mark, a plain label stands in and the caption says so). Two deliberate
+  departures keep the mocks' small print AA at mock size, and are commented
+  in the `<style>` block: the check-in kicker is white on the club's deep
+  wave, and the hot sticker is `#CF4518` rather than the kit's `#F15A28`.
+  When the signage's look changes, rebuild the recreations in the same
+  commit. The disclaimer bar, the meta description and the footer legal
+  paragraph carry the not-affiliated line, and the first visible "Awana"
+  carries the ®.
+- **Never link to the live signage.** No link to this site's root,
+  `index.html` or `countdown.html`, nor to the Journey kiosk's root. The only
+  links out are the three family pages and the three GitHub repos.
+- **Keep claims in step with features.** Every sentence describes current
+  code. When a feature the page mentions changes, loses a default, or is
+  removed, update the page in the same commit. Opt-in features carry a
+  `.fam-card__tag` ("Off by default", "Opt-in"), and that tag is used for
+  nothing else ("set up once" notes are a plain `.cid-setup` line). The
+  pick-up board is always shown with its four safeguards, worded exactly as
+  `decideBoard()` behaves.
+
 ## Season promo slides (fall 2026)
 
 Four hardcoded promos in the lobby signage's background rotation, each a
