@@ -8,13 +8,20 @@
  * Slide decks and pledge text remain here as defaults.
  */
 import { SCHEDULE_CONFIG, SLIDES_CONFIG, THEME } from './lib/shared-config.js';
+import { KIT_CLUBS } from './lib/kit.js';
 
 /* ── Clubs (colors follow the 2026–27 Awana catalog via theme.json) ── */
 
 const CLUB_IDS = ['puggles', 'cubbies', 'sparks', 'tnt', 'trek', 'journey'];
 
+// theme.json is what the screens render; its optional catalog shades win,
+// and the kit's own values stand in where a church's theme leaves them out.
 export const CLUBS = Object.fromEntries(
-  CLUB_IDS.map((id) => [id, { id, name: THEME.clubs[id].name, color: THEME.clubs[id].color }]),
+  CLUB_IDS.map((id) => {
+    const t = THEME.clubs[id];
+    const kit = KIT_CLUBS[id];
+    return [id, { id, name: t.name, color: t.color, deep: t.deep ?? kit.deep, tint: t.tint ?? kit.tint }];
+  }),
 );
 
 /* ── Slides ───────────────────────────────────────────────────────── */

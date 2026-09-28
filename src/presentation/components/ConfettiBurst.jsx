@@ -1,14 +1,16 @@
 import React, { useEffect } from 'react';
 import { useLowPower } from '../hooks/useLowPower.js';
+import { CELEBRATION } from '../lib/kit.js';
 
-const CONFETTI_COLORS = ['#E8192C', '#FFC107', '#0072CE', '#00A651', '#ffffff'];
+// Every club colour, the sun and white, from the family kit.
+const CONFETTI_COLORS = CELEBRATION;
 
 const CONFETTI_PIECES = Array.from({ length: 100 }, (_, i) => {
   const angle = (i / 100) * Math.PI * 2 + (i * 0.37);
   const speed = 25 + (i * 7.3) % 45;
   return {
     id: i,
-    color: CONFETTI_COLORS[i % 5],
+    color: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
     cx: Math.cos(angle) * speed,
     cy: Math.sin(angle) * speed * -0.7,
     rotation: ((i * 137) % 720) - 360,

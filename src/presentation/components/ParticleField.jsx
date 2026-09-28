@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLowPower } from '../hooks/useLowPower.js';
+import { CELEBRATION } from '../lib/kit.js';
 
 // Deterministic particles — no randomization on each render
 const PARTICLES = Array.from({ length: 45 }, (_, i) => ({
@@ -10,7 +11,8 @@ const PARTICLES = Array.from({ length: 45 }, (_, i) => ({
   duration: `${11 + (i % 9) * 1.8}s`,
   delay: `${-((i * 2.3) % 18)}s`,
   opacity: 0.10 + (i % 6) * 0.055,
-  color: ['#FFFFFF', '#FFC107', '#E8192C', '#0072CE', '#00A651'][i % 5],
+  // The kit's club colours, the sun and white (lib/kit.js).
+  color: CELEBRATION[i % CELEBRATION.length],
 }));
 
 export const ParticleField = () => {

@@ -5,9 +5,10 @@ import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ClubWave } from '../components/ClubWave.jsx';
-import { Eyebrow } from '../components/Eyebrow.jsx';
-import { GlowText } from '../components/GlowText.jsx';
-import { DUR, EASE } from '../lib/motion-tokens.js';
+import { Kicker } from '../components/Kicker.jsx';
+import { Headline } from '../components/Headline.jsx';
+import { BodyText } from '../components/BodyText.jsx';
+import { HOUSE } from '../lib/kit.js';
 import { FLAGS } from '../lib/flags.js';
 import { shouldBlackout } from '../lib/idleBlackout.js';
 import { useKeydown } from '../hooks/useKeydown.js';
@@ -25,7 +26,7 @@ const RESTART_KEYS = ['Space', 'Enter', 'ArrowRight', 'PageDown'];
  * game clock going black on an idle keyboard would be a bug, not a
  * feature — people watch those without touching anything.
  */
-export const ShutdownView = ({ now, onRestart }) => {
+export const ShutdownView = ({ now, onRestart, onBareChange }) => {
   // Idle is measured against the app's own ticking clock, so `?now=`
   // time travel can't make the screen believe it has been idle for
   // hours. A missing `now` just means "never idle".
@@ -51,6 +52,13 @@ export const ShutdownView = ({ now, onRestart }) => {
   useEffect(() => {
     blackedRef.current = blackout;
   }, [blackout]);
+
+  // The idle blackout is a bare wall: App takes the Awana Clubs mark away
+  // with it, and gives it back on wake (or when this view goes).
+  useEffect(() => {
+    onBareChange?.(blackout);
+  }, [blackout, onBareChange]);
+  useEffect(() => () => onBareChange?.(false), [onBareChange]);
 
   // Activity is only tracked to whole clock ticks: a volunteer walking
   // past generates hundreds of mousemove events, and re-rendering the
@@ -93,53 +101,40 @@ export const ShutdownView = ({ now, onRestart }) => {
     <ScreenFrame
       layers={
         <>
-          <ClubWave color="#F7941D" intensity={0.4} height={26} animate={false} />
+          {/* The house wave (the lobby's sunflower behind Awana orange),
+              rising once and then still: the end of the night. */}
+          <ClubWave color={HOUSE.sun} position="bottom" height={13} flip />
+          <ClubWave color={HOUSE.orange} position="bottom" height={9.5} delay={0.08} />
           <ParticleField />
           <SparkleDoodles seed={9} count={8} />
         </>
       }
     >
       <div
-        className="flex-1 flex flex-col items-center justify-center cursor-pointer gap-4"
+        className="pj-frame pj-shutdown cursor-pointer"
         onClick={onRestart}
       >
-        <Eyebrow className="mb-2">Awana Night</Eyebrow>
+        <motion.div className="flex flex-col items-center" initial="hidden" animate="shown">
+          <Kicker size="var(--text-kicker)" part={{ index: 0, hold: 0.2 }}>Awana night</Kicker>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: DUR.slow, ease: EASE.pop }}
-        >
-          <GlowText
-            as="h1"
-            size="h1"
-            font="display"
-            color="#FFFFFF"
-            className="text-center leading-tight"
-          >
-            SEE YOU NEXT WEEK!
-          </GlowText>
-        </motion.div>
+          <Headline
+            text="SEE YOU NEXT WEEK!"
+            fit={{ maxU: 7.6, widthU: 86 }}
+            parts={{ start: 1, hold: 0.2 }}
+            style={{ marginTop: 'calc(1.4 * var(--u))' }}
+          />
 
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: DUR.slow, ease: EASE.smooth, delay: 0.4 }}
-        >
-          <GlowText
-            as="p"
-            size="script"
-            font="script"
-            color="#FFB627"
-            style={{ fontWeight: 600 }}
-          >
-            have a safe drive home!
-          </GlowText>
+          <BodyText
+            text="Have a safe drive home!"
+            size="var(--text-body)"
+            parts={{ start: 5, hold: 0.2 }}
+            style={{ marginTop: 'calc(2 * var(--u))' }}
+          />
         </motion.div>
 
         <button
-          className="mt-14 flex items-center gap-2 px-8 py-3 rounded-full border-2 border-white/20 text-white/40 uppercase hover:text-white hover:border-white/60 transition-all duration-300"
-          style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.15em' }}
+          className="pj-line-button mt-14 flex items-center gap-2 px-8 py-3"
+          style={{ fontSize: 'calc(1.5 * var(--u))' }}
           onClick={(e) => {
             e.stopPropagation();
             onRestart();
@@ -149,8 +144,8 @@ export const ShutdownView = ({ now, onRestart }) => {
           Start Over
         </button>
         <p
-          className="text-white/25 uppercase text-xs"
-          style={{ fontFamily: 'var(--font-condensed)', fontWeight: 700, letterSpacing: '0.2em' }}
+          className="pj-kicker text-white/30"
+          style={{ fontSize: 'calc(1.1 * var(--u))', marginTop: 'calc(0.9 * var(--u))' }}
         >
           or press Space
         </p>

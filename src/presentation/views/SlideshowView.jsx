@@ -4,23 +4,37 @@ import { ChevronLeft, ChevronRight } from '../components/icons.jsx';
 import { DECKS } from '../config.js';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
+import { LEAVE_TOTAL, holdThen } from '../lib/landing.js';
+import { HOUSE } from '../lib/kit.js';
 import { useKeydown } from '../hooks/useKeydown.js';
-import { Badge } from '../components/Badge.jsx';
-import { GlassPanel } from '../components/GlassPanel.jsx';
+import { ColorSweep } from '../components/ColorSweep.jsx';
+import { StepChip } from '../components/StepChip.jsx';
 import { Slide } from './Slide.jsx';
 
-const flipVariants = {
-  enter: (dir) => ({ rotateY: dir === 1 ? 90 : -90, opacity: 0 }),
-  center: { rotateY: 0, opacity: 1 },
-  exit: (dir) => ({ rotateY: dir === 1 ? -90 : 90, opacity: 0 }),
-};
+/**
+ * A slide carries no animation of its own: its parts (kicker, headline
+ * words, body words, chips) inherit these three labels and each runs its
+ * own beat (lib/landing.js). The slide itself only has to stay mounted until
+ * the last of its parts has left, which framer-motion does by waiting on the
+ * children's exit.
+ */
+const SLIDE_VARIANTS = { hidden: {}, shown: {}, gone: {} };
+
+/** The deck's first slide lands just after the view has begun to fade in. */
+const FIRST_HOLD = 0.15;
+/** Later slides wait for the outgoing slide's words to leave first. */
+const CHANGE_HOLD = LEAVE_TOTAL + 0.02;
 
 /**
- * Slide deck with the 3D flip rebuilt on AnimatePresence — no
- * setTimeout state machine, and keypresses are never dropped
- * mid-transition.
+ * Slide deck. A change is the approved mockup's, in place of the old 3D
+ * flip: the outgoing lines leave upward one after another, the six club
+ * colours sweep once along the bottom edge and are gone, and the next title
+ * and text land. The Awana Clubs mark (App.jsx) and the pledge slides' clock
+ * stay put through it, like a broadcast logo. No setTimeout state machine,
+ * and keypresses are never dropped mid-transition: every press moves the
+ * index and restarts the sweep.
  */
-export const SlideshowView = ({ deck, now, onExit, onFinish }) => {
+export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => {
   // "Upcoming Awana Nights": when the calendar knows about upcoming
   // events (same calendar-feed.json the lobby display reads), the
   // closing deck ENDS on a slide announcing them — goodnight plays
@@ -41,7 +55,9 @@ export const SlideshowView = ({ deck, now, onExit, onFinish }) => {
     return [...base.map((s) => (s.duration ? s : { ...s, duration: 20 })), comingUp];
   }, [deck, events]);
   const [index, setIndex] = useState(0);
-  const [direction, setDirection] = useState(1);
+  // Every change bumps `n` (the sweep's key, so it replays) and records the
+  // direction it swept in.
+  const [change, setChange] = useState({ n: 0, dir: 1 });
   const [escArmed, setEscArmed] = useState(false);
 
   const slide = slides[Math.min(index, slides.length - 1)];
@@ -56,11 +72,18 @@ export const SlideshowView = ({ deck, now, onExit, onFinish }) => {
       onFinish?.();
       return;
     }
-    setDirection(dir);
+    setChange((c) => ({ n: c.n + 1, dir }));
     setIndex(next);
   };
   const goNext = () => goTo(index + 1, 1);
   const goPrev = () => goTo(index - 1, -1);
+
+  // The closing blackout is a bare wall: tell App to take the mark away.
+  const bare = slide.layout === 'black';
+  useEffect(() => {
+    onBareChange?.(bare);
+  }, [bare, onBareChange]);
+  useEffect(() => () => onBareChange?.(false), [onBareChange]);
 
   // Auto-advance (leader can always advance manually first)
   useEffect(() => {
@@ -91,43 +114,62 @@ export const SlideshowView = ({ deck, now, onExit, onFinish }) => {
   });
 
   return (
-    <div className="w-full h-full relative group" style={{ background: '#000000', perspective: '1200px' }}>
-      <AnimatePresence mode="popLayout" custom={direction} initial={false}>
+    <div className="w-full h-full relative group" style={{ background: '#000000' }}>
+      <AnimatePresence>
         <motion.div
           key={slide.id}
           className="absolute inset-0"
-          custom={direction}
-          variants={flipVariants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{ duration: DUR.slow, ease: EASE.smooth }}
-          style={{ transformStyle: 'preserve-3d', backfaceVisibility: 'hidden' }}
+          variants={SLIDE_VARIANTS}
+          initial="hidden"
+          animate="shown"
+          exit="gone"
         >
-          <Slide slide={slide} now={now} events={events} onNext={index < slides.length - 1 || onFinish ? goNext : undefined} />
+          <Slide
+            slide={slide}
+            now={now}
+            events={events}
+            hold={change.n > 0 ? CHANGE_HOLD : FIRST_HOLD}
+            onNext={index < slides.length - 1 || onFinish ? goNext : undefined}
+          />
         </motion.div>
       </AnimatePresence>
+
+      {/* The pledge slides' clock: it belongs to the deck, not the slide, so
+          it holds still while the words around it change. */}
+      <AnimatePresence>
+        {slide.showClock && (
+          <motion.div
+            key="clock"
+            className="pj-slide-clock"
+            initial={{ opacity: 0 }}
+            animate={holdThen(change.n > 0 ? CHANGE_HOLD : FIRST_HOLD, DUR.settle, { opacity: 0 }, { opacity: 1 }, EASE.settle)}
+            exit={{ opacity: 0, transition: { duration: DUR.exit, ease: EASE.exit } }}
+          >
+            <SlideClock now={now} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {change.n > 0 && <ColorSweep key={change.n} direction={change.dir} />}
 
       {/* Exit confirmation toast */}
       <AnimatePresence>
         {escArmed && (
           <motion.div
-            className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50"
+            className="absolute left-1/2 z-50"
+            style={{ bottom: 'calc(3 * var(--u))', x: '-50%' }}
             initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 12 }}
-            transition={{ duration: DUR.fast, ease: EASE.smooth }}
+            animate={{ opacity: 1, y: 0, transition: { duration: DUR.pop, ease: EASE.pop } }}
+            exit={{ opacity: 0, y: 12, transition: { duration: DUR.exit, ease: EASE.exit } }}
           >
-            <Badge color="#FFC107" size="sm" sparkle>
-              Press ESC again to exit
-            </Badge>
+            <StepChip label="Exit slides" value="Press ESC again" size="calc(2.2 * var(--u))" plate={HOUSE.hot} />
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Hover navigation */}
       <div className="fixed bottom-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
-        <GlassPanel className="flex gap-1 p-1">
+        <div className="pj-panel flex gap-1 p-1">
           <NavPill disabled={index === 0} onClick={goPrev}>
             <ChevronLeft size={16} strokeWidth={2.5} />
             Prev
@@ -136,9 +178,32 @@ export const SlideshowView = ({ deck, now, onExit, onFinish }) => {
             Next
             <ChevronRight size={16} strokeWidth={2.5} />
           </NavPill>
-        </GlassPanel>
+        </div>
       </div>
     </div>
+  );
+};
+
+/**
+ * "6:00:33 PM" in the label voice. Londrina has no tabular figures, so each
+ * digit sits in its own fixed cell and the clock never twitches as the
+ * seconds tick.
+ */
+const SlideClock = ({ now }) => {
+  const text = now.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+  return (
+    <span className="pj-kicker" aria-label={text}>
+      {[...text].map((ch, i) =>
+        /[0-9]/.test(ch)
+          ? <span key={i} className="pj-fig" aria-hidden="true">{ch}</span>
+          : <span key={i} aria-hidden="true">{ch}</span>,
+      )}
+    </span>
   );
 };
 
@@ -146,8 +211,8 @@ const NavPill = ({ disabled, onClick, children }) => (
   <button
     onClick={onClick}
     disabled={disabled}
-    className="flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-xs uppercase disabled:opacity-25 hover:bg-white/15 transition-all"
-    style={{ fontFamily: 'var(--font-condensed)', fontWeight: 700, letterSpacing: '0.12em' }}
+    className="pj-kicker flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-sm disabled:opacity-25 hover:bg-white/15 transition-all"
+    style={{ letterSpacing: '0.1em', marginRight: 0 }}
   >
     {children}
   </button>

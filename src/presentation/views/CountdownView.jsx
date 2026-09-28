@@ -3,10 +3,11 @@ import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { WeatherScene } from '../components/WeatherScene.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
-import { Badge } from '../components/Badge.jsx';
 import { BigTimer } from '../components/BigTimer.jsx';
 import { EventChips } from '../components/EventChips.jsx';
-import { GlowText } from '../components/GlowText.jsx';
+import { Kicker } from '../components/Kicker.jsx';
+import { StepChip } from '../components/StepChip.jsx';
+import { HOUSE } from '../lib/kit.js';
 import { secondsUntil } from '../lib/schedule.js';
 import { playStinger } from '../lib/stingers.js';
 import { useKeydown } from '../hooks/useKeydown.js';
@@ -23,7 +24,12 @@ import { useCalendarEvents } from '../hooks/useCalendarEvents.js';
 const STINGER_TIMES = [3600, 1800, 600, 300, 60];
 
 /**
- * The week-long countdown to Wednesday 6:00 PM. Time flows in via the
+ * The week-long countdown to Wednesday 6:00 PM, flattened to type on the
+ * bare black wall (the approved mockup): a Londrina kicker, Galindo figures
+ * with Awana-orange colons, and under them only what the week needs (the
+ * next meeting's day while it is still a day or more out, the church's
+ * theme for it as a stepped chip, special nights as plain lines). The
+ * Awana Clubs mark rides above every view (App.jsx). Time flows in via the
  * single app clock — this view owns no timers of its own.
  * `onSkip` is the operator skip (Space / click) — jumps to the opening
  * ceremony. `theme` is the church-authored meeting theme from a fresh
@@ -72,38 +78,25 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
         </>
       }
     >
-      {/* Center stack */}
-      <div className="flex-1 flex flex-col items-center justify-center gap-6 relative">
-        <GlowText
-          as="p"
-          font="display"
-          color="#FFFFFF"
-          className="uppercase text-center leading-none"
-          style={{ fontSize: 'clamp(2.25rem, 4.5vw, 5.5rem)' }}
-        >
+      <div className="pj-frame pj-countdown">
+        <Kicker color="#FFFFFF" size="calc(3.2 * var(--u))" style={{ letterSpacing: '0.12em', marginRight: '-0.12em' }}>
           Awana begins in
-        </GlowText>
+        </Kicker>
 
-        <BigTimer seconds={seconds} urgencyEnabled onClick={onSkip} />
+        <div style={{ marginTop: 'calc(0.6 * var(--u))' }}>
+          <BigTimer seconds={seconds} accent={HOUSE.orange} urgencyEnabled onClick={onSkip} />
+        </div>
 
         {seconds >= 24 * 3600 && (
-          <div className="flex flex-col items-center gap-1">
-            <GlowText
-              as="p"
-              size="body-lg"
-              font="body"
-              color="rgba(255,255,255,0.72)"
-              className="tracking-wide"
-            >
-              Next meeting · Wednesday · {targetTimeStr}
-            </GlowText>
-          </div>
+          <p className="pj-body" style={{ fontSize: 'calc(2.4 * var(--u))', color: 'rgb(255 255 255 / 0.72)', fontWeight: 500 }}>
+            Next meeting · Wednesday · {targetTimeStr}
+          </p>
         )}
 
         {theme && (
-          <Badge color="#FFB627" size="sm" style={{ opacity: 0.9 }}>
-            {theme}
-          </Badge>
+          <div style={{ marginTop: 'calc(1.6 * var(--u))' }}>
+            <StepChip label="This week" value={theme} size="calc(2.6 * var(--u))" plate={HOUSE.blueDeep} />
+          </div>
         )}
 
         <EventChips events={events} />

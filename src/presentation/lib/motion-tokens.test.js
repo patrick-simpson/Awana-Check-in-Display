@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { DUR, EASE } from './motion-tokens.js';
+import tokens from '../../../shared/brand/tokens.json';
 
 // Drift guard in the same spirit as the club-color check in
 // shared-config.test.js: the CSS custom properties in index.css and
@@ -53,6 +54,38 @@ describe('motion token parity (index.css ↔ motion-tokens.js)', () => {
     for (const [name, points] of cssEasings()) {
       expect(points, `--ease-${name} malformed in CSS`).toHaveLength(4);
       expect(EASE[name], `--ease-${name} vs EASE.${name}`).toEqual(points);
+    }
+  });
+});
+
+// ...and both sides are the family brand kit's motion table: one beat, the
+// kit's durations, its four curves and no others. Only `mode` and `sweep`
+// are the projector's own.
+describe('motion tokens are the brand kit\'s (shared/brand/tokens.json)', () => {
+  const PROJECTOR_ONLY = ['mode', 'sweep'];
+
+  it('the beat and every kit duration, in seconds', () => {
+    expect(DUR.beat).toBeCloseTo(tokens.motion.beatMs / 1000, 10);
+    for (const [name, ms] of Object.entries(tokens.motion.durationsMs)) {
+      expect(DUR[name], name).toBeCloseTo(ms / 1000, 10);
+    }
+  });
+
+  it('nothing but the kit table plus the projector\'s own two', () => {
+    const kitNames = ['beat', ...Object.keys(tokens.motion.durationsMs)];
+    expect(Object.keys(DUR).sort()).toEqual([...kitNames, ...PROJECTOR_ONLY].sort());
+  });
+
+  it('exactly the kit\'s four curves', () => {
+    expect(EASE).toEqual(tokens.motion.curves);
+  });
+
+  it('the CSS side carries the same kit values (so CSS is pinned to the kit too)', () => {
+    for (const [name, ms] of Object.entries(tokens.motion.durationsMs)) {
+      expect(cssDurations().get(name), `--dur-${name}`).toBeCloseTo(ms / 1000, 10);
+    }
+    for (const [name, pts] of Object.entries(tokens.motion.curves)) {
+      expect(cssEasings().get(name), `--ease-${name}`).toEqual(pts);
     }
   });
 });
