@@ -52,10 +52,11 @@ import {
 
 const SUBLINE = 'Salvation bracelets for Ugandan school kids';
 
-// The subline is the poster's own small print, so it is the LAST line:
-// the frozen card carries it, and the first line only plays on the way in.
+// The subline is the poster's own small print, so it is the LAST line and
+// the frozen card carries it. Most nights it is the only line (it simply
+// fades in and holds); on the night, one line plays first on the way in.
 export const DETAILS = Object.freeze({
-  default: Object.freeze(['Six beads. One gospel.', SUBLINE]),
+  default: Object.freeze([SUBLINE]),
   tonight: Object.freeze(['Made at club tonight', SUBLINE]),
 });
 

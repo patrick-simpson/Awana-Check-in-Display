@@ -32,7 +32,7 @@ const headline = (c) => c.querySelector('.promo-brc-headline').getAttribute('ari
 describe('BraceletsPromo', () => {
   it('keeps its detail copy exactly, ending on the poster’s own subline', () => {
     expect(DETAILS).toEqual({
-      default: ['Six beads. One gospel.', 'Salvation bracelets for Ugandan school kids'],
+      default: ['Salvation bracelets for Ugandan school kids'],
       tonight: ['Made at club tonight', 'Salvation bracelets for Ugandan school kids'],
     });
     for (const lines of Object.values(DETAILS)) expect(Object.isFrozen(lines)).toBe(true);
@@ -47,6 +47,12 @@ describe('BraceletsPromo', () => {
     // One bead per truth on the cord, and the two clear sliders at the knot.
     expect(container.querySelectorAll('.promo-brc-bead')).toHaveLength(6);
     expect(container.querySelectorAll('.promo-brc-slider')).toHaveLength(2);
+  });
+
+  it('says only the poster’s subline on an ordinary night, from its first frame', () => {
+    const { container } = mount(promo());
+    expect(container.querySelector('.promo-detail').textContent).toBe('Salvation bracelets for Ugandan school kids');
+    expect(container.textContent).not.toContain('Six beads');
   });
 
   it('ends on the printed poster: headline, subline and date', () => {
