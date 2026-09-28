@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { M } from '../lib/motion.jsx';
-import { DUR, EASE } from '../lib/brand.js';
+import { M, ZeroAnimationContext } from '../lib/motion.jsx';
+import { EASE } from '../lib/brand.js';
+import {
+  HANDOFF, STINGER_SEC, SWAP_AT, firstTransition, holdThenLand, holdThenLeave, nextTransition,
+} from '../lib/lobbyMotion.js';
+import { slideFrame } from '../lib/lobbyFrame.js';
 import CatalogScene from './CatalogScene.jsx';
+import SlideCopy from './SlideCopy.jsx';
 import Wave from './brand/Wave.jsx';
 import PromoSlide from './PromoSlide.jsx';
 import { isPromoSlide } from '../lib/promos.js';
@@ -24,12 +29,10 @@ export const MISSING_VIDEO_SKIP_MS = 4000;
 // The stinger: when a transition involves a slide that holds check-ins (a
 // promo poster or a marked slide), a full-screen house wave sweeps up over
 // the lobby, the slides swap underneath it, and it sweeps on up and away
-// (the mockup's "wipe"). Ordinary slide-to-slide handoffs crossfade. The
-// swap happens while the wave covers the screen, so the slides' own change
-// waits for it.
-const STINGER_SEC = DUR.stinger * 2 + 0.08;
-// Mid-cover: the wave fills the screen from 47% to 53% of its run.
-const SWAP_AT = STINGER_SEC * 0.5;
+// (the mockup's "wipe"). Ordinary slide-to-slide changes hand off instead
+// (see src/lib/lobbyMotion.js). The swap happens while the wave covers the
+// screen, so the slides' own change waits for it.
+//
 // Where the stinger travels, as a share of its own height: in from below
 // the screen, a hold high enough that the back wave's trough clears the top
 // edge (at 0% the crest left a band of the old slide showing across the top
@@ -37,17 +40,6 @@ const SWAP_AT = STINGER_SEC * 0.5;
 // The fills run 22% below the box (app.css) so the bottom stays covered at
 // the hold.
 export const STINGER_Y = ['120%', '-14%', '-14%', '-126%'];
-const SLIDE_VARIANTS = {
-  enter: { opacity: 0 },
-  show: (wipe) => ({
-    opacity: 1,
-    transition: wipe ? { duration: 0.01, delay: SWAP_AT } : { duration: 0.8, ease: 'easeInOut' },
-  }),
-  leave: (wipe) => ({
-    opacity: 0,
-    transition: wipe ? { duration: 0.01, delay: SWAP_AT } : { duration: 0.8, ease: 'easeInOut' },
-  }),
-};
 
 function Stinger() {
   return (
@@ -69,39 +61,72 @@ function Stinger() {
 
 /**
  * Tracks which slide is up and how the lobby got there, captured once per
- * slide (derived state, the CheckInMoment flip-tracking pattern): whether
- * this change wipes (a held slide on either side) and a counter that keys
- * the stinger.
+ * real change (derived state, the CheckInMoment flip-tracking pattern). The
+ * rules are the pure nextTransition() in src/lib/lobbyMotion.js.
  */
-function useSlideTransition(key, special) {
-  const [seen, setSeen] = useState({ key, special, wipe: false, wipes: 0 });
-  if (seen.key !== key) {
-    const wipe = seen.special || special;
-    const next = { key, special, wipe, wipes: seen.wipes + (wipe ? 1 : 0) };
-    setSeen(next);
-    return next;
-  }
-  return seen;
+function useSlideTransition(showing) {
+  const [seen, setSeen] = useState(() => firstTransition(showing));
+  const next = nextTransition(seen, showing);
+  if (next !== seen) setSeen(next);
+  return next;
 }
 
 /**
- * Plays the user's typed slides full-screen behind the check-in
- * banners — the no-PowerPoint background option. Same layering as the
- * setup placeholder (z-index 0), so banners and confetti stack above.
+ * A video or a poster over the field. Under the stinger it swaps in (or out)
+ * in one frame while the wave covers the screen; otherwise it fades.
+ */
+function mediaIn(wipe) {
+  return wipe
+    ? holdThenLand(SWAP_AT, 0.01, { opacity: 0 }, { opacity: 1 }, 'linear')
+    : holdThenLand(0, HANDOFF.media, { opacity: 0 }, { opacity: 1 }, 'easeInOut');
+}
+const MEDIA_VARIANTS = {
+  leave: (wipe) => (wipe
+    ? holdThenLeave(SWAP_AT, 0.01, { opacity: 1 }, { opacity: 0 }, 'linear')
+    : holdThenLeave(0, HANDOFF.media, { opacity: 1 }, { opacity: 0 }, 'easeInOut')),
+};
+
+function Media({ wipe, children }) {
+  const [enter] = useState(() => mediaIn(wipe));
+  return (
+    <M.div
+      className="manual-slide lobby-media"
+      initial={enter.initial}
+      animate={enter.animate}
+      transition={enter.transition}
+      variants={MEDIA_VARIANTS}
+      exit="leave"
+    >
+      {children}
+    </M.div>
+  );
+}
+
+/** AnimatePresence, except under zero animation, where a change is a cut. */
+function Presence({ zero, custom, children }) {
+  if (zero) return children;
+  return <AnimatePresence initial custom={custom}>{children}</AnimatePresence>;
+}
+
+/**
+ * Plays the user's typed slides full-screen behind the check-in moment, on
+ * the lobby scene (CatalogScene): one persistent studio (field and chrome)
+ * with only the copy changing. Same layering as the setup placeholder
+ * (z-index 0), so the check-in moment and confetti stack above.
  *
  * Video slides play muted (kiosk reloads have no user gesture, and
  * unmuted autoplay is blocked). durationSec 0 = play to the end, then
  * advance; >0 = hold that long with the video looping underneath.
- */
-/**
+ *
  * `paused`: names are on screen, so the slide on screen keeps its place and
  * its remaining time (the slideshow timer stops, it does not restart).
  * `onSlide({ key, special })`: told on every slide change; `special` is
  * whether that slide holds check-ins. A deck that could never move on to an
  * ordinary slide (one slide, or only held ones) never holds, so a child's
- * moment can never wait forever.
+ * moment can never wait forever. `still` skips the studio's ambient loops
+ * (weak hardware; see BackgroundIframe).
  */
-export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = null, paused = false, onSlide }) {
+export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = null, paused = false, onSlide, still = false }) {
   // A step counter that only ever goes UP, rather than an index that wraps:
   // the deck position is `step % length` and the LAP is `step / length`, and
   // the promo slot uses the lap to show a different promo each time round
@@ -148,7 +173,10 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
   const slideKey = `${step}:${slide?.id ?? ''}`;
   const canHold = slides.length > 1 && slides.some((s) => !holdsCheckIns(s));
   const special = Boolean(slide) && canHold && holdsCheckIns(slide);
-  const transition = useSlideTransition(slideKey, special);
+  const kind = !slide ? null : isVideoSlide(slide) ? 'video' : isPromoSlide(slide) ? 'promo' : 'copy';
+  const theme = resolveTheme(slide, safe);
+  const transition = useSlideTransition({ key: slideKey, special, kind, theme });
+  const zero = useContext(ZeroAnimationContext);
 
   // The hold timer, pausable: time already spent on this slide survives a
   // pause, so names on screen stop the clock instead of resetting it.
@@ -194,42 +222,57 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
 
   return (
     <div className="manual-slideshow">
-      {/* mode="sync" crossfades: the outgoing slide fades while the next
-          fades in. Opacity-only, so it survives reducedMotion="user". */}
-      <AnimatePresence mode="sync" initial={false} custom={transition.wipe}>
-        <M.div
-          key={slide.id}
-          className="manual-slide"
-          custom={transition.wipe}
-          variants={SLIDE_VARIANTS}
-          initial="enter"
-          animate="show"
-          exit="leave"
-        >
-          {isVideoSlide(slide) ? (
-            <VideoSlide
-              slide={slide}
-              // A lone video loops forever (nothing to advance to);
-              // a timed video loops so it never freezes mid-hold.
-              loop={slides.length <= 1 || slide.durationSec > 0}
-              onFinished={slides.length > 1 ? finishVideo : undefined}
-            />
-          ) : isPromoSlide(slide) ? (
-            /* One slot, one promo per lap. The key stays `slide.id`, so the
-               slot remounts on every visit and each promo's entrance
-               animation plays from the top. */
-            <PromoSlide promo={promo} />
-          ) : (
-            <CatalogScene theme={resolveTheme(slide, safe)} clubTint={clubTint}>
-              <div className="manual-slide-copy">
-                {slide.eyebrow ? <span className="manual-slide-eyebrow">{slide.eyebrow}</span> : null}
-                <p className={`manual-slide-text ${resolveSizeClass(slide)}`}>{slide.text}</p>
-                {slide.subtext ? <p className="manual-slide-subtext">{slide.subtext}</p> : null}
-              </div>
-            </CatalogScene>
+      <CatalogScene
+        theme={transition.theme}
+        wipe={transition.wipe}
+        chromeAway={kind !== 'copy'}
+        chromeVia={transition.via}
+        swell={transition.swells}
+        clubTint={clubTint}
+        still={still}
+      >
+        {/* The copy slot: the step-back target while a name is up. Keyed by
+            slide id, the incoming copy mounts beside the outgoing one and
+            waits for it to lift clear (mode "sync" with timed holds rather
+            than "wait", so the hand-off's beats are one clock and a slide
+            coming straight back revives instead of doubling). */}
+        <div className="lobby-stage manual-slide-copy">
+          <Presence zero={zero} custom={transition.wipe}>
+            {kind === 'copy' && (
+              <SlideCopy
+                key={slide.id}
+                className="manual-slide"
+                slide
+                frame={slideFrame(slide)}
+                theme={theme}
+                via={transition.via}
+                sizeClass={resolveSizeClass(slide)}
+              />
+            )}
+          </Presence>
+        </div>
+        <Presence zero={zero} custom={transition.wipe}>
+          {kind === 'video' && (
+            <Media key={slide.id} wipe={transition.wipe}>
+              <VideoSlide
+                slide={slide}
+                // A lone video loops forever (nothing to advance to);
+                // a timed video loops so it never freezes mid-hold.
+                loop={slides.length <= 1 || slide.durationSec > 0}
+                onFinished={slides.length > 1 ? finishVideo : undefined}
+              />
+            </Media>
           )}
-        </M.div>
-      </AnimatePresence>
+          {/* One slot, one promo per lap. The key stays `slide.id`, so the
+              slot remounts on every visit and each promo's entrance
+              animation plays from the top. */}
+          {kind === 'promo' && (
+            <Media key={slide.id} wipe={transition.wipe}>
+              <PromoSlide promo={promo} />
+            </Media>
+          )}
+        </Presence>
+      </CatalogScene>
       {transition.wipes > 0 && <Stinger key={transition.wipes} />}
     </div>
   );

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildCalendarSlides,
+  dateChip,
   daysBetween,
   deriveClubInfo,
   formatShortDate,
@@ -371,5 +372,75 @@ describe('buildCalendarSlides', () => {
   it('returns [] for null info or empty calendars', () => {
     expect(buildCalendarSlides(null, {})).toEqual([]);
     expect(buildCalendarSlides(deriveClubInfo([], '2026-09-09'), {})).toEqual([]);
+  });
+});
+
+// The lobby's frame (src/lib/lobbyFrame.js) sets a calendar slide as kicker,
+// headline and a stepped date chip (NEXT CLUB NIGHT / MAKING BRACELETS /
+// WED SEP 30). The words are the same words; only the date moves onto the
+// chip, and `text`/`subtext` above stay the whole sentence.
+describe('dateChip', () => {
+  it('puts the weekday on the label and the day on the value', () => {
+    expect(dateChip('2026-09-30')).toEqual({ label: 'WED', value: 'SEP 30' });
+    expect(dateChip('2026-12-02', 'Back')).toEqual({ label: 'BACK WED', value: 'DEC 2' });
+  });
+
+  it('names the same local day as formatShortDate', () => {
+    for (const d of ['2026-01-01', '2026-03-08', '2026-11-01', '2026-12-31']) {
+      const [wd, mo, day] = formatShortDate(d).replace(',', '').split(' ');
+      expect(dateChip(d)).toEqual({ label: wd.toUpperCase(), value: `${mo.toUpperCase()} ${day}` });
+    }
+  });
+
+  it('is null for anything that is not a date', () => {
+    expect(dateChip('')).toBeNull();
+    expect(dateChip('soon')).toBeNull();
+  });
+});
+
+describe('calendar slides in the lobby frame', () => {
+  const byId = (slides, id) => slides.find((s) => s.id === id);
+
+  it('next club night: the title shouts, the date rides the chip', () => {
+    const info = deriveClubInfo([club('2026-09-30', 'Making Bracelets')], '2026-09-28');
+    const s = byId(buildCalendarSlides(info, {}), 'cal_welcome');
+    expect(s.text).toBe('Making Bracelets — Wed, Sep 30');
+    expect(s.frame).toEqual({ headline: 'Making Bracelets', chip: { label: 'WED', value: 'SEP 30' } });
+  });
+
+  it('a regular or store night: "See you!" with the date on the chip, never the title', () => {
+    const info = deriveClubInfo([club('2026-09-16', 'Awana Store Night')], '2026-09-14');
+    const s = byId(buildCalendarSlides(info, {}), 'cal_welcome');
+    expect(s.frame).toEqual({ headline: 'See you!', chip: { label: 'WED', value: 'SEP 16' } });
+  });
+
+  it('a break: the headline as before, the reason under it, the comeback on the chip', () => {
+    const info = deriveClubInfo(
+      [club('2026-12-16'), club('2026-12-23', 'Christmas Break', { isCancelled: true, isSpecial: false }), club('2026-12-30')],
+      '2026-12-16'
+    );
+    const s = byId(buildCalendarSlides(info, {}), 'cal_next');
+    expect(s.frame).toEqual({ headline: s.text, sub: 'Christmas Break', chip: { label: 'BACK WED', value: 'DEC 30' } });
+  });
+
+  it('a break with boilerplate: no reason line', () => {
+    const info = deriveClubInfo([club('2026-09-09'), cancelled('2026-09-16'), club('2026-09-23')], '2026-09-09');
+    expect(byId(buildCalendarSlides(info, {}), 'cal_next').frame.sub).toBe('');
+  });
+
+  it('a special night ahead: the announcement shouts, its date rides the chip', () => {
+    const soon = deriveClubInfo([club('2026-09-09'), club('2026-09-16', 'Backwards Night - wear it wrong')], '2026-09-09');
+    expect(byId(buildCalendarSlides(soon, {}), 'cal_next').frame).toEqual({
+      headline: 'Next week: Backwards Night', sub: 'wear it wrong', chip: { label: 'WED', value: 'SEP 16' },
+    });
+    const later = deriveClubInfo([club('2026-12-16'), club('2027-01-06', 'Backwards Night')], '2026-12-16');
+    expect(byId(buildCalendarSlides(later, {}), 'cal_next').frame.headline).toBe('Coming up: Backwards Night');
+  });
+
+  it('tonight and the countdown need no frame of their own', () => {
+    const info = deriveClubInfo([club('2026-09-09'), club('2026-09-16')], '2026-09-09');
+    const slides = buildCalendarSlides(info, {});
+    expect(byId(slides, 'cal_welcome').frame).toBeUndefined();
+    expect(byId(slides, 'cal_remaining').frame).toBeUndefined();
   });
 });

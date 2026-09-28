@@ -59,3 +59,44 @@ describe('CatalogScene club tint (#349)', () => {
       .toBeLessThan(kids.findIndex((n) => n.querySelector?.('.manual-slide-text') || n.classList.contains('manual-slide-text')));
   });
 });
+
+describe('CatalogScene as the lobby (rebrand stage 4b)', () => {
+  afterEach(cleanup);
+
+  it('is the approved studio: a field, the corner tab with the Awana Clubs mark, two house waves', () => {
+    const { container } = render(<CatalogScene theme="sky" still />);
+    expect(container.querySelector('.lobby-field--sky')).not.toBeNull();
+    expect(container.querySelectorAll('.lobby-cloud')).toHaveLength(2);
+    expect(container.querySelectorAll('.lobby-doodle').length).toBeGreaterThanOrEqual(6);
+    expect(container.querySelector('.lobby-tab img').getAttribute('src')).toMatch(/awana-clubs-white/);
+    expect(container.querySelector('.lobby-wave--sun')).not.toBeNull();
+    expect(container.querySelector('.lobby-wave--house')).not.toBeNull();
+  });
+
+  it('paints the copy between the field and the chrome', () => {
+    const { container } = render(<CatalogScene theme="sky" still><p className="copy">Hi</p></CatalogScene>);
+    const kids = [...scene(container).children].map((n) => n.className);
+    expect(kids.indexOf('lobby-content')).toBeGreaterThan(kids.indexOf('lobby-fields'));
+    expect(kids.findIndex((c) => c.startsWith('lobby-chrome'))).toBeGreaterThan(kids.indexOf('lobby-content'));
+  });
+
+  it('a still scene (thumbnails, weak hardware) carries no ambient loops', () => {
+    const { container } = render(<CatalogScene theme="sky" still />);
+    expect(scene(container).classList.contains('lobby--still')).toBe(true);
+  });
+
+  it('every theme paints its own field, and an unknown one falls back to the sky', () => {
+    for (const theme of ['sunset', 'night', 'meadow', 'lavender']) {
+      const { container, unmount } = render(<CatalogScene theme={theme} still />);
+      expect(container.querySelector(`.lobby-field--${theme}`)).not.toBeNull();
+      unmount();
+    }
+    const { container } = render(<CatalogScene theme="plaid" still />);
+    expect(container.querySelector('.lobby-field--sky')).not.toBeNull();
+  });
+
+  it('steps the chrome aside on request', () => {
+    const { container } = render(<CatalogScene theme="sky" still chromeAway />);
+    expect(container.querySelector('.lobby-chrome--away')).not.toBeNull();
+  });
+});

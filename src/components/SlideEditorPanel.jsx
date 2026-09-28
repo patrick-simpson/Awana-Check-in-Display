@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import CatalogScene from './CatalogScene.jsx';
+import SlideCopy from './SlideCopy.jsx';
+import { slideFrame } from '../lib/lobbyFrame.js';
 import {
   MAX_EYEBROW,
   MAX_SLIDES,
@@ -370,11 +372,16 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
                     <VideoThumb videoId={slide.videoId} />
                   ) : (
                     <CatalogScene theme={resolveTheme(slide, i)} still>
-                      <div className="manual-slide-copy">
-                        {slide.eyebrow ? <span className="manual-slide-eyebrow">{slide.eyebrow}</span> : null}
-                        <p className={`manual-slide-text ${resolveSizeClass(slide)}`}>
-                          {slide.text || 'Your text here…'}
-                        </p>
+                      {/* The TV's own frame and fit, frozen: same sizes,
+                          same line breaks, no loops. */}
+                      <div className="lobby-stage manual-slide-copy">
+                        <SlideCopy
+                          frame={slideFrame(slide.text ? slide : { ...slide, text: 'Your text here…' })}
+                          theme={resolveTheme(slide, i)}
+                          sizeClass={resolveSizeClass(slide)}
+                          slide
+                          still
+                        />
                       </div>
                     </CatalogScene>
                   )}

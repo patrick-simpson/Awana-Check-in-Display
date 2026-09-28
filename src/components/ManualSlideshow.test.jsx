@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import ManualSlideshow, { MISSING_VIDEO_SKIP_MS } from './ManualSlideshow.jsx';
+import { ZeroAnimationContext } from '../lib/motion.jsx';
 import { getVideo } from '../lib/videoStore.js';
 
 vi.mock('../lib/videoStore.js', () => ({
@@ -12,6 +13,11 @@ const deck = [
   { id: 's_2', eyebrow: 'Awana', text: 'Second slide', theme: 'night', durationSec: 4 },
   { id: 's_3', eyebrow: '', text: 'Third slide', theme: 'auto', durationSec: 0 },
 ];
+
+// The lobby splits a headline into words so each can land on its own beat,
+// so a slide's text is the headline's textContent, not one text node.
+const headlines = () => [...document.querySelectorAll('.manual-slide-text')].map((el) => el.textContent);
+const shows = (text) => headlines().includes(text);
 
 const videoSlide = { id: 's_v', type: 'video', videoId: 'v_1', videoName: 'promo.mp4', videoSize: 100, durationSec: 0 };
 
@@ -33,13 +39,13 @@ describe('ManualSlideshow', () => {
 
   it('renders the first slide text and eyebrow-less layout', () => {
     render(<ManualSlideshow slides={deck} slideshowDelaySec={5} />);
-    expect(screen.getByText('First slide')).toBeTruthy();
+    expect(shows('First slide')).toBe(true);
   });
 
   it('advances to the next slide after the global delay', () => {
     render(<ManualSlideshow slides={deck} slideshowDelaySec={5} />);
     act(() => vi.advanceTimersByTime(5000));
-    expect(screen.getByText('Second slide')).toBeTruthy();
+    expect(shows('Second slide')).toBe(true);
     expect(screen.getByText('Awana')).toBeTruthy();
   });
 
@@ -47,7 +53,7 @@ describe('ManualSlideshow', () => {
     render(<ManualSlideshow slides={deck} slideshowDelaySec={10} />);
     act(() => vi.advanceTimersByTime(10000)); // → slide 2 (4s own duration)
     act(() => vi.advanceTimersByTime(4000)); // slide 2's 4s, not the global 10s
-    expect(screen.getByText('Third slide')).toBeTruthy();
+    expect(shows('Third slide')).toBe(true);
   });
 
   it('wraps from the last slide back to the first', () => {
@@ -55,13 +61,13 @@ describe('ManualSlideshow', () => {
     act(() => vi.advanceTimersByTime(5000)); // → 2
     act(() => vi.advanceTimersByTime(4000)); // → 3
     act(() => vi.advanceTimersByTime(5000)); // → back to 1
-    expect(screen.getByText('First slide')).toBeTruthy();
+    expect(shows('First slide')).toBe(true);
   });
 
   it('idles on a single slide forever', () => {
     render(<ManualSlideshow slides={[deck[0]]} slideshowDelaySec={5} />);
     act(() => vi.advanceTimersByTime(60000));
-    expect(screen.getByText('First slide')).toBeTruthy();
+    expect(shows('First slide')).toBe(true);
   });
 
   it('renders nothing (not a crash) with an empty deck', () => {
@@ -77,9 +83,9 @@ describe('ManualSlideshow', () => {
     act(() => vi.advanceTimersByTime(3000));
     rerender(<ManualSlideshow slides={[...deck]} slideshowDelaySec={5} />);
     act(() => vi.advanceTimersByTime(1999));
-    expect(screen.getByText('First slide')).toBeTruthy();
+    expect(shows('First slide')).toBe(true);
     act(() => vi.advanceTimersByTime(1));
-    expect(screen.getByText('Second slide')).toBeTruthy();
+    expect(shows('Second slide')).toBe(true);
   });
 
   it('survives the deck shrinking below the current index', () => {
@@ -87,7 +93,7 @@ describe('ManualSlideshow', () => {
     act(() => vi.advanceTimersByTime(5000)); // → 2
     act(() => vi.advanceTimersByTime(4000)); // → 3 (index 2)
     rerender(<ManualSlideshow slides={deck.slice(0, 1)} slideshowDelaySec={5} />);
-    expect(screen.getByText('First slide')).toBeTruthy();
+    expect(shows('First slide')).toBe(true);
   });
 
   it('honors an explicit per-slide text size over the auto bucket', () => {
@@ -135,7 +141,7 @@ describe('ManualSlideshow video slides', () => {
     const { container } = render(<ManualSlideshow slides={videoDeck} slideshowDelaySec={5} />);
     const video = await advanceToVideo(container);
     act(() => { fireEvent(video, new Event('ended')); });
-    expect(screen.getByText('Third slide')).toBeTruthy();
+    expect(shows('Third slide')).toBe(true);
   });
 
   it('revokes the object URL when the video slide unmounts', async () => {
@@ -151,7 +157,7 @@ describe('ManualSlideshow video slides', () => {
     const video = await advanceToVideo(container);
     expect(video.hasAttribute('loop')).toBe(true);
     act(() => vi.advanceTimersByTime(4000));
-    expect(screen.getByText('Third slide')).toBeTruthy();
+    expect(shows('Third slide')).toBe(true);
   });
 
   it('skips ahead when the video is missing from this device', async () => {
@@ -161,7 +167,7 @@ describe('ManualSlideshow video slides', () => {
     expect(container.querySelector('video')).toBeNull();
     expect(screen.getByText('Video not available on this device')).toBeTruthy();
     act(() => vi.advanceTimersByTime(MISSING_VIDEO_SKIP_MS));
-    expect(screen.getByText('Third slide')).toBeTruthy();
+    expect(shows('Third slide')).toBe(true);
   });
 
   it('skips ahead when the video errors mid-decode', async () => {
@@ -169,7 +175,7 @@ describe('ManualSlideshow video slides', () => {
     const video = await advanceToVideo(container);
     act(() => { fireEvent(video, new Event('error')); });
     act(() => vi.advanceTimersByTime(MISSING_VIDEO_SKIP_MS));
-    expect(screen.getByText('Third slide')).toBeTruthy();
+    expect(shows('Third slide')).toBe(true);
   });
 
   it('loops a lone video forever instead of freezing on the last frame', async () => {
@@ -202,7 +208,7 @@ describe('ManualSlideshow video slides', () => {
       expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
 
       act(() => vi.advanceTimersByTime(12000)); // the slot's own 12s → lap 2
-      expect(screen.getByText('First slide')).toBeTruthy();
+      expect(shows('First slide')).toBe(true);
       act(() => vi.advanceTimersByTime(5000));
       expect(container.querySelector('.promo-slide--friend')).not.toBeNull();
 
@@ -219,7 +225,7 @@ describe('ManualSlideshow video slides', () => {
       act(() => vi.advanceTimersByTime(5000)); // the global delay is NOT the promo's
       expect(container.querySelector('.promo-slide')).not.toBeNull();
       act(() => vi.advanceTimersByTime(7000)); // 12s total
-      expect(screen.getByText('First slide')).toBeTruthy();
+      expect(shows('First slide')).toBe(true);
     });
 
     it('a promo-only deck renders the first promo and never throws', () => {
@@ -249,7 +255,7 @@ describe('ManualSlideshow video slides', () => {
         act(() => vi.advanceTimersByTime(7999));
         expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
         act(() => vi.advanceTimersByTime(1));
-        expect(screen.getByText('First slide')).toBeTruthy();
+        expect(shows('First slide')).toBe(true);
       });
 
       it('holds the slime cut\'s lap for its own 15 seconds', () => {
@@ -261,7 +267,7 @@ describe('ManualSlideshow video slides', () => {
         act(() => vi.advanceTimersByTime(14999));
         expect(container.querySelector('.promo-slide--barf-epic')).not.toBeNull();
         act(() => vi.advanceTimersByTime(1));
-        expect(screen.getByText('First slide')).toBeTruthy();
+        expect(shows('First slide')).toBe(true);
       });
 
       it('falls back to the slot\'s own hold for a promo that names none', () => {
@@ -275,7 +281,7 @@ describe('ManualSlideshow video slides', () => {
         act(() => vi.advanceTimersByTime(11999));
         expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
         act(() => vi.advanceTimersByTime(1));
-        expect(screen.getByText('First slide')).toBeTruthy();
+        expect(shows('First slide')).toBe(true);
       });
     });
   });
@@ -295,13 +301,13 @@ describe('ManualSlideshow as the lobby director sees it (rebrand stage 4)', () =
     act(() => vi.advanceTimersByTime(3000));
     rerender(<ManualSlideshow slides={deck} slideshowDelaySec={5} paused />);
     act(() => vi.advanceTimersByTime(20000));
-    expect(screen.getByText('First slide')).toBeTruthy();
+    expect(shows('First slide')).toBe(true);
     rerender(<ManualSlideshow slides={deck} slideshowDelaySec={5} paused={false} />);
     // Two seconds were left on the first slide when the names came up.
     act(() => vi.advanceTimersByTime(1999));
-    expect(screen.queryByText('Second slide')).toBeNull();
+    expect(shows('Second slide')).toBe(false);
     act(() => vi.advanceTimersByTime(1));
-    expect(screen.getByText('Second slide')).toBeTruthy();
+    expect(shows('Second slide')).toBe(true);
   });
 
   it('reports every slide, and whether it holds check-ins', () => {
@@ -339,5 +345,81 @@ describe('ManualSlideshow as the lobby director sees it (rebrand stage 4)', () =
     expect(container.querySelector('.slide-stinger')).toBeNull();
     act(() => vi.advanceTimersByTime(5000)); // → the held slide: the wipe
     expect(container.querySelectorAll('.slide-stinger')).toHaveLength(1);
+  });
+});
+
+// Rebrand stage 4b: the lobby is one persistent studio and only the copy
+// changes. These pin the contract the hand-off is built on.
+describe('ManualSlideshow on the lobby scene (rebrand stage 4b)', () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  const sky = [
+    { id: 's_1', eyebrow: 'This week', text: 'Bring your handbook', theme: 'sky', durationSec: 0 },
+    { id: 's_2', eyebrow: 'Next club night', text: 'Making bracelets', theme: 'sky', durationSec: 0 },
+  ];
+  const held = { id: 's_h', eyebrow: 'Important', text: 'Pick-up is at the gym doors', theme: 'sky', durationSec: 5, holdCheckIns: true };
+  const promo = { id: 'season_promo', type: 'promo', durationSec: 8, promos: [{ id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', tonight: false, countdown: '3 club nights left', afterContest: false }] };
+
+  it('keeps the studio across an ordinary change: same scene, same field, same corner tab', () => {
+    const { container } = render(<ManualSlideshow slides={sky} slideshowDelaySec={5} />);
+    const scene = container.querySelector('.catalog-scene');
+    const field = container.querySelector('.lobby-field');
+    const tab = container.querySelector('.lobby-tab');
+    act(() => vi.advanceTimersByTime(5000));
+    expect(container.querySelector('.catalog-scene')).toBe(scene);
+    expect(container.querySelector('.lobby-field')).toBe(field);
+    expect(container.querySelector('.lobby-tab')).toBe(tab);
+    expect(shows('Making bracelets')).toBe(true);
+  });
+
+  it('the incoming words wait, invisible, while the outgoing ones lift away', () => {
+    const { container } = render(<ManualSlideshow slides={sky} slideshowDelaySec={5} />);
+    act(() => vi.advanceTimersByTime(5000));
+    const incoming = [...container.querySelectorAll('.lobby-copy')].find((c) => c.textContent.includes('Making'));
+    for (const w of incoming.querySelectorAll('.lobby-word, .lobby-kicker')) expect(w.style.opacity).toBe('0');
+  });
+
+  it('swells the house wave once per hand-off, and never under the stinger', () => {
+    const { container } = render(<ManualSlideshow slides={[sky[0], sky[1], held]} slideshowDelaySec={5} />);
+    const first = container.querySelector('.lobby-wave--house');
+    act(() => vi.advanceTimersByTime(5000)); // ordinary → ordinary
+    const swelled = container.querySelector('.lobby-wave--house');
+    expect(swelled).not.toBe(first);
+    act(() => vi.advanceTimersByTime(5000)); // → the held slide: a wipe
+    expect(container.querySelector('.lobby-wave--house')).toBe(swelled);
+    expect(container.querySelectorAll('.slide-stinger')).toHaveLength(1);
+  });
+
+  it('crossfades the field when the next slide wants another theme', () => {
+    const { container } = render(<ManualSlideshow slides={[sky[0], { ...sky[1], theme: 'night' }]} slideshowDelaySec={5} />);
+    expect(container.querySelector('.lobby-field--night')).toBeNull();
+    act(() => vi.advanceTimersByTime(5000));
+    expect(container.querySelector('.lobby-field--night')).not.toBeNull();
+    expect(container.querySelector('.catalog-scene--night')).not.toBeNull();
+  });
+
+  it('sends the corner tab and the waves aside for a poster, and calls them back', () => {
+    const { container } = render(<ManualSlideshow slides={[sky[0], promo]} slideshowDelaySec={5} />);
+    expect(container.querySelector('.lobby-chrome--away')).toBeNull();
+    act(() => vi.advanceTimersByTime(5000));
+    expect(container.querySelector('.lobby-chrome--away')).not.toBeNull();
+    expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
+    act(() => vi.advanceTimersByTime(8000));
+    expect(container.querySelector('.lobby-chrome--away')).toBeNull();
+  });
+
+  it('under zero animation a change is a cut: one copy on screen, never two', () => {
+    const { container } = render(
+      <ZeroAnimationContext.Provider value>
+        <ManualSlideshow slides={sky} slideshowDelaySec={5} />
+      </ZeroAnimationContext.Provider>,
+    );
+    act(() => vi.advanceTimersByTime(5000));
+    expect(container.querySelectorAll('.lobby-copy')).toHaveLength(1);
+    expect(headlines()).toEqual(['Making bracelets']);
   });
 });

@@ -1,9 +1,34 @@
 import { useMemo } from 'react';
-import { M } from '../lib/motion.jsx';
 import PptxSlideshow from './PptxSlideshow.jsx';
 import ManualSlideshow from './ManualSlideshow.jsx';
 import CatalogScene from './CatalogScene.jsx';
+import SlideCopy from './SlideCopy.jsx';
 import VideoBackground from './VideoBackground.jsx';
+
+// The placeholder's words, in the lobby's copy frame (src/lib/lobbyFrame.js).
+// The welcome screen needs no kicker: the corner tab already carries the
+// Awana Clubs mark, and "Awana" is the headline.
+const frame = (headline, { kicker = '', sub = '' } = {}) => ({ kicker, headline, sub, chip: null, textSize: 'auto' });
+const WELCOME = frame('Welcome to Awana!', { sub: 'We\u2019re so glad you\u2019re here!' });
+const UPLOAD_VIDEO = frame('Upload a video\nin Settings', { kicker: 'Awana Clubs' });
+const UPLOAD_PPTX = frame('Upload a PowerPoint\nin Settings', { kicker: 'Awana Clubs' });
+
+/**
+ * The lobby with a fixed message on it: the screen is never blank, whatever
+ * is or is not set up. `still` (weak hardware) skips the studio's ambient
+ * loops and lands the words without motion.
+ */
+function Placeholder({ words, theme, still, cozy, dim, clubTint }) {
+  return (
+    <div className="background-placeholder">
+      <CatalogScene theme={theme} still={still} cozy={cozy} dim={dim} clubTint={clubTint}>
+        <div className="lobby-stage placeholder-copy">
+          <SlideCopy frame={words} theme={theme} still={still} />
+        </div>
+      </CatalogScene>
+    </div>
+  );
+}
 
 const OFFICE_URL = /onedrive\.live\.com|1drv\.ms|sharepoint\.com|officeapps\.live\.com/i;
 
@@ -67,10 +92,10 @@ export default function BackgroundIframe({
   // that a 'video' or 'pptx' background is never ours to tint — so this is
   // simply handed down to every scene we render ourselves.
   clubTint = null,
-  // Skips CatalogScene's continuous ambient animation work (orbs, twinkling
-  // doodles, the SVG wave) — not just freezing their CSS transforms the way
-  // config.reduceMotion's framer-motion wiring does, but avoiding the
-  // ongoing JS/paint cost entirely, for weak/kiosk hardware.
+  // Skips the lobby's ambient loops (the drifting clouds, twinkling doodles
+  // and rolling wave) and lands the placeholder's words without motion: not
+  // just freezing them the way config.reduceMotion's zero-animation wiring
+  // does, but never starting them, for weak/kiosk hardware.
   reduceMotion = false,
   // The lobby director (App.jsx): pause the typed deck while names are on
   // screen, and hear about each slide so check-ins can wait behind a poster
@@ -91,14 +116,7 @@ export default function BackgroundIframe({
     return (
       <VideoBackground
         fallback={(
-          <div className="background-placeholder">
-            <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim} clubTint={clubTint}>
-              <div className="placeholder-copy">
-                <span className="placeholder-eyebrow">Awana Clubs</span>
-                <h1>Upload a video<br />in Settings</h1>
-              </div>
-            </CatalogScene>
-          </div>
+          <Placeholder words={UPLOAD_VIDEO} theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim} clubTint={clubTint} />
         )}
       />
     );
@@ -118,14 +136,7 @@ export default function BackgroundIframe({
         frameBorder="0"
       />
     ) : (
-      <div className="background-placeholder">
-        <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim} clubTint={clubTint}>
-          <div className="placeholder-copy">
-            <span className="placeholder-eyebrow">Awana Clubs</span>
-            <h1>Upload a PowerPoint<br />in Settings</h1>
-          </div>
-        </CatalogScene>
-      </div>
+      <Placeholder words={UPLOAD_PPTX} theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim} clubTint={clubTint} />
     );
     return <PptxSlideshow source="store" slideshowDelaySec={slideshowDelaySec} fallback={pptxFallback} />;
   }
@@ -143,6 +154,7 @@ export default function BackgroundIframe({
           clubTint={clubTint}
           paused={paused}
           onSlide={onSlide}
+          still={reduceMotion}
         />
       );
     }
@@ -151,34 +163,7 @@ export default function BackgroundIframe({
   // Manual source with nothing typed yet — or no PowerPoint URL — shows
   // the friendly setup placeholder, so the screen is never blank.
   if (backgroundSource === 'manual' || !url) {
-    return (
-      <div className="background-placeholder">
-        <CatalogScene theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim} clubTint={clubTint}>
-          <div className="placeholder-copy">
-            {/* Gentle breath + float keep the welcome screen feeling
-                alive between check-ins; both loops are subtle enough to
-                read as "glow", not "blink". No eyebrow here — "Awana"
-                is already the headline, so a brand line above it would
-                just say the same thing twice. */}
-            <M.h1
-              animate={{ scale: [1, 1.02, 1] }}
-              transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              Welcome<br />to Awana!
-            </M.h1>
-            {/* The catalog's script sign-off, floating gently on its own
-                rhythm so the pair never moves in lockstep. */}
-            <M.span
-              className="placeholder-script"
-              animate={{ y: [0, -6, 0], rotate: [-1.2, 0.6, -1.2] }}
-              transition={{ duration: 6.5, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              We&rsquo;re so glad you&rsquo;re here!
-            </M.span>
-          </div>
-        </CatalogScene>
-      </div>
-    );
+    return <Placeholder words={WELCOME} theme={sceneTheme} still={reduceMotion} cozy={cozy} dim={dim} clubTint={clubTint} />;
   }
 
   const embed = (

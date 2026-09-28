@@ -176,141 +176,258 @@ html, body, #root {
   background: #000;
 }
 
-/* ── Idle / setup screen: catalog sky + orange wave ─────── */
+/* ── The lobby (CatalogScene.jsx, SlideCopy.jsx) ────────────
+   The approved mockup's studio behind every typed slide, calendar slide and
+   the idle placeholder: a flat field with tone-on-tone clouds and a sparse
+   scatter of white kit doodles; the copy on a 16:9 box centred on the
+   screen; the orange corner tab and the house waves over it all. Sized in u,
+   1% of a 16:9 stage's width, like the check-in moment; the slide editor's
+   1600x900 thumbnail frame pins --lobby-u to 16px so a thumbnail is the TV
+   at 0.15 scale. Flat colour and hard offsets only: no blur, no gradient. */
 .background-placeholder {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: linear-gradient(180deg, #cae0f2 0%, var(--awana-sky) 55%, #a9c9e6 100%);
+  background: var(--brand-sky);
   z-index: 0;
 }
-/* The shared catalog scene (CatalogScene.jsx): sky + doodles + wave.
-   Sized in % so the same scene works fullscreen and inside the scaled
-   slide-editor thumbnails. */
 .catalog-scene {
+  --u: var(--lobby-u, min(1vw, 1.7778vh));
   position: absolute;
   inset: 0;
   overflow: hidden;
+  isolation: isolate;
+  background: var(--brand-sky);
 }
-.scene-doodles {
+.lobby-fields {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  animation: doodle-drift 14s ease-in-out infinite alternate;
+  z-index: 0;
 }
-/* The wave renders as two layers that drift against each other (see
-   SceneWave). Oversized 3% each side so the horizontal roll never
-   exposes a gap at the edges. */
-.scene-wave-layer {
+/* Two fields only ever coexist during a crossfade: the incoming one fades
+   up OVER the outgoing one, which holds until it is covered. */
+.lobby-field {
   position: absolute;
-  left: -3%;
-  right: -3%;
-  bottom: -2%;
-  height: 44%;
-  will-change: transform;
+  inset: 0;
+  overflow: hidden;
+  z-index: 1;
+  background: var(--field);
 }
-.scene-wave-svg {
-  width: 100%;
-  height: 100%;
+.lobby-field.is-leaving {
+  z-index: 0;
+}
+.lobby-cloud {
+  position: absolute;
+  color: var(--cloud);
+}
+.lobby-cloud svg,
+.lobby-doodle svg {
   display: block;
+  width: 100%;
+  height: 100%;
 }
-@keyframes doodle-drift {
-  from { transform: translate3d(0, 0, 0); }
-  to   { transform: translate3d(0, -14px, 0); }
+.lobby-doodle {
+  position: absolute;
+  color: var(--doodle);
 }
-
-/* Tone-on-tone catalog blobs breathing behind the scene. */
-.scene-blobs {
+.lobby-doodle svg {
+  overflow: visible;
+}
+.lobby-content {
   position: absolute;
   inset: 0;
-  overflow: hidden;
-  pointer-events: none;
+  z-index: 2;
 }
-.scene-blob {
-  position: absolute;
-  will-change: transform;
-}
-.scene-blob--a {
-  width: 48%;
-  height: 62%;
-  top: 4%;
-  left: -10%;
-  border-radius: 46% 54% 58% 42% / 52% 44% 56% 48%;
-}
-.scene-blob--b {
-  width: 40%;
-  height: 52%;
-  top: 34%;
-  right: -8%;
-  border-radius: 56% 44% 48% 52% / 46% 58% 42% 54%;
-}
-
-/* Ambient sparkle "winks" — occasional tiny bursts in the idle sky. */
-.scene-winks {
+/* The copy's box: 100u x 56.25u, centred, so the layout is the mockup's on
+   any screen (a 4:3 projector gains a band above and below it). */
+.lobby-stage {
   position: absolute;
   inset: 0;
+  margin: auto;
+  width: calc(100 * var(--u));
+  height: calc(56.25 * var(--u));
+}
+/* A video or a poster: full-bleed over the field and the copy, under the
+   chrome (which has stepped aside for it). */
+.lobby-media {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.lobby-chrome {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
   pointer-events: none;
 }
-.scene-wink {
+/* The house waves: sunflower behind (19% of the screen, overhanging 4% each
+   side for its slow roll), Awana orange in front (15%). Both rise toward the
+   right, the sunflower a sliver above the orange all the way along, as the
+   approved renders show them. */
+.lobby-waves {
   position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 19%;
 }
-.scene-wink svg {
-  position: absolute;
-  left: -9px;
-  top: -9px;
+.lobby-waves .lobby-wave--sun {
+  left: -4%;
+  right: -4%;
+  height: 100%;
 }
-.placeholder-copy {
+.lobby-waves .lobby-wave--house {
+  height: 78.95%;
+}
+/* A skirt of the same orange under the house wave, riding with it: when the
+   wave swells up on a hand-off its foot never lifts off the bottom edge and
+   bares a strip of sunflower. */
+.lobby-waves .lobby-wave--house::after {
+  content: '';
   position: absolute;
-  top: 16%;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  top: 99%;
+  height: 40%;
+  background: var(--brand-orange);
+}
+.lobby-tab {
+  width: calc(24 * var(--u));
+  height: calc(15.5 * var(--u));
+}
+.lobby-tab .brand-tab__content {
+  padding: calc(2.2 * var(--u)) 0 0 calc(2.6 * var(--u));
+}
+.lobby-tab__mark {
+  display: block;
+  width: calc(13 * var(--u));
+  height: auto;
+}
+
+/* The copy frame. Sizes, gaps and line breaks come from the fit in
+   src/lib/lobbyFrame.js (set inline, so the fit and the page cannot drift);
+   these rules only carry the voice. */
+.lobby-copy {
+  position: absolute;
+  left: 0;
+  right: 0;
   text-align: center;
-  width: min(90vw, 1100px);
+  pointer-events: none;
 }
-.placeholder-eyebrow {
-  display: inline-block;
-  font-family: var(--font-condensed);
-  font-weight: 600;
-  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--awana-blue);
-  margin-bottom: 0.5rem;
-}
-.placeholder-copy h1 {
+.lobby-kicker {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: clamp(3.5rem, 9vw, 8.5rem);
-  line-height: 0.98;
-  letter-spacing: 0.01em;
+  font-family: var(--font-condensed);
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: #ffffff;
-  text-shadow:
-    0 6px 0 rgba(48, 84, 168, 0.22),
-    0 18px 50px rgba(48, 84, 168, 0.35);
+  white-space: nowrap;
+  color: var(--lobby-kicker);
 }
-/* Script sign-off under the headline — the brand graphics' "Join our
-   Awana Club!" line, in the same hand as the banner taglines. */
-.placeholder-script {
+.lobby-headline {
+  margin: 0;
+  white-space: nowrap;
+  color: var(--lobby-face);
+}
+/* The shout: true-size Galindo (the fit measured it at true size), caps,
+   and the mockup's hard offset shadow, .42u at 7.2u. The padding is the
+   shadow's own room, which the fit counts. */
+.lobby-headline--shout {
+  font-family: var(--font-shout);
+  font-weight: 400;
+  text-transform: uppercase;
+  padding-bottom: 0.058em;
+  text-shadow: 0.058em 0.058em 0 var(--lobby-shadow);
+}
+/* The read layout, for text too long to shout: the kit's reading face in
+   the case the operator typed, in the theme's reading ink (a paragraph of
+   white on the studio sky would lean on a shadow to be read at all). */
+.lobby-headline--read {
+  font-family: var(--font-body);
+  font-weight: 800;
+  color: var(--lobby-sub);
+}
+.lobby-line {
+  display: block;
+  white-space: nowrap;
+}
+/* Only a single word wider than the whole box (a pasted URL) may break. */
+.lobby-headline--overflow,
+.lobby-headline--overflow .lobby-line {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.lobby-word {
   display: inline-block;
-  margin-top: 1rem;
-  font-family: var(--font-hand);
-  font-weight: 600;
-  font-size: clamp(1.8rem, 3.6vw, 3.4rem);
-  letter-spacing: 0.015em;
-  color: var(--awana-cream);
-  text-shadow:
-    0 3px 0 rgba(48, 84, 168, 0.2),
-    0 10px 30px rgba(48, 84, 168, 0.3);
 }
-.catalog-scene--sunset .placeholder-script {
-  text-shadow: 0 3px 0 rgba(210, 96, 22, 0.28), 0 10px 30px rgba(160, 74, 5, 0.32);
+.lobby-sub {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--lobby-sub);
+}
+.lobby-sub__line {
+  display: block;
+  white-space: nowrap;
+}
+.lobby-chip-row {
+  display: flex;
+  justify-content: center;
+  line-height: 0;
+}
+.lobby-chip {
+  display: inline-block;
+  line-height: 0;
+  transform-origin: 30% 60%;
+}
+
+/* Ambient motion, all transform and all CSS (compositor-driven, no per-frame
+   JS): the clouds drift, the doodles float and twinkle, the sunflower wave
+   rolls. Every loop starts and ends at rest, so the .zero-animation-mode
+   blanket rule (animation: none) freezes the finished design. Each field's
+   loops are offset to "started at page load" (--lobby-t, set by
+   CatalogScene), so two fields crossfading drift in step. */
+.lobby-ambient {
+  animation-duration: var(--dur, 8s);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-delay: calc(var(--lobby-t, 0s) + var(--d, 0s));
+}
+.lobby-ambient--drift-a { --dur: 26s; animation-name: lobby-drift-a; }
+.lobby-ambient--drift-b { --dur: 32s; animation-name: lobby-drift-b; }
+.lobby-ambient--float { --dur: 7s; animation-name: lobby-float; }
+.lobby-ambient--twinkle { --dur: 3.6s; animation-name: lobby-twinkle; }
+.lobby-ambient--roll { --dur: 18s; animation-name: lobby-roll; }
+@keyframes lobby-drift-a {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(calc(1.2 * var(--u)), calc(0.9 * var(--u)), 0) rotate(1.2deg); }
+}
+@keyframes lobby-drift-b {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(calc(-1.4 * var(--u)), calc(-0.8 * var(--u)), 0) rotate(-1.4deg); }
+}
+@keyframes lobby-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, calc(-0.6 * var(--u)), 0) rotate(6deg); }
+}
+@keyframes lobby-twinkle {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(0.72) rotate(18deg); }
+}
+@keyframes lobby-roll {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(calc(-2 * var(--u)), 0, 0); }
+}
+.lobby--still .lobby-ambient {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lobby-ambient { animation: none; }
 }
 /* ── Typed slides: full-screen slideshow ──────────────────
-   Free-typed background slides (ManualSlideshow.jsx) — same catalog
-   look as the placeholder, layered behind banners and confetti. */
+   Typed and calendar slides (ManualSlideshow.jsx) on the one persistent
+   lobby scene above, layered behind the check-in moment and confetti. */
 .manual-slideshow {
   position: absolute;
   inset: 0;
@@ -355,88 +472,6 @@ html, body, #root {
   height: 104%;
   background: var(--brand-orange);
 }
-.manual-slide {
-  position: absolute;
-  inset: 0;
-}
-/* The text lives in a safe area that stops above the wave (the wave
-   fills the bottom 42%; its crest tops out around 64%), so long
-   announcements can never sink into it. Flex keeps short text
-   centered in that area — upper-middle, like the catalog covers. */
-.manual-slide-copy {
-  position: absolute;
-  top: 5%;
-  bottom: 34%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(90%, 1200px);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden;
-  text-align: center;
-}
-.manual-slide-eyebrow {
-  display: inline-block;
-  font-family: var(--font-condensed);
-  font-weight: 600;
-  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--awana-blue);
-  margin-bottom: 0.5rem;
-}
-.catalog-scene--night .manual-slide-eyebrow {
-  color: #ffd98a; /* Awana blue vanishes on the night-blue sky */
-}
-.catalog-scene--sunset .manual-slide-text {
-  /* Warm shadow: the blue one washes out on the cream sky */
-  text-shadow:
-    0 6px 0 rgba(210, 96, 22, 0.35),
-    0 18px 50px rgba(160, 74, 5, 0.4);
-}
-.manual-slide-text {
-  margin: 0;
-  font-family: var(--font-display);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: 0.01em;
-  color: #ffffff;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  text-shadow:
-    0 6px 0 rgba(48, 84, 168, 0.22),
-    0 18px 50px rgba(48, 84, 168, 0.35);
-}
-/* Auto-fit buckets picked by text length (slideSizeClass) or forced
-   per-slide via textSize, sized for TV-across-the-room legibility while
-   a max-length slide still stays inside the safe area above the wave. */
-.manual-slide-text.slide-size-xl { font-size: clamp(4rem, 11vw, 10.5rem); text-wrap: balance; }
-.manual-slide-text.slide-size-lg { font-size: clamp(3rem, 7.5vw, 7rem); text-wrap: balance; }
-.manual-slide-text.slide-size-md { font-size: clamp(2.2rem, 4.8vw, 4.4rem); line-height: 1.2; }
-.manual-slide-text.slide-size-sm { font-size: clamp(1.7rem, 3.4vw, 3rem); line-height: 1.3; }
-
-/* Smaller supporting line under the headline — special-night notes
-   ("Poster Contest kicks off") and the book-progress nudge. */
-.manual-slide-subtext {
-  margin: 1.2rem 0 0;
-  /* Same script voice as the banner taglines — the catalog's secondary
-     line under chunky caps. Sized up: script needs more body than the
-     bold sans it replaced to stay TV-legible. */
-  font-family: var(--font-hand);
-  font-weight: 600;
-  font-size: clamp(1.7rem, 3.4vw, 3rem);
-  line-height: 1.2;
-  color: var(--awana-cream);
-  text-shadow: 0 3px 0 rgba(48, 84, 168, 0.18), 0 10px 30px rgba(48, 84, 168, 0.3);
-  max-width: 28ch;
-  text-wrap: balance;
-}
-.catalog-scene--sunset .manual-slide-subtext {
-  text-shadow: 0 3px 0 rgba(210, 96, 22, 0.28), 0 10px 30px rgba(160, 74, 5, 0.32);
-}
-
 /* ── Typed slides: video slides ──────────────────────────── */
 .manual-slide-video-wrap {
   position: absolute;
@@ -548,6 +583,8 @@ html, body, #root {
   height: 900px;
   transform: scale(0.15);
   transform-origin: top left;
+  /* The lobby's u for a 1600px-wide stage, so the thumbnail is the TV. */
+  --lobby-u: 16px;
 }
 /* Video slide thumbnail: fills the 1600×900 frame like a real slide. */
 .slide-card-video-thumb {
@@ -809,6 +846,7 @@ html, body, #root {
    printed art, and stage 4 holds check-ins while one is up. */
 .background-placeholder .placeholder-copy,
 .manual-slideshow .manual-slide-copy {
+  transform-origin: 50% 40%;
   transition:
     opacity var(--brand-dur-settle) var(--brand-ease-settle),
     transform var(--brand-dur-settle) var(--brand-ease-settle);
@@ -818,7 +856,7 @@ html, body, #root {
 .stage.checkin-active .background-placeholder .placeholder-copy,
 .stage.checkin-active .manual-slideshow .manual-slide-copy {
   opacity: 0.28;
-  transform: translateX(-50%) scale(0.97);
+  transform: scale(0.97);
 }
 /* The idle gear would sit on the club's mark; it still comes back the
    moment an operator moves the mouse. */
@@ -1627,7 +1665,6 @@ input:focus-visible {
 
 /* Respect users (and underpowered signage sticks) that prefer less motion. */
 @media (prefers-reduced-motion: reduce) {
-  .scene-doodles,
   .status-dot.connecting .dot,
   .panel .status-line.connecting .dot {
     animation: none;
@@ -1764,19 +1801,10 @@ input:focus-visible {
   .settings-gear.idle { opacity: 0.35; pointer-events: auto; }
 }
 
-/* ── Short screens (landscape phones): slide type scales with
-   height instead of width so headlines never clip. ─────── */
+/* ── Short screens (landscape phones): compact corner chrome. The lobby's
+   slide type is sized in u (see .catalog-scene), which already follows the
+   height on a short screen, so it needs nothing here. ─────── */
 @media (max-height: 560px) {
-  .manual-slide-copy { top: 4%; bottom: 38%; }
-  .manual-slide-eyebrow { font-size: clamp(0.8rem, 4.5vh, 1.2rem); margin-bottom: 0.25rem; }
-  .manual-slide-text.slide-size-xl { font-size: clamp(1.8rem, 15vh, 5rem); }
-  .manual-slide-text.slide-size-lg { font-size: clamp(1.5rem, 12vh, 4rem); }
-  .manual-slide-text.slide-size-md { font-size: clamp(1.3rem, 9vh, 3rem); }
-  .manual-slide-text.slide-size-sm { font-size: clamp(1.1rem, 7vh, 2.4rem); }
-  .manual-slide-subtext { margin-top: 0.6rem; font-size: clamp(1.1rem, 7.5vh, 1.9rem); }
-
-  .placeholder-copy h1 { font-size: clamp(2rem, 16vh, 5.5rem); }
-
   .sticker-chip { border-width: 2px; border-radius: 12px; }
   .sticker-chip-label { font-size: 0.58rem; top: -0.9em; left: 8px; }
   .corner-stack { gap: 0.8rem; }
@@ -1797,8 +1825,8 @@ input:focus-visible {
    one shows is decided in src/lib/promos.js). Unlike a typed slide
    these are FULL-BLEED (the poster is the whole screen), so the copy
    inside each one keeps its own safe area away from the top-right
-   corner widgets and the bottom banner instead of reusing
-   .manual-slide-copy's inset.
+   corner widgets and the bottom banner instead of reusing the lobby's
+   copy box.
 
    v2, after watching them on the lobby TV: these are read from the
    check-in line about twenty feet away, so a slide carries THREE big
@@ -2777,17 +2805,21 @@ input:focus-visible {
 /* ── Themed night skins (#37) ──────────────────────────────────────── */
 /* Recolor the ambient stage decorations for special nights. Banners
    keep club colors — the skin dresses the room, not the kids. */
-.stage[data-skin] .placeholder-eyebrow { letter-spacing: 0.14em; }
 /* --skin-a / --skin-b are set INLINE by App.jsx from SKIN_TABLE
    (src/lib/skins.js), not listed per-skin here. They used to be duplicated in
    this file, which made adding a season a five-file edit and meant the CSS
    could silently disagree with the JS. The table is now the only place the
    colours live. */
-.stage[data-skin] .background-placeholder .placeholder-copy h1 {
-  background: linear-gradient(120deg, var(--skin-a), var(--skin-b));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* The idle headline wears the season's pair. It used to be a gradient FILL,
+   but a gradient clipped to text cannot sit on the lobby's hard offset
+   shadow (the shadow paints over it), and several pairs are pale enough to
+   vanish on their own scene without one. So the face keeps its theme's
+   colour and the season steps out behind it: a skin-a offset, then a skin-b
+   one, printed out of register like the catalog's own outlines. */
+.stage[data-skin] .background-placeholder .lobby-headline--shout {
+  text-shadow:
+    0.035em 0.035em 0 var(--skin-a),
+    0.07em 0.07em 0 var(--skin-b);
 }
 .stage[data-skin] .milestone-toast {
   border-color: var(--skin-a);
@@ -3055,6 +3087,7 @@ input:focus-visible {
 .scene-club-tint {
   position: absolute;
   inset: 0;
+  z-index: 1;
   background: var(--club-tint, transparent);
   opacity: 0;
   transition: opacity 1.1s ease;

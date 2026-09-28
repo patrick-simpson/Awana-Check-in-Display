@@ -59,6 +59,25 @@ export function formatLongDate(dateStr) {
   });
 }
 
+/**
+ * A date as the lobby's stepped chip carries it: the weekday on the label
+ * tier and the month and day on the value block, 'YYYY-MM-DD' → WED / SEP 30.
+ * `lead` rides in front of the weekday ('Back' → BACK WED / DEC 2). Same
+ * local-Date recipe as formatShortDate, so the chip and the sentence it
+ * replaces always name the same day. Null for anything that is not a date.
+ */
+export function dateChip(dateStr, lead = '') {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const date = new Date(y, m - 1, d);
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
+  const day = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return {
+    label: `${lead ? `${lead} ` : ''}${weekday}`.toUpperCase(),
+    value: day.toUpperCase(),
+  };
+}
+
 // Whole days between two date keys, DST-proof (UTC component math).
 export function daysBetween(fromStr, toStr) {
   const [fy, fm, fd] = String(fromStr).split('-').map(Number);
@@ -142,8 +161,15 @@ const check = (theme, textSize) => ({
   textSize: TEXT_SIZES.includes(textSize) ? textSize : 'auto',
 });
 
-function slide(id, { eyebrow = '', text, subtext = '', theme = 'sky', textSize = 'auto' }) {
-  return { id, eyebrow, text, subtext, durationSec: 0, ...check(theme, textSize) };
+// `frame` is how the lobby lays the slide out (src/lib/lobbyFrame.js): the
+// same words, with the date moved out of the sentence and onto the stepped
+// chip under the headline (NEXT CLUB NIGHT / MAKING BRACELETS / WED SEP 30).
+// `text` and `subtext` stay the whole sentence, so nothing that reads them
+// changes; only the lobby's frame reads `frame`.
+function slide(id, { eyebrow = '', text, subtext = '', theme = 'sky', textSize = 'auto', frame }) {
+  const out = { id, eyebrow, text, subtext, durationSec: 0, ...check(theme, textSize) };
+  if (frame) out.frame = frame;
+  return out;
 }
 
 /**
@@ -186,6 +212,7 @@ export function buildCalendarSlides(info, cfg = {}) {
           : `See you ${formatShortDate(info.nextNight.date)}!`,
         theme: 'sky',
         textSize: 'lg',
+        frame: { headline: announce ? title : 'See you!', chip: dateChip(info.nextNight.date) },
       }));
     }
   }
@@ -215,15 +242,17 @@ export function buildCalendarSlides(info, cfg = {}) {
         ? entry.noClubLabel
         : splitTitle(entry.title).title;
       const back = info.nextNight ? `Back ${formatShortDate(info.nextNight.date)}` : '';
+      const why = /^no\s+(awana|club)\b/i.test(reason) ? '' : reason;
+      const headline = longBreak
+        ? 'Club is on a break'
+        : weeksAway === 0 ? 'No club this week' : 'No club next week';
       slides.push(slide('cal_next', {
         eyebrow: 'Heads up',
-        text: longBreak
-          ? 'Club is on a break'
-          : weeksAway === 0 ? 'No club this week' : 'No club next week',
-        subtext: [/^no\s+(awana|club)\b/i.test(reason) ? '' : reason, back]
-          .filter(Boolean).join(' — '),
+        text: headline,
+        subtext: [why, back].filter(Boolean).join(' — '),
         theme: 'sunset',
         textSize: 'lg',
+        frame: { headline, sub: why, chip: info.nextNight ? dateChip(info.nextNight.date, 'Back') : null },
       }));
     } else if (entry.isSpecial && !isStoreNight(entry.title)) {
       const { title, note } = splitTitle(entry.title);
@@ -236,6 +265,7 @@ export function buildCalendarSlides(info, cfg = {}) {
         subtext: note,
         theme: 'sunset',
         textSize: 'lg',
+        frame: { headline: gap <= 8 ? `Next week: ${title}` : `Coming up: ${title}`, sub: note, chip: dateChip(entry.date) },
       }));
     }
     // Regular (or hush-hush store) week ahead → nothing to tease, no
