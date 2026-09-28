@@ -73,6 +73,12 @@ export const LEAVE_TOTAL = leavesAt(12) + DUR.exit;
  * straight to `gone`; an explicit 1 would paint every one of them at full
  * strength for a frame and then fade it, flashing text the room never saw.
  * A part that has landed is at 1 anyway, so an ordinary change is unchanged.
+ *
+ * A landing starts from here too. A press straight back (Space, then ← to
+ * correct an overshoot) returns a slide that is still leaving, and a landing
+ * that started from an explicit 0 blanked it for a frame and ran its whole
+ * entrance again. A part that has just mounted is already at its `hidden`
+ * values, so an ordinary landing is unchanged.
  */
 export const FROM_NOW = null;
 
@@ -86,7 +92,7 @@ export const FROM_NOW = null;
 export function partVariants(i, hold = 0) {
   return {
     hidden: { opacity: 0, y: RISE },
-    shown: holdThen(landsAt(i, hold), DUR.settle, { opacity: 0, y: RISE }, { opacity: 1, y: '0em' }, EASE.settle),
+    shown: holdThen(landsAt(i, hold), DUR.settle, { opacity: FROM_NOW, y: FROM_NOW }, { opacity: 1, y: '0em' }, EASE.settle),
     gone: holdThen(leavesAt(i), DUR.exit, { opacity: FROM_NOW, y: FROM_NOW }, { opacity: 0, y: `-${RISE}` }, EASE.exit),
   };
 }
@@ -99,7 +105,7 @@ export function partVariants(i, hold = 0) {
 export function ambientVariants(hold = 0) {
   return {
     hidden: { opacity: 0 },
-    shown: holdThen(hold, DUR.settle, { opacity: 0 }, { opacity: 1 }, EASE.settle),
+    shown: holdThen(hold, DUR.settle, { opacity: FROM_NOW }, { opacity: 1 }, EASE.settle),
     gone: holdThen(0, LEAVE_TOTAL, { opacity: FROM_NOW }, { opacity: 0 }, EASE.exit),
   };
 }
