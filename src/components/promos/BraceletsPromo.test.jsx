@@ -2,7 +2,9 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { ZeroAnimationContext } from '../../lib/motion.jsx';
 import PromoSlide, { detailsFor } from '../PromoSlide.jsx';
-import BraceletsPromo, { BEADS, BRACELET_SHAKE, DETAILS, floodRadius, posterDate } from './BraceletsPromo.jsx';
+import BraceletsPromo, {
+  BEADS, BRACELET_SHAKE, DETAILS, FLOODS, POSTER, T_GONE, floodRadius, posterDate,
+} from './BraceletsPromo.jsx';
 
 // No global test setup file in this repo, so RTL's automatic cleanup
 // doesn't run: do it explicitly. Fake timers can't drive framer-motion
@@ -135,6 +137,25 @@ describe('BraceletsPromo', () => {
     const { container } = mount(promo());
     for (const el of container.querySelectorAll('.promo-brc-flood')) {
       expect(el.style.clipPath || '').not.toContain('150%');
+    }
+  });
+
+  // A flood that switched itself off (opacity, on the browser's own timeline)
+  // the moment the next wipe (clip-path) was due to cover it flashed black
+  // at every bead on a lobby TV, where the wipe ran late. No flood may go
+  // until they all go together, well after the poster wipe has finished.
+  it('never switches a colour off mid-sequence: every flood holds until the poster covers them all', () => {
+    const posterDone = POSTER.transition.duration;
+    expect(T_GONE - posterDone).toBeGreaterThanOrEqual(1.5);
+    expect(FLOODS).toHaveLength(6);
+    for (const f of FLOODS) {
+      const { opacity } = f.animate;
+      const { times, duration } = f.transition;
+      opacity.forEach((o, k) => {
+        if (times[k] * duration < T_GONE - 1e-6) expect(o).toBe(1);
+      });
+      // ...and the frozen card still ends with every flood gone.
+      expect(opacity[opacity.length - 1]).toBe(0);
     }
   });
 

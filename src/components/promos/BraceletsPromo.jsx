@@ -78,7 +78,9 @@ const FALL = 0.4;
 const T_LOOP = 8.4;
 const T_TIED = 9.1;
 const T_POSTER = 9.1;
-const T_GONE = 9.9; // every flood is under the poster by now
+// Every flood is cleared together, once the poster has covered them all,
+// with seconds of slack for a slow screen (see "The floods").
+export const T_GONE = 11.8;
 const T_ARC = 10.2;
 const T_PIN = 11.0;
 const END_PULSES = Object.freeze([12.0, 13.6]);
@@ -291,10 +293,15 @@ const FLOAT = {
 };
 
 // ── The floods ───────────────────────────────────────────────
-// Each truth floods out of its own bead and carries its word with it.
-// Once the next flood has covered it, a flood stops painting (the frame
-// never carries more than two full-screen layers at once), and every flood
-// is gone under the poster by T_GONE.
+// Each truth floods out of its own bead and carries its word with it, and
+// simply paints OVER the last: no flood switches itself off mid-sequence.
+// It once did, the moment the next wipe had covered it, and on a lobby TV
+// that flashed black at every bead: the browser ran the opacity switch-off
+// on its own timeline, on time, while the clip-path wipe it was waiting for
+// ran late, so for a few frames no colour covered the stage at all. So
+// nothing here waits on another element's clock any more. The dark stays
+// under everything, and all the floods are cleared together at T_GONE,
+// long after the poster (itself a wipe) has covered them.
 //
 // The wipe is a slow, even spread (owner, 2026-09-28: a fast one strobed).
 // Its circle only grows to just past the farthest corner: a 150% circle on
@@ -320,16 +327,15 @@ const flood = (i) => {
   const x = parseFloat(pct(BEAD_X[i], VIEW_W)) / 100;
   const y = parseFloat(pct(CORD_Y, VIEW_H)) / 100;
   const at = `${pct(BEAD_X[i], VIEW_W)} ${pct(CORD_Y, VIEW_H)}`;
-  const covered = i < BEADS.length - 1 ? T_BEADS[i + 1] + FLOOD_OPEN + 0.05 : T_GONE;
   return keyframes([
     [0, { clipPath: `circle(0% at ${at})`, opacity: 1 }],
     [T_BEADS[i], { clipPath: `circle(0% at ${at})` }],
     [T_BEADS[i] + FLOOD_OPEN, { clipPath: `circle(${floodRadius(x, y)}% at ${at})` }],
-    [covered, { opacity: 1 }],
-    [covered + 0.02, { opacity: 0 }],
+    [T_GONE, { opacity: 1 }],
+    [T_GONE + 0.02, { opacity: 0 }],
   ], [EASE_OUT, EASE_SPREAD, 'linear', 'linear']);
 };
-const FLOODS = BEADS.map((_, i) => flood(i));
+export const FLOODS = BEADS.map((_, i) => flood(i));
 
 // The word lands just behind its flood, then keeps pushing in until the
 // next flood covers it.
@@ -389,7 +395,7 @@ const RAYS = keyframes([
 const BLOOM = landsAt(T_BEADS[5] + 0.05, 0.8, { opacity: [0, 1, 0.75], scale: [0.3, 1.2, 1] }, EASE_OUT);
 
 // ── The poster ground ────────────────────────────────────────
-const POSTER = keyframes([
+export const POSTER = keyframes([
   [0, { clipPath: `circle(0% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
   [T_POSTER, { clipPath: `circle(0% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
   [T_POSTER + 0.7, { clipPath: `circle(${floodRadius(parseFloat(pct(KNOT.x, VIEW_W)) / 100, parseFloat(pct(KNOT.y, VIEW_H)) / 100)}% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
@@ -642,11 +648,7 @@ export default function BraceletsPromo({ promo, lines }) {
       >
         <M.div className="promo-brc-camera" {...CAMERA}>
           {/* The dark the story opens in. */}
-          <M.div
-            className="promo-brc-night"
-            aria-hidden="true"
-            {...keyframes([[0, { opacity: 1 }], [T_BEADS[0] + FLOOD_OPEN + 0.05, { opacity: 1 }], [T_BEADS[0] + FLOOD_OPEN + 0.07, { opacity: 0 }]])}
-          />
+          <div className="promo-brc-night" aria-hidden="true" />
 
           {/* One flood per truth, each carrying its word and its effect. */}
           {BEADS.map((bead, i) => (

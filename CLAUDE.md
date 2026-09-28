@@ -367,8 +367,11 @@ wins over readability, but every fact lands on the end card. Signage only
     borders, smoothed, each on its own little map (no people drawn, by
     choice). The
     stage is one 1600x900 SVG; the full-bleed layers overscan 3% so the
-    shake never shows an edge, and a flood stops painting once the next
-    has covered it. The kicker chip reads "This week" / "Tonight!", and
+    shake never shows an edge. No flood ever switches itself off
+    mid-sequence: each paints over the last, and they all clear together
+    at `T_GONE`, well after the poster wipe. A flood that hid itself (opacity,
+    on the browser's timeline) the moment the next clip-path wipe was due
+    flashed black at every bead on a lobby TV, where the wipe ran late. The kicker chip reads "This week" / "Tonight!", and
     the mark is the white knockout (`Wordmark`'s `src`).
 - **Copy lives next to its art.** Each poster exports its `DETAILS`
   (`default`, `tonight`, and `afterContest` for Parents' Night; tonight
