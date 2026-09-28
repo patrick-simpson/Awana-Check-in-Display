@@ -1,0 +1,390 @@
+/* ── Promo: salvation bracelets for kids in Uganda (BraceletsPromo.jsx) ──
+   The gospel one bead at a time: it opens in the dark, each bead floods
+   the screen in its own colour, and it lands on the printed lavender and
+   cream poster. BraceletsPromo.jsx owns the timing; this file owns the
+   look. The stage (cord, beads, map, doodles) is one 1600x900 SVG, so the
+   copy here is laid out to leave it the right-hand side.
+
+   Layers, lowest first: the moving scene 2 (the dark, the six floods, the
+   poster ground, the stage), grain and vignette 3, the wordmark and the
+   copy 5. */
+
+.promo-slide--bracelets {
+  background-color: #0b0912;
+  color: #2b1b5a;
+  --promo-brc-ink: #2b1b5a;
+  --promo-brc-lav-deep: #8f7bdc;
+  --promo-brc-gold: #f5a30b;
+}
+
+.promo-brc-shake,
+.promo-brc-camera {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+.promo-brc-camera { transform-origin: 50% 62%; }
+
+/* Grain and vignette ride ABOVE the scene here: the floods are opaque, so
+   under them neither would ever show. A lavender shade, not black, or the
+   finished card's corners go grey. */
+.promo-slide--bracelets .promo-texture { z-index: 3; opacity: 0.05; mix-blend-mode: multiply; }
+.promo-slide--bracelets .promo-vignette {
+  z-index: 3;
+  background: radial-gradient(ellipse at 42% 46%, rgba(43, 27, 90, 0) 58%, rgba(43, 27, 90, 0.22) 100%);
+}
+
+/* ── The dark and the floods ─────────────────────────────── */
+.promo-brc-night {
+  position: absolute;
+  inset: -3%;
+  background:
+    radial-gradient(ellipse 60% 46% at 50% 66%, #221c33 0%, rgba(34, 28, 51, 0) 70%),
+    #0b0912;
+}
+/* The full-bleed layers overscan by 3% (BLEED in the component), so the
+   shake never shows an edge. */
+.promo-brc-flood {
+  position: absolute;
+  inset: -3%;
+  overflow: hidden;
+}
+.promo-brc-flood--sin {
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, #16141d 0%, #050407 100%);
+}
+.promo-brc-flood--blood {
+  background: radial-gradient(ellipse 70% 62% at 50% 40%, #d11f36 0%, #8c0b1d 100%);
+}
+.promo-brc-flood--purity {
+  background: radial-gradient(ellipse 70% 62% at 50% 40%, #ffffff 0%, #ebe8f3 100%);
+}
+.promo-brc-flood--baptism {
+  background: radial-gradient(ellipse 70% 62% at 50% 40%, #2a6ae6 0%, #0f3288 100%);
+}
+.promo-brc-flood--growth {
+  background: radial-gradient(ellipse 70% 62% at 50% 40%, #27b050 0%, #0c6526 100%);
+}
+.promo-brc-flood--heaven {
+  background: radial-gradient(ellipse 70% 62% at 50% 40%, #ffd23f 0%, #f0a106 100%);
+}
+
+/* The truth, big, above the cord. */
+.promo-brc-word-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 33%;
+  display: flex;
+  justify-content: center;
+  translate: 0 -50%;
+}
+.promo-brc-word {
+  margin: 0;
+  font-family: var(--font-poster);
+  font-weight: 400;
+  font-size: clamp(3.4rem, min(15vw, 26vh), 17rem);
+  line-height: 1;
+  white-space: nowrap;
+  color: #ffffff;
+  text-shadow: 0 0.05em 0 rgba(0, 0, 0, 0.28), 0 0.12em 0.3em rgba(0, 0, 0, 0.3);
+}
+.promo-brc-word--sin { color: #f2f0f7; text-shadow: 0 0 0.35em rgba(255, 255, 255, 0.12), 0 0.06em 0 #000; }
+.promo-brc-word--purity { color: var(--promo-brc-ink); text-shadow: 0 0.05em 0 #d9d3ee; }
+.promo-brc-word--heaven { color: #ffffff; text-shadow: 0 0.06em 0 #c77a00, 0 0 0.5em rgba(255, 255, 255, 0.6); }
+
+/* BLOOD: the cross of light. */
+.promo-brc-cross {
+  position: absolute;
+  left: 50%;
+  top: 33%;
+  width: 0;
+  height: 0;
+}
+.promo-brc-cross-v,
+.promo-brc-cross-h {
+  position: absolute;
+  background: linear-gradient(var(--dir, 180deg), rgba(255, 220, 220, 0) 0%, rgba(255, 236, 236, 0.5) 50%, rgba(255, 220, 220, 0) 100%);
+  box-shadow: 0 0 4vmin rgba(255, 190, 190, 0.35);
+}
+.promo-brc-cross-v {
+  width: 1.4vmin;
+  height: 86vh;
+  left: -0.7vmin;
+  top: -34vh;
+}
+.promo-brc-cross-h {
+  --dir: 90deg;
+  width: 44vw;
+  height: 1.4vmin;
+  left: -22vw;
+  top: -12vh;
+}
+
+/* PURITY: glints. */
+.promo-brc-gleam {
+  position: absolute;
+  height: auto;
+  overflow: visible;
+  fill: #a893f0;
+  translate: -50% -50%;
+}
+.promo-brc-gleam:nth-of-type(2n) { fill: #f5c24a; }
+
+/* Back inside the frame (3 / 106 of the overscanned flood), so a ripple
+   is centred on its bead exactly. */
+.promo-brc-fx {
+  position: absolute;
+  inset: 2.83%;
+  overflow: visible;
+}
+/* BAPTISM: ripples. */
+.promo-brc-ripple {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 5;
+  vector-effect: non-scaling-stroke;
+}
+/* GROWTH: vines. */
+.promo-brc-vine {
+  fill: none;
+  stroke: #8ff0a9;
+  stroke-width: 14;
+  stroke-linecap: round;
+}
+.promo-brc-leaf { fill: #b9f7c9; stroke: #0e6b2b; stroke-width: 3; }
+
+/* HEAVEN: rays and bloom. */
+.promo-brc-rays,
+.promo-brc-bloom {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.promo-brc-rays {
+  width: 150vmax;
+  height: 150vmax;
+  margin: -75vmax 0 0 -75vmax;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.34) 0deg 6deg, rgba(255, 255, 255, 0) 6deg 18deg);
+  -webkit-mask-image: radial-gradient(circle closest-side, #000 8%, rgba(0, 0, 0, 0.6) 40%, transparent 100%);
+  mask-image: radial-gradient(circle closest-side, #000 8%, rgba(0, 0, 0, 0.6) 40%, transparent 100%);
+}
+.promo-brc-bloom {
+  width: 90vmin;
+  height: 90vmin;
+  margin: -45vmin 0 0 -45vmin;
+  background: radial-gradient(circle closest-side, rgba(255, 255, 240, 0.95) 0%, rgba(255, 244, 200, 0.5) 45%, rgba(255, 244, 200, 0) 100%);
+}
+
+/* ── The printed poster's ground ─────────────────────────── */
+.promo-brc-poster {
+  position: absolute;
+  inset: -3%;
+  background:
+    radial-gradient(ellipse 60% 50% at 30% 30%, #b9a9f1 0%, rgba(185, 169, 241, 0) 70%),
+    #ae9ced;
+}
+.promo-brc-ground {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ── The stage ───────────────────────────────────────────── */
+.promo-brc-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.promo-brc-cord {
+  fill: none;
+  stroke: #121116;
+  stroke-width: 10;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.promo-brc-cord-rim {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  translate: 0 -3px;
+}
+.promo-brc-tail { stroke-width: 7; }
+.promo-brc-fray {
+  fill: none;
+  stroke: #121116;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.promo-brc-slider {
+  fill: rgba(236, 240, 250, 0.72);
+  stroke: rgba(120, 128, 150, 0.8);
+  stroke-width: 4;
+}
+.promo-brc-knot-pop { fill: #ffffff; }
+.promo-brc-shock {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 4;
+  opacity: 0;
+}
+.promo-brc-dust { fill: #8a8697; }
+
+/* The journey. */
+.promo-brc-country-fill { fill: #c9bcf7; }
+.promo-brc-lake { fill: #8ea3f0; }
+.promo-brc-country-line {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 5;
+  stroke-linejoin: round;
+}
+.promo-brc-arc {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 2 14;
+}
+.promo-brc-arc-reveal {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 16;
+  stroke-linecap: round;
+}
+.promo-brc-home { fill: #ffd23f; stroke: var(--promo-brc-ink); stroke-width: 4; }
+.promo-brc-pin { fill: var(--promo-brc-gold); stroke: var(--promo-brc-ink); stroke-width: 4; stroke-linejoin: round; }
+.promo-brc-pin-ring { fill: none; stroke: #ffd23f; stroke-width: 4; }
+.promo-brc-map-label {
+  font-family: var(--promo-font-condensed);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.14em;
+  fill: var(--promo-brc-ink);
+}
+.promo-brc-map-label--ug { fill: #ffffff; }
+
+/* ── The copy ────────────────────────────────────────────── */
+.promo-slide--bracelets .promo-wordmark-slot {
+  z-index: 5;
+  top: 5.2%;
+  left: 5.5%;
+  right: auto;
+  justify-content: flex-start;
+}
+.promo-slide--bracelets .promo-wordmark {
+  height: clamp(30px, min(4.6vw, 8.2vh), 88px);
+  filter: drop-shadow(0 3px 0 rgba(143, 123, 220, 0.9));
+}
+
+.promo-brc-stack {
+  position: absolute;
+  z-index: 5;
+  left: 5.5%;
+  top: 17%;
+  width: 56%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(6px, 1.2vh, 16px);
+}
+/* The kicker is the kit's chip, set in the poster's pill. */
+.promo-slide--bracelets .promo-chip-slot {
+  position: relative;
+  top: auto;
+  left: auto;
+}
+.promo-slide--bracelets .promo-chip {
+  font-family: var(--font-poster);
+  font-weight: 400;
+  font-size: clamp(1.1rem, min(2.4vw, 4.2vh), 2.8rem);
+  letter-spacing: 0.04em;
+  padding: 0.22em 0.9em 0.26em;
+  background: #ffd23f;
+  color: var(--promo-brc-ink);
+  box-shadow: 0 0.16em 0 rgba(143, 123, 220, 0.9);
+}
+
+.promo-brc-headline {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  font-family: var(--font-poster);
+  font-weight: 400;
+  line-height: 0.96;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.promo-brc-making,
+.promo-brc-for {
+  display: block;
+  font-size: clamp(1.9rem, min(5.3vw, 9.4vh), 6.4rem);
+  color: #ffffff;
+  text-shadow: 0 0.07em 0 var(--promo-brc-lav-deep);
+}
+.promo-brc-beat { display: inline-block; }
+.promo-brc-hero {
+  display: block;
+  font-size: clamp(3rem, min(10.2vw, 18vh), 12.4rem);
+  line-height: 0.9;
+  margin: 0.02em 0 0.06em -0.02em;
+}
+/* The extrusion is the poster's: a stack of deep-lavender offsets. */
+.promo-brc-letter {
+  display: inline-block;
+  color: var(--promo-brc-gold);
+  text-shadow:
+    0.012em 0.012em 0 var(--promo-brc-lav-deep),
+    0.024em 0.024em 0 var(--promo-brc-lav-deep),
+    0.036em 0.036em 0 var(--promo-brc-lav-deep),
+    0.048em 0.048em 0 var(--promo-brc-lav-deep),
+    0.06em 0.06em 0 var(--promo-brc-lav-deep);
+}
+
+.promo-brc-foot {
+  position: absolute;
+  z-index: 5;
+  left: 5.5%;
+  bottom: 6%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(10px, 2.6vh, 34px);
+}
+.promo-slide--bracelets .promo-detail-slot {
+  justify-content: flex-start;
+  width: min(38vw, 68vh);
+  min-height: 2.4em;
+  font-size: clamp(1.2rem, min(2.7vw, 4.8vh), 3.2rem);
+}
+.promo-slide--bracelets .promo-detail {
+  font-family: var(--promo-font-display);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: left;
+  text-wrap: balance;
+  color: var(--promo-brc-ink);
+}
+.promo-brc-date {
+  padding: 0.36em 0.95em 0.3em;
+  border-radius: 0.5em;
+  background: var(--promo-brc-gold);
+  font-size: clamp(1.7rem, min(4.2vw, 7.4vh), 5rem);
+  box-shadow: 0 0.1em 0 #c77a00;
+}
+.promo-slide--bracelets .promo-brc-date-text {
+  display: block;
+  font-size: 1em;
+  color: #ffffff;
+  white-space: nowrap;
+}

@@ -5,9 +5,10 @@
 // The church printed three posters for this fall (the DEFEND poster
 // contest, BARF Night, and Parents' Night). These are the animated
 // lobby-TV recreations of them, plus a fourth the printer never made (the
-// slime cut of BARF Night), and this module is the only place that decides
-// WHICH of them a screen may show today and WHAT the counter under each
-// one says.
+// slime cut of BARF Night) and, for one week, the salvation bracelets for
+// kids in Uganda (featured: it takes every other lap). This module is the
+// only place that decides WHICH of them a screen may show today and WHAT
+// the counter under each one says.
 //
 // House rules, same as the rest of the calendar code:
 //   • Every comparison is a bare local YYYY-MM-DD key. Never
@@ -34,10 +35,11 @@ import { showDate, slideInWindow } from './slides.js';
 /**
  * @typedef {Object} SeasonPromo
  * @property {string} id
- * @property {string} kind 'contest' | 'friend' | 'parents' | 'barfEpic'
+ * @property {string} kind 'contest' | 'friend' | 'parents' | 'barfEpic' | 'bracelets'
  * @property {string} eventDate Last day the promo shows, inclusive.
  * @property {string} showFrom First day the promo may show.
  * @property {number} durationSec How long the slideshow holds THIS poster.
+ * @property {boolean} [featured] Takes every other lap while it is live.
  */
 
 /** @type {ReadonlyArray<SeasonPromo>} */
@@ -48,7 +50,14 @@ export const SEASON_PROMOS = [
   // The slime-soaked hype cut of BARF Night, the fourth poster the printer
   // never made.
   { id: 'promo_barf_epic', kind: 'barfEpic', eventDate: '2026-10-14', showFrom: '2026-09-01', durationSec: 15 },
+  // Salvation bracelets for kids in Uganda: one club night only, so it is
+  // live for three days and FEATURED, taking every other lap while it is
+  // up (owner's call, 2026-09-28) instead of one lap in five.
+  { id: 'promo_bracelets', kind: 'bracelets', eventDate: '2026-09-30', showFrom: '2026-09-28', durationSec: 15, featured: true },
 ];
+
+/** The promos that take every other lap while live (see weaveFeatured). */
+const FEATURED = new Set(SEASON_PROMOS.filter((p) => p.featured).map((p) => p.id));
 
 // The poster-contest deadline. Parents' Night says something different
 // about the voting once the posters are actually in.
@@ -179,5 +188,21 @@ export function buildPromoSlot(events, todayStr, opts = {}) {
     }));
 
   if (!promos.length) return null;
-  return { id: 'season_promo', type: 'promo', durationSec: PROMO_DURATION_SEC, promos };
+  return { id: 'season_promo', type: 'promo', durationSec: PROMO_DURATION_SEC, promos: weaveFeatured(promos) };
+}
+
+/**
+ * A featured promo takes every other lap: [F, a, F, b, F, c]. The slideshow
+ * picks `lap % length`, so weaving the list is all it takes, and a featured
+ * promo never plays twice in a row. With nothing else live it is simply the
+ * one promo, and with nothing featured the table order is untouched.
+ *
+ * @param {PromoDescriptor[]} promos
+ * @returns {PromoDescriptor[]}
+ */
+function weaveFeatured(promos) {
+  const featured = promos.filter((p) => FEATURED.has(p.id));
+  const rest = promos.filter((p) => !FEATURED.has(p.id));
+  if (!featured.length || !rest.length) return promos;
+  return rest.flatMap((p, i) => [featured[i % featured.length], p]);
 }

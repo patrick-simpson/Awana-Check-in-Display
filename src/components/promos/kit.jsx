@@ -6,9 +6,9 @@ import { PROMO_DURATION_SEC } from '../../lib/promos.js';
 // ─────────────────────────────────────────────────────────────
 // The promo kit: what every fall showreel poster is built from.
 //
-// Each poster (ContestPromo, FriendPromo, BarfEpicPromo, ParentsPromo in
-// this folder) is a 15 second piece of motion design that ends on its own
-// finished printed poster. The pieces below are the parts they share: the
+// Each poster (ContestPromo, FriendPromo, BarfEpicPromo, ParentsPromo and
+// BraceletsPromo in this folder) is a 15 second piece of motion design that
+// ends on its own finished printed poster. The pieces below are the parts they share: the
 // timing helpers, the Awana wordmark, the countdown chip, the one rotating
 // detail line and the depth layers.
 //
@@ -191,16 +191,17 @@ const LOGO_URL = siteRootUrl('shared/art/awana-clubs-logo.png');
 
 /**
  * The Awana Clubs wordmark, which simply is not there if the art 404s.
- * `at` is when it lands (seconds); it rests fully lit.
+ * `at` is when it lands (seconds); it rests fully lit. `src` swaps in
+ * another cut of the mark (the white knockout, for a poster that prints it).
  */
-export function Wordmark({ at = 0, className = '' }) {
+export function Wordmark({ at = 0, className = '', src = LOGO_URL }) {
   const [broken, setBroken] = useState(false);
-  if (broken || !LOGO_URL) return null;
+  if (broken || !src) return null;
   return (
     <div className={`promo-wordmark-slot ${className}`}>
       <M.img
         className="promo-wordmark"
-        src={LOGO_URL}
+        src={src}
         alt="Awana Clubs"
         onError={() => setBroken(true)}
         {...landsAt(at, 0.55, { opacity: [0, 1], y: [-20, 0] }, EASE_OUT)}

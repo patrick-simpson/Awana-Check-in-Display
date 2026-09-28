@@ -14,7 +14,7 @@ afterEach(cleanup);
 const promo = (kind, extra = {}) => ({
   id: `promo_${kind}`,
   kind,
-  eventDate: kind === 'parents' ? '2026-11-04' : '2026-10-14',
+  eventDate: { parents: '2026-11-04', bracelets: '2026-09-30' }[kind] || '2026-10-14',
   tonight: false,
   countdown: '3 club nights left',
   afterContest: false,
@@ -37,7 +37,7 @@ describe('PromoSlide', () => {
   // frame loop captured the real requestAnimationFrame at import.
   describe('the detail copy (detailsFor)', () => {
     it('gives every known poster lines to say, tonight and otherwise', () => {
-      for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
+      for (const kind of ['contest', 'friend', 'barfEpic', 'parents', 'bracelets']) {
         expect(detailsFor(promo(kind)).length, kind).toBeGreaterThan(0);
         expect(detailsFor(promo(kind, { tonight: true })).length, kind).toBeGreaterThan(0);
       }
@@ -110,7 +110,7 @@ describe('PromoSlide', () => {
 
   describe('the shared poster frame', () => {
     it('gives every poster exactly one detail slot and one countdown chip', () => {
-      for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
+      for (const kind of ['contest', 'friend', 'barfEpic', 'parents', 'bracelets']) {
         const { container } = render(<PromoSlide promo={promo(kind)} />);
         expect(container.querySelectorAll('.promo-detail-slot')).toHaveLength(1);
         expect(container.querySelectorAll('.promo-chip')).toHaveLength(1);
@@ -119,7 +119,7 @@ describe('PromoSlide', () => {
     });
 
     it('sets every poster on the same depth layers', () => {
-      for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
+      for (const kind of ['contest', 'friend', 'barfEpic', 'parents', 'bracelets']) {
         const { container } = render(<PromoSlide promo={promo(kind)} />);
         expect(container.querySelector('.promo-texture')).not.toBeNull();
         expect(container.querySelector('.promo-vignette')).not.toBeNull();
@@ -165,7 +165,7 @@ describe('PromoSlide', () => {
 
   describe('the Awana Clubs wordmark', () => {
     it('is on every promo', () => {
-      for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
+      for (const kind of ['contest', 'friend', 'barfEpic', 'parents', 'bracelets']) {
         const { container } = render(<PromoSlide promo={promo(kind)} />);
         expect(container.querySelector('.promo-wordmark')).not.toBeNull();
         cleanup();
@@ -183,7 +183,7 @@ describe('PromoSlide', () => {
   });
 
   it('uses no em dashes anywhere in its on-screen copy', () => {
-    for (const kind of ['contest', 'friend', 'barfEpic', 'parents']) {
+    for (const kind of ['contest', 'friend', 'barfEpic', 'parents', 'bracelets']) {
       for (const tonight of [false, true]) {
         const { container } = render(<PromoSlide promo={promo(kind, { tonight, afterContest: tonight })} />);
         expect(container.textContent).not.toContain('—');

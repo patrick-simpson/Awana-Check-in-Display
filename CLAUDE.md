@@ -239,22 +239,24 @@ Display's `about.html`) that share one design system. Rules:
 
 ## Season promo slides (fall 2026)
 
-Four hardcoded promos in the lobby signage's background rotation, each a
+Five hardcoded promos in the lobby signage's background rotation, each a
 **15 second showreel**: a full motion-design sequence that ends on its own
 finished poster. Three recreate the church's printed fall posters (the
 DEFEND **poster contest**, **BARF Night**, and **Parents' Night**); the
-fourth is one the printer never made, the **slime cut of BARF Night**.
+fourth is one the printer never made, the **slime cut of BARF Night**; the
+fifth, for one week only, is the **salvation bracelets for kids in
+Uganda** (Wed, Sept 30).
 Owner's brief (2026-09-28): go all out, like a motion designer's showreel;
 stay on-brand with each printed poster's palette and imagery; spectacle
 wins over readability, but every fact lands on the end card. Signage only
 (`index.html`); the projector and Journey never see them.
 
-- `src/lib/promos.js` is the pure half: `SEASON_PROMOS` (the four
+- `src/lib/promos.js` is the pure half: `SEASON_PROMOS` (the five
   descriptors), `nightsUntil()` / `countdownLabel()` (the live "3 club
   nights left" → "Next club night" → "Tonight!" counter) and
   `buildPromoSlot()`. The art is one file per poster under
   `src/components/promos/` (`ContestPromo`, `FriendPromo`,
-  `BarfEpicPromo`, `ParentsPromo`), each with its own stylesheet in
+  `BarfEpicPromo`, `ParentsPromo`, `BraceletsPromo`), each with its own stylesheet in
   `src/styles/promos/` (@imported at the top of `app.css`) and its own
   test. `src/components/PromoSlide.jsx` is only the index: it maps `kind`
   to a poster, gathers each poster's exported `DETAILS` table into
@@ -277,9 +279,13 @@ wins over readability, but every fact lands on the end card. Signage only
   one each lap (`step % length` is the position, `step / length` is the
   lap — both derived from one counter so `advance` stays a pure state
   updater). The slot's key stays `slide.id`, so it remounts each visit
-  and every entrance animation plays from the top.
+  and every entrance animation plays from the top. A descriptor marked
+  `featured: true` (the bracelets, a three-day promo) takes every other
+  lap: `buildPromoSlot()` weaves the list as [F, a, F, b, ...], so the
+  slideshow needs no change and a featured promo never plays twice in a
+  row.
 - **The hold belongs to the POSTER, not the slot.** Each descriptor
-  carries its own `durationSec` (15 for all four today; `PROMO_DURATION_SEC`
+  carries its own `durationSec` (15 for all five today; `PROMO_DURATION_SEC`
   is the slot's fallback and the clock every beat sheet is written
   against, re-exported as `SHOWREEL_SEC`), `buildPromoSlot()` copies it
   onto every slot entry, and `ManualSlideshow` hands `slideDurationMs` the
@@ -346,6 +352,22 @@ wins over readability, but every fact lands on the end card. Signage only
     and the title assembles letter by letter.
     Its cream ground needs a warm vignette and a multiply grain, or the
     corners go grey.
+  - **Salvation bracelets** (dark, then the printed lavender / cream /
+    gold): the gospel one bead at a time. A black cord draws across the
+    dark, then six beads fall onto it in gospel order, each flooding the
+    screen in its colour out of the bead itself with its truth slammed
+    above the cord, in the bracelet kit's own words (SIN, BLOOD, PURITY,
+    BAPTISM, GROWTH, HEAVEN; owner's order and wording, 2026-09-28). Each
+    flood carries its word and effect (the thud and dust, a cross of
+    light, glints, ripples, vines, rays), so the next flood wipes the last
+    away. The cord morphs into the loop (same four cubic segments, so `d`
+    interpolates), the knot cinches, the poster floods out of the knot,
+    and a dotted flight line runs from an OUR CLUB pin to a hand-drawn
+    Uganda (the real border, smoothed; no people drawn, by choice). The
+    stage is one 1600x900 SVG; the full-bleed layers overscan 3% so the
+    shake never shows an edge, and a flood stops painting once the next
+    has covered it. The kicker chip reads "This week" / "Tonight!", and
+    the mark is the white knockout (`Wordmark`'s `src`).
 - **Copy lives next to its art.** Each poster exports its `DETAILS`
   (`default`, `tonight`, and `afterContest` for Parents' Night; tonight
   wins), and its test pins that copy, the fixed end-card facts for every
