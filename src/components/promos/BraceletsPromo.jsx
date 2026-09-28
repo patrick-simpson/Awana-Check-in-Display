@@ -172,9 +172,9 @@ const CAMERA = keyframes([
 ], ['linear', EASE_INOUT]);
 
 export const BRACELET_SHAKE = buildShake([
-  { at: T_BEADS[0], amp: 15 },
-  ...T_BEADS.slice(1).map((at, i) => ({ at, amp: i === 4 ? 9 : 5 })),
-  { at: T_TIED + 0.02, amp: 4 },
+  // Only SIN lands with a thud; a jolt on every bead read as a strobe.
+  { at: T_BEADS[0], amp: 12 },
+  { at: T_TIED + 0.02, amp: 3 },
 ], SHOWREEL_SEC);
 
 // ── The cord ─────────────────────────────────────────────────
@@ -229,7 +229,7 @@ const glint = (i) => keyframes([
 const GLINTS = BEADS.map((_, i) => glint(i));
 
 // The shock ring where each bead lands.
-const SHOCKS = T_BEADS.map((at) => landsAt(at, 0.55, { opacity: [0, 0.9, 0], scale: [0.2, 1, 1.9] }, EASE_OUT));
+const SHOCKS = T_BEADS.map((at) => landsAt(at, 0.7, { opacity: [0, 0.45, 0], scale: [0.2, 1, 1.9] }, EASE_OUT));
 
 // The dust off the first, heaviest bead.
 const DUST = (() => {
@@ -295,17 +295,39 @@ const FLOAT = {
 // Once the next flood has covered it, a flood stops painting (the frame
 // never carries more than two full-screen layers at once), and every flood
 // is gone under the poster by T_GONE.
-const FLOOD_OPEN = 0.55;
+//
+// The wipe is a slow, even spread (owner, 2026-09-28: a fast one strobed).
+// Its circle only grows to just past the farthest corner: a 150% circle on
+// a front-loaded ease swept the whole frame in about 0.1 s, a full-screen
+// colour flash every 1.2 s. A clip-path circle's % is of sqrt((w² + h²) / 2),
+// so the radius is worked out per bead, for the widest and the squarest
+// screens the lobby runs (16:9 down to 4:3), plus a sliver of margin.
+const FLOOD_OPEN = 0.95;
+const EASE_SPREAD = [0.37, 0, 0.25, 1];
+export function floodRadius(xPct, yPct) {
+  let need = 0;
+  for (const ratio of [16 / 9, 4 / 3]) {
+    const w = ratio;
+    const h = 1;
+    const ref = Math.sqrt((w * w + h * h) / 2);
+    for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      need = Math.max(need, Math.hypot((cx - xPct) * w, (cy - yPct) * h) / ref);
+    }
+  }
+  return Math.ceil(need * 104);
+}
 const flood = (i) => {
+  const x = parseFloat(pct(BEAD_X[i], VIEW_W)) / 100;
+  const y = parseFloat(pct(CORD_Y, VIEW_H)) / 100;
   const at = `${pct(BEAD_X[i], VIEW_W)} ${pct(CORD_Y, VIEW_H)}`;
   const covered = i < BEADS.length - 1 ? T_BEADS[i + 1] + FLOOD_OPEN + 0.05 : T_GONE;
   return keyframes([
     [0, { clipPath: `circle(0% at ${at})`, opacity: 1 }],
     [T_BEADS[i], { clipPath: `circle(0% at ${at})` }],
-    [T_BEADS[i] + FLOOD_OPEN, { clipPath: `circle(150% at ${at})` }],
+    [T_BEADS[i] + FLOOD_OPEN, { clipPath: `circle(${floodRadius(x, y)}% at ${at})` }],
     [covered, { opacity: 1 }],
     [covered + 0.02, { opacity: 0 }],
-  ], [EASE_OUT, [0.5, 0, 0.2, 1], 'linear', 'linear']);
+  ], [EASE_OUT, EASE_SPREAD, 'linear', 'linear']);
 };
 const FLOODS = BEADS.map((_, i) => flood(i));
 
@@ -370,8 +392,8 @@ const BLOOM = landsAt(T_BEADS[5] + 0.05, 0.8, { opacity: [0, 1, 0.75], scale: [0
 const POSTER = keyframes([
   [0, { clipPath: `circle(0% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
   [T_POSTER, { clipPath: `circle(0% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
-  [T_POSTER + 0.7, { clipPath: `circle(150% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
-], ['linear', [0.5, 0, 0.2, 1]]);
+  [T_POSTER + 0.7, { clipPath: `circle(${floodRadius(parseFloat(pct(KNOT.x, VIEW_W)) / 100, parseFloat(pct(KNOT.y, VIEW_H)) / 100)}% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
+], ['linear', EASE_SPREAD]);
 const CREAM = landsAt(T_POSTER + 0.2, 0.8, { y: ['40%', '-3%', '0%'] }, EASE_OUT);
 const BLOB_A = landsAt(T_POSTER + 0.3, 0.9, { scale: [0.6, 1], opacity: [0, 1] }, EASE_OUT);
 const BLOB_B = landsAt(T_POSTER + 0.4, 0.9, { scale: [0.6, 1], opacity: [0, 1] }, EASE_OUT);

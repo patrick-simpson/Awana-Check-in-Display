@@ -56,7 +56,8 @@
   background: radial-gradient(ellipse 70% 62% at 50% 40%, #d11f36 0%, #8c0b1d 100%);
 }
 .promo-brc-flood--purity {
-  background: radial-gradient(ellipse 70% 62% at 50% 40%, #ffffff 0%, #ebe8f3 100%);
+  /* Pearl rather than paper white: the jump from red is the biggest one. */
+  background: radial-gradient(ellipse 70% 62% at 50% 40%, #f6f3fb 0%, #dcd5ee 100%);
 }
 .promo-brc-flood--baptism {
   background: radial-gradient(ellipse 70% 62% at 50% 40%, #2a6ae6 0%, #0f3288 100%);

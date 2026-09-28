@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import { ZeroAnimationContext } from '../../lib/motion.jsx';
 import PromoSlide, { detailsFor } from '../PromoSlide.jsx';
-import BraceletsPromo, { BEADS, DETAILS, posterDate } from './BraceletsPromo.jsx';
+import BraceletsPromo, { BEADS, BRACELET_SHAKE, DETAILS, floodRadius, posterDate } from './BraceletsPromo.jsx';
 
 // No global test setup file in this repo, so RTL's automatic cleanup
 // doesn't run: do it explicitly. Fake timers can't drive framer-motion
@@ -116,6 +116,31 @@ describe('BraceletsPromo', () => {
     const { container } = mount(promo());
     expect(container.querySelector('.promo-wordmark').getAttribute('src'))
       .toMatch(/shared\/brand\/logos\/awana-clubs-white\.svg$/);
+  });
+
+  // A fast wipe to 150% swept the whole frame in about 0.1 s: a full-screen
+  // flash every bead (reported as strobing). Each circle now grows only to
+  // just past the farthest corner, on 16:9 and 4:3 alike.
+  it('sizes each colour wipe to just cover the screen, never far past it', () => {
+    for (const [x, y] of [[0.28, 0.7], [0.5, 0.7], [0.72, 0.7], [0.75, 0.54]]) {
+      const r = floodRadius(x, y) / 100;
+      for (const ratio of [16 / 9, 4 / 3]) {
+        const ref = Math.sqrt((ratio * ratio + 1) / 2);
+        for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+          expect(r * ref).toBeGreaterThanOrEqual(Math.hypot((cx - x) * ratio, cy - y));
+        }
+      }
+      expect(r).toBeLessThan(1.3);
+    }
+    const { container } = mount(promo());
+    for (const el of container.querySelectorAll('.promo-brc-flood')) {
+      expect(el.style.clipPath || '').not.toContain('150%');
+    }
+  });
+
+  it('shakes the frame only for the SIN thud and the knot, not every bead', () => {
+    // Two beats of buildShake: five offsets each, plus the start and the end.
+    expect(BRACELET_SHAKE.times).toHaveLength(2 * 5 + 2);
   });
 
   it('formats the poster date the way the poster prints it', () => {
