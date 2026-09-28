@@ -50,7 +50,7 @@ function rules(text) {
 }
 
 const ALL = rules(css);
-const BRAND_FONT = /var\(--font-(display|body|condensed|hand)\)/;
+const BRAND_FONT = /var\(--font-(display|shout|body|condensed|hand)\)/;
 const PROMO_FONT = /var\(--(promo-font-[a-z]+|font-poster)\)/;
 const selectors = (r) => r.selector.split(',').map((s) => s.trim());
 const isPromo = (sel) => /(^|[\s>+~])\.promo[-_a-zA-Z]*/.test(sel);
@@ -90,7 +90,8 @@ describe('promo font isolation (app.css)', () => {
 
   it('the lobby speaks the three brand voices', () => {
     const root = ALL.find((r) => r.selector === ':root' && /--font-display/.test(r.body));
-    expect(root?.body).toMatch(/--font-display:\s*'Galindo'/);
+    expect(root?.body).toMatch(/--font-shout:\s*'Galindo', 'Baloo 2 Variable'/);
+    expect(root?.body).toMatch(/--font-display:\s*'Galindo Fit', 'Baloo 2 Variable'/);
     expect(root?.body).toMatch(/--font-body:\s*'Figtree Variable'/);
     expect(root?.body).toMatch(/--font-condensed:\s*'Londrina Solid'/);
   });

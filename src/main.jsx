@@ -2,17 +2,21 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 // Bundled fonts (no CDN) so the display looks right even on a church
 // network that blocks or throttles font hosts. The three brand voices
-// (shared/brand/README.md): Galindo shouts (--font-display), Londrina
+// (shared/brand/README.md): Galindo shouts (--font-shout, and
+// --font-display at the old footprint, see app.css), Londrina
 // Solid labels (--font-condensed; the 400 cut only, which is already
 // bold, so no CSS weight can reach for the much fatter 900) and Figtree
 // is read (--font-body).
 import '@fontsource/galindo';
 import '@fontsource/londrina-solid/400.css';
 import '@fontsource-variable/figtree';
+// Baloo 2 stays for good: it backs the display stack for the letters
+// Galindo does not draw (Ș, Ț, Vietnamese, combining marks), and the
+// browser only fetches those subsets when such a name actually appears.
+import '@fontsource-variable/baloo-2';
 // Pinned for the fall promo posters ONLY (--promo-font-*, --font-poster),
 // which stay exactly as printed until they retire on 2026-11-05. Drop these
-// four imports then, not before.
-import '@fontsource-variable/baloo-2';
+// three imports then, not before.
 import '@fontsource-variable/nunito';
 import '@fontsource-variable/oswald';
 import '@fontsource/lilita-one';

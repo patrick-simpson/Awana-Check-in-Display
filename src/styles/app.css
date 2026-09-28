@@ -9,6 +9,36 @@
    the three voices and the motion table. See shared/brand/README.md. */
 @import '../../shared/brand/tokens.css';
 
+/* Galindo at the pre-rebrand footprint. Galindo sets 14-28% wider than the
+   Baloo 2 Black it replaced (18% typical) with 18% taller caps, and every
+   rule still written against --font-display (slide text, calendar titles,
+   banner names, the ticker) was sized for Baloo: at true size a max-length
+   typed slide no longer fit and long names broke mid-word at 1280x720.
+   This alias draws the same files at 82%, which lands within a few percent
+   of Baloo's width and cap height, so those rules keep their old fit. It is
+   transitional: as each stage rebuilds a surface on the kit it moves that
+   surface onto --font-shout (true-size Galindo) and sizes it for Galindo.
+   The weight range claims every weight so an old `font-weight: 800` picks
+   this face as-is and can never trigger a synthesized bold. */
+@font-face {
+  font-family: 'Galindo Fit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  size-adjust: 82%;
+  src: url('@fontsource/galindo/files/galindo-latin-ext-400-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Galindo Fit';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  size-adjust: 82%;
+  src: url('@fontsource/galindo/files/galindo-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   /* Catalog palette */
   --awana-orange: #f7a41c;
@@ -48,8 +78,16 @@
 
   /* The three brand voices (shared/brand/README.md), bundled in
      src/main.jsx. Galindo shouts: names, headlines, big numbers (the
-     free match for the catalog's RugFish). */
-  --font-display: 'Galindo', 'Arial Rounded MT Bold', 'Segoe UI', system-ui, sans-serif;
+     free match for the catalog's RugFish). --font-shout is Galindo at
+     true size, for everything built from the kit (src/components/brand/
+     and each surface a stage rebuilds); --font-display is the same face
+     at the old Baloo footprint for the rules not rebuilt yet (see the
+     'Galindo Fit' @font-face above). Both fall back to Baloo 2 for the
+     letters Galindo does not draw (Romanian comma-below, Vietnamese,
+     combining marks), so a name like Ștefan or Tuấn stays in one chunky
+     voice instead of dropping to the system font mid-name. */
+  --font-shout: 'Galindo', 'Baloo 2 Variable', 'Arial Rounded MT Bold', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Galindo Fit', 'Baloo 2 Variable', 'Arial Rounded MT Bold', 'Segoe UI', system-ui, sans-serif;
   /* Figtree is read: body copy, settings, notices (for Gibson). */
   --font-body: 'Figtree Variable', 'Figtree', 'Segoe UI', system-ui, sans-serif;
   /* Londrina Solid labels: kickers, tabs, chips' small line, buttons
@@ -3756,7 +3794,7 @@ details.advanced-fields[open] > summary { margin-bottom: 0.5rem; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
+  font-family: var(--font-shout);
   color: #fff;
   text-align: center;
   line-height: 0.95;

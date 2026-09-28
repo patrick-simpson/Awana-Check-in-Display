@@ -7,8 +7,9 @@ import { expect, test } from '@playwright/test';
 //   page.clock          — a fixed Wednesday wall clock that only moves when
 //                         the test says so, so slide rotation, banner holds
 //                         and the corner clock are identical on every run
-//   seeded Math.random  — the demo simulators pick names and clubs at random,
-//                         and the idle scene scatters its doodles at random
+//   seeded Math.random  — the demo simulators pick names and clubs at random
+//                         (reseeded at each click, see boot()), and the idle
+//                         scene scatters its doodles at random
 //   fixture calendar    — the nightly Action rewrites the real feed
 // Baselines are Linux-Chromium only; regenerate them with the
 // update-snapshots workflow (or `npm run e2e:update` on Linux).
@@ -23,7 +24,14 @@ async function boot(page, { setupCard = false } = {}) {
   await page.clock.install({ time: new Date(NOW.getTime() - 60_000) });
   await page.clock.pauseAt(NOW);
   await page.addInitScript(({ setupCard }) => {
-    let seed = 0x2f6e2b1;
+    // Reseeded on every click, in the capture phase (before React's own
+    // listener), so a simulator's name and club pick reads the same two
+    // values every run. Seeding once at load is not enough: framer-motion's
+    // AnimatePresence draws a Math.random() on every render, and how many
+    // renders land before the click depends on timing.
+    const SEED = 0x2f6e2b1;
+    let seed = SEED;
+    document.addEventListener('click', () => { seed = SEED; }, true);
     Math.random = () => {
       seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
       return seed / 2 ** 32;

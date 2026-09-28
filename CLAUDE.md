@@ -122,6 +122,28 @@ and `doodles/`. Read its README before changing it.
   here first, then re-copy it into both.
 - `scripts/brand/extract-catalog-brand.py` regenerates the marks and shapes
   from a catalog PDF (not committed), for next season.
+- **Two sizes of one shout.** `--font-shout` is Galindo at true size, for
+  everything built from the kit (`src/components/brand/`, and each surface as
+  its stage rebuilds it). `--font-display` is the same files drawn at 82% (the
+  `'Galindo Fit'` @font-face in app.css), so rules still sized for the old
+  Baloo 2 (typed slides, calendar titles, banner names, the ticker) keep their
+  fit: at true size a max-length slide overflowed and long names broke
+  mid-word at 720p. Move a rule to `--font-shout` only when you re-size it.
+  Both stacks fall back to Baloo 2 for the letters Galindo lacks (Ș, Ț,
+  Vietnamese), which is why the Baloo import outlives the promos.
+- **The posters keep their own faces.** `--promo-font-*` and `--font-poster`
+  are poster-only and the brand tokens never touch a `.promo-*` rule;
+  `src/lib/promoFonts.test.js` pins both directions.
+- **Kit primitives** (`src/components/brand/`: StepChip, Wave, CornerTab,
+  Sticker, DoodleCluster) are M elements, timed from `src/lib/brand.js`
+  (one 100 ms beat, the wipe / settle / pop / exit curves).
+  `zeroAnimation.test.jsx` renders each through the real framer-motion under
+  zero-animation mode, and `src/lib/motionImports.test.js` fails any signage
+  file that imports an animating framer-motion export instead of `M`.
+- **The lobby has its own visual suite**, `e2e/signage.visual.spec.js`: a
+  paused Playwright clock (install() alone lets time run), Math.random
+  reseeded at every click, a fixture calendar and `?lowPower=1`. Regenerate
+  its baselines with the update-snapshots workflow, never from a sandbox.
 
 ## Tech stack snapshot
 

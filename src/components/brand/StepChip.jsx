@@ -6,7 +6,7 @@ const TEXT = {
   textAnchor: 'middle',
   dominantBaseline: 'central',
   lengthAdjust: 'spacingAndGlyphs',
-  style: { fontFamily: 'var(--font-display)' },
+  style: { fontFamily: 'var(--font-shout)' },
 };
 
 /**
