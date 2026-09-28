@@ -178,17 +178,26 @@ and `doodles/`. Read its README before changing it.
 
 ## Season promo slides (fall 2026)
 
-Four hardcoded, animated posters in the lobby signage's background
-rotation: recreations of the church's three printed fall posters (the
-DEFEND **poster contest**, **BARF Night**, and **Parents' Night**), plus
-a fourth the printer never made, the **slime cut of BARF Night**.
-Signage only (`index.html`); the projector and Journey never see them.
+Four hardcoded promos in the lobby signage's background rotation, each a
+**15 second showreel**: a full motion-design sequence that ends on its own
+finished poster. Three recreate the church's printed fall posters (the
+DEFEND **poster contest**, **BARF Night**, and **Parents' Night**); the
+fourth is one the printer never made, the **slime cut of BARF Night**.
+Owner's brief (2026-09-28): go all out, like a motion designer's showreel;
+stay on-brand with each printed poster's palette and imagery; spectacle
+wins over readability, but every fact lands on the end card. Signage only
+(`index.html`); the projector and Journey never see them.
 
 - `src/lib/promos.js` is the pure half: `SEASON_PROMOS` (the four
   descriptors), `nightsUntil()` / `countdownLabel()` (the live "3 club
   nights left" → "Next club night" → "Tonight!" counter) and
-  `buildPromoSlot()`. `src/components/PromoSlide.jsx` + the
-  `.promo-*` rules in `app.css` are the art.
+  `buildPromoSlot()`. The art is one file per poster under
+  `src/components/promos/` (`ContestPromo`, `FriendPromo`,
+  `BarfEpicPromo`, `ParentsPromo`), each with its own stylesheet in
+  `src/styles/promos/` (@imported at the top of `app.css`) and its own
+  test. `src/components/PromoSlide.jsx` is only the index: it maps `kind`
+  to a poster, gathers each poster's exported `DETAILS` table into
+  `PROMO_DETAILS`, and owns `detailsFor()`.
 - **Calendar-driven, and only calendar-driven.** The counter counts real
   club nights out of the same feed the calendar slides use, through
   `calendarLogic.js`'s `clubNights()` — so a break week the shared
@@ -209,76 +218,98 @@ Signage only (`index.html`); the projector and Journey never see them.
   updater). The slot's key stays `slide.id`, so it remounts each visit
   and every entrance animation plays from the top.
 - **The hold belongs to the POSTER, not the slot.** Each descriptor
-  carries its own `durationSec` (8 / 8 / 8 / 15), `buildPromoSlot()`
-  copies it onto every slot entry, and `ManualSlideshow` hands
-  `slideDurationMs` the promo this lap is showing rather than the slot
-  (falling back to the slot's own `durationSec`). One hold for all four
-  would either rush the slime cut or leave the other three sitting
-  still. `slideDurationMs` stays a pure function of one slide.
+  carries its own `durationSec` (15 for all four today; `PROMO_DURATION_SEC`
+  is the slot's fallback and the clock every beat sheet is written
+  against, re-exported as `SHOWREEL_SEC`), `buildPromoSlot()` copies it
+  onto every slot entry, and `ManualSlideshow` hands `slideDurationMs` the
+  promo this lap is showing rather than the slot. `slideDurationMs` stays
+  a pure function of one slide. Re-timing a poster means re-timing its
+  whole beat sheet: the slideshow cuts away at exactly 15 s.
 - **Nothing persisted, nothing on the wire.** Like the calendar slides,
   the slot is derived fresh from (events, today, config) on every
   render; it is never written to localStorage and never published. A
   `type: 'promo'` entry arriving in a `slides` chunk is dropped by the
   existing text-only allowlist, and `eventSanitizers.test.js` pins that.
-- **Three big statements, one rotating line** (v2, after the owner
-  watched them on the lobby TV: too many small pieces, and they landed
-  in two seconds and then sat still). A slide carries a headline, a hero
-  graphic and a date, at sizes meant for a read from the check-in line,
-  plus the countdown chip and ONE `.promo-detail` slot. Every line the
-  first pass set in small type is now a string in that slot, which turns
-  over at 1.6 / 3.8 / 6.0 s inside the 8 s hold
-  (`PROMO_DURATION_SEC = 8`) and beats once at 4.0 s. All of that copy
-  lives in the one exported `PROMO_DETAILS` table in `PromoSlide.jsx`,
-  chosen by the pure `detailsFor(promo)`; the tonight/`afterContest`
-  wording is pinned by tests there. Hero words and dates are set in
-  Lilita One (`--font-poster`), headlines in Baloo, the detail line in
-  Oswald. If a line will not fit a screen, cut words rather than points.
-- Every animated element is `M.*` from `src/lib/motion.jsx`, so
-  `?lowPower=1` freezes the whole poster. Ambient `repeat: Infinity`
-  loops are fine — just keep the LAST keyframe the resting value,
-  because zero-animation mode jumps straight to it and that is the frame
-  the Pi sits on. (The drifting confetti and the floating hearts end
-  off-frame or at zero opacity for exactly that reason.) Note that
-  framer-motion captures the real `requestAnimationFrame` when it is
-  imported, so **vitest fake timers cannot drive its crossfades** — the
-  detail line's cadence is tested through `RotatingDetail` with real
-  timers and short steps, and its copy through `detailsFor`.
+- **Built from one kit** (`src/components/promos/kit.jsx`): `landsAt()`
+  (one beat: hold, then land) and `keyframes()` (a whole choreography in
+  absolute seconds, for things that arrive, leave and come back),
+  `buildShake()`, the seeded `seeded()` / `splatPath()` (never
+  Math.random: the art is identical on every device and in every
+  screenshot), and the shared parts every poster renders exactly once:
+  `PosterDepth` (`.promo-texture` + `.promo-vignette`), `Wordmark`,
+  `CountdownChip` (lands at `at`, pulses at each second in `pulses`) and
+  `RotatingDetail` (the one `.promo-detail-slot`). `kit.test.jsx` and the
+  shared `PromoSlide.test.jsx` pin these.
+- **Beats are keyframes, never `initial` plus a long `delay`.** Measured
+  on the real build: framer-motion runs an accelerated value (opacity) on
+  the browser's own timeline and everything else on its JS frameloop, so
+  an element waiting out a long `delay` can paint at its ANIMATE value
+  seconds before its beat. A keyframe list says "nothing here yet" in a
+  way nothing downstream can reinterpret. Use `landsAt`/`keyframes` for
+  any new beat.
+- **The frozen frame is the finished poster.** Every animated element is
+  `M.*`, and its LAST keyframe is its place on the end card, because
+  `?lowPower=1` jumps straight there and the Pi sits on that frame.
+  Anything transient (intro cards, flashes, particles, wipes, the camera
+  moves, the slime cut's tidal wave) ends invisible or off-frame;
+  ambient `repeat: Infinity` loops end on their resting value. Under
+  zero animation `RotatingDetail` shows its LAST line at once and never
+  rotates, so each poster's DETAILS table is ordered with the line the
+  frozen card should carry last. Every fact a poster must state is fixed
+  text on its end card, not only a turn of the detail line.
+- **The beat sheets** (the component files document each in full): the
+  slide mounts under the lobby director's stinger wave, so nothing lands
+  before ~0.6 s, and every end card is assembled by ~11.5 s and holds.
+  - **Poster contest** (navy / gold): a gallery wall of kids' posters and
+    a spotlight, POSTER / CONTEST slam in, a push through the wall, the
+    blank sign slapped up and taped corner by corner, a marker writes
+    DEFEND (SVG stroke drawing), gold paint fills it, a confetti cannon,
+    then the gold band wipes in with the deadline. Tonight a "DUE
+    TONIGHT" stamp thumps onto the sign. The verse REFERENCE only (1 Peter
+    3:15 NKJV) sits on the sign, never the verse text.
+  - **BARF Night** (purple / lime, comic book): two comic panels ("Wanna
+    come to Awana?" / "YES!!"), the kids sprint in and high-five into a
+    SPLAT!, B-A-R-F tiles slam in and unfold into Bring / A / Real /
+    Friend, then a match cut to the printed poster with its turning burst
+    and a reward starburst.
+  - **The slime cut** (deep purple / lime, movie trailer): a "THIS
+    OCTOBER" cold open, a macro drop that falls and splats on the glass,
+    a tidal wave that floods the screen, THE / BIGGEST slam onto the
+    slime, a liquid wipe, B-A-R-F letter by letter, EVER with a
+    shockwave, two plum kids high-five out of the puddle, then the lower
+    third, the date and the reward line. Its splats end as faint stains,
+    which is what a splat on glass looks like.
+  - **Parents' Night** (cream / rust / gold, the warm one): a single rust
+    line draws a parent and child holding hands and then a heart, which
+    floods gold with rays and heartbeats, the ribbon header flows in,
+    polaroids are tossed in, and the title assembles letter by letter.
+    Its cream ground needs a warm vignette and a multiply grain, or the
+    corners go grey.
+- **Copy lives next to its art.** Each poster exports its `DETAILS`
+  (`default`, `tonight`, and `afterContest` for Parents' Night; tonight
+  wins), and its test pins that copy, the fixed end-card facts for every
+  variant, and no em dashes. The poster faces stay the printed ones:
+  every `.promo-*` rule (in `app.css` and `src/styles/promos/`) uses only
+  `--promo-font-*` / `--font-poster`, never the brand tokens, and
+  `src/lib/promoFonts.test.js` reads all of those stylesheets.
 - **A promo poster holds check-ins** while it is up (see "The lobby
   director" below): arrivals wait behind a WAITING chip and play at full
   length on the next slide, and the stinger wave carries the lobby into and
-  out of each poster. The posters themselves are untouched.
+  out of each poster. At 15 s a poster now holds the line a little longer
+  than the old 8 s ones did.
 - Settings → Calendar & Weather → **"Fall event promos"**
   (`config.seasonPromos`) turns them off without touching the other
   auto-slides.
-- **The slime cut (`kind: 'barfEpic'`, `BarfEpicPromo`)** is the loud
-  one: a wall of dripping lime goo over deep purple, THE / BIGGEST /
-  BARF / EVER slamming in one at a time behind splats that hit the
-  "glass", then a lower third that rises out of a puddle while two plum
-  kid silhouettes high-five over it, then the date, the reward line and
-  the closer. Same window as BARF Night (through 2026-10-14 inclusive),
-  same `tonight` variant, and its beat sheet runs to 12 s, which is what
-  the 15 second hold is for.
-  - **Its beats are keyframes, not `initial` plus `delay`.** Measured on
-    the real build: framer-motion runs an accelerated value (opacity) on
-    the browser's own timeline and everything else on its JS frameloop,
-    so an element waiting out a long `delay` can paint at its ANIMATE
-    opacity: a word at full strength and triple size seconds before its
-    beat, and the closer on screen from the first frame. The pure
-    `landsAt(at, dur, values)` in `PromoSlide.jsx` builds one keyframe
-    list per beat ("hold, then land"), which nothing downstream can
-    reinterpret, and whose LAST value is still what `?lowPower=1`
-    freezes on. Use it for any new beat here rather than a long `delay`.
-  - **The frozen frame is the whole poster.** Everything rests at
-    opacity 1 in its final position; the only things that end faint are
-    the splats (a 0.45 stain, which is what a splat on glass looks like)
-    and the edge drips, which end off-frame.
-  - `splatPath(seed, arms)` draws the thrown goo from a tiny seeded LCG,
-    so the stains are varied but identical on every device and in every
-    screenshot; a test pins that.
-- **Next season means editing `SEASON_PROMOS` and `PromoSlide.jsx`
-  together** — deliberately hardcoded (owner's choice 2026-09-13),
-  because the art is a recreation of specific printed posters, not
-  something an operator types a date into.
+- Testing: vitest fake timers cannot drive framer-motion (it captured the
+  real `requestAnimationFrame` at import), and Playwright's paused clock
+  does not drive its opacity, so a moving frame has to be sampled in real
+  time (a CDP screencast is far more accurate than repeated screenshots
+  on a loaded machine). Structure and copy are tested in jsdom; the
+  frozen frame is the one deterministic picture.
+- **Next season means editing `SEASON_PROMOS` and the poster files
+  together**. Deliberately hardcoded (owner's choice 2026-09-13), because
+  the art is built on specific printed posters, not something an operator
+  types a date into.
 
 ## The check-in moment (rebrand stage 3)
 

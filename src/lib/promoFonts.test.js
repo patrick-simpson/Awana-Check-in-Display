@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 // The fall promo posters are recreations of printed art and stay exactly as
@@ -8,7 +8,13 @@ import { resolve } from 'node:path';
 // rebranded lobby. app.css gives each side its own tokens; this pins the
 // border between them.
 
-const css = readFileSync(resolve(__dirname, '../styles/app.css'), 'utf8');
+// app.css plus every per-poster stylesheet it @imports (src/styles/promos/).
+const PROMO_DIR = resolve(__dirname, '../styles/promos');
+const css = [
+  readFileSync(resolve(__dirname, '../styles/app.css'), 'utf8'),
+  ...readdirSync(PROMO_DIR).filter((f) => f.endsWith('.css')).sort()
+    .map((f) => readFileSync(resolve(PROMO_DIR, f), 'utf8')),
+].join('\n');
 
 /**
  * Flatten a stylesheet into { selector, body } rules, descending into
@@ -55,7 +61,7 @@ const PROMO_FONT = /var\(--(promo-font-[a-z]+|font-poster)\)/;
 const selectors = (r) => r.selector.split(',').map((s) => s.trim());
 const isPromo = (sel) => /(^|[\s>+~])\.promo[-_a-zA-Z]*/.test(sel);
 
-describe('promo font isolation (app.css)', () => {
+describe('promo font isolation (app.css + styles/promos/)', () => {
   it('parses the stylesheet into a plausible number of rules', () => {
     expect(ALL.length).toBeGreaterThan(300);
     expect(ALL.some((r) => r.selector === '.promo-headline')).toBe(true);

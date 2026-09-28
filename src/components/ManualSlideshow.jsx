@@ -132,9 +132,10 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
   // check-in rush. Video slides with no explicit duration have no timer at
   // all — their <video> ended event drives the advance instead.
   //
-  // The promo slot holds for THE POSTER IT IS SHOWING: the slime cut of BARF
-  // Night has a 15 second beat sheet and the other three say what they have
-  // to say in 8. slideDurationMs stays a pure function of one slide; the
+  // The promo slot holds for THE POSTER IT IS SHOWING: each descriptor
+  // carries its own hold (all four showreels run 15 seconds today, but the
+  // number belongs to the poster, not the slot). slideDurationMs stays a
+  // pure function of one slide; the
   // slideshow just hands it the promo rather than the slot when the promo
   // names its own hold.
   const held = promo?.durationSec != null ? promo : slide;

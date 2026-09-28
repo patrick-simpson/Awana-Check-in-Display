@@ -42,12 +42,11 @@ import { showDate, slideInWindow } from './slides.js';
 
 /** @type {ReadonlyArray<SeasonPromo>} */
 export const SEASON_PROMOS = [
-  { id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', showFrom: '2026-09-01', durationSec: 8 },
-  { id: 'promo_friend', kind: 'friend', eventDate: '2026-10-14', showFrom: '2026-09-01', durationSec: 8 },
-  { id: 'promo_parents', kind: 'parents', eventDate: '2026-11-04', showFrom: '2026-09-01', durationSec: 8 },
-  // The slime-soaked hype cut of BARF Night. It says four words the other
-  // posters do not have room for, so it gets nearly twice the hold; see
-  // PROMO_EPIC_DURATION_SEC.
+  { id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', showFrom: '2026-09-01', durationSec: 15 },
+  { id: 'promo_friend', kind: 'friend', eventDate: '2026-10-14', showFrom: '2026-09-01', durationSec: 15 },
+  { id: 'promo_parents', kind: 'parents', eventDate: '2026-11-04', showFrom: '2026-09-01', durationSec: 15 },
+  // The slime-soaked hype cut of BARF Night, the fourth poster the printer
+  // never made.
   { id: 'promo_barf_epic', kind: 'barfEpic', eventDate: '2026-10-14', showFrom: '2026-09-01', durationSec: 15 },
 ];
 
@@ -59,18 +58,12 @@ export const CONTEST_DATE = '2026-10-14';
 // without a second copy of the date (the two events are chained).
 export const PARENTS_DATE = '2026-11-04';
 
-// Longer than a text slide's default hold, short enough that the deck
-// keeps moving: a promo plays a 1.5 s entrance, turns its detail line
-// over at 1.6 / 3.8 / 6.0 s and beats once at 4.0 s, which is the whole
-// of what it has to say. Twelve seconds left it sitting still.
-export const PROMO_DURATION_SEC = 8;
-
-// The slime cut of BARF Night runs a long beat sheet: four words that stack
-// into a poster, then the lower third, the date, the reward line and the
-// closer. So it holds nearly twice as long as the others, which is the
-// reason a promo carries its OWN durationSec. One hold for the whole slot
-// would either rush this one or leave the other three sitting still.
-export const PROMO_EPIC_DURATION_SEC = 15;
+// Every poster is a 15 second showreel (owner's call, 2026-09-28): a full
+// motion-design sequence that lands on the finished printed poster. Each
+// descriptor still carries its OWN durationSec, which is what the
+// slideshow actually holds for; this is the slot's fallback and the clock
+// every poster's beat sheet is written against (promos/kit.jsx).
+export const PROMO_DURATION_SEC = 15;
 
 /**
  * @param {any} slide
