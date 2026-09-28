@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import { getAllClubs } from '../lib/clubs.js';
 import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
+import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
 
 export default function DebugPanel({
   onSimulate, onSimulateRecap, onSimulateOps, onSimulateTonight, onSimulateNotice, onClearNotice,
@@ -170,20 +171,27 @@ export default function DebugPanel({
 
   return (
     <div className="debug">
-      <h3>Debug · Simulate check-ins</h3>
-      <div className="debug-stats">
-        <span>pusher: {status ?? 'unknown'}</span>
-        <span>
-          last event: {lastEventAt
-            ? new Date(lastEventAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })
-            : 'none'}
-        </span>
-        <span>queued: {pending ?? 0}</span>
-        <span>phase: {phase ?? 'unknown'}</span>
-        <span>seen ids: {seen.size}</span>
-        <span>printer problems: {opsFailures?.length ?? 0}</span>
-        <span>wake lock: {wakeLockStatus ?? 'unknown'}</span>
+      {/* The operator panels' header band: the mark, the title and the live
+          readouts as keyline chips. The simulators scroll under it; Close
+          stays pinned at the foot, so a 720p screen can always get out. */}
+      <div className="debug-header">
+        <img className="panel-mark" src={awanaClubsMark} alt="" draggable="false" />
+        <h3>Debug · Simulate check-ins</h3>
+        <div className="debug-stats">
+          <span>pusher: {status ?? 'unknown'}</span>
+          <span>
+            last event: {lastEventAt
+              ? new Date(lastEventAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })
+              : 'none'}
+          </span>
+          <span>queued: {pending ?? 0}</span>
+          <span>phase: {phase ?? 'unknown'}</span>
+          <span>seen ids: {seen.size}</span>
+          <span>printer problems: {opsFailures?.length ?? 0}</span>
+          <span>wake lock: {wakeLockStatus ?? 'unknown'}</span>
+        </div>
       </div>
+      <div className="debug-actions">
       <button onClick={standard}>Standard welcome</button>
       <button onClick={birthday}>Birthday welcome</button>
       <button onClick={firstTimer}>First-timer welcome</button>
@@ -214,8 +222,11 @@ export default function DebugPanel({
           would — without this there was no way to take it off a public
           screen short of a reload. */}
       {onClearNotice && <button onClick={onClearNotice}>Clear notice banner</button>}
-      <button onClick={onClose}>Close</button>
-      <span className="close-hint">Toggle with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></span>
+      </div>
+      <div className="debug-footer">
+        <span className="close-hint">Toggle with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd></span>
+        <button onClick={onClose}>Close</button>
+      </div>
     </div>
   );
 }
