@@ -96,10 +96,23 @@ describe('ManualSlideshow', () => {
     expect(shows('First slide')).toBe(true);
   });
 
-  it('honors an explicit per-slide text size over the auto bucket', () => {
-    const forced = [{ ...deck[0], textSize: 'md' }];
-    const { container } = render(<ManualSlideshow slides={forced} slideshowDelaySec={5} />);
-    expect(container.querySelector('.manual-slide-text.slide-size-md')).toBeTruthy();
+  it('honors an explicit per-slide text size over the auto bucket, all the way to the fitted headline', () => {
+    const headline = (textSize) => {
+      const { container, unmount } = render(<ManualSlideshow slides={[{ ...deck[0], textSize }]} slideshowDelaySec={5} />);
+      const el = container.querySelector('.manual-slide-text');
+      const out = { cls: el.className, size: el.style.fontSize };
+      unmount();
+      return out;
+    };
+    const auto = headline('auto');
+    expect(auto.cls).toContain('lobby-headline--shout');
+    expect(auto.size).toBe('calc(7.2 * var(--u))');
+    const lg = headline('lg');
+    expect(lg.cls).toContain('lobby-headline--shout');
+    expect(lg.size).toBe('calc(5.8 * var(--u))');
+    const md = headline('md');
+    expect(md.cls).toContain('lobby-headline--read');
+    expect(md.size).toBe('calc(4.2 * var(--u))');
   });
 });
 
@@ -341,7 +354,7 @@ describe('ManualSlideshow as the lobby director sees it (rebrand stage 4)', () =
   it('sweeps the stinger over any change that involves a held slide, and only then', () => {
     const { container } = render(<ManualSlideshow slides={[deck[0], deck[2], held]} slideshowDelaySec={5} />);
     expect(container.querySelector('.slide-stinger')).toBeNull();
-    act(() => vi.advanceTimersByTime(5000)); // ordinary → ordinary: a crossfade
+    act(() => vi.advanceTimersByTime(5000)); // ordinary → ordinary: a hand-off
     expect(container.querySelector('.slide-stinger')).toBeNull();
     act(() => vi.advanceTimersByTime(5000)); // → the held slide: the wipe
     expect(container.querySelectorAll('.slide-stinger')).toHaveLength(1);
@@ -362,8 +375,6 @@ describe('ManualSlideshow on the lobby scene (rebrand stage 4b)', () => {
     { id: 's_2', eyebrow: 'Next club night', text: 'Making bracelets', theme: 'sky', durationSec: 0 },
   ];
   const held = { id: 's_h', eyebrow: 'Important', text: 'Pick-up is at the gym doors', theme: 'sky', durationSec: 5, holdCheckIns: true };
-  const promo = { id: 'season_promo', type: 'promo', durationSec: 8, promos: [{ id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', tonight: false, countdown: '3 club nights left', afterContest: false }] };
-
   it('keeps the studio across an ordinary change: same scene, same field, same corner tab', () => {
     const { container } = render(<ManualSlideshow slides={sky} slideshowDelaySec={5} />);
     const scene = container.querySelector('.catalog-scene');
@@ -379,7 +390,13 @@ describe('ManualSlideshow on the lobby scene (rebrand stage 4b)', () => {
   it('the incoming words wait, invisible, while the outgoing ones lift away', () => {
     const { container } = render(<ManualSlideshow slides={sky} slideshowDelaySec={5} />);
     act(() => vi.advanceTimersByTime(5000));
-    const incoming = [...container.querySelectorAll('.lobby-copy')].find((c) => c.textContent.includes('Making'));
+    const all = [...container.querySelectorAll('.lobby-copy')];
+    // The outgoing copy is still on screen, leaving (AnimatePresence keeps it
+    // until its exit ends); the wiring of both halves is pinned in
+    // lobbyWiring.test.jsx.
+    expect(all).toHaveLength(2);
+    expect(all.some((c) => c.textContent.includes('Bring your handbook'))).toBe(true);
+    const incoming = all.find((c) => c.textContent.includes('Making'));
     for (const w of incoming.querySelectorAll('.lobby-word, .lobby-kicker')) expect(w.style.opacity).toBe('0');
   });
 
@@ -402,15 +419,9 @@ describe('ManualSlideshow on the lobby scene (rebrand stage 4b)', () => {
     expect(container.querySelector('.catalog-scene--night')).not.toBeNull();
   });
 
-  it('sends the corner tab and the waves aside for a poster, and calls them back', () => {
-    const { container } = render(<ManualSlideshow slides={[sky[0], promo]} slideshowDelaySec={5} />);
-    expect(container.querySelector('.lobby-chrome--away')).toBeNull();
-    act(() => vi.advanceTimersByTime(5000));
-    expect(container.querySelector('.lobby-chrome--away')).not.toBeNull();
-    expect(container.querySelector('.promo-slide--contest')).not.toBeNull();
-    act(() => vi.advanceTimersByTime(8000));
-    expect(container.querySelector('.lobby-chrome--away')).toBeNull();
-  });
+  // Where the chrome goes for a poster and for a video, and when, is pinned
+  // at the wiring (lobbyWiring.test.jsx) and in the styles it ends at
+  // (CatalogScene.test.jsx).
 
   it('under zero animation a change is a cut: one copy on screen, never two', () => {
     const { container } = render(

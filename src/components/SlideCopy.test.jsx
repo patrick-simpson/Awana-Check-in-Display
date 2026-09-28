@@ -6,7 +6,7 @@ import SlideCopy from './SlideCopy.jsx';
 afterEach(cleanup);
 
 const FRAME = { kicker: 'Next club night', headline: 'Making Bracelets', sub: 'Bring a friend', chip: { label: 'WED', value: 'SEP 30' }, textSize: 'auto' };
-const pieces = (c) => [...c.querySelectorAll('.lobby-kicker, .lobby-word, .lobby-line, .lobby-sub, .lobby-chip')];
+const pieces = (c) => [...c.querySelectorAll('.lobby-kicker, .lobby-word, .lobby-sub, .lobby-chip')];
 const atRest = (el) => (el.style.opacity === '' || el.style.opacity === '1') && (el.style.transform === '' || el.style.transform === 'none');
 
 describe('SlideCopy', () => {
@@ -58,10 +58,45 @@ describe('SlideCopy', () => {
     await waitFor(() => { for (const el of pieces(container)) expect(atRest(el)).toBe(true); }, { timeout: 150 });
   });
 
-  it('a long announcement reads instead of shouting', () => {
+  it('a long announcement reads instead of shouting, one element per word, rows split by <br>', () => {
     const text = 'Parents, please remember that pick-up is at the gym doors this week while the lobby floor is refinished.';
     const { container } = render(<SlideCopy frame={{ ...FRAME, headline: text, chip: null, sub: '' }} still />);
-    expect(container.querySelector('.lobby-headline--read')).not.toBeNull();
-    expect(container.querySelector('.lobby-headline').textContent).toBe(text);
+    const headline = container.querySelector('.lobby-headline--read');
+    expect(headline).not.toBeNull();
+    expect(headline.textContent).toBe(text);
+    expect(headline.querySelectorAll('.lobby-word')).toHaveLength(text.split(' ').length);
+    expect(headline.querySelectorAll('br').length).toBeGreaterThan(0);
+  });
+
+  it('sets its own direction from its text, so a Hebrew headline\'s words run right to left', () => {
+    const { container } = render(<SlideCopy frame={{ ...FRAME, kicker: 'השבוע', headline: 'ברוכים הבאים לאוואנה' }} still />);
+    for (const sel of ['.lobby-kicker', '.lobby-headline', '.lobby-sub']) expect(container.querySelector(sel).getAttribute('dir')).toBe('auto');
+  });
+
+  it('joins the words of a sentence with no spaces with nothing', () => {
+    const text = '欢迎来到今晚的俱乐部活动请带上你的手册和圣经';
+    const { container } = render(<SlideCopy frame={{ ...FRAME, headline: text, sub: '', chip: null }} still />);
+    const headline = container.querySelector('.lobby-headline');
+    expect(headline.textContent).toBe(text);
+    expect(headline.querySelectorAll('.lobby-word').length).toBeGreaterThan(3);
+  });
+
+  it('a word too wide for any line wraps inside the read layout\'s width, on rows of its own', () => {
+    const url = 'https://kvbc.example.org/awana/registration/2026-27/fall-family-sign-up-form?ref=lobby-tv&utm_source=signage&utm_campaign=fall-welcome-26';
+    const { container } = render(<SlideCopy frame={{ ...FRAME, kicker: '', headline: `Register at ${url} tonight`, sub: '', chip: null }} still />);
+    const wide = container.querySelector('.lobby-word--wide');
+    expect(wide.textContent).toBe(url);
+    expect(wide.style.maxWidth).toBe('calc(76 * var(--u))');
+    // It is a block of its own, so no <br> sits beside it to add an empty row.
+    expect(wide.previousElementSibling?.tagName).not.toBe('BR');
+    expect(wide.nextElementSibling?.tagName).not.toBe('BR');
+    expect(container.querySelector('.lobby-headline').textContent).toBe(`Register at ${url} tonight`);
+  });
+
+  it('a long kicker wraps to two lines instead of running off the screen', () => {
+    const { container } = render(<SlideCopy frame={{ ...FRAME, kicker: '通'.repeat(60) }} still />);
+    const kicker = container.querySelector('.lobby-kicker');
+    expect(kicker.querySelectorAll('br')).toHaveLength(1);
+    expect(kicker.textContent).toBe('通'.repeat(60));
   });
 });

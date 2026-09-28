@@ -219,12 +219,71 @@ export function nextTransition(seen, next) {
   };
 }
 
+/* ── The chrome (the corner tab and the house waves) ─────────────── */
+
+/**
+ * Where the lobby's chrome is: at HOME, stepped ASIDE (the tab up and out,
+ * the waves down and out) or HIDDEN where it stands.
+ * @typedef {'home' | 'aside' | 'hidden'} ChromeSpot
+ */
+
+/**
+ * Where the chrome goes for the slide now showing: home for words; for a
+ * video or a poster, aside when it came on an ordinary change and hidden
+ * when it came under the stinger. While it is away it stays where it went.
+ * @param {ChromeSpot} spot where it is now
+ * @param {boolean} away whether the slide now showing wants it out of the way
+ * @param {Via | string} via how that slide arrived
+ * @returns {ChromeSpot}
+ */
+export function chromeSpot(spot, away, via) {
+  if (!away) return 'home';
+  if (spot !== 'home') return spot;
+  return via === 'wipe' ? 'hidden' : 'aside';
+}
+
+/**
+ * One piece of the chrome (`off` is its way out: '-112%' for the tab,
+ * '112%' for the waves) going from one spot to another, as framer-motion's
+ * animate and transition, or at rest in `to` when `from` is null.
+ *
+ * Under the stinger it moves only while the wave covers the screen, in one
+ * frame at SWAP_AT, both ways, as the mockup's wipe() repaints it; and it
+ * goes by opacity, with any move of y hidden behind it. That is not a
+ * transform alone because the app honours the OS's reduced motion
+ * (MotionConfig reducedMotion="user"), and framer-motion then makes every
+ * transform instant, delay and keyframe times and all: a y move timed to the
+ * swap jumped at t=0, in plain view, with no stinger to hide it. Opacity
+ * keyframes are never reduced, so they hold, then land, on time either way.
+ * Otherwise (a video that came or went on an ordinary change) it slides on
+ * the wipe curve.
+ *
+ * @param {ChromeSpot | null} from
+ * @param {ChromeSpot} to
+ * @param {Via | string} via
+ * @param {string} off
+ */
+export function chromeMove(from, to, via, off) {
+  /** @param {ChromeSpot} spot */
+  const at = (spot) => ({ y: spot === 'aside' ? off : '0%', opacity: spot === 'hidden' ? 0 : 1 });
+  if (!from || from === to) return { animate: at(to), transition: { duration: 0 } };
+  const start = at(from);
+  const end = at(to);
+  if (via === 'wipe') {
+    if (start.y !== end.y) start.opacity = 0;
+    const { animate, transition } = holdThenLand(SWAP_AT, 0.01, start, end, 'linear');
+    return { animate, transition };
+  }
+  const { animate, transition } = holdThenLand(0, HANDOFF.chrome, start, end, EASE.wipe);
+  return { animate, transition };
+}
+
 /**
  * @typedef {{ index: number, at: number }} Beat
  * @typedef {{
  *   pieces: number,
  *   kicker: Beat | null,
- *   lines: Array<Beat & { words: Array<Beat & { text: string }> }>,
+ *   tokens: Beat[],
  *   sub: Beat | null,
  *   chip: Beat | null,
  * }} CopyBeats
@@ -232,34 +291,40 @@ export function nextTransition(seen, next) {
 
 /**
  * The beat sheet for one slide's copy: when each piece lands (seconds after
- * mount) and its place in the exit order (kicker, words or lines, the
- * supporting line, the chip). The kicker lands first, the headline's words
- * one by one (a read-layout headline line by line), the supporting line
- * after them and the chip pops last, all after `hold`.
+ * mount) and its place in the exit order (kicker, headline, the supporting
+ * line, the chip). The kicker lands first; a shouted headline word by word,
+ * a read one row by row (every token on a row shares its beat and leaves
+ * with it); the supporting line after them and the chip pops last, all after
+ * `hold`. One beat per headline token, whatever the layout, so a refit (a web
+ * font landing late) can re-lay the same elements out without replaying them.
  *
- * @param {{ kicker: unknown, headline: { mode: 'shout' | 'read', lines: string[][] }, sub: unknown, chip: unknown }} fit
+ * @param {{ kicker: unknown, headline: { mode: 'shout' | 'read', tokens: unknown[], starts: number[] }, sub: unknown, chip: unknown }} fit
  * @param {number} hold
  * @returns {CopyBeats}
  */
 export function copyBeats(fit, hold) {
   let index = 0;
   const kicker = fit.kicker ? { index: index++, at: hold } : null;
-  const shout = fit.headline.mode === 'shout';
-  let word = 0;
-  const lines = fit.headline.lines.map((line, li) => {
-    const at = hold + HANDOFF.wordAt + HANDOFF.lineStagger * li;
-    const lineBeat = shout ? { index: -1, at } : { index: index++, at };
-    const words = shout
-      ? line.map((text) => {
-        const beat = { text, index: index++, at: hold + HANDOFF.wordAt + HANDOFF.wordStagger * word };
-        word += 1;
-        return beat;
-      })
-      : [];
-    return { ...lineBeat, words };
+  const { mode, tokens, starts } = fit.headline;
+  const shout = mode === 'shout';
+  // The row each token starts on (a token cut across rows starts on its first).
+  /** @type {number[]} */
+  const rowOf = [];
+  let row = 0;
+  for (let t = 0; t < tokens.length; t += 1) {
+    const first = starts.indexOf(t);
+    if (first >= 0) row = first;
+    rowOf.push(row);
+  }
+  /** @type {Map<number, number>} */
+  const rowIndex = new Map();
+  const tokenBeats = tokens.map((_, t) => {
+    if (shout) return { index: index++, at: hold + HANDOFF.wordAt + HANDOFF.wordStagger * t };
+    if (!rowIndex.has(rowOf[t])) rowIndex.set(rowOf[t], index++);
+    return { index: /** @type {number} */ (rowIndex.get(rowOf[t])), at: hold + HANDOFF.wordAt + HANDOFF.lineStagger * rowOf[t] };
   });
-  const landed = hold + HANDOFF.wordStagger * (shout ? word : lines.length);
+  const landed = hold + HANDOFF.wordStagger * (shout ? tokens.length : starts.length);
   const sub = fit.sub ? { index: index++, at: landed + HANDOFF.wordAt + HANDOFF.lineStagger } : null;
   const chip = fit.chip ? { index: index++, at: landed + HANDOFF.chipAt + (sub ? HANDOFF.lineStagger : 0) } : null;
-  return { pieces: index, kicker, lines, sub, chip };
+  return { pieces: index, kicker, tokens: tokenBeats, sub, chip };
 }

@@ -11,8 +11,9 @@
 
 /* Galindo at the pre-rebrand footprint. Galindo sets 14-28% wider than the
    Baloo 2 Black it replaced (18% typical) with 18% taller caps, and every
-   rule still written against --font-display (slide text, calendar titles,
-   banner names, the ticker) was sized for Baloo: at true size a max-length
+   rule still written against --font-display (banner names, the ticker and
+   the other surfaces not yet rebuilt; the lobby's slide headlines moved to
+   --font-shout in stage 4b) was sized for Baloo: at true size a max-length
    typed slide no longer fit and long names broke mid-word at 1280x720.
    This alias draws the same files at 82%, which lands within a few percent
    of Baloo's width and cap height, so those rules keep their old fit. It is
@@ -347,18 +348,19 @@ html, body, #root {
   font-weight: 800;
   color: var(--lobby-sub);
 }
-.lobby-line {
-  display: block;
-  white-space: nowrap;
-}
-/* Only a single word wider than the whole box (a pasted URL) may break. */
-.lobby-headline--overflow,
-.lobby-headline--overflow .lobby-line {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
+/* Every headline token is its own box, in both layouts, so a refit keeps
+   the same elements (SlideCopy.jsx); the rows are split by <br>. */
 .lobby-word {
   display: inline-block;
+}
+/* Only a word wider than any line (a pasted URL) may break: it takes rows of
+   its own and wraps inside the read layout's width (set inline from the
+   fit), never across the whole screen. */
+.lobby-word--wide {
+  display: block;
+  margin-inline: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .lobby-sub {
   margin: 0;

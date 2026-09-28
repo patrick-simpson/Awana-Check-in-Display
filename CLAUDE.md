@@ -67,7 +67,8 @@ mechanisms, because framer-motion and CSS need different enforcement:
   will animate even under `?lowPower=1`, silently reintroducing the bug
   this exists to prevent. `AnimatePresence`/`MotionConfig` are unaffected
   and still come straight from `'framer-motion'`.
-- **Plain CSS** `@keyframes`/`transition` rules (the doodle-scene drift,
+- **Plain CSS** `@keyframes`/`transition` rules (the lobby's ambient
+  `lobby-drift-*` / `lobby-float` / `lobby-twinkle` / `lobby-roll` loops,
   the connecting-status pulse, the cozy-filter fade, and any future one)
   don't go through React, so they need a separate kill switch: `App.jsx`
   toggles a `zero-animation-mode` class on `<html>` from the same
@@ -131,9 +132,11 @@ and `doodles/`. Read its README before changing it.
   everything built from the kit (`src/components/brand/`, and each surface as
   its stage rebuilds it). `--font-display` is the same files drawn at 82% (the
   `'Galindo Fit'` @font-face in app.css), so rules still sized for the old
-  Baloo 2 (typed slides, calendar titles, banner names, the ticker) keep their
-  fit: at true size a max-length slide overflowed and long names broke
-  mid-word at 720p. Move a rule to `--font-shout` only when you re-size it.
+  Baloo 2 (banner names, the ticker and the other surfaces not yet rebuilt)
+  keep their fit: at true size a max-length slide overflowed and long names
+  broke mid-word at 720p. Move a rule to `--font-shout` only when you re-size
+  it, as stage 4b did for the lobby's headlines (typed and calendar slides
+  now shout in `--font-shout`, sized by the fit in `src/lib/lobbyFrame.js`).
   Both stacks fall back to Baloo 2 for the letters Galindo lacks (Ș, Ț,
   Vietnamese), which is why the Baloo import outlives the promos.
 - **The posters keep their own faces.** `--promo-font-*` and `--font-poster`
@@ -349,7 +352,8 @@ The typed slideshow and the check-in queue take turns instead of competing
   not held); unmounting the slideshow reports `special: false`.
 - **The stinger.** A change that involves a held slide sweeps a full-screen
   house wave over the lobby and swaps the slides while it covers; ordinary
-  changes crossfade. It ends off-screen, so `?lowPower=1` never shows it.
+  changes hand off instead (see the next section). It ends off-screen, so
+  `?lowPower=1` never shows it.
 - **`holdCheckIns` on the wire** is contract v5's optional slide field, literal
   `true` or absent, never false (printer 6.16.0 publishes it;
   `sanitizeSlidesChunk` and `sanitizeSlides` keep only `true`). Changing it
@@ -364,6 +368,64 @@ The typed slideshow and the check-in queue take turns instead of competing
 - **Problem indicators are not corner info.** The status sticker (connection,
   printer failures, name faults, layer faults) shows whenever there is a
   problem, on any slide.
+
+## The lobby scene and the slide frame (rebrand stage 4b)
+
+Everything behind the check-in moment is one scene, `src/components/CatalogScene.jsx`,
+and one copy frame on it, `src/components/SlideCopy.jsx`: the idle placeholder,
+typed slides and calendar slides all use both, and so do the slide editor's
+thumbnails (`still`, at `--lobby-u: 16px` in the 1600x900 frame, so a
+thumbnail is the TV at 0.15 scale and fits the same way).
+
+- **One persistent studio, only the copy changes.** The field (flat colour,
+  two tone-on-tone clouds, white kit doodles, CSS ambient loops that end at
+  rest) and the chrome (the orange corner tab with the Awana Clubs mark, the
+  sunflower and orange house waves) never remount on a slide change. The
+  field crossfades only when two slides want different themes; seasonal skins
+  still dress the idle scene (`sceneForSkin` picks its theme, and
+  `.stage[data-skin]` prints the season's two offsets behind the idle
+  headline). Colours come from `LOBBY_THEMES` in `src/lib/lobbyFrame.js`.
+- **An ordinary change is a copy-only hand-off** (`src/lib/lobbyMotion.js`):
+  the outgoing kicker, words and chip lift away one after another, the orange
+  house wave swells once, then the next kicker, words and chip land, about a
+  second end to end. The swell is keyed by a hand-off count and its keyframes
+  stay on the wave while the count stands: framer-motion replays a target that
+  goes and comes back. A change into or out of a held slide keeps the stinger,
+  and everything under it (copy, field, media, chrome) changes in one frame at
+  `SWAP_AT` while the wave covers the screen.
+- **The chrome steps aside for a poster or a video.** Under the stinger it is
+  hidden and brought back by OPACITY at the swap (`chromeMove`), never by a
+  transform alone: the app honours the OS's reduced motion, and framer-motion
+  then makes every transform instant, delay and all, while opacity keyframes
+  still hold, then land, on time. A video that comes or goes on an ordinary
+  change slides the tab up and the waves down on the wipe curve.
+- **Keyframes, not delays.** Every beat is one "hold, then land" keyframe list
+  (`holdThenLand` / `holdThenLeave` / `vanishAtSwap`), never `initial` plus a
+  long `delay` (a delayed opacity paints its target early), and the last
+  keyframe is always the resting design, which is what `?lowPower=1` shows.
+- **The fit (`fitFrame`) measures words in the faces that draw them** and
+  never lets the block leave the safe box (u = 1% of the 16:9 stage). Shout
+  (uppercase Galindo, `--font-shout`, hard offset shadow): up to three lines
+  of at most 68u from 7.2u down to 6u, then up to two lines of 84u down to 5u;
+  `lg` caps it at 5.8u, `md` always reads. Otherwise read (sentence-case
+  Figtree in the theme's reading ink): balanced rows of at most 76u from 4.2u
+  down to 1.5u. The block starts at 15.1u and rises only as far as 11u, and a
+  row wider than 45u stops at 14u, clear of the corner tab and the top-right
+  stack (which is rem-sized and reaches 13.2u at 1280x720); nothing passes
+  45u, clear of the house waves and the bottom chip. Lines break only between
+  tokens: words, and the words `Intl.Segmenter` finds in Chinese, Japanese and
+  Thai (joined with nothing). The operator's line breaks are kept down to
+  1.5u, then run on separated by " · ". A word wider than any line keeps a
+  readable size (at least 2.4u) and wraps on rows of its own inside 76u. A
+  kicker wraps to two lines before it shrinks below 1.6u and never runs wider
+  than 84u. Copy takes its direction from its text (`dir="auto"`).
+- **A refit never replays.** Every headline token is one element in both
+  layouts, keyed by its place, and the beat sheet is fixed when the copy first
+  appears, so a web font landing late only re-lays the same elements out.
+- **The calendar's `frame` field is local-only.** `buildCalendarSlides` adds
+  `frame` (headline, sub, date chip) for the lobby; `sanitizeSlides` and the
+  wire contract never accept it, so a published or typed slide can never
+  carry one. Its wording is the calendar's, unchanged.
 
 ## Tonight counter: the printer's tally is the source of truth
 

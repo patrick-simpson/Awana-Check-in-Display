@@ -7,7 +7,7 @@
 > [TRADEMARKS.md](TRADEMARKS.md) before reusing anything here, especially
 > the bundled club artwork.
 
-A joyful welcome screen for your Awana club, styled after the official Awana Clubs catalog — chunky rounded type, sparkle doodles, wavy shapes and warm orange gradients. Runs full-screen on a TV or projector, loops your PowerPoint in the background, and reacts to each child's check-in with a celebratory banner, confetti, and an optional chime.
+A joyful welcome screen for your Awana club, styled after the official Awana Clubs catalog — chunky rounded type, sparkle doodles, wavy shapes and the catalog's warm orange. Runs full-screen on a TV or projector, loops your PowerPoint in the background, and reacts to each child's check-in with a celebratory banner, confetti, and an optional chime.
 
 - **Catalog-true club theming** — every banner uses the club's real color, age range, and tagline (Sparks red with "Grades K–2", Cubbies royal blue with "Ages 3–5", and so on).
 - **Birthday mode** — falling gifts, fireworks, and "Happy Birthday, [Name]!"

@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { DUR } from './brand.js';
+import { DUR, EASE } from './brand.js';
 import {
   HANDOFF, STINGER_SEC, SWAP_AT,
-  copyBeats, entranceHold, exitDelay, firstTransition, holdThenLand, holdThenLeave,
+  chromeMove, chromeSpot, copyBeats, entranceHold, exitDelay, firstTransition, holdThenLand, holdThenLeave,
   nextTransition, swellKeyframes, vanishAtSwap,
 } from './lobbyMotion.js';
 
@@ -73,31 +73,87 @@ describe('hold, then land', () => {
 });
 
 describe('copyBeats', () => {
-  const fit = (over = {}) => ({ kicker: { text: 'This week' }, headline: { mode: 'shout', lines: [['Bring', 'your'], ['handbook']] }, sub: null, chip: { label: 'WED' }, ...over });
+  const fit = (over = {}) => ({
+    kicker: { text: 'This week' },
+    headline: { mode: 'shout', tokens: [{ text: 'Bring' }, { text: 'your' }, { text: 'handbook' }], starts: [0, 2] },
+    sub: null,
+    chip: { label: 'WED' },
+    ...over,
+  });
 
   it('lands the kicker, then each word in order, then the chip', () => {
     const b = copyBeats(fit(), 0.5);
-    const words = b.lines.flatMap((l) => l.words);
     expect(b.kicker.at).toBe(0.5);
-    expect(words.map((w) => w.text)).toEqual(['Bring', 'your', 'handbook']);
-    for (let i = 1; i < words.length; i += 1) expect(words[i].at).toBeGreaterThan(words[i - 1].at);
-    expect(b.chip.at).toBeGreaterThan(words.at(-1).at);
+    expect(b.tokens).toHaveLength(3);
+    expect(b.tokens[0].at).toBeCloseTo(0.5 + HANDOFF.wordAt);
+    for (let i = 1; i < b.tokens.length; i += 1) expect(b.tokens[i].at - b.tokens[i - 1].at).toBeCloseTo(HANDOFF.wordStagger);
+    expect(b.chip.at).toBeGreaterThan(b.tokens.at(-1).at);
     expect(b.pieces).toBe(5);
-    expect([b.kicker.index, ...words.map((w) => w.index), b.chip.index]).toEqual([0, 1, 2, 3, 4]);
+    expect([b.kicker.index, ...b.tokens.map((w) => w.index), b.chip.index]).toEqual([0, 1, 2, 3, 4]);
   });
 
   it('nothing lands before the hold is over', () => {
     const b = copyBeats(fit({ sub: { lines: ['x'] } }), 1.2);
-    const all = [b.kicker, ...b.lines.flatMap((l) => l.words), b.sub, b.chip];
-    for (const beat of all) expect(beat.at).toBeGreaterThanOrEqual(1.2);
+    for (const beat of [b.kicker, ...b.tokens, b.sub, b.chip]) expect(beat.at).toBeGreaterThanOrEqual(1.2);
     expect(b.chip.at).toBeGreaterThan(b.sub.at);
   });
 
-  it('a read-layout headline lands line by line', () => {
-    const b = copyBeats(fit({ kicker: null, chip: null, headline: { mode: 'read', lines: [['a', 'b'], ['c']] } }), 0);
-    expect(b.lines.map((l) => l.index)).toEqual([0, 1]);
-    expect(b.lines.every((l) => l.words.length === 0)).toBe(true);
-    expect(b.pieces).toBe(2);
+  it('a read-layout headline lands row by row: every token on a row shares its beat and its exit', () => {
+    const b = copyBeats(fit({
+      kicker: null,
+      chip: null,
+      headline: { mode: 'read', tokens: [{ text: 'a' }, { text: 'b' }, { text: 'c' }, { text: 'd' }], starts: [0, 2, 2, 3] },
+    }), 0);
+    // Token 2 is a word too wide for a line, cut across rows 1 and 2.
+    expect(b.tokens.map((t) => t.index)).toEqual([0, 0, 1, 2]);
+    expect(b.tokens[1].at).toBe(b.tokens[0].at);
+    expect(b.tokens[2].at - b.tokens[0].at).toBeCloseTo(HANDOFF.lineStagger);
+    expect(b.tokens[3].at - b.tokens[0].at).toBeCloseTo(HANDOFF.lineStagger * 3);
+    expect(b.pieces).toBe(3);
+  });
+});
+
+describe('the chrome', () => {
+  it('goes aside for a video on an ordinary change, hides for anything under the stinger, and stays put while away', () => {
+    expect(chromeSpot('home', false, 'handoff')).toBe('home');
+    expect(chromeSpot('home', true, 'handoff')).toBe('aside');
+    expect(chromeSpot('home', true, 'wipe')).toBe('hidden');
+    expect(chromeSpot('aside', true, 'wipe')).toBe('aside');
+    expect(chromeSpot('hidden', true, 'handoff')).toBe('hidden');
+    expect(chromeSpot('hidden', false, 'wipe')).toBe('home');
+  });
+
+  const cut = ({ animate, transition }) => ({ animate, at: transition.duration * (transition.times?.[1] ?? 0) });
+
+  it('under the stinger it moves only at the swap, in one frame, by opacity, both ways', () => {
+    const out = cut(chromeMove('home', 'hidden', 'wipe', '-112%'));
+    expect(out.animate).toEqual({ y: ['0%', '0%', '0%'], opacity: [1, 1, 0] });
+    expect(out.at).toBeCloseTo(SWAP_AT);
+    const back = cut(chromeMove('hidden', 'home', 'wipe', '-112%'));
+    expect(back.animate).toEqual({ y: ['0%', '0%', '0%'], opacity: [0, 0, 1] });
+    expect(back.at).toBeCloseTo(SWAP_AT);
+    expect(chromeMove('hidden', 'home', 'wipe', '-112%').transition.duration - SWAP_AT).toBeLessThan(0.02);
+  });
+
+  it('coming home under the stinger from aside, the move of y hides behind opacity (a reduced-motion OS makes y instant)', () => {
+    const back = cut(chromeMove('aside', 'home', 'wipe', '112%'));
+    expect(back.animate).toEqual({ y: ['112%', '112%', '0%'], opacity: [0, 0, 1] });
+    expect(back.at).toBeCloseTo(SWAP_AT);
+  });
+
+  it('on an ordinary change it slides on the wipe curve', () => {
+    const { animate, transition } = chromeMove('home', 'aside', 'handoff', '-112%');
+    expect(animate).toEqual({ y: ['0%', '-112%'], opacity: [1, 1] });
+    expect(transition).toMatchObject({ duration: HANDOFF.chrome, ease: EASE.wipe });
+    expect(chromeMove('aside', 'home', 'reveal', '112%').animate).toEqual({ y: ['112%', '0%'], opacity: [1, 1] });
+    // Hidden has no position to rise from: it fades home in place.
+    expect(chromeMove('hidden', 'home', 'reveal', '112%').animate).toEqual({ y: ['0%', '0%'], opacity: [0, 1] });
+  });
+
+  it('at rest it simply sits where it is', () => {
+    expect(chromeMove(null, 'home', 'boot', '-112%').animate).toEqual({ y: '0%', opacity: 1 });
+    expect(chromeMove(null, 'aside', 'boot', '-112%').animate).toEqual({ y: '-112%', opacity: 1 });
+    expect(chromeMove(null, 'hidden', 'boot', '-112%').animate).toEqual({ y: '0%', opacity: 0 });
   });
 });
 

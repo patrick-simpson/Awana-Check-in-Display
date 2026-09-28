@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
 import CatalogScene from './CatalogScene.jsx';
+import { ZeroAnimationContext } from '../lib/motion.jsx';
 
 const scene = (container) => container.querySelector('.catalog-scene');
 const tint = (container) => container.querySelector('.scene-club-tint');
@@ -95,8 +96,47 @@ describe('CatalogScene as the lobby (rebrand stage 4b)', () => {
     expect(container.querySelector('.lobby-field--sky')).not.toBeNull();
   });
 
-  it('steps the chrome aside on request', () => {
-    const { container } = render(<CatalogScene theme="sky" still chromeAway />);
-    expect(container.querySelector('.lobby-chrome--away')).not.toBeNull();
+  // Under zero animation M jumps every value to its last keyframe, so the
+  // styles show where the chrome ends up; framer-motion applies them on its
+  // own frame, which only real timers drive. How and when it moves there is
+  // pinned in lobbyWiring.test.jsx.
+  describe('the chrome, where it ends up', () => {
+    const scene = (away, via) => (
+      <ZeroAnimationContext.Provider value>
+        <CatalogScene theme="sky" chromeAway={away} chromeVia={via} />
+      </ZeroAnimationContext.Provider>
+    );
+    const settle = () => act(() => new Promise((r) => setTimeout(r, 60)));
+    const style = (c, sel) => {
+      const el = c.querySelector(sel);
+      return { opacity: el.style.opacity || '1', transform: el.style.transform || 'none' };
+    };
+    const HOME = { opacity: '1', transform: 'none' };
+
+    it('a poster (under the stinger) hides the tab and the waves where they stand, and brings them back', async () => {
+      const { container, rerender } = render(scene(false, 'boot'));
+      await settle();
+      expect(style(container, '.lobby-tab')).toEqual(HOME);
+      rerender(scene(true, 'wipe'));
+      await settle();
+      expect(style(container, '.lobby-tab')).toEqual({ opacity: '0', transform: 'none' });
+      expect(style(container, '.lobby-waves')).toEqual({ opacity: '0', transform: 'none' });
+      rerender(scene(false, 'wipe'));
+      await settle();
+      expect(style(container, '.lobby-tab')).toEqual(HOME);
+      expect(style(container, '.lobby-waves')).toEqual(HOME);
+    });
+
+    it('a video on an ordinary change sends the tab up and out and the waves down and out, and calls them back', async () => {
+      const { container, rerender } = render(scene(false, 'boot'));
+      rerender(scene(true, 'handoff'));
+      await settle();
+      expect(style(container, '.lobby-tab')).toEqual({ opacity: '1', transform: 'translateY(-112%)' });
+      expect(style(container, '.lobby-waves')).toEqual({ opacity: '1', transform: 'translateY(112%)' });
+      rerender(scene(false, 'reveal'));
+      await settle();
+      expect(style(container, '.lobby-tab')).toEqual(HOME);
+      expect(style(container, '.lobby-waves')).toEqual(HOME);
+    });
   });
 });
