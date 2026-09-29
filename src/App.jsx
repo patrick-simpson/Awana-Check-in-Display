@@ -6,7 +6,7 @@ import Overlay from './components/Overlay.jsx';
 import ParticleLayer from './components/ParticleLayer.jsx';
 import TonightTicker from './components/TonightTicker.jsx';
 import CheckoutBoard from './components/CheckoutBoard.jsx';
-import NoticeBanner from './components/NoticeBanner.jsx';
+import NoticeBanner, { NOTICE_CHECK_MS, noticeShowing } from './components/NoticeBanner.jsx';
 import CornerChip from './components/CornerChip.jsx';
 import StepChip from './components/brand/StepChip.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
@@ -14,9 +14,9 @@ import SlideEditorPanel from './components/SlideEditorPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
 import SetupCard from './components/SetupCard.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
-import { Mark } from './components/Doodles.jsx';
 import StickerChip from './components/StickerChip.jsx';
-import ClubBadge from './components/ClubBadge.jsx';
+import MilestoneToast from './components/MilestoneToast.jsx';
+import UpNextChip from './components/UpNextChip.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useCornerItem } from './hooks/useCornerItem.js';
@@ -35,12 +35,13 @@ import { buildPromoSlot } from './lib/promos.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { BOARD_HIDDEN, decideBoard } from './lib/checkoutBoard.js';
+import { OVERLAY, lobbyRoom } from './lib/overlayFit.js';
 import { birthdayRibbon } from './lib/birthdayWeek.js';
 import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
 import {
   AWARD_MILESTONES, BOOK_MILESTONES, awardMilestoneCopy, bookMilestoneCopy,
-  crossedMilestones, isBigMilestone, nightMilestoneCopy, ordinalNight,
+  crossedMilestones, isBigMilestone, nightMilestoneCopy,
 } from './lib/milestones.js';
 import { setRemoteDefaults } from './hooks/useConfig.js';
 import { FLEET_CONFIG_URL_CHANGE_EVENT, loadFleetConfigUrl, resolveRemoteConfigUrl } from './lib/fleetConfigUrl.js';
@@ -55,6 +56,7 @@ import {
 } from './lib/firstOfNight.js';
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
 import { useBuildReload } from './hooks/useBuildReload.js';
+import { useTallerThan } from './hooks/useTallerThan.js';
 import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
@@ -122,7 +124,7 @@ export default function App() {
   // in turn, so the two never compete for the room. `special` only ever
   // comes from a deck that can move on to an ordinary slide (see
   // ManualSlideshow), so a child can never wait forever.
-  const [slideInfo, setSlideInfo] = useState({ key: 'none', special: false });
+  const [slideInfo, setSlideInfo] = useState({ key: 'none', special: false, poster: false });
   const checkInsHeld = !FLAGS.overlay && slideInfo.special;
   const {
     currentEvent, run: checkInRun, step: checkInStep, enqueue, skipCurrent, pending,
@@ -157,6 +159,60 @@ export default function App() {
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useTheme(config);
 
+  // Who is still waiting to be picked up. Just the latest snapshot — all of the
+  // "may this be on screen, and may it name anyone" judgement lives in the pure
+  // decideBoard() in src/lib/checkoutBoard.js.
+  const [checkout, setCheckout] = useState(null);
+
+  // Re-evaluated on a slow ticker as well as on new data, because the board's
+  // most important transition — going stale when the volunteer closes the
+  // TwoTimTwo tab — happens when NOTHING arrives. An effect keyed only on the
+  // payload would leave a frozen list looking live all night.
+  // `now` is held in state rather than read inside the memo, so the decision
+  // stays a pure function of its inputs and the clock is an explicit dependency.
+  const [boardNow, setBoardNow] = useState(0);
+  useEffect(() => {
+    const advance = () => setBoardNow(Date.now());
+    advance();
+    const t = setInterval(advance, 30000);
+    return () => clearInterval(t);
+  }, [checkout]);   // re-stamp on new data so a fresh board is never shown as aged
+
+  const boardDecision = useMemo(() => decideBoard({
+    checkout,
+    mode: config.checkoutBoardMode,
+    namesAbove: config.checkoutBoardNamesAbove,
+    staleMin: config.checkoutBoardStaleMin,
+    phase,
+    now: boardNow,
+  }), [checkout, config.checkoutBoardMode, config.checkoutBoardNamesAbove,
+    config.checkoutBoardStaleMin, phase, boardNow]);
+
+  // Church-authored announcements (#onNotice): latest one wins, same as
+  // the tally/ops widgets. NoticeBanner picks its presentation from `level`;
+  // whether it is still up is judged HERE, on this one clock, and handed to
+  // the banner, so the room rules below (the copy stepping aside for a
+  // critical notice) and the banner itself can never disagree about it.
+  const [notice, setNotice] = useState(null);
+  const [noticeNow, setNoticeNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNoticeNow(Date.now()), NOTICE_CHECK_MS);
+    return () => clearInterval(t);
+  }, []);
+  const noticeUp = noticeShowing(notice, noticeNow);
+
+  // Who holds which part of the room (src/lib/overlayFit.js lobbyRoom): the
+  // pickup board in the middle or at the foot, a critical notice in the
+  // middle or the top band, and whether the celebrations must wait for a
+  // band that a critical notice holds over the board.
+  const room = lobbyRoom({
+    overlay: FLAGS.overlay,
+    criticalLive: noticeUp && notice?.level === 'critical',
+    boardState: boardDecision.state,
+    phase,
+    checkInUp: currentEvent != null,
+  });
+
   // One celebration at a time. Three milestone paths (night thresholds,
   // per-club, every-Nth) can fire in the same instant — and cluster exactly
   // when the room is busiest, because they're all driven by the same arriving
@@ -165,7 +221,7 @@ export default function App() {
     current: celebration,
     enqueue: enqueueCelebration,
     depth: celebrationDepth,
-  } = useCelebrationQueue(MILESTONE_TOAST_MS, { held: checkInsHeld });
+  } = useCelebrationQueue(MILESTONE_TOAST_MS, { held: checkInsHeld || room.holdCelebrations });
 
   // Confetti fires when a celebration reaches the SCREEN, not when it is
   // queued — otherwise a burst would go off for a toast nobody can see yet.
@@ -307,10 +363,8 @@ export default function App() {
       list(config.awardMilestones, AWARD_MILESTONES), awardMilestoneCopy, 'awards');
   }, [config.bookMilestones, config.awardMilestones, enqueueCelebration]);
 
-  // Church-authored announcements (#onNotice): latest one wins, same as
-  // the tally/ops widgets above. NoticeBanner judges staleness and picks
-  // its own presentation from `level`.
-  const [notice, setNotice] = useState(null);
+  // Church-authored announcements (#onNotice): the state lives above, beside
+  // the room rules it feeds.
   const handleNotice = useCallback((payload) => setNotice(payload), []);
 
   // Every live check-in — real or simulated — plays a banner and bumps
@@ -386,11 +440,6 @@ export default function App() {
       bump(entry.at);
     }
   }, [config.recapMaxAgeMin, hasSeen, markSeen, enqueue, bump]);
-
-  // Who is still waiting to be picked up. Just the latest snapshot — all of the
-  // "may this be on screen, and may it name anyone" judgement lives in the pure
-  // decideBoard() in src/lib/checkoutBoard.js.
-  const [checkout, setCheckout] = useState(null);
 
   // This week's birthday roster (the sealed `birthdays` broadcast). Latest
   // payload wins. The sanitizer emits ONLY { entries } — the wire's `at` is
@@ -618,20 +667,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [tonight?.checkedIn, lastCheckinAt, nameFault]);
 
-  // Re-evaluated on a slow ticker as well as on new data, because the board's
-  // most important transition — going stale when the volunteer closes the
-  // TwoTimTwo tab — happens when NOTHING arrives. An effect keyed only on the
-  // payload would leave a frozen list looking live all night.
-  // `now` is held in state rather than read inside the memo, so the decision
-  // stays a pure function of its inputs and the clock is an explicit dependency.
-  const [boardNow, setBoardNow] = useState(0);
-  useEffect(() => {
-    const advance = () => setBoardNow(Date.now());
-    advance();
-    const t = setInterval(advance, 30000);
-    return () => clearInterval(t);
-  }, [checkout]);   // re-stamp on new data so a fresh board is never shown as aged
-
   // Layer-fault ledger. Every stage layer sits behind an ErrorBoundary keyed on
   // boardNow, so a crashed layer is retried every 30 s instead of being fenced
   // off for the rest of the display's uptime — and each crash is recorded here,
@@ -647,16 +682,6 @@ export default function App() {
     () => Object.keys(layerFaults).filter((l) => boardNow - layerFaults[l].lastAt < LAYER_FAULT_SHOW_MS),
     [layerFaults, boardNow]
   );
-  const boardDecision = useMemo(() => decideBoard({
-    checkout,
-    mode: config.checkoutBoardMode,
-    namesAbove: config.checkoutBoardNamesAbove,
-    staleMin: config.checkoutBoardStaleMin,
-    phase,
-    now: boardNow,
-  }), [checkout, config.checkoutBoardMode, config.checkoutBoardNamesAbove,
-    config.checkoutBoardStaleMin, phase, boardNow]);
-
   // Self-updating (see CLAUDE.md, "Self-updating pages"): a lobby TV that has
   // been running for days picks up a new deploy on its own, but only while the
   // room has nothing to look at. Busy is deliberately generous: a banner (and
@@ -703,13 +728,25 @@ export default function App() {
   const clearShownCorrection = useCallback((shown) => {
     if (shown?.correction) setTallySync((latched) => (latched === shown.correction ? null : latched));
   }, []);
+  // A problem sticker that runs past one line (a fault in words on its strip,
+  // or the retry wording beside the printer's count) stands tall enough that
+  // a chip stacked under it would reach down into a raised headline (the
+  // stack must end by 14u, where a raised wide row starts: OVERLAY.stack).
+  // Measured, since how the words wrap depends on the screen. While it
+  // stands that tall the top slot's item sits out: the weather leaves the
+  // rotation (the bottom corner has no room for a long sky either, beside
+  // the ticker's widest night), and the WAITING chip comes down to the
+  // bottom corner, which a held slide leaves empty. The problem outranks the
+  // sky.
+  const stickerRef = useRef(/** @type {HTMLDivElement | null} */ (null));
+  const stickerTall = useTallerThan(stickerRef, OVERLAY.stack.stickerMax, showStatus);
   const slideDriven = !FLAGS.overlay && config.backgroundSource === 'manual'
     && (autoSlides.length + visibleManualSlides.length) > 1;
   const corner = useCornerItem(
     {
       clock: config.showClock === true,
       tally: config.showTally ? count : 0,
-      weather: showWeatherChip ? weather : null,
+      weather: showWeatherChip && !stickerTall ? weather : null,
       correction: config.showTally ? tallySync : null,
     },
     {
@@ -732,6 +769,10 @@ export default function App() {
   // a name is up the slideshow is paused, so the corner simply holds still;
   // the check-in wave covers the bottom corner anyway.)
   const cornerHidden = FLAGS.overlay || checkInsHeld;
+  // While the sticker stands tall (stickerTall, above) the top slot has no
+  // room under it: the weather sits out, and one already up leaves now
+  // rather than at the next load.
+  const cornerItem = stickerTall && corner.item?.corner === 'top' ? null : corner.item;
 
   // The sync note is opt-out (#351). Gated at RENDER, not at capture, so
   // turning it off in Settings hides one that is already up rather than
@@ -902,6 +943,55 @@ export default function App() {
     return () => document.documentElement.classList.remove('zero-animation-mode');
   }, [config.reduceMotion]);
 
+  // Who holds which part of the room (rebrand stage 4b-2; `room` above, the
+  // bands in src/lib/overlayFit.js). The slide copy steps back behind
+  // whichever holds the middle, the way it does for a name: a critical
+  // notice, or the pickup board while it is the room's focus. The demo,
+  // rehearsal and simplified-mode tabs hanging from the top edge push the
+  // top band down under them.
+  // The simplified-mode confirmation hangs there too: at the bottom it sat
+  // on the tonight strip, which simplified mode keeps.
+  const panicUp = !overlay && config.panicMode === true;
+  const flagCount = [panicUp, demoActive, rehearsalActive].filter(Boolean).length;
+  const flagsUp = flagCount > 0;
+  const bandNoticeUp = noticeUp && notice?.level !== 'critical';
+  // A promo poster is full-bleed art with its own header where the band
+  // sits: a band notice steps aside for it as it does for a toast (a poster
+  // always moves on, since it holds check-ins), and comes back after.
+  const posterHeld = checkInsHeld && slideInfo.poster === true;
+  const stageClass = [
+    'stage',
+    overlay && 'overlay',
+    aprilFools && 'april-fools',
+    currentEvent && !overlay && 'checkin-active',
+    room.critical === 'centre' && 'notice-takeover',
+    room.board === 'centre' && 'board-up',
+    flagsUp && 'has-flags',
+  ].filter(Boolean).join(' ');
+
+  // Arrivals held behind a poster or a marked slide: say how many are
+  // waiting, so the room knows the names are coming. It lives in the top
+  // slot under the status sticker, or in the bottom corner while the sticker
+  // stands tall (see stickerTall).
+  const waitingChip = (
+    <AnimatePresence>
+      {checkInsHeld && pending > 0 && (
+        <M.div
+          key="waiting"
+          className="corner-chip corner-chip--waiting"
+          role="status"
+          aria-label={`${pending} ${pending === 1 ? 'child' : 'children'} waiting to be welcomed`}
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9, transition: { duration: DUR.exit, ease: EASE.exit } }}
+          transition={{ duration: DUR.pop, ease: EASE.pop }}
+        >
+          <StepChip label="WAITING" value={pending} size="calc(2.5 * min(1vw, 1.7778vh))" />
+        </M.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     // "user" makes framer-motion honor the OS-level prefers-reduced-motion
     // setting for every transform animation (the CSS media query and
@@ -918,7 +1008,7 @@ export default function App() {
     <ZeroAnimationContext.Provider value={config.reduceMotion}>
     <MotionConfig reducedMotion={config.reduceMotion ? 'always' : 'user'}>
     <div
-      className={`stage ${overlay ? 'overlay' : ''} ${aprilFools ? 'april-fools' : ''} ${currentEvent && !overlay ? 'checkin-active' : ''}`}
+      className={stageClass}
       data-skin={skin !== 'none' ? skin : undefined}
       style={{
         ...(chroma ? { background: chroma } : null),
@@ -977,7 +1067,13 @@ export default function App() {
           notice must reach an OBS/ProPresenter feed too, not just the
           lobby TV. */}
       <ErrorBoundary label="notice-banner" eventKey={`${notice?.at ?? ''}|${boardNow}`} onError={() => recordLayerFault('notice')}>
-        <NoticeBanner notice={notice} />
+        <NoticeBanner
+          notice={notice}
+          now={noticeNow}
+          yielding={celebration != null || posterHeld}
+          compact={flagsUp}
+          place={room.critical === 'band' ? 'band' : 'centre'}
+        />
       </ErrorBoundary>
 
       {/* The corner info's bottom corner (the time or tonight's tally); the
@@ -987,13 +1083,14 @@ export default function App() {
         <ErrorBoundary label="corner-info" eventKey={boardNow} onError={() => recordLayerFault('corner widgets')}>
           <div className="corner-bottom">
             <CornerChip
-              item={corner.item}
+              item={cornerItem}
               corner="bottom"
               loads={corner.loads}
               hidden={cornerHidden}
               showNote={syncNote}
               size="calc(3.1 * min(1vw, 1.7778vh))"
             />
+            {stickerTall && waitingChip}
           </div>
         </ErrorBoundary>
       )}
@@ -1013,9 +1110,9 @@ export default function App() {
           on, and it yields to an active check-in banner — a child arriving at the
           door outranks the pickup list. All the visibility judgement is in the
           pure decideBoard(); see src/lib/checkoutBoard.js for why it is gated. */}
-      {!overlay && !currentEvent && (
+      {room.board && (
         <ErrorBoundary label="checkout-board" eventKey={boardNow} onError={() => recordLayerFault('pickup board')}>
-          <CheckoutBoard decision={boardDecision} checkout={checkout} calm={config.panicMode === true} />
+          <CheckoutBoard decision={boardDecision} checkout={checkout} calm={config.panicMode === true} placement={room.board} />
         </ErrorBoundary>
       )}
 
@@ -1028,26 +1125,31 @@ export default function App() {
         <div className="corner-stack">
           {showStatus && (
             <StickerChip
+              rootRef={stickerRef}
               className={`status-dot ${status}`}
               label="Signal"
-              tilt={-1}
               aria-live="polite"
               aria-label={`Connection status: ${status}${opsFailures.length ? `, ${opsFailures.length} printer problem(s)` : ''}`}
             >
-              <span className="dot" />
-              <span>
-                {status === 'off' ? 'not set up' : status}
-                {/* While the pipe is down, show what pusher-js is doing
-                    about it — "disconnected" alone reads as dead-forever. */}
-                {status !== 'connected' && retry
-                  ? ` · retry ${retry.attempts}${retry.delaySec ? ` in ~${retry.delaySec}s` : '…'}`
-                  : ''}
-              </span>
-              {opsFailures.length > 0 && (
-                <span className="ops-count" title="Printer problems tonight — see Settings">
-                  ⚠ {opsFailures.length}
+              {/* The kit chip (StepPlate): SIGNAL on the pill, the state on the
+                  block. One line for the pipe (and the printer's count),
+                  then any fault in words on its own sunflower strip. */}
+              <span className="status-line">
+                <span className="dot" />
+                <span className="status-word">
+                  {status === 'off' ? 'not set up' : status}
+                  {/* While the pipe is down, show what pusher-js is doing
+                      about it — "disconnected" alone reads as dead-forever. */}
+                  {status !== 'connected' && retry
+                    ? ` · retry ${retry.attempts}${retry.delaySec ? ` in ~${retry.delaySec}s` : '…'}`
+                    : ''}
                 </span>
-              )}
+                {opsFailures.length > 0 && (
+                  <span className="ops-count" title="Printer problems tonight — see Settings">
+                    ⚠ {opsFailures.length}
+                  </span>
+                )}
+              </span>
               {/* Name faults get WORDS, not a colour. "disconnected" at least
                   tells an operator to look at the network; a silent absence of
                   banners tells them nothing, so this says which side to fix. */}
@@ -1074,139 +1176,43 @@ export default function App() {
               a slide holds check-ins) and cross over in one cell. */}
           <div className="corner-top">
             <CornerChip
-              item={corner.item}
+              item={cornerItem}
               corner="top"
               loads={corner.loads}
               hidden={cornerHidden}
               size="calc(2.5 * min(1vw, 1.7778vh))"
             />
-            {/* Arrivals held behind a poster or a marked slide: say how many
-                are waiting, so the room knows the names are coming. */}
-            <AnimatePresence>
-              {checkInsHeld && pending > 0 && (
-                <M.div
-                  key="waiting"
-                  className="corner-chip corner-chip--waiting"
-                  role="status"
-                  aria-label={`${pending} ${pending === 1 ? 'child' : 'children'} waiting to be welcomed`}
-                  initial={{ opacity: 0, scale: 0.6 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9, transition: { duration: DUR.exit, ease: EASE.exit } }}
-                  transition={{ duration: DUR.pop, ease: EASE.pop }}
-                >
-                  <StepChip label="WAITING" value={pending} size="calc(2.5 * min(1vw, 1.7778vh))" />
-                </M.div>
-              )}
-            </AnimatePresence>
+            {!stickerTall && waitingChip}
           </div>
         </div>
       )}
 
 
-      {/* One toast, three sources — see useCelebrationQueue. `kind` picks the
-          copy and styling; the queue guarantees only one is ever on screen.
-          A club's own milestone ('club' / 'kid') wears that club's palette
-          and wordmark (#332); the room-wide ones stay Awana gold. */}
+      {/* One toast, three sources — see useCelebrationQueue. The queue
+          guarantees only one is ever on screen; MilestoneToast picks the copy,
+          the plate (a club's own colours and wordmark on a club milestone,
+          #332) and its place in the top band. */}
+      <MilestoneToast
+        celebration={celebration}
+        club={celebrationClub}
+        compact={flagsUp}
+        below={room.toastBelow}
+        yielding={room.holdCelebrations}
+        afterNotice={bandNoticeUp}
+      />
+
+      {/* "+N more coming" while a run has a line behind it, as a kit chip on
+          the club's own wave above its mark: the names it counts ride the
+          same wave, so it is only ever up while that wave is (never in the
+          gap between two runs), and on a run's first child it lands with the
+          club's mark, once the wave has risen under it. Hidden while a slide
+          holds check-ins (the WAITING chip counts the line then). */}
       <AnimatePresence>
-        {celebration != null && (
-          <M.div
-            key={`celebration-${celebration.kind}-${celebration.club ?? ''}-${celebration.firstName ?? ''}-${celebration.count}`}
-            className={
-              celebration.kind === 'club'
-                ? 'milestone-toast club-milestone'
-                : celebration.kind === 'night'
-                  ? 'milestone-toast night-milestone'
-                  : celebration.kind === 'kid'
-                    ? 'milestone-toast kid-milestone'
-                    : celebration.kind === 'books' || celebration.kind === 'awards'
-                      // Handbook progress (#358) is a room-wide occasion like a
-                      // night threshold, plus a green edge of its own so the
-                      // room can tell "ten books" from "a hundred kids".
-                      ? `milestone-toast night-milestone handbook-milestone ${celebration.kind}-milestone`
-                      : celebration.kind === 'first'
-                        // The night's opening moment (#335) — see app.css for
-                        // why its identity rides the shadow, not the border.
-                        ? 'milestone-toast first-milestone'
-                        : 'milestone-toast'
-            }
-            style={celebrationClub
-              ? { rotate: 1.1, '--club-primary': celebrationClub.primary }
-              : { rotate: -1.2 }}
-            initial={{ opacity: 0, y: 46, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 280, damping: 16 } }}
-            exit={{ opacity: 0, y: -20, scale: 0.94, transition: { duration: 0.35, ease: 'easeIn' } }}
-          >
-            {/* Corner sparkles twinkle for the whole time the toast is up. */}
-            <M.span
-              className="milestone-sparkle milestone-sparkle--left"
-              aria-hidden
-              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8], rotate: [0, 16, 0] }}
-              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <Mark kind="sparkle" size={30} />
-            </M.span>
-            {/* The club's own wordmark. `rawName` is deliberately NOT passed:
-                an unknown club would otherwise render ClubBadge's title pill,
-                duplicating the text already in .milestone-label. A typo club
-                gets no badge and the warm-orange default confetti — the toast
-                stays exactly as it was. The label wrapper supplies the
-                variant orchestration ClubBadge's own variants expect, which
-                the toast's object animate/initial cannot. */}
-            {celebrationClub?.logo && (
-              <M.span className="milestone-badge" initial="hidden" animate="show">
-                <ClubBadge club={celebrationClub} />
-              </M.span>
-            )}
-            <div className="milestone-lines">
-              {/* `night`, `books` and `awards` all carry their own copy (see
-                  lib/milestones.js), so they read off label/headline rather
-                  than growing a branch each; `club`, `kid` and the every-Nth
-                  `tally` toast compose theirs from the payload. */}
-              <span className="milestone-label">
-                {celebration.kind === 'club' ? celebration.club
-                  : celebration.kind === 'kid' ? `${celebration.firstName}’s`
-                    : celebration.label ? celebration.label
-                      : 'Checked in tonight'}
-              </span>
-              <span className="milestone-count">
-                {celebration.kind === 'club' ? `${celebration.count} kids strong!`
-                  : celebration.kind === 'kid' ? `${ordinalNight(celebration.count)} club night!`
-                    : celebration.headline ? celebration.headline
-                      : `${celebration.count} kids!`}
-              </span>
-            </div>
-            <M.span
-              className="milestone-sparkle milestone-sparkle--right"
-              aria-hidden
-              animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8], rotate: [0, -16, 0] }}
-              transition={{ duration: 2.2, delay: 0.9, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <Mark kind="sparkle" size={36} />
-            </M.span>
-          </M.div>
+        {!overlay && !checkInsHeld && currentEvent != null && pending >= BURST_THRESHOLD && (
+          <UpNextChip key="up-next" pending={pending} rising={checkInStep === 0} />
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {!overlay && !checkInsHeld && pending >= BURST_THRESHOLD && (
-          <M.div
-            key="up-next"
-            className="up-next"
-            style={{ rotate: 0.6 }}
-            initial={{ opacity: 0, y: 16, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1, transition: { type: 'spring', stiffness: 320, damping: 20 } }}
-            exit={{ opacity: 0, y: 16, transition: { duration: 0.3 } }}
-          >
-            +{pending} more coming
-          </M.div>
-        )}
-      </AnimatePresence>
-
-      {!overlay && config.panicMode && (
-        <div className="panic-pill" title="Simplified mode is on — toggle with Ctrl+Shift+X or in Settings → Display">
-          simplified mode
-        </div>
-      )}
 
       {/* Once a simulated event has been fired, say so for the rest of the
           session. A volunteer walking past the lobby TV during training must
@@ -1217,15 +1223,26 @@ export default function App() {
           night, so every banner on this screen is practice. Same rule as
           the demo pill — a passer-by must never mistake a rehearsal banner
           for a real child arriving. Follows the tally flag live. */}
-      {rehearsalActive && (
-        <div className="rehearsal-pill" title="The print server is in rehearsal mode. Check-ins on this screen are practice, not real arrivals.">
-          rehearsal — practice run, not real check-ins
-        </div>
-      )}
-
-      {demoActive && (
-        <div className="demo-pill" title="A simulated event has been fired on this screen. Reload to clear.">
-          demo mode — not real check-ins
+      {/* The demo, rehearsal and simplified-mode flags hang from the top
+          edge as kit tabs, side by side, in their own strip above the top
+          band (which moves down while they hang). */}
+      {flagsUp && (
+        <div className={`top-flags${flagCount > 2 ? ' top-flags--tight' : ''}`}>
+          {panicUp && (
+            <div className="panic-pill" title="Simplified mode is on — toggle with Ctrl+Shift+X or in Settings → Display">
+              simplified mode
+            </div>
+          )}
+          {demoActive && (
+            <div className="demo-pill" title="A simulated event has been fired on this screen. Reload to clear.">
+              demo mode — not real check-ins
+            </div>
+          )}
+          {rehearsalActive && (
+            <div className="rehearsal-pill" title="The print server is in rehearsal mode. Check-ins on this screen are practice, not real arrivals.">
+              rehearsal — practice run, not real check-ins
+            </div>
+          )}
         </div>
       )}
 

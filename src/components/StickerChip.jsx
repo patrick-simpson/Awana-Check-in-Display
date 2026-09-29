@@ -1,39 +1,43 @@
 import { M } from '../lib/motion.jsx';
-import { Mark } from './Doodles.jsx';
+import { DUR, EASE, DOODLES } from '../lib/brand.js';
+import StepPlate from './brand/StepPlate.jsx';
 
 /**
- * Catalog "sticker tab" — the chrome treatment lifted from the catalog's
- * AGES/GRADES badges: a dark rounded tab with a chunky cream die-cut
- * border, a small condensed label tab overlapping its top edge, and an
- * occasional sparkle winking from a corner. Every fixed widget (clock,
- * weather, status, tally) renders inside one so the chrome reads as a
- * set of hand-placed stickers instead of generic glass pills.
+ * A kit chip for content that is more than one value: the catalog's stepped
+ * chip (the corner chips' shape, see StepPlate) with a Londrina label on its
+ * pill tier and the content on the block beneath. The status sticker (the
+ * "SIGNAL" chip in App's corner stack) is the one on the lobby.
  *
- * The root is a M.div so the tilt rides framer-motion's transform
- * (never CSS transform — the two would fight), letting each sticker pop
- * on with a springy little slap. `...rest` forwards role/aria-* straight
- * to the root, so consumers keep their accessibility contracts.
+ * The root is an M.div so the pop-in rides framer-motion (a pop on the
+ * kit's curve, a beat after it mounts), and `tilt` rides framer-motion's
+ * rotate rather than a CSS transform the two would fight over. `...rest`
+ * forwards role / aria-* straight to the root, so consumers keep their
+ * accessibility contracts; `rootRef` reaches the root (App measures the
+ * status sticker's height with it). `sparkle` perches one kit sparkle on the plate's
+ * shoulder, winking now and then; its loop ends at full size, which is
+ * where ?lowPower=1 freezes it.
  */
 const pop = {
-  hidden: { opacity: 0, scale: 0.5 },
-  show: {
-    opacity: 1,
-    scale: 1,
-    transition: { type: 'spring', stiffness: 300, damping: 15 },
-  },
+  hidden: { opacity: 0, scale: 0.6 },
+  show: { opacity: 1, scale: 1, transition: { duration: DUR.pop, ease: EASE.pop } },
 };
+
+const SPARK = DOODLES.sparkle;
 
 export default function StickerChip({
   label,
   tilt = 0,
   sparkle = false,
   sparkleDelay = 0,
+  plate,
   className = '',
+  rootRef,
   children,
   ...rest
 }) {
   return (
     <M.div
+      ref={rootRef}
       className={`sticker-chip ${className}`.trim()}
       style={{ rotate: tilt }}
       variants={pop}
@@ -41,18 +45,20 @@ export default function StickerChip({
       animate="show"
       {...rest}
     >
-      {label && (
-        <span className="sticker-chip-label" aria-hidden>
-          {label}
-        </span>
-      )}
-      {children}
+      <StepPlate
+        label={label || null}
+        plate={plate}
+        labelClassName="sticker-chip-label"
+        labelProps={{ 'aria-hidden': true }}
+        bodyClassName="sticker-chip-body"
+      >
+        {children}
+      </StepPlate>
       {sparkle && (
         <M.span
           className="sticker-chip-spark"
           aria-hidden
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 0, 1, 0], scale: [0.5, 0.5, 1.2, 0.5], rotate: [0, 0, 24, 0] }}
+          animate={{ scale: [1, 1, 0.55, 1], rotate: [0, 0, 24, 0] }}
           transition={{
             duration: 8,
             delay: sparkleDelay,
@@ -61,7 +67,7 @@ export default function StickerChip({
             ease: 'easeInOut',
           }}
         >
-          <Mark kind="sparkle" size={18} />
+          <svg viewBox={SPARK.viewBox} focusable="false"><path d={SPARK.d} fill="currentColor" /></svg>
         </M.span>
       )}
     </M.div>

@@ -45,9 +45,12 @@ export function formatClock(ms) {
  *   correction?: object | null,
  * }} CornerSource
  *
+ * `glyph` is the weather's sky doodle (weatherPresentation's icon), frozen
+ * with the rest of the snapshot so the doodle and the words always agree.
+ *
  * @typedef {{
  *   id: CornerId, label: string, value: string, spoken: string, corner: 'top' | 'bottom',
- *   note?: string | null, correction?: object | null,
+ *   note?: string | null, correction?: object | null, glyph?: string,
  * }} CornerSnapshot
  */
 
@@ -111,9 +114,9 @@ export function snapshotCorner(id, src, now) {
     };
   }
   if (id === 'weather' && src.weather) {
-    const { label } = weatherPresentation(src.weather.code, src.weather.isDay);
+    const { label, icon } = weatherPresentation(src.weather.code, src.weather.isDay);
     const temp = Math.round(src.weather.temp);
-    return { id, label, value: `${temp}°`, spoken: `${temp} degrees, ${label}`, corner: 'top' };
+    return { id, label, value: `${temp}°`, spoken: `${temp} degrees, ${label}`, corner: 'top', glyph: icon };
   }
   return null;
 }

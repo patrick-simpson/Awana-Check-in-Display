@@ -101,25 +101,37 @@ const CHIP = {
   radiusBL: 0.27,
 };
 
+/** The gap between a chip's glyph (the weather's) and its value, in em. */
+const CHIP_ICON_GAP = 0.18;
+
 /**
  * Geometry for one stepped chip, built around its own text so nothing can
  * spill off the plate (the v1 mockup's fixed plate did, for "TONIGHT").
  * Widths are the texts' advance widths in em of a 1em font (see
  * measureEm); the label is drawn at CHIP.labelSize of that.
  *
+ * `iconEm` makes room for a glyph at the head of the value block (the
+ * weather chip's sky doodle): the block widens by the glyph and a small
+ * gap, and the value centres in what is left. Zero (the default) is the
+ * plain chip, unchanged.
+ *
  * @param {number} labelEm  label advance width at 1em
  * @param {number} valueEm  value advance width at 1em
+ * @param {number} [iconEm] the glyph's width at 1em, 0 for none
  */
-export function chipGeometry(labelEm, valueEm) {
+export function chipGeometry(labelEm, valueEm, iconEm = 0) {
   const lw = Math.max(0, labelEm) * CHIP.labelSize;
   const vw = Math.max(0, valueEm) * CHIP.valueSize;
+  // A glyph is artwork, not type: its box keeps its own size.
+  const iw = Math.max(0, iconEm);
+  const lead = iw > 0 ? iw + CHIP_ICON_GAP : 0;
   const H1 = CHIP.pillHeight;
   const r1 = H1 / 2;
   const W1 = Math.max(lw + CHIP.pillPad * 2, CHIP.pillMin);
   const bx0 = CHIP.blockLeft;
   const by0 = CHIP.blockTop;
   const by1 = by0 + CHIP.blockHeight;
-  let bx1 = bx0 + vw + CHIP.blockPad * 2;
+  let bx1 = bx0 + lead + vw + CHIP.blockPad * 2;
   // The value block always steps out past the label pill: that step is the
   // chip's whole silhouette.
   if (bx1 < W1 + CHIP.step) bx1 = W1 + CHIP.step;
@@ -137,11 +149,84 @@ export function chipGeometry(labelEm, valueEm) {
   return {
     d,
     label: { x: W1 / 2, y: H1 / 2 + 0.02, size: CHIP.labelSize, width: lw },
-    value: { x: (bx0 + bx1) / 2, y: by0 + CHIP.blockHeight / 2 + 0.03, size: CHIP.valueSize, width: vw },
+    value: { x: (bx0 + lead + bx1) / 2, y: by0 + CHIP.blockHeight / 2 + 0.03, size: CHIP.valueSize, width: vw },
+    // The glyph's box, when there is one: at the head of the value block,
+    // centred on the value's line.
+    icon: iw > 0
+      ? { x: bx0 + CHIP.blockPad * 0.8, y: by0 + (CHIP.blockHeight - iw) / 2 + 0.02, size: iw }
+      : null,
     // Room for the plate's out-of-register offset (below and right).
     width: bx1 + 0.2,
     height: by1 + 0.14,
   };
+}
+
+/* ── The stepped plate: the chip's silhouette around any content ──── */
+
+/**
+ * The stepped chip's proportions, in units of its label pill's height, for
+ * plates whose content is not one line of text: the status sticker, a
+ * notice, a milestone toast. Same silhouette as chipGeometry's (a label pill
+ * over a wider block that steps out to its right, printed out of register
+ * with a white keyline), so every overlay on the lobby reads as one family
+ * with the corner chips.
+ */
+export const PLATE = {
+  /** The pill's height per unit of its label's font size. */
+  pillPerLabel: CHIP.pillHeight / CHIP.labelSize,
+  /** Where the block's left edge sits, under the pill. */
+  inset: CHIP.blockLeft / CHIP.pillHeight,
+  /** Where the block's top edge sits, just above the pill's foot. */
+  top: CHIP.blockTop / CHIP.pillHeight,
+  /** The least the block steps out past the pill. */
+  step: CHIP.step / CHIP.pillHeight,
+  radiusBR: CHIP.radiusBR / CHIP.pillHeight,
+  radiusBL: CHIP.radiusBL / CHIP.pillHeight,
+  /** The plate's out-of-register offset, right and down. */
+  offsetX: 0.12 / CHIP.pillHeight,
+  offsetY: 0.07 / CHIP.pillHeight,
+  keyline: 0.045 / CHIP.pillHeight,
+};
+
+/**
+ * The outline of a stepped plate measured off real boxes (px): the label
+ * pill at the top-left and the block under it. With no pill (`pillW` 0) it
+ * is the block alone with the chip's corners. Pure, so a test can pin the
+ * silhouette without a layout engine.
+ *
+ * @param {{ pillW: number, pillH: number, left: number, top: number, width: number, height: number }} box
+ *   `left`/`top` are the block's top-left corner; `width`/`height` the whole plate's
+ * @returns {string} an SVG path
+ */
+export function plateOutline({ pillW, pillH, left, top, width, height }) {
+  /** @param {number} v */
+  const n = (v) => Number((Number.isFinite(v) ? v : 0).toFixed(2));
+  const W = Math.max(0, width);
+  const H = Math.max(0, height);
+  if (!(pillW > 0 && pillH > 0)) {
+    const r = Math.min(H / 2, W / 2, Math.max(4, H * 0.28));
+    return [
+      `M${n(r)},0`, `L${n(W - r)},0`, `A${n(r)},${n(r)} 0 0 1 ${n(W)},${n(r)}`,
+      `L${n(W)},${n(H - r)}`, `A${n(r)},${n(r)} 0 0 1 ${n(W - r)},${n(H)}`,
+      `L${n(r)},${n(H)}`, `A${n(r)},${n(r)} 0 0 1 0,${n(H - r)}`,
+      `L0,${n(r)}`, `A${n(r)},${n(r)} 0 0 1 ${n(r)},0`, 'Z',
+    ].join(' ');
+  }
+  const r1 = pillH / 2;
+  const bx0 = Math.max(r1, Math.min(left, pillW));
+  const by0 = Math.max(r1, Math.min(top, pillH));
+  // The block always reaches past the pill, whatever the boxes say.
+  const bx1 = Math.max(W, pillW + PLATE.step * pillH);
+  const by1 = Math.max(H, by0 + pillH * 0.6);
+  const rBR = Math.min(PLATE.radiusBR * pillH, (by1 - by0) / 2);
+  const rBL = Math.min(PLATE.radiusBL * pillH, (by1 - by0) / 2);
+  return [
+    `M${n(r1)},0`, `L${n(pillW - r1)},0`, `A${n(r1)},${n(r1)} 0 0 1 ${n(pillW)},${n(r1)}`,
+    `L${n(pillW)},${n(by0)}`, `L${n(bx1)},${n(by0)}`, `L${n(bx1)},${n(by1 - rBR)}`,
+    `A${n(rBR)},${n(rBR)} 0 0 1 ${n(bx1 - rBR)},${n(by1)}`, `L${n(bx0 + rBL)},${n(by1)}`,
+    `A${n(rBL)},${n(rBL)} 0 0 1 ${n(bx0)},${n(by1 - rBL)}`, `L${n(bx0)},${n(pillH)}`, `L${n(r1)},${n(pillH)}`,
+    `A${n(r1)},${n(r1)} 0 0 1 0,${n(r1)}`, `A${n(r1)},${n(r1)} 0 0 1 ${n(r1)},0`, 'Z',
+  ].join(' ');
 }
 
 /**

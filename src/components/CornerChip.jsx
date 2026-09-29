@@ -2,6 +2,7 @@ import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
 import { DUR, EASE } from '../lib/brand.js';
 import StepChip from './brand/StepChip.jsx';
+import WeatherGlyph from './WeatherGlyph.jsx';
 
 /**
  * The corner's one item as a catalog stepped chip ("RIGHT NOW / 7:56",
@@ -14,7 +15,8 @@ import StepChip from './brand/StepChip.jsx';
  * away. Hidden (a slide that holds check-ins) it simply leaves. A note (the
  * tally's "synced with the check-in desk") is part of the frozen snapshot, so
  * it stays with the number it explains; `showNote` is the Settings opt-out,
- * applied at render so turning it off hides one already up.
+ * applied at render so turning it off hides one already up. The weather
+ * carries its sky doodle (WeatherGlyph) at the head of its value block.
  *
  * @param {{
  *   item: import('../lib/cornerInfo.js').CornerSnapshot | null,
@@ -40,7 +42,12 @@ export default function CornerChip({ item, corner, loads, hidden = false, showNo
           exit={{ opacity: 0, scale: 0.9, transition: { duration: DUR.exit, ease: EASE.exit } }}
           transition={{ duration: DUR.pop, delay: 0.3, ease: EASE.pop }}
         >
-          <StepChip label={item.label.toUpperCase()} value={item.value} size={size} />
+          <StepChip
+            label={item.label.toUpperCase()}
+            value={item.value}
+            size={size}
+            icon={item.glyph ? <WeatherGlyph kind={item.glyph} /> : null}
+          />
           {showNote && item.note && <span className="corner-chip__note">{item.note}</span>}
         </M.div>
       )}

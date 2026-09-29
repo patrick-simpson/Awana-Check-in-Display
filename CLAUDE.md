@@ -183,7 +183,8 @@ and `doodles/`. Read its README before changing it.
   are poster-only and the brand tokens never touch a `.promo-*` rule;
   `src/lib/promoFonts.test.js` pins both directions.
 - **Kit primitives** (`src/components/brand/`: StepChip, Wave, CornerTab,
-  Sticker, DoodleCluster) are M elements, timed from `src/lib/brand.js`
+  Sticker, DoodleCluster) are M elements, timed from `src/lib/brand.js`; the
+  one static primitive, StepPlate, only draws a measured outline
   (one 100 ms beat, the wipe / settle / pop / exit curves).
   `zeroAnimation.test.jsx` renders each through the real framer-motion under
   zero-animation mode, and `src/lib/motionImports.test.js` fails any signage
@@ -498,6 +499,93 @@ thumbnail is the TV at 0.15 scale and fits the same way).
   `frame` (headline, sub, date chip) for the lobby; `sanitizeSlides` and the
   wire contract never accept it, so a published or typed slide can never
   carry one. Its wording is the calendar's, unchanged.
+
+## The lobby's overlays (rebrand stage 4b-2)
+
+Everything that sits on the lobby wears the kit, so the screen reads as one
+catalog page. Two shapes carry it all:
+
+- **The stepped chip.** `StepChip` for one value ("UP NEXT / +3", the corner
+  chips; `icon` puts the weather's sky doodle, `WeatherGlyph`, at the head of
+  the value block), and **`StepPlate`** (`src/components/brand/`) for content
+  of any size: the same silhouette measured off the real label and body boxes
+  (`plateOutline` in `src/lib/brand.js`, redrawn by a ResizeObserver, never
+  per frame). The status sticker (`StickerChip`), the notices and the
+  milestone toasts are StepPlates. `.step-plate__echo` is a hidden copy of the
+  plate that a skinned night paints in `--skin-a`.
+- **The white kit card** (the printer dashboard's): the pickup board with its
+  wavy corner tab and club-colour name chips, and the first-run setup card.
+
+Where things go is one table, `OVERLAY` in `src/lib/overlayFit.js`, measured
+against the corner tab, the top-right stack, the copy's `LAYOUT` and the
+house waves, and who holds which part of the room is one pure function,
+`lobbyRoom()` beside it (App renders its answer; `overlayFit.test.js` and
+`App.overlays.test.jsx` pin it):
+
+- **The top band** (50u wide, centred, from 1.4u down to 10.4u, above the
+  highest the copy can rise) holds a band notice (info / warn) and the
+  milestone toasts, ONE at a time: a toast borrows the band and the notice
+  lifts out of its way (`yielding`); the toast waits out the notice's exit
+  before it lands (`afterNotice`) and the notice waits out the toast's exit
+  before it comes back, so the two are never in the band together. A band
+  notice steps aside the same way for a promo poster (`poster` from
+  ManualSlideshow's onSlide). Every plate in the band is fitted to END by
+  10.4u (`bandRoom`), flag strip or not.
+- **The flag strip** hangs from the top edge above it: the demo, rehearsal
+  and simplified-mode tabs, kept to 54u between the corner tab and the stack
+  (all three at once set tighter, `.top-flags--tight`); while one hangs the
+  band starts under it (`.stage.has-flags`, `bandTop`).
+- **The centre** (12u to 46u of the 16:9 box) is taken over by a critical
+  notice, and by the pickup board only while it is the room's focus: a live
+  list (names or the anonymous line) during pickup time (`boardPlacement`,
+  `PICKUP_TIME`: decideBoard's window plus the schedule's own `shutdown`).
+  The slide copy steps fully aside behind whichever holds it
+  (`.stage.notice-takeover`, `.stage.board-up`), and so does a poster or a
+  video (`.lobby-media`), as it steps back for a name.
+- **The foot** is the pickup board the rest of the time it is on (a stale or
+  empty board, or an "always" board while the program runs): a one-line card
+  bottom-centre above the ticker, beside the slides, which keep playing. Its
+  words are the board's own; a live list there is its count line, never a
+  partial list, and the names come up when pickup starts. A stale board is
+  never allowed to blank the lobby (it stays up until data or a reload
+  clears it, and a visible board still counts as busy for the self-updater).
+- **When two meet.** A critical notice over the pickup list keeps to the top
+  band (`is-band`) so both stay whole, and the celebrations wait (the queue
+  holds and a toast already up steps aside) until one of them goes. On an OBS
+  overlay feed a critical notice always keeps to the band, and a toast drops
+  below it (`milestone-toast--below`). The takeover class and the banner
+  judge a notice on ONE clock: App's `noticeNow`, handed to NoticeBanner as
+  `now` (`noticeShowing`), never the board's ticker, which a checkout
+  payload re-stamps.
+- **The top-right stack must end by 14u**, where a raised wide row starts.
+  The status sticker's height is measured (`useTallerThan`); while it stands
+  taller than `OVERLAY.stack.stickerMax` (a fault strip, or the retry wording
+  beside the printer's count) the weather sits out of the corner rotation and
+  the WAITING chip comes down to the bottom corner.
+- The ticker is house-blue count chips on the waves, between the gear and the
+  corner chip (its four counts are the room's, so not club colours); "+N more
+  coming" (`UpNextChip`) rides the club's wave above its mark, so it is only
+  up while a run is on screen, and on a run's first child it lands once the
+  wave has risen (`WAVE_UP_SEC`, from `FRONT_WAVE_DELAY`).
+
+Every size is fitted by measurement (`fitShout`, `fitParagraph` with
+`balanceLines`, `fitBoard`), so a 40-character name, a 200-character notice or
+a 60-name board steps down inside its band rather than spilling onto the
+headline, and plates hug their text. `fitShout` takes the most balanced
+two-line split and says `fits: false` when even `twoLineMin` is too wide; the
+toast then lets that line wrap inside the band. The label size of every plate
+(`--plate-label`) is set by the overlay that owns it and never declared on
+`.step-plate` itself, which would pin every label to 1rem. StepPlate redraws
+its outline inside the ResizeObserver callback with `flushSync`, so a
+resize never paints a frame of words off the old plate. Toast plates: a
+club's own milestone wears the club's colour and wordmark (and keeps them on
+a skinned night); the room's attendance is hot; handbook progress is Awana
+blue. The sparkle particles throw the kit's doodles; snow and rain keep their
+shapes, flat. Every loop here ends at rest, and the weather glyph is frozen
+with the corner snapshot (`glyph`), like the words beside it; each of its
+looping SVG groups starts from an `initial` holding its transform keys,
+because framer-motion measures an SVG element's box only at mount and drops
+every transform frame on a group that did not start with one.
 
 ## Tonight counter: the printer's tally is the source of truth
 

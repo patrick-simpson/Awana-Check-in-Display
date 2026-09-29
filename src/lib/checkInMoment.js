@@ -197,6 +197,16 @@ export function nameBox({ under, whole }, { sizeU, line = false, wraps = false }
  */
 export const PER_LETTER_MAX = 14;
 
+/* ── How a run arrives ───────────────────────────────────────────── */
+
+/**
+ * The club-colour front wave rises this long (seconds) after the deep one at
+ * the start of a run, over the brand's wipe. CheckInMoment.jsx reads it, and
+ * so does the "UP NEXT" chip that rides that wave (UpNextChip.jsx), so the
+ * chip can never land before the wave it sits on.
+ */
+export const FRONT_WAVE_DELAY = 0.07;
+
 /* ── How long a run takes to leave ───────────────────────────────── */
 
 // The waves drop last when a run ends (seconds): the front wave, then the
