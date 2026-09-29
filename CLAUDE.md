@@ -412,21 +412,35 @@ thumbnail is the TV at 0.15 scale and fits the same way).
   never lets the block leave the safe box (u = 1% of the 16:9 stage). Shout
   (uppercase Galindo, `--font-shout`, hard offset shadow): up to three lines
   of at most 68u from 7.2u down to 6u, then up to two lines of 84u down to 5u;
-  `lg` caps it at 5.8u, `md` always reads. Otherwise read (sentence-case
-  Figtree in the theme's reading ink): balanced rows of at most 76u from 4.2u
-  down to 1.5u. The block starts at 15.1u and rises only as far as 11u, and a
+  `lg` caps it at 5.8u, `md` always reads, and so does any headline in a
+  script that stacks marks above and below its letters (Thai, Lao, Khmer,
+  Myanmar, Tibetan and the Brahmic scripts bar Devanagari, which Baloo 2
+  draws: `STACKED`), whose marks touch across rows at the shout's .98.
+  Otherwise read (sentence-case Figtree in the theme's reading ink): balanced
+  rows of at most 76u from 4.2u down to 1.5u, at a line height of 1.22. The
+  block starts at 15.1u and rises only as far as 11u, and a
   row wider than 45u stops at 14u, clear of the corner tab and the top-right
   stack (which is rem-sized and reaches 13.2u at 1280x720); nothing passes
   45u, clear of the house waves and the bottom chip. Lines break only between
   tokens: words, and the words `Intl.Segmenter` finds in Chinese, Japanese and
   Thai (joined with nothing). The operator's line breaks are kept down to
   1.5u, then run on separated by " · ". A word wider than any line keeps a
-  readable size (at least 2.4u) and wraps on rows of its own inside 76u. A
+  readable size (at least 2.4u) and is cut across rows of its own inside 76u,
+  and the page draws the fit's own pieces, split by `<br>`: left to wrap it
+  itself, Chromium broke a URL after every hyphen and drew rows the fit never
+  counted, down behind the waves. So every row on screen is a row the fit
+  counted (the headline's `data-rows`; `e2e/lobby-fit.spec.js` pins both). A
   kicker wraps to two lines before it shrinks below 1.6u and never runs wider
-  than 84u. Copy takes its direction from its text (`dir="auto"`).
+  than 84u. Copy takes its direction from its text (`dir="auto"`); and since
+  the bidi algorithm sees each word's box as one neutral object, every run of
+  words against the headline's direction (a Hebrew phrase in English, English
+  in Hebrew) sits in a `<bdi dir>` of its own (`bidiRuns`), or its words
+  would read in reverse order.
 - **A refit never replays.** Every headline token is one element in both
   layouts, keyed by its place, and the beat sheet is fixed when the copy first
-  appears, so a web font landing late only re-lays the same elements out.
+  appears, so a web font landing late only re-lays the same elements out. The
+  `<bdi>` runs come from the words alone, so a refit never moves a word into
+  or out of one.
 - **The calendar's `frame` field is local-only.** `buildCalendarSlides` adds
   `frame` (headline, sub, date chip) for the lobby; `sanitizeSlides` and the
   wire contract never accept it, so a published or typed slide can never
