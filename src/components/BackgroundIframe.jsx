@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { withFlagship } from '../lib/flagship.js';
 import PptxSlideshow from './PptxSlideshow.jsx';
 import ManualSlideshow from './ManualSlideshow.jsx';
 import CatalogScene from './CatalogScene.jsx';
@@ -107,7 +108,14 @@ export default function BackgroundIframe({
   // One array identity per (calendarSlides, manualSlides) pair — a fresh
   // array every render used to restart ManualSlideshow's hold timer on
   // every App re-render. Unconditional: hooks come before the early returns.
-  const deck = useMemo(() => [...(calendarSlides || []), ...(manualSlides || [])], [calendarSlides, manualSlides]);
+  // The flagship welcome slide leads it (src/lib/flagship.js): permanent,
+  // built in, never stored. It is only ever put in front of the typed deck
+  // that ManualSlideshow plays, so the video, PowerPoint and embed sources
+  // are untouched.
+  const deck = useMemo(
+    () => withFlagship([...(calendarSlides || []), ...(manualSlides || [])]),
+    [calendarSlides, manualSlides]
+  );
 
   // Full-screen looping video (#25): one file uploaded in Settings,
   // stored on this device only. Missing/broken video shows the friendly

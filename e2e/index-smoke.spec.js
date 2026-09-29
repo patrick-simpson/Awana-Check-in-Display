@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { test as plain } from '@playwright/test';
+import { advanceUntilVisible, expect, test } from './pastFlagship.js';
 
 // A deployed build may carry a baked Pusher key (repository variables), so
 // tests that need a screen with NO key seed an empty override rather than
@@ -9,7 +10,9 @@ const NO_KEY = () => localStorage.setItem('awanaConfig.v1', JSON.stringify({ pus
 // 'off' by design) and no network beyond its own origin. Cross-origin
 // fetches (weather, calendar scrape) are aborted so the test is
 // hermetic — the app is built to treat those as ordinary offline.
-test('signage stage boots with no errors and no external network', async ({ page }) => {
+// Plain `test`, not the flagship-skipping one: a brand-new screen's first frame is
+// the flagship with the first-run card over it, and that is what this looks at.
+plain('signage stage boots with no errors and no external network', async ({ page }) => {
   const pageErrors = [];
   const consoleErrors = [];
   page.on('pageerror', (err) => pageErrors.push(String(err)));
@@ -62,6 +65,7 @@ test('a cached synced deck renders in place of local slides', async ({ page }) =
   });
   await page.goto('/index.html');
   // getByText, not the class: the calendar slide crossfades with the deck, so two slides coexist briefly.
+  await advanceUntilVisible(page, page.getByText('Synced from the check-in desk'));
   await expect(page.getByText('Synced from the check-in desk')).toBeVisible();
 });
 
@@ -81,6 +85,7 @@ test('a published deck shows on a screen with no background setting saved', asyn
     }));
   });
   await page.goto('/index.html');
+  await advanceUntilVisible(page, page.getByText('Published with nothing else set'));
   await expect(page.getByText('Published with nothing else set')).toBeVisible();
 });
 

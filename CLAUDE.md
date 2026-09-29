@@ -608,6 +608,55 @@ wins over readability, but every fact lands on the end card. Signage only
   the art is built on specific printed posters, not something an operator
   types a date into.
 
+## The flagship welcome slide (permanent, first in every pass)
+
+Owner request 2026-09-29: one built-in slide, in the catalog's flagship
+"Welcome to Awana!" style, that is always in the rotation and lets check-ins
+play over it. `src/lib/flagship.js` is the pure half (`FLAGSHIP_SLIDE`,
+`isFlagshipSlide`, `withFlagship`); `src/components/FlagshipSlide.jsx` +
+`src/styles/flagship.css` are the art.
+
+- **Derived, never stored.** Like the calendar slides and the promo slot it is
+  a constant added at the head of the typed deck (`withFlagship` in
+  `BackgroundIframe.jsx`, manual source only), so it is not editable, cannot be
+  deleted, is not in the slide editor, and is never published: the slide
+  allowlist drops its type (`flagship.test.js` pins that). There is no setting
+  that turns it off; that is the point of "permanent".
+- **First in every pass, once.** Operator slides, a published deck, the
+  calendar's auto-slides and the promo slot all come after it. A screen with
+  nothing else typed shows only the flagship (it replaced the typed-source
+  "Welcome" placeholder, which now only serves the video and PowerPoint
+  fallbacks); a lone slide never advances, so it simply stays on its finished
+  frame.
+- **Never holds check-ins.** `holdsCheckIns` is false for it: names play over
+  it at once, the slideshow pauses for them like for any slide, and it steps
+  back (`.stage.checkin-active .flagship`, the copy's own 0.28 / 0.97) and
+  forward again, and steps aside entirely for the pickup board and a critical
+  notice (it is a `.lobby-media`). `e2e/flagship.events.spec.js` drives all of
+  that in a real browser.
+- **A 10 second title sequence** (`FLAGSHIP_DURATION_SEC`, the slide's own
+  hold): clouds drift in, six club-colour waves sweep up, the corner tab
+  drops, TONIGHT rises, WELCOME and TO AWANA! assemble letter by letter with
+  a spring, six club marks pop onto plates, sparkles land, a sheen crosses
+  the headline once and the plates hop in a wave. The beat sheet is at the top
+  of the component. Same rules as the posters: every element is `M.*`, every
+  beat is a `landsAt` / `keyframes` list (never `initial` plus a long delay),
+  the LAST keyframe is the finished slide (that is what `?lowPower=1` freezes
+  on; the sheen and hops end invisible / at rest), and the whole slide is a
+  `role="img"` with one label so screen readers do not read 15 letters.
+- **Layout.** Everything stands in the 100u x 56.25u frame; the headline
+  starts 13.4u down (clear of the corner tab and the top-right stack) and the
+  plates end 44.25u down, above where the lobby's content stops (45u), so the
+  first-run card and the corner chips never cover it
+  (`e2e/flagship.spec.js` measures that at five sizes). The headline is
+  Paytone One in `--font-shout` with the kit's hard offset shadow, never a blur.
+- **What it changed elsewhere.** Every deck now has one more slide, so a test
+  that watches a deck from boot starts on the flagship: `App.director.test.jsx`
+  plays it out first (`mountPastFlagship`) where it needs Slide A, and the
+  corner tests count its load as an item (clock, then tally). Two first-run
+  card tests there run first on purpose; see the comment at the top of the
+  describe.
+
 ## The check-in moment (rebrand stage 3)
 
 Every arrival is one component, `src/components/CheckInMoment.jsx`: the

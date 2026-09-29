@@ -1,0 +1,147 @@
+/* ── The flagship slide (FlagshipSlide.jsx) ───────────────────
+   The catalog's welcome page as a title sequence, first in every pass.
+   FlagshipSlide.jsx owns the timing; this file owns the look. It stands in
+   the same 100u x 56.25u frame as the lobby copy (u = 1% of a 16:9 stage),
+   full-bleed field behind it. Layers, lowest first: clouds 0, waves 1,
+   headline 2, doodles 3, the parade 4, the corner tab 5. */
+
+.flagship {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--brand-sky);
+  color: #fff;
+  transform-origin: 50% 40%;
+  transition:
+    opacity var(--brand-dur-settle) var(--brand-ease-settle),
+    transform var(--brand-dur-settle) var(--brand-ease-settle);
+}
+/* A name is on screen: the slide steps back the way typed copy does. */
+.stage.checkin-active .flagship {
+  opacity: 0.28;
+  transform: scale(0.97);
+}
+
+/* Everything below is laid out in the 16:9 frame, centred in the screen. */
+.flagship-clouds,
+.flagship-waves,
+.flagship-copy,
+.flagship-parade,
+.flagship-doodle-slot {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: calc(100 * var(--u));
+  height: calc(56.25 * var(--u));
+  pointer-events: none;
+}
+.flagship-waves { width: 100%; }
+.flagship-waves,
+.flagship-clouds { z-index: 0; }
+
+.flagship-cloud {
+  position: absolute;
+  display: block;
+  background: var(--brand-cloud);
+  border-radius: 46% 54% 52% 48% / 58% 44% 56% 42%;
+}
+.flagship-cloud--a { left: -8%; top: 18%; width: 46%; height: 52%; }
+.flagship-cloud--b { right: -10%; top: 4%; width: 52%; height: 62%; }
+
+.flagship-waves { z-index: 1; }
+.flagship-wave { left: -3%; right: -3%; }
+
+.flagship-tab {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  top: 0;
+  width: calc(21 * var(--u));
+  height: calc(11.5 * var(--u));
+  padding: calc(2.2 * var(--u)) 0 0 calc(3 * var(--u));
+  box-sizing: border-box;
+  background: var(--brand-orange);
+  border-radius: 0 0 calc(7 * var(--u)) 0;
+}
+.flagship-tab img { display: block; width: calc(11 * var(--u)); height: auto; }
+
+.flagship-copy {
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Above the waves, clear of the tab and the top-right stack. */
+  padding-top: calc(13.4 * var(--u));
+  box-sizing: border-box;
+}
+.flagship-kicker {
+  font-family: var(--font-condensed);
+  font-size: calc(3 * var(--u));
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand-blue-deep);
+  margin-bottom: calc(0.6 * var(--u));
+}
+.flagship-title { position: relative; }
+.flagship-row {
+  display: flex;
+  justify-content: center;
+  gap: 0.28em;
+  font-family: var(--font-shout);
+  font-size: calc(10.4 * var(--u));
+  line-height: 0.9;
+  text-transform: uppercase;
+  color: #fff;
+}
+.flagship-row--1 { font-size: calc(9.2 * var(--u)); }
+.flagship-word { display: flex; }
+/* The mask each letter rises from; padded so the hard shadow and the tall
+   accents are never cut by it. */
+.flagship-mask {
+  display: block;
+  overflow: hidden;
+  padding: 0.12em 0.14em 0.22em 0.02em;
+  margin: -0.12em -0.14em -0.22em -0.02em;
+}
+.flagship-letter {
+  display: block;
+  text-shadow: 0.05em 0.06em 0 var(--brand-blue);
+  will-change: transform;
+}
+.flagship-sheen {
+  position: absolute;
+  inset: -4% -6%;
+  z-index: 1;
+  background: linear-gradient(100deg, rgba(255,255,255,0) 38%, rgba(255,255,255,0.55) 50%, rgba(255,255,255,0) 62%);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.flagship-doodle-slot { z-index: 3; }
+.flagship-doodles { position: absolute; }
+.flagship-doodle-slot--left .flagship-doodles { left: calc(5 * var(--u)); top: calc(15 * var(--u)); width: calc(20 * var(--u)); height: calc(18 * var(--u)); inset: auto; }
+.flagship-doodle-slot--right .flagship-doodles { right: calc(5 * var(--u)); top: calc(13 * var(--u)); width: calc(20 * var(--u)); height: calc(18 * var(--u)); inset: auto; }
+
+.flagship-parade {
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: calc(2.4 * var(--u));
+  /* Above the first-run card's strip and the corner chips (45u down is where
+     the lobby's content ends), so nothing here is ever covered. */
+  padding-bottom: calc(12 * var(--u));
+  box-sizing: border-box;
+}
+.flagship-plate {
+  width: calc(10.4 * var(--u));
+  height: calc(5.6 * var(--u));
+  display: grid;
+  place-items: center;
+  background: var(--plate);
+  border-radius: calc(1.6 * var(--u));
+  /* A hard offset shadow, never a blur (the kit's rule). */
+  box-shadow: calc(0.35 * var(--u)) calc(0.4 * var(--u)) 0 var(--plate-deep);
+  outline: calc(0.28 * var(--u)) solid #fff;
+}
+.flagship-plate img { display: block; width: 80%; height: 68%; object-fit: contain; }

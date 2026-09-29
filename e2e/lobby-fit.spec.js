@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './pastFlagship.js';
 
 // The lobby's copy frame on a real screen (rebrand stage 4b): whatever the
 // operator types, the words stay inside the safe box, clear of the house
@@ -423,7 +423,7 @@ test.describe('at 1280x720', () => {
     await showSlide(page, {
       eyebrow: 'IMPORTANT ANNOUNCEMENT FOR ALL PARENTS AND GUARDIANS TONIGHT',
       text: 'Parents, please remember that pick-up is at the gym doors this week while the lobby floor is refinished. '.repeat(6).slice(0, 500),
-      config: { showConnectionStatus: true },
+      config: { showConnectionStatus: true, slideshowDelaySec: 600 },
       weather: 96, // "Thunderstorm with hail": the widest weather chip there is
     });
     // The corner shows one item at a time; wait for the weather's turn.

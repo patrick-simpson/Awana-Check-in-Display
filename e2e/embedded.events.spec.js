@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './pastFlagship.js';
 import { boxes, embed, expectClear, hits, hostSquares } from './embedHost.js';
 import { fakePusher } from './fakePusher.js';
 

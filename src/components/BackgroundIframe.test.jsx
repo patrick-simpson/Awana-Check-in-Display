@@ -52,7 +52,8 @@ describe('normalizeEmbedUrl', () => {
 // else set plays it; and panic mode's placeholder path (powerpoint + no URL)
 // must keep showing the placeholder, never a deck.
 import { afterEach, vi } from 'vitest';
-import { cleanup, render } from '@testing-library/react';
+import { act, cleanup, render } from '@testing-library/react';
+import { FLAGSHIP_DURATION_SEC } from '../lib/flagship.js';
 
 vi.mock('../lib/videoStore.js', () => ({
   BACKGROUND_VIDEO_ID: 'background',
@@ -61,16 +62,35 @@ vi.mock('../lib/videoStore.js', () => ({
 
 const BackgroundIframe = (await import('./BackgroundIframe.jsx')).default;
 
+// The permanent flagship slide leads every typed deck (src/lib/flagship.js) and
+// holds FLAGSHIP_DURATION_SEC; these tests look at what comes after it.
+const pastFlagship = () => act(() => { vi.advanceTimersByTime(FLAGSHIP_DURATION_SEC * 1000 + 50); });
+
 const DECK = [{ id: 's_1', eyebrow: '', text: 'Synced deck', theme: 'sky', durationSec: 0, textSize: 'auto' }];
 
 describe('source selection', () => {
   afterEach(cleanup);
 
-  it('renders the typed/published deck under the manual source', () => {
+  it('renders the typed/published deck under the manual source, after the flagship welcome', () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(
+        <BackgroundIframe backgroundSource="manual" manualSlides={DECK} calendarSlides={[]} url="" slideshowDelaySec={5} />
+      );
+      expect(container.querySelector('.flagship')).toBeTruthy();
+      expect(container.querySelector('.manual-slide-text')).toBeNull();
+      pastFlagship();
+      expect(container.querySelector('.manual-slide-text').textContent).toBe('Synced deck');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('never plays the flagship for a source that is not the typed deck', () => {
     const { container } = render(
-      <BackgroundIframe backgroundSource="manual" manualSlides={DECK} calendarSlides={[]} url="" slideshowDelaySec={5} />
+      <BackgroundIframe backgroundSource="powerpoint" manualSlides={DECK} calendarSlides={[]} url="" slideshowDelaySec={5} />
     );
-    expect(container.querySelector('.manual-slide-text').textContent).toBe('Synced deck');
+    expect(container.querySelector('.flagship')).toBeNull();
   });
 
   it('powerpoint with no URL shows the placeholder, never a deck (panic mode relies on this)', () => {
@@ -90,17 +110,25 @@ describe('an all-expired typed deck (#345) is never a blank screen', () => {
   // rotation on the wall — and with the calendar off, the welcome placeholder.
   const CAL = [{ id: 'cal_1', eyebrow: 'Tonight', text: 'Welcome to Awana!', theme: 'sky', durationSec: 0, textSize: 'auto' }];
 
-  it('falls back to the calendar slides', () => {
-    const { container } = render(
-      <BackgroundIframe backgroundSource="manual" manualSlides={[]} calendarSlides={CAL} url="" slideshowDelaySec={5} />
-    );
-    expect(container.querySelector('.manual-slide-text').textContent).toBe('Welcome to Awana!');
+  it('falls back to the calendar slides, behind the flagship', () => {
+    vi.useFakeTimers();
+    try {
+      const { container } = render(
+        <BackgroundIframe backgroundSource="manual" manualSlides={[]} calendarSlides={CAL} url="" slideshowDelaySec={5} />
+      );
+      expect(container.querySelector('.flagship')).toBeTruthy();
+      pastFlagship();
+      expect(container.querySelector('.manual-slide-text').textContent).toBe('Welcome to Awana!');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it('falls back to the placeholder when there are no calendar slides either', () => {
+  it('with no slides at all, the flagship IS the welcome (it replaced the typed-deck placeholder)', () => {
     const { container } = render(
       <BackgroundIframe backgroundSource="manual" manualSlides={[]} calendarSlides={[]} url="" slideshowDelaySec={5} />
     );
-    expect(container.querySelector('.placeholder-copy')).toBeTruthy();
+    expect(container.querySelector('.flagship')).toBeTruthy();
+    expect(container.querySelector('.placeholder-copy')).toBeNull();
   });
 });

@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { test as plain } from '@playwright/test';
+import { expect, test } from './pastFlagship.js';
 
 // The first-run setup card / note must never cover what a screen is showing.
 //
@@ -158,7 +159,8 @@ test.describe('the lobby\'s first-run card, 1280x720', () => {
     }
   });
 
-  test('is still there, and still in the foot, when the zero-animation flag is off', async ({ page }) => {
+  // Plain `test`: the card must be there on the very first frame, over the flagship.
+  plain('is still there, and still in the foot, when the zero-animation flag is off', async ({ page }) => {
     // The card has no motion of its own; ?lowPower=1 changes nothing about where it stands.
     await page.route(/open-meteo|pusher|twotimtwo|sockjs/, (route) => route.abort());
     await page.addInitScript(NO_KEY);

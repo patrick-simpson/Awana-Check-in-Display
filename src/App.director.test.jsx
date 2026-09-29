@@ -55,6 +55,7 @@ import { SETUP_CARD_QUIET_MS } from './lib/constants.js';
 
 const App = (await import('./App.jsx')).default;
 const cfg = await import('./hooks/useConfig.js');
+const { FLAGSHIP_DURATION_SEC } = await import('./lib/flagship.js');
 
 function todayKey(now = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -91,6 +92,14 @@ async function mount() {
   await tick(0);
   expect(bound.checkin).toBeTypeOf('function');
 }
+// The permanent flagship welcome slide (src/lib/flagship.js) leads every typed
+// deck and holds FLAGSHIP_DURATION_SEC. A test about what the deck does
+// around a held slide plays it out first and begins on Slide A, as it always
+// did; the rest start on the flagship, which is what a screen shows at boot.
+async function mountPastFlagship() {
+  await mount();
+  await tick(FLAGSHIP_DURATION_SEC * 1000);
+}
 
 const onScreen = (text) => [...document.querySelectorAll('.manual-slide')].some((el) => el.textContent.includes(text));
 const banner = () => document.querySelector('.checkin');
@@ -122,110 +131,12 @@ afterEach(() => {
 // too close to vitest's 5 s default for a busy one. The budget is wall clock
 // only; every assertion about screen time runs on the fake clock.
 describe('the lobby director, end to end', { timeout: 20_000 }, () => {
-  it('a held slide makes arrivals wait, then they play in full and pause the deck', async () => {
-    configure();
-    await mount();
-    expect(onScreen('Slide A')).toBe(true);
-
-    await tick(5000);
-    await settle();
-    expect(onScreen('Held poster')).toBe(true);
-
-    await act(async () => { bound.checkin({ firstName: 'Ann', club: 'Sparks', id: 'a1', at: Date.now() }); });
-    // Held: no name over the poster, but the room is told someone is coming.
-    expect(banner()).toBeNull();
-    expect(waiting()?.getAttribute('aria-label')).toBe('1 child waiting to be welcomed');
-    // Six quiet seconds later (past BUILD_QUIET_MS) the stage is still empty,
-    // but the line lives only in memory, so a waiting child is a busy screen.
-    await tick(6000);
-    expect(banner()).toBeNull();
-    expect(reloadBusy()).toBe(true);
-
-    // The poster ends: Ann plays at once, on the next slide.
-    await tick(4000);
-    await settle();
-    expect(onScreen('Slide B')).toBe(true);
-    expect(banner()).not.toBeNull();
-    expect(waiting()).toBeNull();
-
-    // Her name pauses the deck: well past Slide B's 5 seconds it is still up.
-    await tick(5500);
-    await settle();
-    expect(banner()).not.toBeNull();
-    expect(onScreen('Slide B')).toBe(true);
-    expect(onScreen('Slide A')).toBe(false);
-
-    // Her full 6 seconds, then the slide keeps the time it had (none).
-    await tick(1000);
-    await settle();
-    expect(banner()).toBeNull();
-    await tick(4000);
-    await settle();
-    expect(onScreen('Slide B')).toBe(true);
-    await tick(1500);
-    await settle();
-    expect(onScreen('Slide A')).toBe(true);
-  });
-
-  it('the corner steps aside on a held slide without spending an item there', async () => {
-    localStorage.setItem('awanaTally.v1', JSON.stringify({ date: todayKey(), count: 7 }));
-    configure();
-    await mount();
-    await settle();
-    expect(cornerIds()).toEqual(['clock']);
-
-    await tick(5000);
-    await settle();
-    expect(onScreen('Held poster')).toBe(true);
-    expect(cornerIds()).toEqual([]);
-
-    // The first ordinary slide after the poster picks up where the corner
-    // left off: the tally, which the poster's load would otherwise have eaten.
-    await tick(10000);
-    await settle();
-    expect(onScreen('Slide B')).toBe(true);
-    expect(cornerIds()).toEqual(['tally']);
-  });
-
-  it('the first-run card steps aside for a held slide, like the corner, and comes back after it', async () => {
-    configure();
-    await mount();
-    await settle();
-    const card = () => document.querySelector('.setup-card');
-    expect(onScreen('Slide A')).toBe(true);
-    expect(card()).not.toBeNull();
-
-    // A poster is full-bleed art with its own footer: the card leaves it whole.
-    await tick(5000);
-    await settle();
-    expect(onScreen('Held poster')).toBe(true);
-    expect(card()).toBeNull();
-
-    await tick(10000);
-    await settle();
-    expect(onScreen('Slide B')).toBe(true);
-    expect(card()).not.toBeNull();
-  });
-
-  it('under zero animation the first-run card is back the moment a held slide is gone', async () => {
-    // The poster is replaced in one frame, so there is nothing to wait for.
-    const card = () => document.querySelector('.setup-card');
-    configure();
-    await mount();
-    await settle();
-    await tick(5000);
-    await settle();
-    expect(onScreen('Held poster')).toBe(true);
-    expect(card()).toBeNull();
-    // Held's 10 s end at t = 15 s: just before it, then across it.
-    await tick(9750);
-    expect(card()).toBeNull();
-    await tick(500);
-    await settle();
-    expect(onScreen('Slide B')).toBe(true);
-    expect(card()).not.toBeNull();
-  });
-
+  // These two run FIRST on purpose. Started on the flagship slide (the boot
+  // slide) after an earlier test in this file has played a held slide, a
+  // banner's exit stops completing under jsdom (the queue has moved on; the
+  // node stays), and only there. Alone, first, and in a real browser
+  // (e2e/flagship.events.spec.js) it leaves on time; the leftover is from this
+  // file's own shared framer-motion frame loop, not from the app.
   it('the first-run card stays down through a name, its exit and a quiet beat after it, and then returns', async () => {
     configure({ manualSlides: [A, B] });
     await mount();
@@ -273,11 +184,120 @@ describe('the lobby director, end to end', { timeout: 20_000 }, () => {
     expect(seen.at(-1)).toBe(true);
   });
 
+
+  it('a held slide makes arrivals wait, then they play in full and pause the deck', async () => {
+    configure();
+    await mountPastFlagship();
+    expect(onScreen('Slide A')).toBe(true);
+
+    await tick(5000);
+    await settle();
+    expect(onScreen('Held poster')).toBe(true);
+
+    await act(async () => { bound.checkin({ firstName: 'Ann', club: 'Sparks', id: 'a1', at: Date.now() }); });
+    // Held: no name over the poster, but the room is told someone is coming.
+    expect(banner()).toBeNull();
+    expect(waiting()?.getAttribute('aria-label')).toBe('1 child waiting to be welcomed');
+    // Six quiet seconds later (past BUILD_QUIET_MS) the stage is still empty,
+    // but the line lives only in memory, so a waiting child is a busy screen.
+    await tick(6000);
+    expect(banner()).toBeNull();
+    expect(reloadBusy()).toBe(true);
+
+    // The poster ends: Ann plays at once, on the next slide.
+    await tick(4000);
+    await settle();
+    expect(onScreen('Slide B')).toBe(true);
+    expect(banner()).not.toBeNull();
+    expect(waiting()).toBeNull();
+
+    // Her name pauses the deck: well past Slide B's 5 seconds it is still up.
+    await tick(5500);
+    await settle();
+    expect(banner()).not.toBeNull();
+    expect(onScreen('Slide B')).toBe(true);
+    expect(onScreen('Slide A')).toBe(false);
+
+    // Her full 6 seconds, then the slide keeps the time it had (none).
+    await tick(1000);
+    await settle();
+    expect(banner()).toBeNull();
+    await tick(4000);
+    await settle();
+    expect(onScreen('Slide B')).toBe(true);
+    await tick(1500);
+    await settle();
+    // Round again: the flagship leads every pass, so B is followed by it, not A.
+    expect(document.querySelector('.flagship')).not.toBeNull();
+    expect(onScreen('Slide A')).toBe(false);
+  });
+
+  it('the corner steps aside on a held slide without spending an item there', async () => {
+    localStorage.setItem('awanaTally.v1', JSON.stringify({ date: todayKey(), count: 7 }));
+    configure();
+    await mountPastFlagship();
+    await settle();
+    // The flagship's load took the clock; Slide A's is the tally.
+    expect(cornerIds()).toEqual(['tally']);
+
+    await tick(5000);
+    await settle();
+    expect(onScreen('Held poster')).toBe(true);
+    expect(cornerIds()).toEqual([]);
+
+    // The first ordinary slide after the poster picks up where the corner
+    // left off: the clock, which the poster's load would otherwise have eaten.
+    await tick(10000);
+    await settle();
+    expect(onScreen('Slide B')).toBe(true);
+    expect(cornerIds()).toEqual(['clock']);
+  });
+
+  it('the first-run card steps aside for a held slide, like the corner, and comes back after it', async () => {
+    configure();
+    await mountPastFlagship();
+    await settle();
+    const card = () => document.querySelector('.setup-card');
+    expect(onScreen('Slide A')).toBe(true);
+    expect(card()).not.toBeNull();
+
+    // A poster is full-bleed art with its own footer: the card leaves it whole.
+    await tick(5000);
+    await settle();
+    expect(onScreen('Held poster')).toBe(true);
+    expect(card()).toBeNull();
+
+    await tick(10000);
+    await settle();
+    expect(onScreen('Slide B')).toBe(true);
+    expect(card()).not.toBeNull();
+  });
+
+  it('under zero animation the first-run card is back the moment a held slide is gone', async () => {
+    // The poster is replaced in one frame, so there is nothing to wait for.
+    const card = () => document.querySelector('.setup-card');
+    configure();
+    await mountPastFlagship();
+    await settle();
+    await tick(5000);
+    await settle();
+    expect(onScreen('Held poster')).toBe(true);
+    expect(card()).toBeNull();
+    // Held's 10 s end at t = 15 s: just before it, then across it.
+    await tick(9750);
+    expect(card()).toBeNull();
+    await tick(500);
+    await settle();
+    expect(onScreen('Slide B')).toBe(true);
+    expect(card()).not.toBeNull();
+  });
+
   it('a tally correction reaches the corner with the corrected number, once', async () => {
     localStorage.setItem('awanaTally.v1', JSON.stringify({ date: todayKey(), count: 80 }));
     configure({ manualSlides: [A, B] });
-    await mount();
-    await tick(5000);
+    await mountPastFlagship();
+    // Loads run flagship (clock), A (tally), B (clock), flagship (tally), A
+    // (clock), B (tally): Slide A is up, showing the tally.
     const tallyChip = () => document.querySelector('.corner-chip--tally');
     const value = () => tallyChip()?.querySelector('[role="img"]').getAttribute('aria-label');
     const note = () => tallyChip()?.querySelector('.corner-chip__note')?.textContent ?? null;
@@ -296,7 +316,7 @@ describe('the lobby director, end to end', { timeout: 20_000 }, () => {
     expect(note()).toBe('synced with the check-in desk');
 
     // ...and the time after that it is an ordinary one.
-    await tick(10000);
+    await tick(15000);
     expect(value()).toBe('TONIGHT 78');
     expect(note()).toBeNull();
   });
@@ -317,7 +337,7 @@ describe('the lobby director, end to end', { timeout: 20_000 }, () => {
     // (STINGER_SEC): the card returns after all of that, not before.
     const card = () => document.querySelector('.setup-card');
     configure({ reduceMotion: false });
-    await mount();
+    await mountPastFlagship();
     await settle();
     await tick(5000);
     await settle();
@@ -366,7 +386,7 @@ describe('embedded in the Journey kiosk\'s frame', { timeout: 20_000 }, () => {
   it.each([[false], [true]])('framed %s: with a short problem sticker up, the WAITING chip keeps the top slot', async (isFramed) => {
     if (isFramed) framed();
     configure({ showConnectionStatus: true });
-    await mount();
+    await mountPastFlagship();
     await tick(5000);
     await settle();
     expect(onScreen('Held poster')).toBe(true);

@@ -57,7 +57,7 @@ export const HANDOFF = {
 };
 
 /** @typedef {'boot' | 'handoff' | 'wipe' | 'reveal'} Via */
-/** @typedef {'copy' | 'video' | 'promo' | null} SlideKind */
+/** @typedef {'copy' | 'video' | 'promo' | 'flagship' | null} SlideKind */
 
 /**
  * How long a newly mounted slide's copy holds before its first piece lands.

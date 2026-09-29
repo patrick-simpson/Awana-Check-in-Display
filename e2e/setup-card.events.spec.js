@@ -49,6 +49,10 @@ function record() {
 const frames = (page) => page.evaluate(() => window.__rec.frames);
 const nowMs = (page) => page.evaluate(() => Math.round(performance.now()));
 
+// The flagship welcome slide leads every pass and never holds check-ins, so both
+// tests here run in real time and simply let it play: a name over it is the
+// case, and the held-slide test waits for two laps (the flagship adds ten
+// seconds to the first, well inside its 75 s budget).
 const QUIET_MS = 5000; // SETUP_CARD_QUIET_MS
 
 /* ── Names ───────────────────────────────────────────────────────────── */
@@ -152,9 +156,11 @@ for (const [label, query, cpu] of CASES) {
     await expect(page.locator('.setup-card')).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
 
-    // Two full laps of the deck: the held slide comes up twice, and goes twice.
+    // Two full laps of the deck: the held slide comes up twice, and goes twice, and
+    // the recording ends on a frame with the card back (the last lap's held slide
+    // has gone, so "it does come back" below has a frame to find).
     const start = await nowMs(page);
-    await page.waitForFunction((from) => window.__rec.frames.filter((x, i, all) => x.held && !all[i - 1]?.held).length >= 2 && performance.now() - from > 20000, start, { timeout: 60_000, polling: 250 });
+    await page.waitForFunction((from) => window.__rec.frames.filter((x, i, all) => x.held && !all[i - 1]?.held).length >= 2 && performance.now() - from > 20000 && window.__rec.frames.at(-1).card, start, { timeout: 65_000, polling: 250 });
     const f = await frames(page);
 
     // The held slide (and, with motion, the wave) really were on screen for the record to catch.

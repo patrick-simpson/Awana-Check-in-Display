@@ -9,6 +9,9 @@
    the three voices and the motion table. See shared/brand/README.md. */
 @import '../../shared/brand/tokens.css';
 
+/* The flagship welcome slide (src/components/FlagshipSlide.jsx). */
+@import './flagship.css';
+
 /* The fall promo showreels, one stylesheet per poster (the shared poster
    rules, .promo-slide and friends, stay below in this file). Same font
    border as everywhere else: src/lib/promoFonts.test.js reads these too. */

@@ -10,6 +10,8 @@ import CatalogScene from './CatalogScene.jsx';
 import SlideCopy from './SlideCopy.jsx';
 import Wave from './brand/Wave.jsx';
 import PromoSlide from './PromoSlide.jsx';
+import FlagshipSlide from './FlagshipSlide.jsx';
+import { isFlagshipSlide } from '../lib/flagship.js';
 import { isPromoSlide } from '../lib/promos.js';
 import {
   holdsCheckIns,
@@ -175,7 +177,7 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
   const slideKey = `${step}:${slide?.id ?? ''}`;
   const canHold = slides.length > 1 && slides.some((s) => !holdsCheckIns(s));
   const special = Boolean(slide) && canHold && holdsCheckIns(slide);
-  const kind = !slide ? null : isVideoSlide(slide) ? 'video' : isPromoSlide(slide) ? 'promo' : 'copy';
+  const kind = !slide ? null : isVideoSlide(slide) ? 'video' : isPromoSlide(slide) ? 'promo' : isFlagshipSlide(slide) ? 'flagship' : 'copy';
   const theme = resolveTheme(slide, safe);
   const transition = useSlideTransition({ key: slideKey, special, kind, theme });
   const zero = useContext(ZeroAnimationContext);
@@ -277,6 +279,14 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
           {kind === 'promo' && (
             <Media key={slide.id} wipe={transition.wipe}>
               <PromoSlide promo={promo} />
+            </Media>
+          )}
+          {/* The permanent welcome slide: a full-bleed title sequence that
+              check-ins play over (it never holds them). Remounts on every
+              visit so its entrance plays from the top. */}
+          {kind === 'flagship' && (
+            <Media key={`${slide.id}:${step}`} wipe={transition.wipe}>
+              <FlagshipSlide />
             </Media>
           )}
         </Presence>
