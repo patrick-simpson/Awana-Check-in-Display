@@ -177,18 +177,25 @@ function kitFonts() {
     });
 }
 
-// The Reserved Font Names each OFL-*.txt in the kit declares. They are in the
-// copyright block above "This Font Software is licensed", quoted after
-// "Reserved Font Name(s)"; the license body below repeats the words in its
-// definitions, so it is not searched.
+// The Reserved Font Names an OFL declares. They are in the copyright block
+// above "This Font Software is licensed", after "Reserved Font Name(s)"; the
+// license body below repeats the words in its definitions, so it is not
+// searched. Names are usually quoted ("Londrina Solid", "Paytone" and "Paytone
+// One"), but not always (Lilita One's reads: with Reserved Font Name Lilita).
+function reservedNamesIn(text) {
+  const end = text.indexOf('This Font Software is licensed');
+  const head = text.slice(0, end > 0 ? end : 600);
+  const after = head.match(/Reserved Font Names?\s+([\s\S]*)/i)?.[1];
+  if (after === undefined) return [];
+  const quoted = [...after.matchAll(/["\u201C\u201D]([^"\u201C\u201D]+)["\u201C\u201D]/g)].map((m) => m[1]);
+  if (quoted.length) return quoted;
+  return after.split(/\s*(?:,|\band\b)\s*/).map((n) => n.replace(/[.\s]+$/, '').trim()).filter(Boolean);
+}
+// The Reserved Font Names each OFL-*.txt in the kit declares, by file.
 function reservedFontNames() {
   const byLicense = {};
   for (const f of readdirSync(FONTS).filter((n) => /^OFL-.*\.txt$/.test(n))) {
-    const text = readFont(f).toString('utf8');
-    const head = text.slice(0, text.indexOf('This Font Software is licensed'));
-    byLicense[f] = /Reserved Font Names?/i.test(head)
-      ? [...head.matchAll(/["\u201C\u201D]([^"\u201C\u201D]+)["\u201C\u201D]/g)].map((m) => m[1])
-      : [];
+    byLicense[f] = reservedNamesIn(readFont(f).toString('utf8'));
   }
   return byLicense;
 }
@@ -321,6 +328,16 @@ describe('shared/brand fonts', () => {
 
   it('the Londrina Solid WOFF2s (400 and 900) are the whole TTFs, losslessly compressed (OFL FAQ 2.2.1)', () => {
     for (const { woff2, ttf } of LONDRINA_FACES) expectWholeFont(woff2, ttf);
+  });
+
+  it('reads a license\'s Reserved Font Names whether or not they are quoted', () => {
+    const tail = '\n\nThis Font Software is licensed under the SIL Open Font License, Version 1.1.\nReserved Font Name is defined below.';
+    expect(reservedNamesIn('Copyright 2011 The X Authors (https://x.example), with Reserved Font Name "Londrina Solid\u201D' + tail)).toEqual(['Londrina Solid']);
+    expect(reservedNamesIn('Copyright 2011 The Paytone Project Authors (https://x.example),\nwith Reserved Font Names "Paytone" and "Paytone One".' + tail)).toEqual(['Paytone', 'Paytone One']);
+    // Lilita One\'s real header: no quotes at all.
+    expect(reservedNamesIn('Copyright (c) 2011 Juan Montoreano (juan@remolacha.biz), \nwith Reserved Font Name Lilita' + tail)).toEqual(['Lilita']);
+    // Figtree\'s: none declared (the words only appear in the license body).
+    expect(reservedNamesIn('Copyright 2022 The Figtree Project Authors (https://x.example)' + tail)).toEqual([]);
   });
 
   it('every WOFF2 the kit ships for a reserved-name face is one of the whole-font files, and none other exists', () => {
