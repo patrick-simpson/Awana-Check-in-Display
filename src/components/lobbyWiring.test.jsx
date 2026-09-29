@@ -15,14 +15,14 @@ import {
 
 const fonts = vi.hoisted(() => {
   // A canvas whose metrics change when the "web font" lands: the fallback
-  // face sets narrow, Galindo wide (it runs ~18% wider than Baloo 2).
+  // face sets narrow, Paytone One wide (it runs ~9% wider than Baloo 2).
   const state = { real: false, loads: 0, listeners: new Set() };
   class FakeCanvas {
     getContext() {
       return {
         font: '',
         measureText(text) {
-          const shout = /Galindo/.test(this.font);
+          const shout = /Paytone One/.test(this.font);
           const per = shout ? (state.real ? 0.95 : 0.5) : 0.55;
           return { width: [...text].reduce((w, ch) => w + (ch === ' ' ? 0.28 : per), 0) * 100 };
         },
@@ -269,7 +269,7 @@ describe('a web font that lands late', () => {
     const before = piecesOf(container);
     const targets = before.map((el) => JSON.stringify(rec(el).animate));
 
-    // Galindo arrives: the words now measure wide enough to fall to the read layout.
+    // Paytone One arrives: the words now measure wide enough to fall to the read layout.
     fonts.real = true;
     act(() => {
       fonts.loads += 1;

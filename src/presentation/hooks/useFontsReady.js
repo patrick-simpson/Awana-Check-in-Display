@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
  * face instead of the fallback it measured on first render. `fonts.ready`
  * covers a load already under way; `loadingdone` covers a face the browser
  * only starts fetching later (a chip is often the first thing on screen to
- * use Galindo). The projector's own copy of the lobby's hook, which the
+ * use Paytone One). The projector's own copy of the lobby's hook, which the
  * isolation rule keeps out of reach.
  * @returns {number} how many font loads have finished since mount
  */

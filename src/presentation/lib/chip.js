@@ -5,12 +5,19 @@
 // src/lib/brand.js (the isolation rule), so this is its own copy of the same
 // proportions; chip.test.js checks the two agree, so they cannot drift.
 //
-// Pure functions only. StepChip.jsx draws with them.
+// Pure functions only. StepChip.jsx draws with them. So is the shout's ink
+// (inkEm, inkOverflow): the same copy of the lobby's, for Headline.jsx.
 
-// Proportions measured off the catalog's own chip, in units of the value's
-// font size (1em): the label is set at ~0.56 of the value.
+import tokens from '../../../shared/brand/tokens.json';
+
+// Proportions measured off the catalog's own chip, in units of the chip's
+// size (1em): the value is drawn at valueSize, the label at labelSize (~0.56
+// of the value). The plate was drawn around Galindo's caps; Paytone One's
+// are 5.7% shorter at one size, so both texts are drawn that much larger and
+// keep their cap heights in an unchanged plate.
 const CHIP = {
-  labelSize: 0.56,
+  valueSize: 1.06,
+  labelSize: 0.59,
   pillHeight: 1.15,
   pillPad: 0.42,
   pillMin: 2.2,
@@ -31,7 +38,7 @@ const CHIP = {
  */
 export function chipGeometry(labelEm, valueEm) {
   const lw = Math.max(0, labelEm) * CHIP.labelSize;
-  const vw = Math.max(0, valueEm);
+  const vw = Math.max(0, valueEm) * CHIP.valueSize;
   const H1 = CHIP.pillHeight;
   const r1 = H1 / 2;
   const W1 = Math.max(lw + CHIP.pillPad * 2, CHIP.pillMin);
@@ -56,7 +63,7 @@ export function chipGeometry(labelEm, valueEm) {
   return {
     d,
     label: { x: W1 / 2, y: H1 / 2 + 0.02, size: CHIP.labelSize, width: lw },
-    value: { x: (bx0 + bx1) / 2, y: by0 + CHIP.blockHeight / 2 + 0.03, size: 1, width: vw },
+    value: { x: (bx0 + bx1) / 2, y: by0 + CHIP.blockHeight / 2 + 0.03, size: CHIP.valueSize, width: vw },
     // Room for the plate's out-of-register offset (below and right).
     width: bx1 + 0.2,
     height: by1 + 0.14,
@@ -72,15 +79,19 @@ const ROUGH = (text) => [...text].reduce((w, ch) => w + (ch === ' ' || ch === ':
 /** @type {OffscreenCanvasRenderingContext2D | null | undefined} */
 let ctx;
 
+/** The rest of --font-display's stack (index.css), so a canvas measures what the page draws. */
+const SHOUT_FALLBACK = '"Baloo 2 Variable", "Arial Rounded MT Bold", sans-serif';
+
 /**
- * The advance width of `text` in em of the shout face (Galindo), measured on
- * an OffscreenCanvas where there is one, else a per-character estimate. The
- * chip also pins each text to its measured width with SVG textLength, so a
- * face that loads late can squeeze, never spill.
+ * The advance width of `text` in em of the shout face (the kit's display
+ * face, Paytone One), measured on an OffscreenCanvas where there is one,
+ * else a per-character estimate. The chip also pins each text to its
+ * measured width with SVG textLength, so a face that loads late can
+ * squeeze, never spill.
  * @param {string} text
  * @param {string} [family]
  */
-export function measureEm(text, family = 'Galindo') {
+export function measureEm(text, family = tokens.fonts.display) {
   if (ctx === undefined) {
     try {
       ctx = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(1, 1).getContext('2d') : null;
@@ -89,14 +100,87 @@ export function measureEm(text, family = 'Galindo') {
     }
   }
   if (!ctx) return ROUGH(text);
-  ctx.font = `100px "${family}", "Arial Rounded MT Bold", sans-serif`;
+  ctx.font = `100px "${family}", ${SHOUT_FALLBACK}`;
   const w = ctx.measureText(text).width / 100;
   return Number.isFinite(w) && w > 0 ? w : ROUGH(text);
 }
 
+/* ── The shout's marks (the lobby's src/lib/brand.js, copied) ────── */
+
+/**
+ * Where the shout's caps sit in a line box, in em: index.css's
+ * ascent-override / descent-override for Paytone One (kit.test.js pins them).
+ */
+export const SHOUT_BOX = { ascent: 0.96, descent: 0.436 };
+
+/** @param {number} n */
+const round3 = (n) => Math.round(n * 1000) / 1000;
+
+/**
+ * How far a line of shouted text reaches past its line box at line-height
+ * `lineHeight`, in em, above and below: 0 for plain caps, more for a tall
+ * mark (É reaches 1.045em, Ễ 1.161em, Ș's comma -0.351em).
+ * @param {{ ascent: number, descent: number }} ink
+ * @param {number} lineHeight
+ * @param {number} [gap]
+ * @returns {{ top: number, bottom: number }}
+ */
+export function inkOverflow(ink, lineHeight, gap = 0) {
+  const above = (SHOUT_BOX.ascent - SHOUT_BOX.descent + lineHeight) / 2;
+  const below = lineHeight - above;
+  return {
+    top: Math.max(0, round3(ink.ascent + gap - above)),
+    bottom: Math.max(0, round3(ink.descent + gap - below)),
+  };
+}
+
+// Combining marks that hang below the letter; every other one stands above.
+const BELOW = /[\u0316-\u0319\u031C-\u0333\u0339-\u033C\u0345\u0347-\u0349\u034D\u034E\u0353-\u0356\u0359\u035A]/u;
+
+/**
+ * A text's ink above and below its baseline in em, from its marks alone
+ * (no canvas): caps reach `cap`, a mark above 0.35em more and each stacked
+ * one 0.12em, a mark below hangs 0.36em.
+ * @param {string} text
+ * @param {number} [cap]
+ * @returns {{ ascent: number, descent: number }}
+ */
+export function markExtents(text, cap = 0.7) {
+  let above = 0;
+  let below = false;
+  for (const ch of String(text).normalize('NFD').split(/(?=\P{M})/u)) {
+    const marks = ch.match(/\p{M}/gu) ?? [];
+    const low = marks.filter((m) => BELOW.test(m)).length;
+    above = Math.max(above, marks.length - low);
+    if (low) below = true;
+  }
+  return { ascent: round3(cap + (above ? 0.35 + 0.12 * (above - 1) : 0)), descent: below ? 0.36 : 0.02 };
+}
+
+/**
+ * The ink of `text` above and below its baseline, in em of the shout face:
+ * measured on the canvas, else estimated from its marks.
+ * @param {string} text
+ * @param {string} [family]
+ * @returns {{ ascent: number, descent: number }}
+ */
+export function inkEm(text, family = tokens.fonts.display) {
+  if (ctx === undefined) measureEm('', family);
+  if (ctx) {
+    ctx.font = `100px "${family}", ${SHOUT_FALLBACK}`;
+    const m = ctx.measureText(text);
+    const ascent = m.actualBoundingBoxAscent / 100;
+    const descent = m.actualBoundingBoxDescent / 100;
+    if (Number.isFinite(ascent) && Number.isFinite(descent) && ascent > 0) {
+      return { ascent: round3(ascent), descent: round3(Math.max(0, descent)) };
+    }
+  }
+  return markExtents(text);
+}
+
 /**
  * The widest a value can get while it counts: every digit swapped for a
- * zero (Galindo's widest figure), so a chip carrying a ticking number is
+ * zero (Paytone One's widest figure, 0.679em), so a chip carrying a ticking number is
  * sized once for the whole count instead of twitching every second.
  * @param {string} value
  */
@@ -140,7 +224,7 @@ export function wrapRows(widths, row, gap) {
   return rows;
 }
 
-/** A chip's height in em of its value's size, whatever its text. */
+/** A chip's height in em of its size, whatever its text. */
 export const CHIP_HEIGHT_EM = chipGeometry(0, 0).height;
 
 /**

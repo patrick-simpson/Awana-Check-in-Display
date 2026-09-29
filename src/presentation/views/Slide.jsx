@@ -4,7 +4,7 @@ import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
 import { SparkleDoodles } from '../components/SparkleDoodles.jsx';
 import { ConfettiBurst } from '../components/ConfettiBurst.jsx';
-import { Headline, fittedU } from '../components/Headline.jsx';
+import { HEADLINE_LINE_HEIGHT, Headline, fittedU, headlineBox } from '../components/Headline.jsx';
 import { Kicker } from '../components/Kicker.jsx';
 import { BodyText } from '../components/BodyText.jsx';
 import { StepChip } from '../components/StepChip.jsx';
@@ -16,7 +16,7 @@ import { ambientVariants, partVariants } from '../lib/landing.js';
 
 /**
  * One slide, laid out by its explicit `layout` field, in the kit's three
- * voices: a Londrina kicker names it, a Galindo headline shouts it, Figtree
+ * voices: a Londrina kicker names it, a Paytone One headline shouts it, Figtree
  * carries anything the room reads. Every kicker, headline word, body word
  * and chip is a PART: it inherits its slide's hidden / shown / gone state
  * from SlideshowView and lands (or leaves upward) on its own beat, in
@@ -58,8 +58,11 @@ export const Slide = ({ slide, now, events, hold = 0, onNext }) => {
   );
 };
 
-/** A slide headline: the mockup's 7.6u, on one line across the text block when it can. */
-const HEADLINE_FIT = { maxU: 7.6, widthU: 82 };
+/**
+ * A slide headline: the mockup's cap height (its 7.6u in Galindo is 8u in
+ * Paytone One), on one line across the text block when it can.
+ */
+const HEADLINE_FIT = { maxU: 8, widthU: 82 };
 
 /** "Wednesday night": the welcome's kicker, from the evening it is. */
 export const nightOf = (now) => `${(now ?? new Date()).toLocaleDateString([], { weekday: 'long' })} night`;
@@ -141,8 +144,9 @@ export const nightLabel = (date) =>
  * margin clear above the frame's bottom edge.
  */
 export const COMING_UP = {
-  headline: { maxU: 5.6, widthU: 84 },
-  headlineLine: 0.98,
+  // The mockup's 5.6u in Galindo, at its cap height in Paytone One.
+  headline: { maxU: 5.9, widthU: 84 },
+  headlineLine: HEADLINE_LINE_HEIGHT,
   top: 15,
   listGap: 3.4,
   frame: 56.25,
@@ -170,7 +174,10 @@ export function comingUpLayout(title, chips) {
   const c = COMING_UP;
   const headU = fittedU(title, c.headline);
   const headLines = Math.max(1, Math.ceil((measureEm(String(title).toUpperCase()) * headU) / c.headline.widthU));
-  const listTopU = c.top + headU * c.headlineLine * headLines + c.listGap;
+  // A title with a tall mark (É, Ș) takes the room Headline gives it.
+  const box = headlineBox(title);
+  const lineU = box.lineHeight === HEADLINE_LINE_HEIGHT ? c.headlineLine : box.lineHeight;
+  const listTopU = c.top + headU * (lineU * headLines + box.padTop + box.padBottom) + c.listGap;
   const widths = chips.map(({ label, value }) => chipGeometry(measureEm(label.toUpperCase()), measureEm(value)).width);
   const { sizeU, count } = fitChipList(widths, {
     maxU: c.maxU,

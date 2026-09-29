@@ -74,11 +74,16 @@ describe('chipGeometry', () => {
     expect(chipGeometry(1, 4).height).toBe(chipGeometry(1, 2).height);
   });
 
-  it('draws the label at a fixed ratio of the value', () => {
+  it('draws the label at a fixed ratio of the value, both a step larger than the plate\'s em for Paytone One\'s shorter caps', () => {
     const g = chipGeometry(2, 2);
-    expect(g.label.size).toBeCloseTo(0.56);
-    expect(g.value.size).toBe(1);
-    expect(g.label.width).toBeCloseTo(2 * 0.56);
+    expect(g.label.size).toBeCloseTo(0.59);
+    expect(g.value.size).toBeCloseTo(1.06);
+    expect(g.label.size / g.value.size).toBeCloseTo(0.56, 2);
+    expect(g.label.width).toBeCloseTo(2 * 0.59);
+    expect(g.value.width).toBeCloseTo(2 * 1.06);
+    // The plate is the one the catalog chip was measured for: its tiers do
+    // not grow with the text's size.
+    expect(chipGeometry(0, 0).height).toBeCloseTo(1.05 + 1.38 + 0.14);
   });
 
   it('treats a negative or zero width as empty', () => {

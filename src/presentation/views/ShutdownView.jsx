@@ -119,7 +119,7 @@ export const ShutdownView = ({ now, onRestart, onBareChange }) => {
 
           <Headline
             text="SEE YOU NEXT WEEK!"
-            fit={{ maxU: 7.6, widthU: 86 }}
+            fit={{ maxU: 8, widthU: 86 }}
             parts={{ start: 1, hold: 0.2 }}
             style={{ marginTop: 'calc(1.4 * var(--u))' }}
           />

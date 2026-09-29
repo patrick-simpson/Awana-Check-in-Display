@@ -51,12 +51,29 @@ describe('the projector kit', () => {
   });
 
   it('index.css bundles the kit\'s three voices and no retired face', () => {
-    for (const pkg of ['@fontsource/galindo', '@fontsource/londrina-solid', '@fontsource-variable/figtree']) {
+    for (const pkg of ['@fontsource/londrina-solid', '@fontsource-variable/figtree']) {
       expect(css).toContain(`@import "${pkg}`);
     }
-    for (const retired of ['lilita-one', 'barlow-condensed', 'nunito-sans', 'caveat']) {
+    for (const retired of ['lilita-one', 'barlow-condensed', 'nunito-sans', 'caveat', 'fontsource/galindo', 'fontsource/paytone']) {
       expect(css).not.toContain(retired);
     }
+    expect(css).toMatch(/--font-display:\s*"Paytone One", "Baloo 2 Variable"/);
+  });
+
+  it('the shout is the lobby\'s own Paytone One face: the kit\'s full files, the same overrides', () => {
+    const faces = (text) => [...text.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/@font-face\s*\{([^}]*)\}/g)]
+      .map(([, body]) => Object.fromEntries(body.split(';').map((l) => l.trim()).filter(Boolean).map((l) => {
+        const at = l.indexOf(':');
+        return [l.slice(0, at).trim(), l.slice(at + 1).trim().replace(/\s+/g, ' ').replace(/"/g, "'")];
+      })))
+      .filter((d) => d['font-family'] === "'Paytone One'");
+    const lobby = faces(readFileSync(resolve(__dirname, '../../styles/app.css'), 'utf8'));
+    const projector = faces(css);
+    expect(projector).toHaveLength(1);
+    expect(lobby).toHaveLength(1);
+    expect(projector[0]).toEqual(lobby[0]);
+    expect(projector[0].src).toContain("url('../../shared/brand/fonts/paytone-one-full-400-normal.woff2') format('woff2')");
+    expect(projector[0].src).toContain("url('../../shared/brand/fonts/PaytoneOne-Regular.ttf') format('truetype')");
   });
 
   it('every club colour token in index.css is theme.json\'s', () => {

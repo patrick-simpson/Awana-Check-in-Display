@@ -266,7 +266,7 @@ const ClubEmblem = ({ club }) => {
 
   if (!logo || failed) {
     return (
-      <span className="pj-headline" style={{ color: club.color, fontSize: 'calc(4.4 * var(--u))' }}>
+      <span className="pj-headline" style={{ color: club.color, fontSize: 'calc(4.6 * var(--u))' }}>
         {club.name}
       </span>
     );

@@ -2,17 +2,18 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 // Bundled fonts (no CDN) so the display looks right even on a church
 // network that blocks or throttles font hosts. The three brand voices
-// (shared/brand/README.md): Galindo shouts (--font-shout, and
-// --font-display at the old footprint, see app.css), Londrina
-// Solid labels (--font-condensed; the 400 cut only, which is already
-// bold, so no CSS weight can reach for the much fatter 900) and Figtree
-// is read (--font-body).
-import '@fontsource/galindo';
+// (shared/brand/README.md): Paytone One shouts (--font-shout, and
+// --font-display at the old footprint; both are @font-face rules in app.css
+// on the kit's own full font files, never an @fontsource subset, because its
+// license reserves the name), Londrina Solid labels (--font-condensed; the
+// 400 cut only, which is already bold, so no CSS weight can reach for the
+// much fatter 900) and Figtree is read (--font-body).
 import '@fontsource/londrina-solid/400.css';
 import '@fontsource-variable/figtree';
-// Baloo 2 stays for good: it backs the display stack for the letters
-// Galindo does not draw (Ș, Ț, Vietnamese, combining marks), and the
-// browser only fetches those subsets when such a name actually appears.
+// Baloo 2 stays for good: it backs the shout stack for Devanagari, the one
+// script a name may use that Paytone One lacks and a chunky face still draws,
+// and the browser only fetches that subset when such a name appears. It is
+// also the fall promo posters' display face (--promo-font-display).
 import '@fontsource-variable/baloo-2';
 // Pinned for the fall promo posters ONLY (--promo-font-*, --font-poster),
 // which stay exactly as printed until they retire on 2026-11-05. Drop these

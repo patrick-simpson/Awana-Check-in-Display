@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
  * real one. Both signals matter: `fonts.ready` covers a load already under
  * way at mount, and `loadingdone` covers a face the browser only starts
  * fetching later (a chip is often the first thing on screen to use
- * Galindo, so its own text is what kicks that load off). No document.fonts
+ * Paytone One, so its own text is what kicks that load off). No document.fonts
  * (tests, very old browsers) means no second pass, which the chip's own
  * textLength pin already copes with.
  * @returns {number} how many font loads have finished since mount

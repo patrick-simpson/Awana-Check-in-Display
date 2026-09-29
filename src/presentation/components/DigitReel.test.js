@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { DUR } from '../lib/motion-tokens.js';
-import { ROLL } from './DigitReel.jsx';
+import { DIGIT_CELL_EM, ROLL } from './DigitReel.jsx';
 
 /** Progress (0..1) of a CSS cubic-bezier at time fraction `x`, solved by bisection. */
 function bezier([x1, y1, x2, y2], x) {
@@ -64,5 +66,30 @@ describe('the odometer roll', () => {
 
   it('leaves faster than it arrives (the kit\'s rule)', () => {
     expect(ROLL.exit.transition.duration).toBeLessThan(ROLL.animate.transition.duration);
+  });
+});
+
+describe('the digit cell', () => {
+  const css = readFileSync(resolve(__dirname, '../index.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel) => css.match(new RegExp(`${sel.replace('.', '\\.')}\\s*\\{([^}]*)\\}`))?.[1] ?? '';
+
+  it('is one of Paytone One\'s tabular figures, which the timer turns on, so no digit twitches or spills', () => {
+    // Paytone One's tnum figures all advance 0.600em, their ink inside
+    // 0.021em..0.593em (measured from the font file). Its default figures
+    // run 0.444em ("1") to 0.679em ("0"), so without tnum a zero would
+    // overhang a 0.6em cell and touch its neighbour.
+    expect(DIGIT_CELL_EM).toBe(0.6);
+    expect(rule('.pj-timer')).toMatch(/font-variant-numeric:\s*tabular-nums/);
+  });
+
+  it('keeps the figures clear of the cell\'s clipped top and bottom at rest', () => {
+    const line = parseFloat(rule('.pj-reel').match(/height:\s*([\d.]+)em/)?.[1]);
+    expect(rule('.pj-reel')).toMatch(new RegExp(`line-height:\\s*${line}em`));
+    // The baseline sits (ascent - descent + line) / 2 down the cell, with
+    // index.css's overrides (96% / 43.6%); figures reach 0.703em up and
+    // 0.017em down.
+    const baseline = (0.96 - 0.436 + line) / 2;
+    expect(baseline - 0.703).toBeGreaterThan(0.05);
+    expect(line - baseline - 0.017).toBeGreaterThan(0.05);
   });
 });

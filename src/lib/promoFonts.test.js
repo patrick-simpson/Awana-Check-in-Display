@@ -90,9 +90,59 @@ describe('promo font isolation (app.css)', () => {
 
   it('the lobby speaks the three brand voices', () => {
     const root = ALL.find((r) => r.selector === ':root' && /--font-display/.test(r.body));
-    expect(root?.body).toMatch(/--font-shout:\s*'Galindo', 'Baloo 2 Variable'/);
-    expect(root?.body).toMatch(/--font-display:\s*'Galindo Fit', 'Baloo 2 Variable'/);
+    expect(root?.body).toMatch(/--font-shout:\s*'Paytone One', 'Baloo 2 Variable'/);
+    expect(root?.body).toMatch(/--font-display:\s*'Shout Fit', 'Baloo 2 Variable'/);
     expect(root?.body).toMatch(/--font-body:\s*'Figtree Variable'/);
     expect(root?.body).toMatch(/--font-condensed:\s*'Londrina Solid'/);
+    // Galindo is gone from every rule (the comments may still tell its story).
+    expect(css.replace(/\/\*[\s\S]*?\*\//g, '')).not.toMatch(/galindo/i);
+  });
+});
+
+/** Each @font-face in a stylesheet, as { family, descriptors }. */
+function fontFaces(text) {
+  const src = text.replace(/\/\*[\s\S]*?\*\//g, '');
+  return [...src.matchAll(/@font-face\s*\{([^}]*)\}/g)].map(([, body]) => {
+    const d = Object.fromEntries(body.split(';').map((line) => line.trim()).filter(Boolean).map((line) => {
+      const at = line.indexOf(':');
+      return [line.slice(0, at).trim(), line.slice(at + 1).trim().replace(/\s+/g, ' ')];
+    }));
+    return { family: d['font-family'].replace(/['"]/g, ''), d };
+  });
+}
+
+describe('the shout face (app.css)', () => {
+  const faces = fontFaces(css);
+  const shout = faces.find((f) => f.family === 'Paytone One');
+  const fit = faces.find((f) => f.family === 'Shout Fit');
+  const main = readFileSync(resolve(__dirname, '../main.jsx'), 'utf8');
+
+  it('is Paytone One from the kit\'s own full files: never a subset under its reserved name', () => {
+    for (const face of [shout, fit]) {
+      expect(face.d.src).toBe(
+        "url('../../shared/brand/fonts/paytone-one-full-400-normal.woff2') format('woff2'), url('../../shared/brand/fonts/PaytoneOne-Regular.ttf') format('truetype')",
+      );
+      // One file covers every letter it draws: no subset split.
+      expect(face.d['unicode-range']).toBeUndefined();
+    }
+    expect(faces.filter((f) => /paytone/i.test(f.family))).toHaveLength(1);
+    expect(main).not.toMatch(/@fontsource\/(galindo|paytone)/);
+    expect(css).not.toMatch(/@fontsource\/(galindo|paytone)/);
+  });
+
+  it('the old-footprint alias is the same face at 88%, and only the alias is scaled', () => {
+    expect(fit.d['size-adjust']).toBe('88%');
+    expect(shout.d['size-adjust']).toBeUndefined();
+  });
+
+  it('both seat the caps where the fits\' line-box arithmetic assumes (SHOUT_BOX)', async () => {
+    const { SHOUT_BOX } = await import('./brand.js');
+    for (const face of [shout, fit]) {
+      expect(parseFloat(face.d['ascent-override']) / 100).toBeCloseTo(SHOUT_BOX.ascent, 6);
+      expect(parseFloat(face.d['descent-override']) / 100).toBeCloseTo(SHOUT_BOX.descent, 6);
+      expect(face.d['line-gap-override']).toBe('0%');
+    }
+    // The content box keeps the font's own height (hhea 1.113 + 0.283).
+    expect(SHOUT_BOX.ascent + SHOUT_BOX.descent).toBeCloseTo(1.396, 3);
   });
 });

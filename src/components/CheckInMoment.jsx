@@ -5,9 +5,10 @@ import { getClubPalette } from '../lib/clubs.js';
 import { fireBirthday, fireFirstTimer, fireStandard } from '../lib/confetti.js';
 import { playBirthdayChime, playChime, playFirstTimerChime } from '../lib/audio.js';
 import { nameAccent } from '../lib/nameAccent.js';
-import { DUR, EASE, measureEm } from '../lib/brand.js';
+import { DUR, EASE, inkEm, measureEm } from '../lib/brand.js';
 import {
-  kickerFor, momentFor, nameSizeU, PER_LETTER_MAX, stickerFor, sublineFor, WAVE_EXIT,
+  KICKER_TRACKING, KICKER_U, kickerFor, momentFor, nameBox, nameSizeU, nameUnderKicker, PER_LETTER_MAX, stickerFor,
+  sublineFor, WAVE_EXIT,
 } from '../lib/checkInMoment.js';
 import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
@@ -146,7 +147,7 @@ function stickerOrigin(root) {
 // snapping (framer-motion layout animation, instant under ?lowPower=1).
 const GLIDE = { duration: DUR.settle, ease: EASE.settle };
 
-function Name({ text, entrance, timing, size, wraps, club }) {
+function Name({ text, entrance, timing, size, wraps, box, club }) {
   const className = useLeaving(`checkin__name${wraps ? ' checkin__name--wraps' : ''}`);
   const from = LETTER_FROM[entrance] ?? LETTER_FROM.pop;
   const perLetter = [...text].length <= PER_LETTER_MAX;
@@ -167,7 +168,13 @@ function Name({ text, entrance, timing, size, wraps, club }) {
   return (
     <h1
       className={className}
-      style={{ fontSize: u(size), ...clubInk(club) }}
+      style={{
+        fontSize: u(size),
+        lineHeight: box.lineHeight,
+        paddingTop: `${box.padTop}em`,
+        paddingBottom: `${box.padBottom}em`,
+        ...clubInk(club),
+      }}
       aria-label={text}
     >
       {words.map((word, w) => (
@@ -205,6 +212,14 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
   const sticker = stickerFor(moment);
   const display = String(event.firstName).toUpperCase();
   const { size, wraps } = nameSizeU(display, (s) => measureEm(s));
+  // Room for a tall mark (JOSÉ, NGUYỄN, ȘTEFAN) clear of the kicker above and
+  // the line below: measured, so only a mark that would meet one gets any.
+  const kickerU = (measureEm(kicker.toUpperCase(), 'Londrina Solid') + KICKER_TRACKING * [...kicker].length) * KICKER_U;
+  const under = nameUnderKicker(display, kickerU, size, (s) => measureEm(s));
+  const box = nameBox(
+    { under: under ? inkEm(under) : { ascent: 0, descent: 0 }, whole: inkEm(display) },
+    { sizeU: size, line: Boolean(line), wraps },
+  );
   const accent = nameAccent(event.firstName);
 
   // Confetti lands with the name (or out of the sticker, for the two kinds
@@ -321,7 +336,7 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
         </M.div>
         <M.div className="checkin__cell checkin__cell--name" layout="position" transition={GLIDE}>
           <AnimatePresence>
-            <Name key={event.id} text={display} entrance={accent.entrance} timing={t} size={size} wraps={wraps} club={club} />
+            <Name key={event.id} text={display} entrance={accent.entrance} timing={t} size={size} wraps={wraps} box={box} club={club} />
           </AnimatePresence>
         </M.div>
         <div className="checkin__cell checkin__cell--line">

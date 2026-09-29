@@ -5,8 +5,8 @@ import { HOUSE, URGENT_COLOR } from '../lib/kit.js';
 export { URGENT_COLOR };
 
 /**
- * The huge projector timer, flattened to type: Galindo figures in fixed
- * cells (see DigitReel), the colons in an accent colour (Awana orange on the
+ * The huge projector timer, flattened to type: Paytone One's tabular
+ * figures in fixed cells (see DigitReel), the colons in an accent colour (Awana orange on the
  * countdown, the club's colour on game time), the colon pulse, the final
  * minute's urgency (the kit's hot red-orange and two pulse rings), and the
  * click-to-skip affordance. Owns the d/h/m/s decomposition.

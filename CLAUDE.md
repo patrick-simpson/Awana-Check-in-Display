@@ -109,10 +109,42 @@ projector, Journey kiosk, label printer) wears the Awana 2026-27 catalog's
 design language and full official branding. `shared/brand/` is the one
 canonical kit: `tokens.json` (club primary/deep/tint, house colors, fonts,
 the motion table), `tokens.css` (the same as `--brand-*` properties),
-`fonts.css` + `fonts/` (Galindo, Londrina Solid, Figtree; WOFF2 for the web,
-TTF for the printer's canvas; OFL), `logos/` (every club mark as white
+`fonts.css` + `fonts/` (Paytone One, Londrina Solid, Figtree; WOFF2 for the
+web, TTF for the printer's canvas; OFL), `logos/` (every club mark as white
 knockout / full color / one color, plus the Awana Clubs mark), `shapes/`
 and `doodles/`. Read its README before changing it.
+
+- **The shout is Paytone One** (owner decision 2026-09-29: it replaced
+  Galindo, which "looks too much like SpongeBob", on every surface; Londrina
+  Solid and Figtree stay, and so do the posters' own faces). Its license
+  reserves the name "Paytone One", so every page loads the kit's FULL,
+  unmodified files (`fonts/paytone-one-full-400-normal.woff2`, the TTF as its
+  fallback): never an `@fontsource` or Google subset, which the OFL FAQ treats
+  as a Modified Version that may not carry the name. `app.css` and the
+  projector's `index.css` each declare the one `@font-face` (the tests pin
+  them identical); it draws Latin-1, Latin Extended-A, Ș Ț and Vietnamese,
+  and Baloo 2 stays behind it only for Devanagari.
+- **Its ascent/descent overrides (96% / 43.6%) seat the caps, nothing else.**
+  Paytone's own metrics sit its caps ~0.17em lower in any line box than the
+  face the mockup and every rule were drawn with, so chips' values sagged and
+  names sank; the overrides keep the caps' centre where it was relative to
+  the box and to SVG's central baseline, and keep the content box's height.
+  `SHOUT_BOX` in `src/lib/brand.js` (and its projector copy in `lib/chip.js`)
+  is the same pair for the fits' arithmetic; `promoFonts.test.js` pins it.
+- **Sizes hold the mockup's cap heights, not its font sizes.** Paytone One's
+  caps stand 5.7% shorter than Galindo's at one size (its figures 5%), so
+  every shout size is the mockup's times 1.057 (1.05 for figures) and every
+  shout line height the mockup's divided by it, which keeps each line box
+  where it was: see the fit, the name steps, the sticker and the projector's
+  `--text-*`. The stepped chip keeps its plate and draws both texts 1.06x
+  (`valueSize` / `labelSize` in both chip geometries).
+- **Marks never touch.** Paytone draws the marks over and under its capitals
+  tall (É to 1.045em, Ễ to 1.161em, Ș's comma to -0.351em, where a caps row
+  is 0.93em), so each shout measures its ink (`inkEm` / `measureInk`: the
+  canvas's actual bounding box, else `markExtents` from the marks) and makes
+  exactly the room a mark needs: the lobby fit per row (`rise`), the check-in
+  name against its kicker and its line (`nameBox`), the projector's headline
+  (`headlineBox`). Plain caps get none, so nothing moves for them.
 
 - **Three spellings of one palette.** `tokens.json`, `tokens.css` and
   `shared/theme.json` must agree; `src/lib/brandKit.test.js` fails if they
@@ -133,17 +165,20 @@ and `doodles/`. Read its README before changing it.
   here first, then re-copy it into both.
 - `scripts/brand/extract-catalog-brand.py` regenerates the marks and shapes
   from a catalog PDF (not committed), for next season.
-- **Two sizes of one shout.** `--font-shout` is Galindo at true size, for
+- **Two sizes of one shout.** `--font-shout` is Paytone One at true size, for
   everything built from the kit (`src/components/brand/`, and each surface as
-  its stage rebuilds it). `--font-display` is the same files drawn at 82% (the
-  `'Galindo Fit'` @font-face in app.css), so rules still sized for the old
-  Baloo 2 (banner names, the ticker and the other surfaces not yet rebuilt)
-  keep their fit: at true size a max-length slide overflowed and long names
-  broke mid-word at 720p. Move a rule to `--font-shout` only when you re-size
-  it, as stage 4b did for the lobby's headlines (typed and calendar slides
-  now shout in `--font-shout`, sized by the fit in `src/lib/lobbyFrame.js`).
-  Both stacks fall back to Baloo 2 for the letters Galindo lacks (Ș, Ț,
-  Vietnamese), which is why the Baloo import outlives the promos.
+  its stage rebuilds it). `--font-display` is the same files drawn at 88% (the
+  `'Shout Fit'` @font-face in app.css), so rules still sized for the old
+  Baloo 2 (banner names, the doors-open flourish, the ticker and the other
+  surfaces not yet rebuilt) keep their fit: Paytone sets ~9% wider than Baloo
+  2 ExtraBold with 11.5% taller caps, and 88% lands at Baloo's median width
+  less 4%, its caps less 2% and no more than ~5% over on the widest names
+  (the envelope the 82% Galindo alias kept). Move a rule to `--font-shout`
+  only when you re-size it, as stage 4b did for the lobby's headlines (typed
+  and calendar slides shout in `--font-shout`, sized by the fit in
+  `src/lib/lobbyFrame.js`). Both stacks fall back to Baloo 2 for Devanagari,
+  the one script a name may use that Paytone lacks and a chunky face draws,
+  which (with the promos) is why the Baloo import stays.
 - **The posters keep their own faces.** `--promo-font-*` and `--font-poster`
   are poster-only and the brand tokens never touch a `.promo-*` rule;
   `src/lib/promoFonts.test.js` pins both directions.
@@ -292,9 +327,11 @@ Signage only (`index.html`); the projector and Journey never see them.
 
 Every arrival is one component, `src/components/CheckInMoment.jsx`: the
 catalog's club opener page played live. The child's club wave rises and
-carries the name (Galindo, `--font-shout`, sized by measurement so it never
-breaks between letters), the club's white mark rides the low side, three kit
-doodles land last, and the one hot sticker marks a birthday or a first-timer.
+carries the name (Paytone One, `--font-shout`, sized by measurement so it
+never breaks between letters: 10.6u / 9.1u / 7.6u by length, the mockup's
+Galindo steps at its cap height), the club's white mark rides the low side,
+three kit doodles land last, and the one hot sticker marks a birthday or a
+first-timer.
 The colour is always the child's club. What differs between a welcome, a
 welcome back, a first-timer, a birthday and a replayed recap is only the
 kicker, the one line under the name and the sticker, all pure functions in
@@ -314,6 +351,15 @@ a birthday never shows a number).
   mode="wait"`, so a new run mounts only after the last has left; a shorter
   gap would spend the next child's hold on the previous child's exit. Under
   zero animation exits are instant and the configured gap alone applies.
+- **A name's marks keep clear of the kicker and the line** (`nameBox`,
+  `nameUnderKicker` in `src/lib/checkInMoment.js`). A mark on a letter under
+  the kicker (measured: the kicker's width in Londrina against the name's
+  letters) may rise into the kicker's margin and the empty foot of its line,
+  and drops the kicker just far enough past that to stay 0.3u off its letters
+  (ÉMILE under WELCOME, JOSÉ under WELCOME TO AWANA CLUBS); a mark past the
+  kicker's end needs nothing. A comma below (ȘTEFAN) lifts the name off the
+  line under it only when there is one. Galindo's É already touched a long
+  kicker; Paytone's taller marks would have landed on it.
 - **Flips cross over in place.** Per-child copy (kicker, name, line, sticker,
   mark, a new club's wave) sits in small keyed AnimatePresences; the
   outgoing copy gets `is-leaving` (via `useIsPresent`) the moment its exit
@@ -410,12 +456,19 @@ thumbnail is the TV at 0.15 scale and fits the same way).
   keyframe is always the resting design, which is what `?lowPower=1` shows.
 - **The fit (`fitFrame`) measures words in the faces that draw them** and
   never lets the block leave the safe box (u = 1% of the 16:9 stage). Shout
-  (uppercase Galindo, `--font-shout`, hard offset shadow): up to three lines
-  of at most 68u from 7.2u down to 6u, then up to two lines of 84u down to 5u;
-  `lg` caps it at 5.8u, `md` always reads, and so does any headline in a
-  script that stacks marks above and below its letters (Thai, Lao, Khmer,
-  Myanmar, Tibetan and the Brahmic scripts bar Devanagari, which Baloo 2
-  draws: `STACKED`), whose marks touch across rows at the shout's .98.
+  (uppercase Paytone One, `--font-shout`, hard offset shadow): up to three
+  lines of at most 68u from 7.6u down to 6.3u, then up to two lines of 84u
+  down to 5.3u, rows .93em apart; `lg` caps it at 6.1u. Those are the
+  mockup's Galindo tiers (7.2 / 6 / 5 / 5.8u at .98) times 1.057, holding its
+  cap heights and row pitch; the measure and the box keep their numbers,
+  since Paytone runs ~5% narrower per cap on most words. A row whose marks
+  would meet the row above, the kicker or the chip gets exactly the room they
+  need (`shoutBox`: `rise` per row, set as a top margin on that row's words,
+  so the other rows keep their pitch; `padBottom` under the last), and the fit
+  counts it. `md` always reads, and so does any headline in a script that
+  stacks marks above and below its letters (Thai, Lao, Khmer, Myanmar,
+  Tibetan and the Brahmic scripts bar Devanagari, which Baloo 2 draws:
+  `STACKED`), whose marks touch across rows at a caps line height.
   Otherwise read (sentence-case Figtree in the theme's reading ink): balanced
   rows of at most 76u from 4.2u down to 1.5u, at a line height of 1.22. The
   block starts at 15.1u and rises only as far as 11u, and a
@@ -595,10 +648,10 @@ type, the club colours and marks, the stepped chip and the edge waves.
   `schedule.json`: `index.css` `@import`s `shared/brand/tokens.css` (bundled
   and hashed at build time, exactly like the lobby's `app.css`), and
   `lib/kit.js` / `lib/motion-tokens.js` import `shared/brand/tokens.json`.
-  Fonts are the same `@fontsource` files the lobby bundles (Galindo,
-  Londrina Solid 400, Figtree, Baloo 2 as the fallback for letters Galindo
-  lacks), so the service worker precaches one copy for both pages and
-  nothing is fetched at showtime. The mark and the club wave come in as
+  Fonts are the same files the lobby bundles (Paytone One from the kit's
+  own full files through the same `@font-face`, and `@fontsource` Londrina
+  Solid 400, Figtree and Baloo 2 for Devanagari), so the service worker
+  precaches one copy for both pages and nothing is fetched at showtime. The mark and the club wave come in as
   build assets / `?raw` from `shared/brand/`. It never imports
   `src/lib/brand.js`, `src/lib/motion.jsx` or `src/components/brand/*`:
   `src/presentation/isolation.test.js` enforces the whole allowlist, and
@@ -607,8 +660,10 @@ type, the club colours and marks, the stepped chip and the edge waves.
 - **Units.** Everything is sized in `--u` (1% of the widest 16:9 frame
   that fits the window) off the mockup, on a centred `.pj-frame`; edge
   waves and the mark use the real screen edges.
-- **One headline** (`components/Headline.jsx`, Galindo caps, words never
-  broken, `fit` sizes a title to one line by measurement), one kicker
+- **One headline** (`components/Headline.jsx`, Paytone One caps at .93,
+  words never broken, `fit` sizes a title to one line by measurement,
+  `headlineBox` opens the rows and pads the box for a title with a tall mark),
+  one kicker
   (Londrina), one body (Figtree), one stepped chip (`StepChip.jsx`, which
   replaced the pill Badge everywhere: game ends / warnings / tally /
   birthdays / theme / upcoming nights / the ESC toast / the resume pill).
@@ -637,9 +692,12 @@ type, the club colours and marks, the stepped chip and the edge waves.
   (hot figures, hot-deep plate), a hot HAPPY BIRTHDAY chip with the cake
   (still no age), and small CHECKED IN chips top-right. T&T is its catalog
   green.
-- The countdown's figures are Galindo in fixed 0.70em cells (Galindo has
-  no tabular figures; the widest ink, the zero, is 0.688em), clipped top
-  and bottom only so the roll never shaves a figure.
+- The countdown's figures are Paytone One's tabular figures (`tnum`, on
+  `.pj-timer`) in fixed 0.600em cells, the font's own tabular advance (its
+  default figures are proportional, 0.444em to 0.679em, and a zero would
+  overhang a 0.6em cell); every figure's ink sits inside its cell (0.021em
+  to 0.593em), clipped top and bottom only so the roll never shaves a
+  figure, in a 1.06em line (the mockup's 1.12em at Galindo's size).
 
 ## Privacy invariant — DO NOT relax
 

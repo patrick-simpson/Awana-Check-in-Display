@@ -10,7 +10,7 @@
 // are not 16:9), so a slide fits the same way on every screen and in every
 // thumbnail.
 
-import { chipGeometry } from './brand.js';
+import { chipGeometry, inkOverflow, markExtents } from './brand.js';
 
 /* ── The layout box ──────────────────────────────────────────────── */
 
@@ -53,26 +53,45 @@ export const LAYOUT = {
 export const KICKER = { size: 2.3, min: 1.6, gap: 1.9, tracking: 0.07, lineHeight: 1, wrappedLineHeight: 1.15 };
 
 /**
- * The shouted headline: Galindo at true size, uppercase, line-height .98,
- * with a hard offset shadow of .42u at 7.2u (0.058em). `ceiling` is the
- * largest size a slide's textSize allows; below `min` a headline is no longer
- * a shout, and the frame falls back to the read layout. So does any headline
- * in a script that stacks its marks above and below the letter (STACKED):
- * .98 is a line height for caps, and at it those marks touch across rows.
+ * The shouted headline: Paytone One at true size, uppercase, with a hard
+ * offset shadow of 0.058em (.44u at 7.6u). Sized to hold the approved
+ * mockup's CAP HEIGHTS, not its font sizes: the mockup was drawn in Galindo
+ * (7.2u, line-height .98), whose caps stand 5.7% taller at the same size
+ * (a mean cap top of 0.730em against Paytone One's 0.691em), so every size
+ * here is the mockup's times 1.057, rounded: 7.2u → 7.6u, 6u → 6.3u, 5u →
+ * 5.3u, lg's 5.8u → 6.1u, and the line height .98 → .93, which keeps the
+ * mockup's row pitch (7.07u at 7.6u against its 7.06u). Paytone One is also
+ * 5% narrower per unit of cap height on most words (THE GYM DOORS, the
+ * mockup's longest line, runs 60.4u at 7.6u against its 63.5u), so the
+ * measure and the box keep their numbers.
+ *
+ * `lineHeight` is the row pitch of plain caps. A mark that stands above a
+ * capital or hangs below one (JOSÉ, NGUYỄN, ȘTEFAN) reaches far past a caps
+ * row at .93 (É to 1.045em, Ș's comma to -0.351em), so the row it would
+ * crowd gets the extra room its measured ink needs (`shoutBox`): its marks
+ * never touch the row above or below, the kicker, or the chip, the other rows
+ * keep their pitch, and the fit counts the extra room. `markGap` is the least
+ * clear space left between a mark and the ink it would otherwise meet.
+ *
+ * `ceiling` is the largest size a slide's textSize allows; below `min` a
+ * headline is no longer a shout, and the frame falls back to the read layout.
+ * So does any headline in a script that stacks its marks above and below the
+ * letter (STACKED).
  */
 export const SHOUT = {
-  max: 7.2,
-  min: 5,
+  max: 7.6,
+  min: 5.3,
   /** The smallest size still set to the preferred measure before a line may run the full width. */
-  measured: 6,
+  measured: 6.3,
   step: 0.1,
-  lineHeight: 0.98,
+  lineHeight: 0.93,
   /** At the measure a shout may take three lines; at the full width, two. */
   maxLines: 3,
   wideLines: 2,
   shadow: 0.058,
+  markGap: 0.06,
   /** @type {Record<string, number>} */
-  ceiling: { auto: 7.2, xl: 7.2, lg: 5.8 },
+  ceiling: { auto: 7.6, xl: 7.6, lg: 6.1 },
 };
 
 /**
@@ -190,12 +209,12 @@ export function lobbyTheme(theme) {
 
 /**
  * The canvas font for each face, matching the CSS stacks that draw them
- * (--font-shout, --font-body at 800 and 700, --font-condensed). Galindo's
- * stack falls back to Baloo 2 for the letters Galindo lacks, as the CSS does.
+ * (--font-shout, --font-body at 800 and 700, --font-condensed). The shout's
+ * stack falls back to Baloo 2 for Devanagari, as the CSS does.
  * @type {Record<Face, string>}
  */
 const FONTS = {
-  shout: '400 100px Galindo, "Baloo 2 Variable", "Arial Rounded MT Bold", sans-serif',
+  shout: '400 100px "Paytone One", "Baloo 2 Variable", "Arial Rounded MT Bold", sans-serif',
   read: '800 100px "Figtree Variable", Figtree, "Segoe UI", system-ui, sans-serif',
   label: '400 100px "Londrina Solid", "Arial Narrow", sans-serif',
   body: '700 100px "Figtree Variable", Figtree, "Segoe UI", system-ui, sans-serif',
@@ -239,7 +258,28 @@ export function measureText(text, face) {
 }
 
 
+/**
+ * How far `text`'s ink reaches above and below its baseline, in em of one of
+ * the lobby's faces: measured on the canvas (the real outlines, whatever face
+ * in the stack draws each letter), else estimated from its marks.
+ * @param {string} text
+ * @param {Face} face
+ * @returns {{ ascent: number, descent: number }}
+ */
+export function measureInk(text, face) {
+  if (ctx === undefined) measureText('', face);
+  if (ctx) {
+    ctx.font = FONTS[face];
+    const m = ctx.measureText(text);
+    const ascent = m.actualBoundingBoxAscent / 100;
+    const descent = m.actualBoundingBoxDescent / 100;
+    if (Number.isFinite(ascent) && Number.isFinite(descent) && ascent > 0) return { ascent, descent: Math.max(0, descent) };
+  }
+  return markExtents(text);
+}
+
 /** @typedef {(text: string, face: Face) => number} Measure */
+/** @typedef {(text: string, face: Face) => { ascent: number, descent: number }} MeasureInk */
 
 /* ── The frame model ─────────────────────────────────────────────── */
 
@@ -298,11 +338,12 @@ export function slideFrame(slide) {
 /**
  * Scripts that stack vowel and tone marks above and below the letter: Thai,
  * Lao, Khmer, Myanmar and Tibetan, and the Brahmic scripts of India and Sri
- * Lanka. None has a letter in Galindo, so a shout would set them in a system
- * face at the caps' .98 line height, where the marks of one row touch the
- * next (measured: Thai in the fallback face). They read instead, at the read
- * layout's 1.22. Devanagari is not here: Baloo 2, the shout's own fallback,
- * draws it, and at .98 its rows stay clear.
+ * Lanka. None has a letter in Paytone One (or Baloo 2), so a shout would set
+ * them in a system face at a caps line height, where the marks of one row
+ * touch the next (measured: Thai in the fallback face). They read instead,
+ * at the read layout's 1.22. Devanagari is not here: Baloo 2, the shout's
+ * own fallback, draws it, and its rows take the room their measured ink
+ * needs (shoutBox).
  */
 const STACKED = /[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\p{Script=Tibetan}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}]/u;
 
@@ -721,11 +762,16 @@ function rowTexts(tokens, starts) {
  * `starts` the token each row starts with. A token in `wide` is wider than
  * any line and fills the rows that repeat its index, cut between its
  * characters. `joined`: the operator's line breaks could not all fit, so the
- * lines run on, separated by READ.joiner.
+ * lines run on, separated by READ.joiner. `rise` (em, one per row) is the
+ * extra room a row's marks need above it, on top of the line height (0 for
+ * plain caps, which is every row of nearly every slide); `padBottom` (em) is
+ * the room below the last row: the shout's shadow, and a mark's that hangs.
  * @typedef {{
  *   mode: 'shout' | 'read',
  *   size: number,
  *   lineHeight: number,
+ *   rise: number[],
+ *   padBottom: number,
  *   tokens: Token[],
  *   lines: string[],
  *   starts: number[],
@@ -780,11 +826,11 @@ function fitKicker(text, measure) {
  * line and the chip at their own sizes, and the headline to whatever height
  * is left, as big as it will go.
  *
- * The headline is shouted (uppercase Galindo) when it can be: first with up
- * to three lines no longer than the mockup's measure (68u) from 7.2u down to
- * 6u, then with up to two lines at the full width (84u) from 7.2u down to 5u,
- * taking the first size that fits. Words are measured in the real face and
- * never broken. Text that cannot shout at 5u is read instead (sentence case
+ * The headline is shouted (uppercase Paytone One) when it can be: first with
+ * up to three lines no longer than the mockup's measure (68u) from 7.6u down
+ * to 6.3u, then with up to two lines at the full width (84u) from 7.6u down
+ * to 5.3u, taking the first size that fits, with the room its marks need. Words are measured in the real face and
+ * never broken. Text that cannot shout at 5.3u is read instead (sentence case
  * Figtree, 4.2u down to 1.5u, balanced lines of at most 76u, in the theme's
  * reading ink), and so is any slide set to "md" and any headline in a script
  * that stacks its marks (STACKED). Explicit "xl" and "lg" cap
@@ -795,9 +841,10 @@ function fitKicker(text, measure) {
  *
  * @param {Frame} frame
  * @param {Measure} [measure]
+ * @param {MeasureInk} [ink]
  * @returns {FrameFit}
  */
-export function fitFrame(frame, measure = measureText) {
+export function fitFrame(frame, measure = measureText, ink = measureInk) {
   const kicker = frame.kicker ? fitKicker(frame.kicker, measure) : null;
   const kickerH = kicker ? kicker.lines.length * kicker.size * kicker.lineHeight + KICKER.gap : 0;
 
@@ -825,10 +872,9 @@ export function fitFrame(frame, measure = measureText) {
   /** @param {number} safeTop */
   const layout = (safeTop) => {
     const room = LAYOUT.safeBottom - safeTop - kickerH - chipH - subH;
-    const headline = fitHeadline(paras, frame.textSize, room, measure);
+    const headline = fitHeadline(paras, frame.textSize, room, measure, ink, Boolean(kicker));
     const headH = headline.lines.length
-      ? headline.lines.length * headline.size * headline.lineHeight
-        + headline.size * (headline.mode === 'shout' ? SHOUT.shadow : READ.shadow)
+      ? (headline.lines.length * headline.lineHeight + sum(headline.rise) + headline.padBottom) * headline.size
       : 0;
     const height = kickerH + headH + subH + chipH - (kicker && !headH ? KICKER.gap : 0);
     const top = Math.max(safeTop, Math.min(LAYOUT.top, LAYOUT.safeBottom - height));
@@ -858,9 +904,10 @@ function crowdsTheCorners(fit, measure) {
     ]));
   }
   const h = fit.headline;
-  for (const line of h.lines) {
-    rows.push([h.size * h.lineHeight, measure(h.mode === 'shout' ? line.toUpperCase() : line, h.mode) * h.size]);
-  }
+  // A row starts at the top of its marks' room.
+  h.lines.forEach((line, i) => {
+    rows.push([h.size * (h.lineHeight + (h.rise[i] ?? 0)), measure(h.mode === 'shout' ? line.toUpperCase() : line, h.mode) * h.size]);
+  });
   let y = fit.top;
   for (const [height, width] of rows) {
     if (y >= LAYOUT.clearTop - 1e-9) return false;
@@ -875,15 +922,58 @@ function crowdsTheCorners(fit, measure) {
  * @param {string} textSize
  * @param {number} room the height left for the headline, in u
  * @param {Measure} measure
+ * @param {MeasureInk} ink
+ * @param {boolean} kicker whether a kicker sits above it
  * @returns {HeadlineFit}
  */
-function fitHeadline(paras, textSize, room, measure) {
+function fitHeadline(paras, textSize, room, measure, ink, kicker) {
   const tokens = paras.flat();
   if (!tokens.length) {
-    return { mode: 'shout', size: SHOUT.max, lineHeight: SHOUT.lineHeight, tokens, lines: [], starts: [], wide: [], joined: false };
+    return {
+      mode: 'shout', size: SHOUT.max, lineHeight: SHOUT.lineHeight, rise: [], padBottom: SHOUT.shadow, tokens, lines: [], starts: [], wide: [], joined: false,
+    };
   }
   const shouts = textSize !== 'md' && !tokens.some((t) => STACKED.test(t.text));
-  return (shouts && fitShout(paras, textSize, room, measure)) || fitRead(paras, room, measure);
+  return (shouts && fitShout(paras, textSize, room, measure, ink, kicker)) || fitRead(paras, room, measure);
+}
+
+/** @param {number[]} list */
+const sum = (list) => list.reduce((a, b) => a + b, 0);
+
+/**
+ * The room a shouted headline's marks need, in em. Plain caps sit at
+ * SHOUT.lineHeight with the shadow's own room below and nothing else. A mark
+ * above a capital, or below one (É, Ễ, Ș, Ç), reaches well past a caps row,
+ * so the row it would crowd gets exactly the extra room it needs (`rise`,
+ * per row, which the page sets as a top margin on that row's words, so each
+ * row keeps its own pitch and an accent on one row never spreads the rest):
+ * - between two rows, enough that the lower row's marks clear the upper
+ *   row's ink and shadow by SHOUT.markGap;
+ * - above the first row, enough that its marks stay inside the headline's
+ *   box, less the kicker's gap when there is a kicker (a mark may rise into
+ *   that gap, never to within SHOUT.markGap of the kicker);
+ * - below the last row, the shadow's room or a hanging mark's, whichever is
+ *   deeper (`padBottom`).
+ * @param {string[]} lines each row's text, as shouted
+ * @param {(text: string) => { ascent: number, descent: number }} inkOf
+ * @param {number} size the headline's size, in u
+ * @param {boolean} kicker whether a kicker sits KICKER.gap above it
+ * @returns {{ lineHeight: number, rise: number[], padBottom: number }}
+ */
+export function shoutBox(lines, inkOf, size, kicker) {
+  const lineHeight = SHOUT.lineHeight;
+  const inks = lines.map((line) => inkOf(line));
+  if (!inks.length) return { lineHeight, rise: [], padBottom: SHOUT.shadow };
+  /** @param {number} n */
+  const up = (n) => Math.max(0, Math.ceil(n * 1000 - 1e-6) / 1000);
+  const room = kicker ? Math.max(0, KICKER.gap / size - SHOUT.markGap) : 0;
+  const rise = inks.map((ink, i) => (i === 0
+    ? up(inkOverflow(ink, lineHeight).top - room)
+    : up(inks[i - 1].descent + SHOUT.shadow + SHOUT.markGap + ink.ascent - lineHeight)));
+  // The shadow hangs below the last row's ink, marks and all.
+  const last = inks[inks.length - 1];
+  const bottom = inkOverflow({ ascent: 0, descent: last.descent + SHOUT.shadow }, lineHeight).bottom;
+  return { lineHeight, rise, padBottom: Math.max(SHOUT.shadow, bottom) };
 }
 
 /**
@@ -891,11 +981,25 @@ function fitHeadline(paras, textSize, room, measure) {
  * @param {string} textSize
  * @param {number} room
  * @param {Measure} measure
+ * @param {MeasureInk} ink
+ * @param {boolean} kicker
  * @returns {HeadlineFit | null}
  */
-function fitShout(paras, textSize, room, measure) {
+function fitShout(paras, textSize, room, measure, ink, kicker) {
   const ceiling = SHOUT.ceiling[textSize] ?? SHOUT.max;
   const m = measured(paras, 'shout', measure, (t) => t.toUpperCase());
+  /** @type {Map<string, { ascent: number, descent: number }>} */
+  const inks = new Map();
+  /** @param {string} line */
+  const inkOf = (line) => {
+    const text = line.toUpperCase();
+    let got = inks.get(text);
+    if (!got) {
+      got = ink(text, 'shout');
+      inks.set(text, got);
+    }
+    return got;
+  };
   // First at the mockup's measure, down to `measured`; only then the full
   // width, down to `min`. A long headline would rather step down a little
   // than run edge to edge. Three lines only at the measure: three full-width
@@ -918,10 +1022,12 @@ function fitShout(paras, textSize, room, measure) {
       else complete = false;
       offset += paras[p].length;
     }
-    if (complete && starts.length <= most
-      && starts.length * s * SHOUT.lineHeight + s * SHOUT.shadow <= room) {
-      const tokens = paras.flat();
-      return { mode: 'shout', size: s, lineHeight: SHOUT.lineHeight, tokens, lines: rowTexts(tokens, starts), starts, wide: [], joined: false };
+    if (!complete || starts.length > most) continue;
+    const tokens = paras.flat();
+    const lines = rowTexts(tokens, starts);
+    const box = shoutBox(lines, inkOf, s, kicker);
+    if ((starts.length * box.lineHeight + sum(box.rise) + box.padBottom) * s <= room) {
+      return { mode: 'shout', size: s, ...box, tokens, lines, starts, wide: [], joined: false };
     }
   }
   return null;
@@ -967,6 +1073,8 @@ function fitRead(paras, room, measure) {
     mode: 'read',
     size: r.size,
     lineHeight: READ.lineHeight,
+    rise: r.rows.map(() => 0),
+    padBottom: READ.shadow,
     tokens: ps.flat(),
     lines: r.rows.map((row) => row.text),
     starts: r.rows.map((row) => row.start),

@@ -27,7 +27,7 @@ const STINGER_TIMES = [3600, 1800, 600, 300, 60];
 
 /**
  * The week-long countdown to Wednesday 6:00 PM, flattened to type on the
- * bare black wall (the approved mockup): a Londrina kicker, Galindo figures
+ * bare black wall (the approved mockup): a Londrina kicker, Paytone One figures
  * with Awana-orange colons, and under them only what the week needs (the
  * next meeting's day while it is still a day or more out, the church's
  * theme for it as a stepped chip, special nights as plain lines). The

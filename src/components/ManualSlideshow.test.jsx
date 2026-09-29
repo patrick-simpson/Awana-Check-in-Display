@@ -106,10 +106,10 @@ describe('ManualSlideshow', () => {
     };
     const auto = headline('auto');
     expect(auto.cls).toContain('lobby-headline--shout');
-    expect(auto.size).toBe('calc(7.2 * var(--u))');
+    expect(auto.size).toBe('calc(7.6 * var(--u))');
     const lg = headline('lg');
     expect(lg.cls).toContain('lobby-headline--shout');
-    expect(lg.size).toBe('calc(5.8 * var(--u))');
+    expect(lg.size).toBe('calc(6.1 * var(--u))');
     const md = headline('md');
     expect(md.cls).toContain('lobby-headline--read');
     expect(md.size).toBe('calc(4.2 * var(--u))');

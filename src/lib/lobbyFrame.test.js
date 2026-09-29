@@ -1,16 +1,19 @@
 import { describe, it, expect } from 'vitest';
 import {
   CHIP, KICKER, LAYOUT, LOBBY_THEMES, READ, SHOUT, SUB,
-  balancedBreaks, bidiRuns, fitFrame, joinTokens, lobbyTheme, measureText, paragraphs, slideFrame, splitRun, tokenDirection, tokenize,
+  balancedBreaks, bidiRuns, fitFrame, joinTokens, lobbyTheme, measureInk, measureText, paragraphs, shoutBox, slideFrame, splitRun,
+  tokenDirection, tokenize,
 } from './lobbyFrame.js';
+import { SHOUT_BOX, markExtents } from './brand.js';
 import { SLIDE_THEMES, MAX_TEXT } from './slides.js';
 import { buildCalendarSlides, deriveClubInfo } from './calendarLogic.js';
 
-// A deterministic stand-in for the canvas, close to the real faces: Galindo
-// caps run ~0.68em a letter (MAKING BRACELETS measured 10.94em on the real
-// build), Figtree ~0.55em, Londrina ~0.42em; an ideograph is a full em in
-// any face.
-const PER = { shout: 0.68, read: 0.55, label: 0.42, body: 0.52 };
+// A deterministic stand-in for the canvas, close to the real faces: Paytone
+// One's caps run ~0.63em a letter (MAKING BRACELETS measures 9.755em in it,
+// Galindo's was 10.94em), Figtree ~0.55em, Londrina ~0.42em; an ideograph is
+// a full em in any face. Ink (how far marks reach) is the fit's own estimate
+// from the marks, markExtents, which is what measureInk falls back to here.
+const PER = { shout: 0.63, read: 0.55, label: 0.42, body: 0.52 };
 const IDEO = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303F\uFF01-\uFF60]/u;
 const measure = (text, face) => [...text].reduce((w, ch) => w + (ch === ' ' ? 0.28 : IDEO.test(ch) ? 1 : PER[face]), 0);
 
@@ -41,10 +44,11 @@ function rowsOf(fit) {
     });
     y += KICKER.gap;
   }
-  for (const line of fit.headline.lines) {
+  // Each row starts at the top of the room its marks rise into.
+  fit.headline.lines.forEach((line, i) => {
     out.push([y, rowWidth(fit, line)]);
-    y += fit.headline.size * fit.headline.lineHeight;
-  }
+    y += fit.headline.size * (fit.headline.lineHeight + fit.headline.rise[i]);
+  });
   return out;
 }
 
@@ -132,7 +136,7 @@ describe('paragraphs, tokens and balanced breaks', () => {
 });
 
 describe('fitFrame: the shouted headline', () => {
-  it('sets the mockup\'s calendar slide exactly: two lines at 7.2u, chip under, all above the waves', () => {
+  it('sets the mockup\'s calendar slide exactly: two lines at its cap height (7.6u), chip under, all above the waves', () => {
     const fit = fitFrame(frame({ kicker: 'Next club night', headline: 'Making Bracelets', chip: { label: 'WED', value: 'SEP 30' } }), measure);
     expect(fit.headline).toMatchObject({ mode: 'shout', size: SHOUT.max, lines: ['Making', 'Bracelets'], starts: [0, 1] });
     expect(fit.top).toBe(LAYOUT.top);
@@ -159,7 +163,7 @@ describe('fitFrame: the shouted headline', () => {
     expect(rowWidth(fit, fit.headline.lines[0])).toBeLessThanOrEqual(LAYOUT.width);
   });
 
-  it('a headline that only fits the full width still shouts, between 5u and 6u', () => {
+  it('a headline that only fits the full width still shouts, between SHOUT.min and SHOUT.measured', () => {
     const fit = fitFrame(frame({ headline: 'Supercalifragilisticexp' }), measure);
     expect(fit.headline.mode).toBe('shout');
     expect(fit.headline.size).toBeLessThan(SHOUT.measured);
@@ -176,7 +180,7 @@ describe('fitFrame: the shouted headline', () => {
     const xl = fitFrame(frame({ headline: 'Hi!', textSize: 'xl' }), measure).headline;
     expect(lg.mode).toBe('shout');
     expect(lg.size).toBeLessThan(auto.size);
-    expect(lg.size).toBe(5.8);
+    expect(lg.size).toBe(6.1);
     expect(xl.size).toBe(auto.size);
     expect(fitFrame(frame({ headline: 'Hi!', textSize: 'md' }), measure).headline).toMatchObject({ mode: 'read', size: READ.max });
   });
@@ -299,10 +303,94 @@ describe('fitFrame: scripts that stack their marks', () => {
     expect(fitFrame(frame({ headline: 'Welcome ยินดีต้อนรับ' }), measure).headline.mode).toBe('read');
   });
 
-  it('the scripts the shout\'s own faces draw still shout: Latin, Vietnamese, Devanagari (Baloo 2), Hebrew, Chinese', () => {
+  it('the scripts the shout\'s own faces draw still shout: Latin and Vietnamese (Paytone One), Devanagari (Baloo 2), Hebrew, Chinese', () => {
     for (const headline of ['Making bracelets', 'Chào mừng các em', 'आज रात क्लब में', 'ברוכים הבאים', '欢迎来到俱乐部']) {
       expect(fitFrame(frame({ headline }), measure).headline.mode, headline).toBe('shout');
     }
+  });
+});
+
+describe('fitFrame: the marks over and under the shout\'s capitals', () => {
+  // Paytone One draws them tall: É to 1.045em, Ễ to 1.161em, Ș's comma to
+  // -0.351em, against plain caps rows .93em apart. Each check below is in em
+  // of the headline, with the fit's own ink (markExtents, measureInk's
+  // canvas-less estimate).
+  const above = (lh) => (SHOUT_BOX.ascent - SHOUT_BOX.descent + lh) / 2;
+  const inkOf = (line) => markExtents(line.toUpperCase());
+
+  /** Every mark clears the row it faces, the kicker and the headline's bottom edge. */
+  function clearsEverything(fit, kicker) {
+    const h = fit.headline;
+    const inks = h.lines.map(inkOf);
+    inks.forEach((ink, i) => {
+      if (i === 0) {
+        const room = kicker ? KICKER.gap / h.size - SHOUT.markGap : 0;
+        expect(above(h.lineHeight) + h.rise[0] + room + 1e-6, h.lines[0]).toBeGreaterThanOrEqual(ink.ascent);
+      } else {
+        expect(h.lineHeight + h.rise[i] + 1e-6, h.lines[i])
+          .toBeGreaterThanOrEqual(inks[i - 1].descent + SHOUT.shadow + SHOUT.markGap + ink.ascent);
+      }
+    });
+    const last = inks[inks.length - 1];
+    expect(h.lineHeight - above(h.lineHeight) + h.padBottom + 1e-6).toBeGreaterThanOrEqual(last.descent + SHOUT.shadow);
+  }
+
+  it('plain caps take the plain pitch and the shadow\'s room, nothing more', () => {
+    for (const headline of ['Bring your handbook', 'Making Bracelets', 'The gym doors open at 6:15', 'Quiz night!']) {
+      const h = fitFrame(frame({ kicker: 'This week', headline }), measure).headline;
+      expect(h.mode).toBe('shout');
+      expect(h.lineHeight).toBe(SHOUT.lineHeight);
+      expect(h.rise).toEqual(h.lines.map(() => 0));
+      expect(h.padBottom).toBe(SHOUT.shadow);
+    }
+  });
+
+  it('an accented row gets room above it, and only that row', () => {
+    const fit = fitFrame(frame({ kicker: 'Esta semana', headline: 'Bienvenidos\nInscripción abierta' }), measure);
+    const h = fit.headline;
+    expect(h.mode).toBe('shout');
+    expect(h.lines).toEqual(['Bienvenidos', 'Inscripción', 'abierta']);
+    expect(h.rise[0]).toBe(0);
+    expect(h.rise[1]).toBeGreaterThan(0.2);
+    expect(h.rise[2]).toBe(0);
+    expect(h.lineHeight).toBe(SHOUT.lineHeight);
+    clearsEverything(fit, true);
+  });
+
+  it('a first-row accent may rise into the kicker\'s gap, never onto the kicker; with no kicker it stays in the box', () => {
+    const withKicker = fitFrame(frame({ kicker: 'Welcome', headline: 'José' }), measure);
+    const alone = fitFrame(frame({ headline: 'José' }), measure);
+    expect(withKicker.headline.rise[0]).toBeGreaterThan(0);
+    expect(alone.headline.rise[0]).toBeGreaterThan(withKicker.headline.rise[0]);
+    clearsEverything(withKicker, true);
+    clearsEverything(alone, false);
+  });
+
+  it('a comma below the last row gets room over the chip; one above a stacked accent opens that gap alone', () => {
+    const fit = fitFrame(frame({ kicker: 'Welcome', headline: 'Ștefan', chip: { label: 'WED', value: 'SEP 30' } }), measure);
+    expect(fit.headline.padBottom).toBeGreaterThan(SHOUT.shadow);
+    clearsEverything(fit, true);
+    const both = fitFrame(frame({ kicker: 'Welcome', headline: 'Ștefan · José\nNguyễn' }), measure);
+    expect(both.headline.rise[1]).toBeGreaterThan(0.5);
+    clearsEverything(both, true);
+    expect(blockBottom(both)).toBeLessThanOrEqual(LAYOUT.safeBottom + 1e-6);
+  });
+
+  it('shoutBox reads measured ink too: the real É and Ș', () => {
+    const real = { 'JOSÉ': { ascent: 1.045, descent: 0 }, 'ȘTEFAN': { ascent: 0.703, descent: 0.351 } };
+    const box = shoutBox(['ȘTEFAN', 'JOSÉ'], (l) => real[l], 7.6, false);
+    expect(box.rise[1]).toBeCloseTo(0.351 + SHOUT.shadow + SHOUT.markGap + 1.045 - SHOUT.lineHeight, 3);
+    expect(box.rise[0]).toBe(0);
+    expect(box.padBottom).toBe(SHOUT.shadow);
+  });
+
+  it('measureInk estimates from the marks when there is no canvas', () => {
+    expect(measureInk('MAYA', 'shout')).toEqual({ ascent: 0.7, descent: 0.02 });
+    expect(measureInk('JOSÉ', 'shout').ascent).toBeCloseTo(1.05);
+    expect(measureInk('NGUYỄN', 'shout').ascent).toBeCloseTo(1.17);
+    expect(measureInk('ȘTEFAN', 'shout').descent).toBeCloseTo(0.36);
+    // Decomposed (NFD) text reads the same as composed.
+    expect(measureInk('JOSE\u0301', 'shout')).toEqual(measureInk('JOSÉ', 'shout'));
   });
 });
 
@@ -416,6 +504,11 @@ describe('fitFrame: the invariants, over many texts', () => {
     texts.push(words.reduce((acc, w, i) => (i === 0 ? w : acc + sep() + w), '').slice(0, MAX_TEXT));
   }
   texts.push(Array.from({ length: 30 }, (_, i) => `Leader ${i + 1}`).join('\n'));
+  // Marks over and under the capitals, on every row and at every length.
+  const MARKED = ['José', 'Ștefan', 'Nguyễn', 'inscripción', 'niños', 'Çağla', 'Zoë', 'Åsa', 'Émile', 'Ąžuolas'];
+  for (let n = 1; n < 14; n += 1) {
+    texts.push(Array.from({ length: n }, (_, i) => (i % 2 ? LATIN[rand(LATIN.length)] : MARKED[rand(MARKED.length)])).join(n % 3 ? ' ' : '\n'));
+  }
   texts.push(`Register at ${URL130}`);
   texts.push('通'.repeat(MAX_TEXT));
 

@@ -16,7 +16,7 @@ const u = (n) => `calc(${n} * var(--u))`;
 // for all four as soon as the lobby is imported: the first slide is then
 // fitted in the real faces instead of refitting a beat later.
 if (typeof document !== 'undefined' && document.fonts?.load) {
-  for (const font of ['400 1em Galindo', '800 1em "Figtree Variable"', '700 1em "Figtree Variable"', '400 1em "Londrina Solid"']) {
+  for (const font of ['400 1em "Paytone One"', '800 1em "Figtree Variable"', '700 1em "Figtree Variable"', '400 1em "Londrina Solid"']) {
     document.fonts.load(font).catch(() => {});
   }
 }
@@ -43,6 +43,18 @@ function Piece({ tag = 'span', still, enter, leave, children, ...rest }) {
       {children}
     </Tag>
   );
+}
+
+/**
+ * A headline token's own style: a word too wide for any line is held inside
+ * the read layout's width, and a word on a row whose marks need room above it
+ * carries that room (em) as a top margin.
+ * @param {boolean} wide
+ * @param {number} rise
+ */
+function wordStyle(wide, rise) {
+  if (!wide && !rise) return undefined;
+  return { ...(wide ? { maxWidth: u(READ.width) } : null), ...(rise ? { marginTop: `${rise}em` } : null) };
 }
 
 /** Lift away (a hand-off) or wait for the wave and go (a wipe). */
@@ -74,7 +86,7 @@ function rowBreaks(h) {
 
 /**
  * The lobby's copy frame, from the approved mockup: a kicker in Londrina
- * Solid, the headline in true-size Galindo with a hard offset shadow, an
+ * Solid, the headline in true-size Paytone One with a hard offset shadow, an
  * optional supporting line and an optional stepped chip, centred on the
  * upper middle of the 16:9 stage box. Sizes and line breaks come from the
  * pure fit (src/lib/lobbyFrame.js), measured in the real faces and redone
@@ -150,13 +162,21 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
   const leave = (beat) => leaveFor(beat.index, beats.pieces);
   const tokenBeat = (i) => beats.tokens[i] ?? beats.tokens[beats.tokens.length - 1] ?? { index: 0, at: hold };
   const runs = new Map(bidiRuns(h.tokens).runs.map((run) => [run.from, run]));
+  // The row each token sits on, for a row whose marks need room above it
+  // (the fit's `rise`): its words carry that room as a top margin, which
+  // lifts that one line box and no other.
+  const riseOf = (i) => {
+    let r = 0;
+    while (r + 1 < h.starts.length && h.starts[r + 1] <= i) r += 1;
+    return h.rise?.[r] ?? 0;
+  };
 
   /** Token `i`'s own element: always the last child of its fragment, so a refit never remounts it. */
   const word = (i) => (
     <Piece
       still={still}
       className={`lobby-word${wide.has(i) ? ' lobby-word--wide' : ''}`}
-      style={wide.has(i) ? { maxWidth: u(READ.width) } : undefined}
+      style={wordStyle(wide.has(i), riseOf(i))}
       enter={holdThenLand(tokenBeat(i).at, HANDOFF.word, WORD_FROM[landing], WORD_TO, EASE.settle)}
       leave={leave(tokenBeat(i))}
     >
@@ -223,7 +243,7 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
         <p
           dir="auto"
           className={`lobby-headline lobby-headline--${h.mode}${slide ? ` manual-slide-text ${sizeClass}` : ''}`.trim()}
-          style={{ fontSize: u(h.size), lineHeight: h.lineHeight }}
+          style={{ fontSize: u(h.size), lineHeight: h.lineHeight, paddingBottom: `${h.padBottom}em` }}
           data-rows={h.lines.length}
         >
           {/* One element per token in both layouts, keyed by its place in

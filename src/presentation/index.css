@@ -1,15 +1,17 @@
 /* ════════════════════════════════════════════════════════════════════
    KVBC Awana Presentation Tool: the family brand kit on pure black.
    The projector wears the Awana 2026-27 catalog like every other screen
-   in the family (shared/brand/README.md): Galindo shouts (headlines,
+   in the family (shared/brand/README.md): Paytone One shouts (headlines,
    the big figures), Londrina Solid labels (kickers, chips' small line,
    buttons), Figtree is read (the pledges, notes). The catalog arrives
    through the type, the club colours and marks, the stepped chip, and
    the club waves, all over #000000: it is projected onto a blank wall.
 
-   Fonts are bundled from @fontsource (the same files the lobby bundles,
-   so the service worker precaches one copy for both pages and nothing is
-   fetched from the network at showtime). The kit's own tokens.css is
+   Fonts are bundled (the same files the lobby bundles, so the service
+   worker precaches one copy for both pages and nothing is fetched from the
+   network at showtime): Paytone One from the kit's own full font files (its
+   license reserves the name, so never an @fontsource subset; see the
+   @font-face below), the rest from @fontsource. The kit's own tokens.css is
    pulled into this bundle at build time, exactly as the lobby's app.css
    does, so the --brand-* values ARE the kit's file and cannot drift.
 
@@ -18,11 +20,11 @@
    scanning is pinned to this subtree so the signage app's class strings
    never leak in, and the signage CSS graph never sees Tailwind at all.
    ════════════════════════════════════════════════════════════════════ */
-@import "@fontsource/galindo";
 @import "@fontsource/londrina-solid/400.css";
 @import "@fontsource-variable/figtree";
-/* Baloo 2 draws the letters Galindo lacks (Ș, Ț, Vietnamese), so a
-   birthday name stays in one chunky voice, as it does in the lobby. */
+/* Baloo 2 draws Devanagari, the one script a name may use that Paytone One
+   lacks and a chunky face still draws, so a birthday name stays in one
+   chunky voice, as it does in the lobby. */
 @import "@fontsource-variable/baloo-2";
 @import "../../shared/brand/tokens.css";
 
@@ -30,10 +32,27 @@
 @source "./";
 @source "../../countdown.html";
 
+/* The shout: Paytone One (owner's decision 2026-09-29; it replaced Galindo),
+   the kit's own full, unmodified files, byte for byte the lobby's (app.css
+   declares the same face; src/presentation/lib/kit.test.js pins the two
+   together). The overrides only seat the caps in a line box where the
+   approved mockup's caps sat, centred as before; see app.css. */
+@font-face {
+  font-family: "Paytone One";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  ascent-override: 96%;
+  descent-override: 43.6%;
+  line-gap-override: 0%;
+  src: url("../../shared/brand/fonts/paytone-one-full-400-normal.woff2") format("woff2"),
+       url("../../shared/brand/fonts/PaytoneOne-Regular.ttf") format("truetype");
+}
+
 @theme {
   /* ── The kit's three voices ─────────────────────────────────── */
   /* shout: headlines, the big figures, chip values */
-  --font-display: "Galindo", "Baloo 2 Variable", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --font-display: "Paytone One", "Baloo 2 Variable", "Arial Rounded MT Bold", system-ui, sans-serif;
   /* label: kickers, the chip's small line, buttons, the operator menu */
   --font-condensed: "Londrina Solid", "Arial Narrow", system-ui, sans-serif;
   /* read: the pledges, closing lines, notes */
@@ -182,16 +201,20 @@
   --u: min(1vw, 1.7778vh);
 
   /* ── Type scale (in projector units) ────────────────────────── */
-  --text-timer: calc(17.5 * var(--u));      /* the countdown's figures */
-  --text-timer-days: calc(13 * var(--u));   /* "6d 23h 30m" */
-  --text-game-timer: calc(16 * var(--u));   /* the game clock */
-  --text-headline: calc(7.6 * var(--u));    /* slide headlines */
-  --text-game-headline: calc(7 * var(--u)); /* GAME TIME! */
+  /* The shout's sizes hold the approved mockup's cap heights, which were
+     Galindo's: Paytone One's caps stand 5.7% shorter at one size (its
+     figures 5%), so these are the mockup's 17.5 / 13 / 16 / 7.6 / 7 times
+     that, rounded. */
+  --text-timer: calc(18.4 * var(--u));      /* the countdown's figures */
+  --text-timer-days: calc(13.7 * var(--u)); /* "6d 23h 30m" */
+  --text-game-timer: calc(16.8 * var(--u)); /* the game clock */
+  --text-headline: calc(8 * var(--u));      /* slide headlines */
+  --text-game-headline: calc(7.4 * var(--u)); /* GAME TIME! */
   --text-kicker: calc(2.6 * var(--u));
   --text-body: calc(3 * var(--u));
   --text-note: calc(2 * var(--u));
 
-  /* Galindo and Londrina ship one weight each: never let the browser smear
+  /* Paytone One and Londrina ship one weight each: never let the browser smear
      a fake bold over them when an operator rule asks for 700 or 800. */
   font-synthesis-weight: none;
 }
@@ -212,11 +235,14 @@
 }
 
 /* ── The kit's type ─────────────────────────────────────────────── */
+/* line-height: the mockup's .98 at Galindo's size, held in units at Paytone
+   One's (1 / 1.057); a title with a tall mark (É, Ș) gets more, inline, from
+   Headline.jsx's headlineBox. */
 .pj-headline {
   font-family: var(--font-display);
   font-weight: 400;
   text-transform: uppercase;
-  line-height: 0.98;
+  line-height: 0.93;
   text-align: center;
   text-wrap: balance;
 }
@@ -302,17 +328,23 @@
 }
 
 /* ── The big figures (BigTimer.jsx, DigitReel.jsx) ──────────────── */
+/* Paytone One's tabular figures (tnum): every digit on a 0.600em advance,
+   drawn for it by the type's designer, so a digit sits in its DigitReel cell
+   exactly as it would in tabular type and the clock never twitches. The
+   line box is the mockup's 1.12em at Galindo's size, held in units at
+   Paytone One's (1 / 1.05 for figures): 1.06em. */
 .pj-timer {
   font-family: var(--font-display);
   font-weight: 400;
-  line-height: 1.12;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.06;
 }
 .pj-reel {
   position: relative;
   display: inline-flex;
   justify-content: center;
-  height: 1.12em;
-  line-height: 1.12em;
+  height: 1.06em;
+  line-height: 1.06em;
   vertical-align: bottom;
   /* clip the roll top and bottom only, never a figure's sides */
   clip-path: inset(0 -0.4em);
@@ -409,8 +441,8 @@
   height: calc(6.9 * var(--u));
 }
 .pj-game__chips {
-  /* the figures' 1.12em line leaves room below them; the chip tucks up
-     into it, where the mockup has it */
+  /* the figures' 1.06em line leaves room below them (0.27em); the chip
+     tucks up into it, where the mockup has it */
   margin-top: calc(-1.4 * var(--u));
 }
 .pj-game__birthday {

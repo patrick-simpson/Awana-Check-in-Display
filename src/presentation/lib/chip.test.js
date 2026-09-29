@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { CHIP_HEIGHT_EM, chipGeometry, fitChipList, fitChipU, measureEm, widestDigits, wrapRows } from './chip.js';
+import {
+  CHIP_HEIGHT_EM, SHOUT_BOX, chipGeometry, fitChipList, fitChipU, inkOverflow, markExtents, measureEm, widestDigits, wrapRows,
+} from './chip.js';
 // Test-only reach into the lobby's copy: the projector may not import it at
 // run time (the isolation rule), so this is what keeps the two stepped chips
 // the same shape.
-import { chipGeometry as lobbyChipGeometry } from '../../lib/brand.js';
+import {
+  SHOUT_BOX as LOBBY_SHOUT_BOX, chipGeometry as lobbyChipGeometry, inkOverflow as lobbyInkOverflow, markExtents as lobbyMarkExtents,
+} from '../../lib/brand.js';
 
 describe('the projector\'s stepped chip', () => {
   it('has exactly the lobby chip\'s geometry', () => {
@@ -16,8 +20,16 @@ describe('the projector\'s stepped chip', () => {
     const narrow = chipGeometry(3, 1);
     const wide = chipGeometry(3, 8);
     expect(wide.width).toBeGreaterThan(narrow.width);
-    const pillEnd = Math.max(3 * 0.56 + 0.84, 2.2);
+    const pillEnd = Math.max(3 * 0.59 + 0.84, 2.2);
     expect(narrow.width - 0.2).toBeGreaterThanOrEqual(pillEnd + 0.5 - 1e-9);
+  });
+
+  it('reads the shout\'s marks exactly as the lobby does', () => {
+    expect(SHOUT_BOX).toEqual(LOBBY_SHOUT_BOX);
+    for (const text of ['MAYA', 'JOSÉ', 'NGUYỄN', 'ȘTEFAN', 'ÇAĞLA', 'Å', 'आज', '']) {
+      expect(markExtents(text), text).toEqual(lobbyMarkExtents(text));
+      for (const lh of [0.93, 1, 1.4]) expect(inkOverflow(markExtents(text), lh, 0.05)).toEqual(lobbyInkOverflow(lobbyMarkExtents(text), lh, 0.05));
+    }
   });
 
   it('measures without a canvas (tests) by a per-character estimate', () => {
