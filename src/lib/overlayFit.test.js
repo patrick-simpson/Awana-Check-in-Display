@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  NAME_CHIP_TEXT, OVERLAY, PICKUP_TIME, balanceLines, bandRoom, bandTop, boardPlacement, boardRowsHeight, fitBoard,
-  fitParagraph, fitShout, lobbyRoom, plateChrome, wrapLines,
+  NAME_CHIP_CLEAR, NAME_CHIP_TEXT, OVERLAY, PICKUP_TIME, balanceLines, bandRoom, bandTop, boardPlacement, boardRowsHeight,
+  fitBoard, fitParagraph, fitShout, lobbyRoom, nameChipSeat, plateChrome, wrapLines,
 } from './overlayFit.js';
 import { LAYOUT } from './lobbyFrame.js';
-import { PLATE } from './brand.js';
+import { PLATE, SHOUT_BOX } from './brand.js';
 import {
   BOARD_ANONYMOUS, BOARD_EMPTY, BOARD_HIDDEN, BOARD_NAMES, BOARD_STALE, PICKUP_PHASES,
 } from './checkoutBoard.js';
@@ -343,7 +343,43 @@ describe('the overlays\' shouts hold stage 4b-2\'s cap heights in Paytone One', 
     const rule = body('.checkout-name__chip');
     expect(rule).toMatch(new RegExp(`font-size: ${NAME_CHIP_TEXT}em;`));
     expect(rule).toMatch(new RegExp(`height: calc\\(1\\.75em / ${NAME_CHIP_TEXT}\\);`));
-    expect(rule).toMatch(new RegExp(`line-height: calc\\(1\\.75em / ${NAME_CHIP_TEXT}\\);`));
-    expect(rule).toMatch(new RegExp(`padding: 0 calc\\(0\\.65em / ${NAME_CHIP_TEXT}\\);`));
+    // The line and its padding give way to a mark's seat (nameChipSeat) inside
+    // the same pill; unset, the seat is 0 and the rule is the one it was.
+    expect(rule).toMatch(new RegExp(`line-height: calc\\(1\\.75em / ${NAME_CHIP_TEXT} - 2 \\* var\\(--seat, 0em\\)\\);`));
+    expect(rule).toMatch(new RegExp(`padding: calc\\(2 \\* var\\(--seat, 0em\\)\\) calc\\(0\\.65em / ${NAME_CHIP_TEXT}\\) 0;`));
+  });
+});
+
+// A name chip is a pill 1.75 / NAME_CHIP_TEXT em tall at that line height, so
+// its baseline hangs ~1.09em under the top. Paytone One's capitals carry
+// their marks up to it (É at 1.045em) or through it (Ấ 1.183em) and onto the
+// white card; the seat moves such a name down inside the same pill.
+describe('a name chip\'s seat (nameChipSeat)', () => {
+  const height = 1.75 / NAME_CHIP_TEXT;
+  const above = (SHOUT_BOX.ascent - SHOUT_BOX.descent + height) / 2;
+  const SHADOW = 0.06;
+  // Paytone One's real ink (fontTools), em.
+  const ink = { plain: [0.703, 0.016], lower: [0.984, 0.212], comma: [0.703, 0.351], É: [1.045, 0.016], Ễ: [1.161, 0.016], Ấ: [1.183, 0.016], both: [1.183, 0.351] };
+  const of = (k) => ({ ascent: ink[k][0], descent: ink[k][1] });
+  const inkTop = (k) => above + nameChipSeat(of(k)) - of(k).ascent;
+  const inkBottom = (k) => above + nameChipSeat(of(k)) + of(k).descent + SHADOW;
+
+  it('leaves plain names, lowercase marks and a hanging comma where they were', () => {
+    for (const k of ['plain', 'lower', 'comma']) expect(nameChipSeat(of(k)), k).toBe(0);
+  });
+
+  it('drops a capital\'s mark just clear of the pill\'s top, and no further', () => {
+    for (const k of ['É', 'Ễ', 'Ấ']) {
+      // Unseated, it reaches within the clear space of the edge, or past it.
+      expect(above - of(k).ascent, k).toBeLessThan(NAME_CHIP_CLEAR);
+      expect(inkTop(k), k).toBeGreaterThanOrEqual(NAME_CHIP_CLEAR - 1e-3);
+      expect(inkTop(k), k).toBeLessThan(NAME_CHIP_CLEAR + 0.002);
+      expect(inkBottom(k), k).toBeLessThanOrEqual(height - NAME_CHIP_CLEAR);
+    }
+  });
+
+  it('never drops a name so far that its comma and shadow reach the bottom', () => {
+    expect(nameChipSeat(of('both'))).toBeGreaterThan(0);
+    expect(inkBottom('both')).toBeLessThanOrEqual(height - NAME_CHIP_CLEAR + 1e-9);
   });
 });

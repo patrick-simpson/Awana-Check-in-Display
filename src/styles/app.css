@@ -3776,11 +3776,14 @@ input:focus-visible {
   /* The chip was drawn around Galindo's caps at --name-size: the name is
      Paytone One at 1.057x that (overlayFit.js NAME_CHIP_TEXT), whose caps
      stand as tall, and the pill keeps its size in --name-size (1.75 tall,
-     0.65 of padding a side), which is what boardRowsHeight models. */
+     0.65 of padding a side), which is what boardRowsHeight models. A name
+     whose capital carries a tall mark (É, Ấ) sits --seat lower
+     (overlayFit.js nameChipSeat, set inline): twice that of padding over a
+     line box twice that shorter, in the same pill. Unset, it is 0. */
   font-size: 1.057em;
   height: calc(1.75em / 1.057);
-  line-height: calc(1.75em / 1.057);
-  padding: 0 calc(0.65em / 1.057);
+  line-height: calc(1.75em / 1.057 - 2 * var(--seat, 0em));
+  padding: calc(2 * var(--seat, 0em)) calc(0.65em / 1.057) 0;
   border-radius: 999px;
   background: var(--club);
   color: #fff;

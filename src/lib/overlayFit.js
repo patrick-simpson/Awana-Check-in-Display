@@ -8,6 +8,7 @@
 // Every length is in u, 1% of a 16:9 stage's width (min(1vw, 1.7778vh)),
 // the unit the lobby scene, the corner chips and the check-in moment use.
 
+import { SHOUT_BOX } from './brand.js';
 import { measureText } from './lobbyFrame.js';
 import { BOARD_ANONYMOUS, BOARD_EMPTY, BOARD_NAMES, BOARD_STALE, PICKUP_PHASES } from './checkoutBoard.js';
 
@@ -342,6 +343,44 @@ export function fitParagraph(text, {
  * carries the same number).
  */
 export const NAME_CHIP_TEXT = 1.057;
+
+/**
+ * The least clear space a name's ink keeps from its chip's edges, em. More
+ * than the kit's 0.06em: the pill has no keyline, so its edge meets the white
+ * card, which swallows a white mark that reaches it, and at 720p Chromium
+ * paints a small accent up to a pixel above its outline (measured on the
+ * board's 28px names), which 0.06em (1.7px there) did not survive.
+ */
+export const NAME_CHIP_CLEAR = 0.1;
+/** The name's hard shadow (app.css .checkout-name__chip text-shadow), em. */
+const NAME_CHIP_SHADOW = 0.06;
+
+/**
+ * How far a name sits below its chip's own line, in em of the name (the
+ * chip's font size; app.css .checkout-name__chip's `--seat`). The pill is
+ * 1.75 / NAME_CHIP_TEXT em tall at that line height, which hangs the
+ * baseline ~1.09em under its top and ~0.566em over its bottom: plain names,
+ * lowercase marks and a hanging comma (Ștefan) all sit well inside, but
+ * Paytone One's capitals carry their marks tall (É and Á to 1.045em, Ễ
+ * 1.161em, Ấ 1.183em), up to or through the pill's top edge and onto the
+ * white card. So a name whose ink (inkEm / measureInk: em above and below its
+ * baseline) would come within `NAME_CHIP_CLEAR` of the top moves down just far
+ * enough, never so far that its lowest ink and shadow come within the same of
+ * the bottom (the rule a chip's value follows, brand.js valueSeat). The pill
+ * keeps its size; a plain name gets 0 and sits exactly where it did.
+ * @param {{ ascent: number, descent: number }} ink
+ * @returns {number}
+ */
+export function nameChipSeat(ink) {
+  const height = 1.75 / NAME_CHIP_TEXT;
+  const above = (SHOUT_BOX.ascent - SHOUT_BOX.descent + height) / 2;
+  const need = ink.ascent + NAME_CHIP_CLEAR - above;
+  if (!(need > 0)) return 0;
+  const spare = height - above - (Math.max(0, ink.descent) + NAME_CHIP_SHADOW + NAME_CHIP_CLEAR);
+  // Rounded to the room's side: up for the mark's need, down for what is spare.
+  const drop = Math.min(Math.ceil(need * 1000 - 1e-6), Math.floor(spare * 1000 + 1e-6)) / 1000;
+  return drop > 0 ? drop : 0;
+}
 
 /**
  * The board's chips at chip size `s` (the name's font size, u): each club is

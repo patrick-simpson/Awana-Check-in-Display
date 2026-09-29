@@ -6,13 +6,51 @@ import { ZeroAnimationContext } from '../lib/motion.jsx';
 import { getClubPalette } from '../lib/clubs.js';
 import { bookMilestoneCopy } from '../lib/milestones.js';
 import { firstOfNightCopy } from '../lib/firstOfNight.js';
-import { bandRoom, plateChrome } from '../lib/overlayFit.js';
-import MilestoneToast, { LINE, toastFit, toastFor } from './MilestoneToast.jsx';
+import { bandRoom, fitShout, plateChrome } from '../lib/overlayFit.js';
+import { PLATE, SHOUT_BOX } from '../lib/brand.js';
+import MilestoneToast, { LINE, toastBox, toastFit, toastFor } from './MilestoneToast.jsx';
 
 const css = readFileSync(resolve(__dirname, '../styles/app.css'), 'utf8');
 
 afterEach(cleanup);
 const still = (ui) => render(<ZeroAnimationContext.Provider value>{ui}</ZeroAnimationContext.Provider>);
+
+// Paytone One's ink per letter, in em (fontTools; the boxes the canvas reports
+// on a real screen, as src/lib/inkCanvas.test.js fakes them): caps stand
+// 0.688, Á and É's accents reach 1.045, Ễ's stacked marks 1.161, and Ș's
+// comma hangs to -0.351.
+const UP = { Á: 1.045, É: 1.045, Ễ: 1.161 };
+const DOWN = { Ș: 0.351, Ț: 0.351 };
+const paytoneInk = (text) => {
+  const letters = [...String(text).normalize('NFC')];
+  return {
+    ascent: Math.max(...letters.map((ch) => UP[ch] || 0.688)),
+    descent: Math.max(...letters.map((ch) => DOWN[ch] || 0.016)),
+  };
+};
+
+// The plate as StepPlate draws it, in u from the block's top edge (the
+// keyline's centre): its padding, the keyline, and the fill printed DROP
+// below it, so the room's background shows between the two (brand.js PLATE).
+const PAD = 0.6;
+const PILL = 1.45 * 2.05;
+const KEYLINE = PILL * PLATE.keyline;
+const DROP = PILL * PLATE.offsetY;
+// Where the caps' baseline sits in a line box at LINE.lineHeight, em.
+const ABOVE = (SHOUT_BOX.ascent - SHOUT_BOX.descent + LINE.lineHeight) / 2;
+
+/** The rows' ink on the block, in u from its top edge, and the block's height. */
+function onPlate(rows, fit, inkOf = paytoneInk) {
+  let top = PAD + fit.padTop;
+  const out = rows.map((row, i) => {
+    top += (fit.rise[i] || 0) * fit.size;
+    const ink = inkOf(row.toUpperCase());
+    const baseline = top + ABOVE * fit.size;
+    top += LINE.lineHeight * fit.size;
+    return { top: baseline - ink.ascent * fit.size, bottom: baseline + (ink.descent + LINE.shadow) * fit.size };
+  });
+  return { rows: out, height: top + fit.padBottom + PAD };
+}
 
 describe('toastFor', () => {
   it('keeps every kind\'s own copy and its e2e class', () => {
@@ -84,14 +122,22 @@ describe('MilestoneToast', () => {
     expect(line.textContent).toBe(headline);
   });
 
-  it('fits every line to end where the band ends, under the flag strip too', () => {
-    const lines = ['20 kids strong!', '100 kids tonight!', 'Maximilian-Alexander Jonathan is first in tonight!', 'Ava is first in tonight!'];
-    for (const compact of [false, true]) {
-      for (const text of lines) {
-        const f = toastFit(text, { compact });
-        if (!f.fits) continue;
-        const reach = plateChrome(1.45) + 1.2 + f.lines.length * f.size * LINE.lineHeight;
-        expect(reach).toBeLessThanOrEqual(bandRoom(compact));
+  it('fits every line to end where the band ends, under the flag strip too, marks and all', () => {
+    const lines = [
+      '20 kids strong!', '100 kids tonight!', 'Maximilian-Alexander Jonathan is first in tonight!', 'Ava is first in tonight!',
+      'Maximilián is first in tonight!', 'Nguyễn is first in tonight!', 'Ștefan is first in tonight!',
+      'Ștefan-Alexandru Élodie-Nguyễn is first in tonight!',
+    ];
+    for (const ink of [undefined, paytoneInk]) {
+      for (const compact of [false, true]) {
+        for (const text of lines) {
+          const f = toastFit(text, { compact }, undefined, ink);
+          if (!f.fits) continue;
+          const rise = f.rise.reduce((a, r) => a + r, 0) * f.size;
+          const reach = plateChrome(1.45) + 1.2 + f.lines.length * f.size * LINE.lineHeight + f.padTop + f.padBottom + rise;
+          // Less the plate's out-of-register spill below its box (0.3u).
+          expect(reach, `${text}${compact ? ' (compact)' : ''}`).toBeLessThanOrEqual(bandRoom(compact) - 0.3 + 1e-9);
+        }
       }
     }
   });
@@ -113,6 +159,118 @@ describe('MilestoneToast', () => {
     expect(line.classList.contains('milestone-count--two')).toBe(true);
     expect(line.querySelectorAll('.milestone-count__line')).toHaveLength(2);
     expect(line.textContent).toBe('Maximilian-Alexander Jonathan is first in tonight!');
+  });
+});
+
+// Paytone One draws its marks far past its caps; the recheck of the font swap
+// found MAXIMILIÁN's accent across the block's top keyline, NGUYỄN's tilde
+// through the pill's, and ȘTEFAN's comma shadow on the bottom one.
+describe('the line\'s marks stay on the plate (toastBox)', () => {
+  const gap = (size) => LINE.markGap * size;
+  const bare = (size) => ({ size, padTop: 0, padBottom: 0, rise: [0, 0] });
+
+  it('gives plain caps no room, so an ordinary line never moves', () => {
+    for (const size of [1.5, 2.1, 2.7, 3.2]) {
+      expect(toastBox(['Bartholomew is first in tonight!'], paytoneInk, size)).toEqual({ padTop: 0, padBottom: 0, rise: [0] });
+      expect(toastBox(['Anna-Sophia Kristensen', 'is first in tonight!'], paytoneInk, size)).toEqual({ padTop: 0, padBottom: 0, rise: [0, 0] });
+    }
+  });
+
+  it('lands an accent that crossed the top keyline on the fill, just clear of its edge', () => {
+    for (const [text, size] of [['Maximilián is first in tonight!', 2.7], ['Nguyễn is first in tonight!', 3.1], ['José is first in tonight!', 3.2]]) {
+      // Unpadded, the mark reaches past the keyline and over the room's background.
+      expect(onPlate([text], bare(size)).rows[0].top, text).toBeLessThan(0);
+      const box = toastBox([text], paytoneInk, size);
+      expect(box.padBottom).toBe(0);
+      const { rows } = onPlate([text], { size, ...box });
+      expect(rows[0].top, text).toBeGreaterThanOrEqual(DROP + gap(size) - 1e-3);
+      // ... and by that much, not more.
+      expect(rows[0].top, text).toBeLessThan(DROP + gap(size) + 0.01);
+    }
+  });
+
+  it('keeps a hanging comma and its shadow off the bottom keyline', () => {
+    const size = 3.1;
+    const text = 'Ștefan is first in tonight!';
+    const unpadded = onPlate([text], bare(size));
+    expect(unpadded.rows[0].bottom).toBeGreaterThan(unpadded.height - KEYLINE / 2);
+    const box = toastBox([text], paytoneInk, size);
+    expect(box.padTop).toBe(0);
+    const drawn = onPlate([text], { size, ...box });
+    expect(drawn.rows[0].bottom).toBeLessThanOrEqual(drawn.height - KEYLINE / 2 - gap(size) + 1e-3);
+  });
+
+  it('opens only the row a lower row\'s marks would crowd', () => {
+    const size = 2.2;
+    const rows = ['Ștefan-Alexandru', 'Élodie is first in tonight!'];
+    expect(onPlate(rows, bare(size)).rows[1].top).toBeLessThan(onPlate(rows, bare(size)).rows[0].bottom);
+    const box = toastBox(rows, paytoneInk, size);
+    expect(box.rise[0]).toBe(0);
+    const drawn = onPlate(rows, { size, ...box });
+    expect(drawn.rows[1].top - drawn.rows[0].bottom).toBeGreaterThanOrEqual(gap(size) - 1e-3);
+  });
+});
+
+describe('toastFit, with the line\'s ink measured', () => {
+  const room = (compact) => bandRoom(compact) - plateChrome(1.45) - 1.2 - 0.3;
+  const reach = (f, rows) => rows * f.size * LINE.lineHeight + f.padTop + f.padBottom + f.rise.reduce((a, r) => a + r, 0) * f.size;
+
+  it('gives a marked name room and keeps its size, where the band has room for both', () => {
+    const plain = toastFit('Maximilian is first in tonight!', {}, undefined, paytoneInk);
+    const marked = toastFit('Maximilián is first in tonight!', {}, undefined, paytoneInk);
+    expect(plain).toMatchObject({ padTop: 0, padBottom: 0, rise: [0] });
+    expect(marked.padTop).toBeGreaterThan(0);
+    expect({ size: marked.size, lines: marked.lines }).toEqual({ size: plain.size, lines: ['Maximilián is first in tonight!'] });
+  });
+
+  it('under the flag strip, sets a marked line as large as the band still allows', () => {
+    const plain = toastFit('Nguyen is first in tonight!', { compact: true }, undefined, paytoneInk);
+    const marked = toastFit('Nguyễn is first in tonight!', { compact: true }, undefined, paytoneInk);
+    expect(marked.fits).toBe(true);
+    expect(marked.size).toBeLessThan(plain.size);
+    expect(reach(marked, 1)).toBeLessThanOrEqual(room(true) + 1e-9);
+    // A tenth larger would have run past the band's bottom.
+    const larger = marked.size + 0.1;
+    expect(reach({ size: larger, ...toastBox([marked.lines[0]], paytoneInk, larger) }, 1)).toBeGreaterThan(room(true));
+  });
+
+  it('leaves a plain line\'s fit exactly as the width set it', () => {
+    for (const compact of [false, true]) {
+      for (const text of ['Bartholomew is first in tonight!', '20 kids strong!', 'Maximilian-Alexander Jonathan is first in tonight!']) {
+        const f = toastFit(text, { compact }, undefined, paytoneInk);
+        expect(f.padTop + f.padBottom + f.rise.reduce((a, r) => a + r, 0), text).toBe(0);
+        const { size, lines, fits } = fitShout(text, {
+          width: 50 - 1.45 * 2.05 * 0.73 - 2.4,
+          max: Math.min(LINE.max, Math.floor((room(compact) / LINE.lineHeight) * 10 + 1e-9) / 10),
+          min: LINE.min,
+          twoLineMax: Math.min(LINE.twoLineMax, Math.floor((room(compact) / (2 * LINE.lineHeight)) * 10 + 1e-9) / 10),
+          twoLineMin: LINE.twoLineMin,
+        });
+        expect({ size: f.size, lines: f.lines, fits: f.fits }, text).toEqual({ size, lines, fits });
+      }
+    }
+  });
+
+  it('pads a marked line on the page, opens a marked lower row, and leaves a plain line alone', () => {
+    const first = (firstName) => still(
+      <MilestoneToast celebration={{ kind: 'first', firstName, count: 1, ...firstOfNightCopy(firstName) }} club={null} />,
+    ).container.querySelector('.milestone-count');
+    // jsdom has no canvas, so the ink is markExtents' estimate from the marks.
+    const accent = first('Maximilián');
+    expect(accent.style.paddingTop).toMatch(/^calc\([\d.]+ \* var\(--u\)\)$/);
+    expect(accent.style.paddingBottom).toBe('');
+    cleanup();
+    expect(first('Ștefan').style.paddingBottom).toMatch(/^calc\([\d.]+ \* var\(--u\)\)$/);
+    cleanup();
+    const plain = first('Maximilian');
+    expect(plain.getAttribute('style') ?? '').not.toMatch(/padding/);
+    cleanup();
+    const headline = 'Maximilian-Alexander Jonathan Élodie!';
+    const two = still(<MilestoneToast celebration={{ kind: 'night', count: 100, label: 'Triple digits', headline }} club={null} />)
+      .container.querySelectorAll('.milestone-count__line');
+    expect([...two].map((l) => l.textContent)).toEqual(['Maximilian-Alexander', ' Jonathan Élodie!']);
+    expect(two[0].style.marginTop).toBe('');
+    expect(two[1].style.marginTop).toMatch(/^[\d.]+em$/);
   });
 });
 

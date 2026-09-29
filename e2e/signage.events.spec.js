@@ -458,3 +458,183 @@ test('a T&T check-in keeps its square mark inside its slot, on screen', async ({
   expect(mark[2]).toBeLessThanOrEqual(slot[2] + 1);
   expect(mark[1]).toBeLessThanOrEqual(vh);
 });
+
+// ── Marks on the overlays' plates ────────────────────────────────────
+// Paytone One draws a capital's marks far past its caps: before these fixes
+// MAXIMILIÁN's accent crossed the doors-open toast's top keyline, NGUYỄN's
+// tilde went through its pill's, ȘTEFAN's comma shadow sat on its bottom one,
+// and a pickup-board chip's mark ran off its pill onto the white card. A real
+// first name only reaches either over the socket, so these tests stand in for
+// Pusher (page.routeWebSocket) and publish plaintext, as a printer with no
+// display key does, under ?lowPower=1 so every frame is the resting one.
+// MilestoneToast.test.jsx and overlayFit.test.js pin the arithmetic; this
+// pins what Chromium actually paints.
+
+/** A stand-in Pusher socket; resolves to `send(event, data)` once the page has subscribed. */
+async function fakePusher(page) {
+  const sockets = [];
+  let subscribed = false;
+  await page.route(/open-meteo|twotimtwo|stats\.pusher|sockjs|pusher\.com\/.*\.(js|json)/, (route) => route.abort());
+  await page.routeWebSocket(/pusher/, (ws) => {
+    sockets.push(ws);
+    ws.onMessage((raw) => {
+      let m;
+      try { m = JSON.parse(String(raw)); } catch { return; }
+      if (m.event === 'pusher:subscribe') {
+        ws.send(JSON.stringify({ event: 'pusher_internal:subscription_succeeded', channel: m.data.channel, data: '{}' }));
+        if (m.data.channel === 'awana-channel') subscribed = true;
+      } else if (m.event === 'pusher:ping') {
+        ws.send(JSON.stringify({ event: 'pusher:pong', data: '{}' }));
+      }
+    });
+    ws.send(JSON.stringify({ event: 'pusher:connection_established', data: JSON.stringify({ socket_id: '1234.5678', activity_timeout: 120 }) }));
+  });
+  return async (event, data) => {
+    await expect.poll(() => subscribed, { timeout: 10000 }).toBe(true);
+    sockets[sockets.length - 1].send(JSON.stringify({ event, channel: 'awana-channel', data: JSON.stringify(data) }));
+  };
+}
+
+/** Boot the lobby on a typed slide, with a key for the stand-in socket. */
+async function goLobby(page, extra = {}) {
+  const send = await fakePusher(page);
+  await page.addInitScript((config) => {
+    localStorage.setItem('awanaSetupCardDismissed.v1', '1');
+    localStorage.setItem('awanaConfig.v1', JSON.stringify(config));
+  }, {
+    pusherAppKey: 'e2e-key',
+    pusherCluster: 'us2',
+    backgroundSource: 'manual',
+    calendarEnabled: false,
+    seasonPromos: false,
+    manualSlides: TYPED_DECK,
+    showClock: false,
+    particleEffect: 'off',
+    ...extra,
+  });
+  await page.goto('/index.html?lowPower=1');
+  await expect(page.locator('.stage')).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  return send;
+}
+
+/**
+ * Screenshot the page and decode it in the page, so a test can ask whether a
+ * pixel was painted white: `window.e2eWhite(x, y)`.
+ */
+async function decodePaint(page) {
+  const png = (await page.screenshot()).toString('base64');
+  await page.evaluate(async (data) => {
+    const bmp = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
+    const c = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d');
+    c.drawImage(bmp, 0, 0);
+    const img = c.getImageData(0, 0, bmp.width, bmp.height).data;
+    window.e2eWhite = (x, y) => {
+      const i = (Math.round(y) * bmp.width + Math.round(x)) * 4;
+      return img[i] > 235 && img[i + 1] > 235 && img[i + 2] > 235;
+    };
+  }, png);
+}
+
+/** Today is no club night, so the phase is 'off' at any hour (the flourish is phase-gated). */
+async function pinNoClub(page) {
+  await page.addInitScript(() => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const d = new Date();
+    const today = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    localStorage.setItem('awanaSchedule.v1', JSON.stringify({
+      fetchedAt: d.toISOString(),
+      raw: { meeting: { day: d.getDay() }, windows: [{ start: '18:00', end: '19:30', kind: 'game' }], specialDates: { [today]: { noClub: true } } },
+    }));
+  });
+}
+
+for (const [width, height] of [[1920, 1080], [1280, 720], [3840, 2160]]) {
+  test.describe(`marks on the overlays at ${width}x${height}`, () => {
+    test.use({ viewport: { width, height } });
+
+    for (const firstName of ['Maximilián', 'Nguyễn', 'Ștefan', 'Bartholomew']) {
+      test(`the doors-open toast keeps ${firstName}'s line inside its keylines`, async ({ page }) => {
+        await pinNoClub(page);
+        const send = await goLobby(page, { firstArrivalMoment: true, sharedScheduleUrl: '' });
+        await send('checkin', { id: `e2e-${firstName}`, firstName, club: 'Trek', at: new Date().toISOString() });
+        const count = page.locator('.milestone-toast.first-milestone .milestone-count');
+        await expect(count).toContainText(`${firstName} is first in tonight!`);
+        await page.evaluate(() => document.fonts.ready);
+        await page.waitForTimeout(300);
+        await decodePaint(page);
+        const m = await page.evaluate(() => {
+          const white = window.e2eWhite;
+          const u = Math.min(innerWidth, innerHeight * 16 / 9) / 100;
+          const q = (s) => document.querySelector(`.milestone-toast ${s}`);
+          const body = q('.step-plate__body').getBoundingClientRect();
+          const pill = q('.step-plate__label').getBoundingClientRect();
+          const kh = Number(q('.step-plate__keyline').getAttribute('stroke-width')) / 2;
+          const dy = Number(q('.step-plate__fill').getAttribute('transform').match(/translate\([-\d.]+ ([-\d.]+)\)/)[1]);
+          const line = q('.milestone-count');
+          const cs = getComputedStyle(line);
+          // The row's ink: its baseline from a zero-height probe, the letters'
+          // reach from the canvas's box in the face and size the page drew.
+          const probe = document.createElement('span');
+          probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+          line.appendChild(probe);
+          const baseline = probe.getBoundingClientRect().top;
+          probe.remove();
+          const ctx = new OffscreenCanvas(1, 1).getContext('2d');
+          ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+          const ink = ctx.measureText(line.textContent.toUpperCase());
+          const shadow = parseFloat(cs.textShadow.match(/(-?[\d.]+)px\s+(-?[\d.]+)px/)?.[2] ?? '0');
+          // White ink right of the pill, above the top keyline or in the room's
+          // background between the keyline and the out-of-register fill (the
+          // sparkles on the plate's shoulder are left out).
+          let escaped = 0;
+          for (let x = Math.ceil(pill.right + kh + 1); x <= body.right - 3 * u; x++) {
+            for (let y = Math.floor(body.top - 3 * u); y <= body.top + dy - 0.5; y++) {
+              if (Math.abs(y - body.top) <= kh + 1) continue;
+              if (white(x, y)) escaped++;
+            }
+          }
+          return {
+            top: baseline - ink.actualBoundingBoxAscent - (body.top + kh),
+            bottom: (body.bottom - kh) - (baseline + ink.actualBoundingBoxDescent + shadow),
+            escaped,
+            pad: [cs.paddingTop, cs.paddingBottom],
+          };
+        });
+        // Clear of the keyline's inner edge above and below, marks, shadow and all.
+        expect(m.top).toBeGreaterThanOrEqual(0);
+        expect(m.bottom).toBeGreaterThanOrEqual(0);
+        expect(m.escaped).toBe(0);
+        // A plain name gets no room at all, so it sits exactly where it did.
+        if (firstName === 'Bartholomew') expect(m.pad).toEqual(['0px', '0px']);
+      });
+    }
+
+    test('a pickup-board chip keeps a capital\'s mark on its pill', async ({ page }) => {
+      const at = '2026-09-16T19:40:00-04:00';
+      await page.clock.install({ time: new Date(at) });
+      const send = await goLobby(page, { checkoutBoardMode: 'always', checkoutBoardNamesAbove: 0, firstArrivalMoment: false });
+      const names = ['Élodie', 'Ấn', 'NGUYỄN', 'Ștefan', 'Ava'];
+      await send('checkout', { entries: names.map((firstName) => ({ firstName, club: 'Sparks' })), printed: 12, at });
+      await expect(page.locator('.checkout-name__chip')).toHaveCount(names.length);
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(300);
+      await decodePaint(page);
+      const chips = await page.evaluate(() => {
+        const white = window.e2eWhite;
+        return [...document.querySelectorAll('.checkout-name__chip')].map((el) => {
+          const r = el.getBoundingClientRect();
+          let broken = 0;
+          // Along the pill's flat top: the row just inside its edge is the
+          // pill's colour, never the name's white ink running through it.
+          for (let x = Math.ceil(r.left + r.height * 0.6); x <= r.right - r.height * 0.6; x++) {
+            if (white(x, Math.floor(r.top) + 1)) broken++;
+          }
+          return { name: el.textContent, broken, seat: el.style.getPropertyValue('--seat') };
+        });
+      });
+      for (const c of chips) expect(c.broken, c.name).toBe(0);
+      expect(chips.find((c) => c.name === 'Ava').seat).toBe('');
+    });
+  });
+}

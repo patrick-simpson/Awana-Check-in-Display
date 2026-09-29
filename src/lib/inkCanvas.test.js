@@ -9,6 +9,8 @@ import { fitFrame, measureInk } from './lobbyFrame.js';
 import { inkEm, markExtents } from './brand.js';
 import { inkEm as projectorInkEm } from '../presentation/lib/chip.js';
 import { nameBox } from './checkInMoment.js';
+import { nameChipSeat } from './overlayFit.js';
+import { toastFit } from '../components/MilestoneToast.jsx';
 
 vi.hoisted(() => {
   // Paytone One's ink per letter, in em (fontTools / Chromium's
@@ -66,5 +68,22 @@ describe('the shout\'s ink, measured on the canvas', () => {
     expect(box.padTop).toBeGreaterThan(0.1);
     const plain = nameBox({ under: inkEm('EM'), whole: inkEm('EMILE') }, { sizeU: 10.6, line: true });
     expect(plain).toMatchObject({ padTop: 0, padBottom: 0 });
+  });
+
+  it('the doors-open toast gives the mark the canvas measured room on its plate, and a plain line none', () => {
+    // The estimate would say 1.17 for the Ễ; the canvas says 1.161.
+    const marked = toastFit('Nguyễn is first in tonight!');
+    const plain = toastFit('Nguyen is first in tonight!');
+    expect(marked.size).toBe(plain.size);
+    expect(marked.padTop).toBeGreaterThan(0.9);
+    expect(plain).toMatchObject({ padTop: 0, padBottom: 0, rise: [0] });
+    expect(toastFit('Ștefan is first in tonight!').padBottom).toBeGreaterThan(0);
+  });
+
+  it('a pickup-board chip seats the capital\'s mark the canvas measured, and nothing else', () => {
+    expect(nameChipSeat(measureInk('Élodie', 'shout'))).toBeGreaterThan(0);
+    expect(nameChipSeat(measureInk('NGUYỄN', 'shout'))).toBeGreaterThan(nameChipSeat(measureInk('Élodie', 'shout')));
+    expect(nameChipSeat(measureInk('Maya', 'shout'))).toBe(0);
+    expect(nameChipSeat(measureInk('Ștefan', 'shout'))).toBe(0);
   });
 });

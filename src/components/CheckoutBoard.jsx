@@ -1,7 +1,8 @@
 import { M } from '../lib/motion.jsx';
 import { DUR, EASE, SHAPES, beats } from '../lib/brand.js';
 import { getClubPalette } from '../lib/clubs.js';
-import { OVERLAY, fitBoard } from '../lib/overlayFit.js';
+import { OVERLAY, fitBoard, nameChipSeat } from '../lib/overlayFit.js';
+import { measureInk } from '../lib/lobbyFrame.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 import {
   BOARD_ANONYMOUS,
@@ -144,7 +145,7 @@ export default function CheckoutBoard({ decision, checkout, calm, placement = 'c
                       // reads (and copies) as "Demo Kid · Sample Star".
                       <span key={`${name}-${j}`} className="checkout-name">
                         {j ? <span className="checkout-sep"> · </span> : null}
-                        <span className="checkout-name__chip">{name}</span>
+                        <NameChip name={name} />
                       </span>
                     ))}
                   </span>
@@ -166,5 +167,19 @@ export default function CheckoutBoard({ decision, checkout, calm, placement = 'c
         )}
       </M.section>
     </div>
+  );
+}
+
+/**
+ * One name on the board, in its club's colour. A capital that carries a tall
+ * mark ("Élodie", "Ấn") sits just low enough in its pill that the mark stays
+ * on it (overlayFit.js nameChipSeat, from the name's measured ink); a plain
+ * name sits where it always did.
+ * @param {{ name: string }} props
+ */
+function NameChip({ name }) {
+  const seat = nameChipSeat(measureInk(name, 'shout'));
+  return (
+    <span className="checkout-name__chip" style={seat ? { '--seat': `${seat}em` } : undefined}>{name}</span>
   );
 }

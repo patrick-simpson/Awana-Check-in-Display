@@ -153,12 +153,26 @@ and `doodles/`. Read its README before changing it.
   name against its kicker and its line (`nameBox`), the projector's headline
   (`headlineBox`), and a stepped chip's value against its block's keylines
   (`valueSeat`, both chip copies: it moves, and a value with marks both above
-  and below the block cannot hold at 1.06x is drawn as large as it can).
-  Plain caps get none, so nothing moves for them. jsdom has no canvas, so
+  and below the block cannot hold at 1.06x is drawn as large as it can), the
+  milestone and doors-open toast's line against its plate (`toastBox` in
+  `MilestoneToast.jsx`: padding above keeps a mark on the FILL, which prints
+  below the top keyline with the room's background showing between them;
+  padding below keeps a hanging comma's shadow off the bottom keyline; a top
+  margin opens a lower row; `toastFit` counts all of it, and where the band
+  has no room for it, under the flag strip, sets a marked line as large as the
+  band allows on the same rows), and a pickup-board name against its pill's
+  edge (`nameChipSeat` in `overlayFit.js`, the chip's `--seat`: the name sits
+  lower in the same pill, kept 0.1em clear, not 0.06em, because that edge
+  meets the white card, which swallows a white mark, and at 720p a small
+  accent paints up to a pixel above its outline). Plain caps get none, so
+  nothing moves for them. jsdom has no canvas, so
   `src/lib/inkCanvas.test.js` hands the three ink readers a fake one that
   reports Paytone's real boxes, the render tests pin the wiring (the words'
-  `margin-top`, the name's padding, the chip's seat), and `lobby-fit.spec.js`
-  measures real ink on real rows under `?lowPower=1`.
+  `margin-top`, the name's padding, the chip's seat, the toast's padding and
+  the board chip's `--seat`), `lobby-fit.spec.js` measures real ink on real
+  rows under `?lowPower=1`, and `signage.events.spec.js` ("marks on the
+  overlays") sends marked names over a stand-in Pusher socket and checks the
+  toast's and the board's painted pixels at 720p, 1080p and 4K.
 
 - **Three spellings of one palette.** `tokens.json`, `tokens.css` and
   `shared/theme.json` must agree; `src/lib/brandKit.test.js` fails if they
@@ -618,7 +632,9 @@ Every size is fitted by measurement (`fitShout`, `fitParagraph` with
 a 60-name board steps down inside its band rather than spilling onto the
 headline, and plates hug their text. `fitShout` takes the most balanced
 two-line split and says `fits: false` when even `twoLineMin` is too wide; the
-toast then lets that line wrap inside the band. The label size of every plate
+toast then lets that line wrap inside the band. The toast and the board's name
+chips also measure their line's ink, so a mark stays on its plate or pill
+(`toastBox`, `nameChipSeat`: "Marks never touch" above). The label size of every plate
 (`--plate-label`) is set by the overlay that owns it and never declared on
 `.step-plate` itself, which would pin every label to 1rem. StepPlate redraws
 its outline inside the ResizeObserver callback with `flushSync`, so a

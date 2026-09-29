@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
-import { DUR, EASE, beats } from '../lib/brand.js';
+import { DUR, EASE, PLATE, beats, inkOverflow } from '../lib/brand.js';
+import { measureInk, measureText } from '../lib/lobbyFrame.js';
 import { holdThenLand } from '../lib/lobbyMotion.js';
 import { isBigMilestone, ordinalNight } from '../lib/milestones.js';
 import { OVERLAY, bandRoom, fitShout, plateChrome } from '../lib/overlayFit.js';
@@ -33,8 +34,10 @@ import ClubBadge from './ClubBadge.jsx';
  * The line is fitted to the band by measurement (toastFit): one line from
  * 3.2u down to 2.1u, then the two most balanced lines, sized so the plate still
  * ends where the band ends; a first name too long even for that wraps
- * inside the band rather than running out of it. `compact` is the band with
- * the flag strip hanging over it.
+ * inside the band rather than running out of it. Its ink is measured too
+ * (toastBox), so a mark over or under a capital ("MAXIMILIÁN", "NGUYỄN",
+ * "ȘTEFAN") stays on the plate, clear of its keylines. `compact` is the band
+ * with the flag strip hanging over it.
  *
  * The band is one at a time. With a band notice up (`afterNotice`) the toast
  * holds out of sight until the notice has lifted away, then pops; the notice
@@ -47,37 +50,103 @@ import ClubBadge from './ClubBadge.jsx';
 // Band geometry for the fit, in u (app.css .milestone-toast carries the same).
 const LABEL = 1.45;
 const PAD_X = 1.2;
-const PAD_Y = 1.2;
+// The block's padding above and below the line (app.css .milestone-body).
+const PAD = 0.6;
+const PAD_Y = PAD * 2;
 const LOGO = 7.4;
 // Stage 4b-2 set the line in Galindo (3u down to 2u, two lines 2.2u down to
 // 1.4u, at 1.02); Paytone One's caps stand 5.7% shorter at one size, so each
 // size is that times 1.057 and the line height 1.02 / 1.057 (app.css
 // .milestone-count carries it), which holds the caps and the plate.
-export const LINE = { max: 3.2, min: 2.1, twoLineMax: 2.3, twoLineMin: 1.5, lineHeight: 0.97 };
+// `shadow` is the line's hard offset shadow (its text-shadow, 0.05em), which
+// hangs below a mark as it does below the caps; `markGap` the least clear
+// space a mark keeps from the plate's edge or the row above (the kit's 0.06em,
+// SHOUT.markGap and the chip's valueClear).
+export const LINE = { max: 3.2, min: 2.1, twoLineMax: 2.3, twoLineMin: 1.5, lineHeight: 0.97, shadow: 0.05, markGap: 0.06 };
 // The plate's out-of-register offset and keyline reach a little past its box.
 const PLATE_SPILL = 0.3;
 
 /** The pill's inset under the block, per the kit's chip (brand.js PLATE). */
 const INSET = LABEL * 2.05 * 0.73;
 
+// StepPlate draws the keyline centred on the block's edges and prints the fill
+// out of register, `DROP` below them (both from the pill's height, brand.js
+// PLATE): along the block's top, right of the pill, the room's own background
+// shows between the keyline and the fill.
+const PILL = LABEL * 2.05;
+const KEYLINE = PILL * PLATE.keyline;
+const DROP = PILL * PLATE.offsetY;
+
+/**
+ * The room the line's marks need on the plate. Plain caps sit well inside the
+ * block's padding and get none, so nothing moves for them. Paytone One draws
+ * the marks over and under its capitals tall (Á and É to 1.045em, Ễ 1.161em,
+ * Ș's comma to -0.351em, where the line box at 0.97 runs from 0.747em to
+ * -0.223em), and a mark past the padding would cross the keyline, so:
+ * - `padTop` (u): above the line, enough that the first row's ink stays on the
+ *   fill, LINE.markGap below its top edge (which sits DROP under the keyline);
+ * - `padBottom` (u): below it, enough that the last row's ink and its shadow
+ *   keep LINE.markGap off the bottom keyline's inner edge;
+ * - `rise` (em, per row): between two rows, enough that the lower row's marks
+ *   clear the upper row's ink and shadow (shoutBox's rule for the lobby).
+ * The page sets them as the line's padding and the row's top margin.
+ * @param {string[]} lines each row's text, as written (it is shouted here)
+ * @param {(text: string) => { ascent: number, descent: number }} inkOf the shout's ink, em
+ * @param {number} size the line's size, u
+ * @returns {{ padTop: number, padBottom: number, rise: number[] }}
+ */
+export function toastBox(lines, inkOf, size) {
+  const inks = lines.map((line) => inkOf(String(line).toUpperCase()));
+  if (!inks.length) return { padTop: 0, padBottom: 0, rise: [] };
+  /** @param {number} n */
+  const up = (n) => (n > 0 ? Math.ceil(n * 1000 - 1e-6) / 1000 : 0);
+  const gap = LINE.markGap * size;
+  const last = inks[inks.length - 1];
+  const over = inkOverflow(inks[0], LINE.lineHeight).top * size;
+  const under = inkOverflow({ ascent: 0, descent: last.descent + LINE.shadow }, LINE.lineHeight).bottom * size;
+  return {
+    padTop: up(over + DROP + gap - PAD),
+    padBottom: up(under + KEYLINE / 2 + gap - PAD),
+    rise: inks.map((ink, i) => (i === 0 ? 0
+      : up(inks[i - 1].descent + LINE.shadow + LINE.markGap + ink.ascent - LINE.lineHeight))),
+  };
+}
+
 /**
  * The line's fit for one toast. Pure and exported for tests: it never lets
  * the plate end below the band's bottom (bandRoom) while the line can still
- * be read at twoLineMin.
+ * be read at twoLineMin, counting the room its marks need (toastBox); a line
+ * whose marks need more than the band has left is set as large as the room
+ * allows on the same rows (the rule a chip's value follows, brand.js
+ * valueSeat), so a plain line's size never changes.
  * @param {string} line
  * @param {{ compact?: boolean, logo?: boolean }} [opts]
+ * @param {(text: string, face: import('../lib/lobbyFrame.js').Face) => number} [measure]
+ * @param {(text: string, face: import('../lib/lobbyFrame.js').Face) => { ascent: number, descent: number }} [ink]
  */
-export function toastFit(line, { compact = false, logo = false } = {}) {
+export function toastFit(line, { compact = false, logo = false } = {}, measure = measureText, ink = measureInk) {
   const width = OVERLAY.band.width - INSET - PAD_X * 2 - (logo ? LOGO + 1 : 0);
   const room = bandRoom(compact) - plateChrome(LABEL) - PAD_Y - PLATE_SPILL;
   const tenth = (/** @type {number} */ v) => Math.floor(v * 10 + 1e-9) / 10;
-  return fitShout(line, {
+  const fit = fitShout(line, {
     width,
     max: Math.min(LINE.max, tenth(room / LINE.lineHeight)),
     min: LINE.min,
     twoLineMax: Math.min(LINE.twoLineMax, tenth(room / (2 * LINE.lineHeight))),
     twoLineMin: LINE.twoLineMin,
-  });
+  }, measure);
+  // The rows the page sets: the fit's two, or the whole line left to wrap.
+  const rows = fit.fits && fit.lines.length > 1 ? fit.lines : [String(line ?? '')];
+  const inkOf = (/** @type {string} */ text) => ink(text, 'shout');
+  const height = (/** @type {number} */ s, /** @type {{ padTop: number, padBottom: number, rise: number[] }} */ b) => (
+    rows.length * s * LINE.lineHeight + b.padTop + b.padBottom + b.rise.reduce((a, r) => a + r, 0) * s);
+  let size = fit.size;
+  let box = toastBox(rows, inkOf, size);
+  while (fit.fits && size > 0.5 && height(size, box) > room + 1e-9) {
+    size = Number((size - 0.1).toFixed(3));
+    box = toastBox(rows, inkOf, size);
+  }
+  return { ...fit, size, ...box };
 }
 
 /**
@@ -171,6 +240,11 @@ function Toast({ celebration, club, compact, below, yielding, afterNotice }) {
     ...(t.tone === 'club' && club ? { '--club-deep': club.deep || 'rgba(3, 4, 4, 0.35)' } : null),
   };
   const lines = fit.lines.length > 1 && fit.fits;
+  // Room for a mark (toastBox): only a line with one gets any.
+  const pad = {
+    ...(fit.padTop ? { paddingTop: `calc(${fit.padTop} * var(--u))` } : null),
+    ...(fit.padBottom ? { paddingBottom: `calc(${fit.padBottom} * var(--u))` } : null),
+  };
   return (
     <M.div
       className={`${t.className} milestone-toast--${t.tone}${t.big ? ' milestone-toast--big' : ''}${below ? ' milestone-toast--below' : ''}${compact && !below ? ' milestone-toast--compact' : ''}`}
@@ -196,6 +270,7 @@ function Toast({ celebration, club, compact, below, yielding, afterNotice }) {
         )}
         <M.span
           className={`milestone-count${lines ? ' milestone-count--two' : ''}${fit.fits ? '' : ' milestone-count--wrap'}`}
+          style={pad}
           initial={beat.line.initial}
           animate={beat.line.animate}
           transition={beat.line.transition}
@@ -204,7 +279,11 @@ function Toast({ celebration, club, compact, below, yielding, afterNotice }) {
               still reads as one sentence to anything that reads it. A line
               too long for even two (fits false) is left to wrap. */}
           {lines
-            ? fit.lines.map((l, i) => <span key={i} className="milestone-count__line">{i ? ' ' : ''}{l}</span>)
+            ? fit.lines.map((l, i) => (
+              <span key={i} className="milestone-count__line" style={fit.rise[i] ? { marginTop: `${fit.rise[i]}em` } : undefined}>
+                {i ? ' ' : ''}{l}
+              </span>
+            ))
             : t.line}
         </M.span>
       </StepPlate>

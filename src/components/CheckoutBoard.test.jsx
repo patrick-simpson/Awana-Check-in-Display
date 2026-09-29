@@ -57,6 +57,22 @@ describe('CheckoutBoard', () => {
   });
 });
 
+describe('a name chip with a tall mark', () => {
+  // Paytone One carries a capital's mark up to the pill's top edge (É) or
+  // through it (Ấ), onto the white card: that name sits lower in the same
+  // pill (overlayFit.js nameChipSeat). jsdom has no canvas, so the ink is
+  // markExtents' estimate from the marks.
+  it('seats a marked capital lower and leaves every plain name alone', () => {
+    const board = { ...checkout, entries: [{ firstName: 'Élodie', club: 'Sparks' }, { firstName: 'Ava', club: 'Sparks' }, { firstName: 'Ấn', club: 'Sparks' }] };
+    const { container } = still(<CheckoutBoard decision={{ state: 'names', ageMin: 0 }} checkout={board} />);
+    const seat = Object.fromEntries([...container.querySelectorAll('.checkout-name__chip')]
+      .map((c) => [c.textContent, c.style.getPropertyValue('--seat')]));
+    expect(seat['Ava']).toBe('');
+    expect(seat['Élodie']).toMatch(/^0\.\d+em$/);
+    expect(parseFloat(seat['Ấn'])).toBeGreaterThan(parseFloat(seat['Élodie']));
+  });
+});
+
 describe('CheckoutBoard at the foot', () => {
   // Where it goes is overlayFit.js boardPlacement; at the foot it is one line
   // beside the slides, in the same words.
