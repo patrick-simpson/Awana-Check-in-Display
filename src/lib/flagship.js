@@ -15,9 +15,6 @@ export const FLAGSHIP_ID = 'flagship_welcome';
 /** How long it holds; its beat sheet (FlagshipSlide.jsx) is written against this. */
 export const FLAGSHIP_DURATION_SEC = 10;
 
-/** The clubs on its parade, in the catalog's order. Keys of clubs.js. */
-export const FLAGSHIP_CLUBS = Object.freeze(['Puggles', 'Cubbies', 'Sparks', 'T&T', 'Trek', 'Journey']);
-
 export const FLAGSHIP_SLIDE = Object.freeze({
   id: FLAGSHIP_ID,
   type: 'flagship',

@@ -317,7 +317,8 @@ html, body, #root {
   height: calc(56.25 * var(--u));
 }
 /* A video or a poster: full-bleed over the field and the copy, under the
-   chrome (which has stepped aside for it). */
+   chrome (which has stepped aside for it, except under the flagship
+   welcome slide, which wears the scene's own tab and waves). */
 .lobby-media {
   position: absolute;
   inset: 0;

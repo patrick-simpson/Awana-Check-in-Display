@@ -1,10 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  FLAGSHIP_CLUBS, FLAGSHIP_DURATION_SEC, flagshipOnAir, FLAGSHIP_ID, FLAGSHIP_SLIDE, isFlagshipSlide, withFlagship,
+  FLAGSHIP_DURATION_SEC, flagshipOnAir, FLAGSHIP_ID, FLAGSHIP_SLIDE, isFlagshipSlide, withFlagship,
 } from './flagship.js';
 import { holdsCheckIns, slideDurationMs } from './slides.js';
 import { sanitizeSlides } from './slides.js';
-import { getAllClubs } from './clubs.js';
 
 describe('the flagship slide', () => {
   it('is one frozen, built-in descriptor', () => {
@@ -50,7 +49,4 @@ describe('the flagship slide', () => {
     expect(withFlagship([{ id: 'a' }], false).map((s) => s.id)).toEqual(['a']);
   });
 
-  it('names every club, in the catalog order (its waves)', () => {
-    expect([...FLAGSHIP_CLUBS].sort()).toEqual([...getAllClubs()].sort());
-  });
 });

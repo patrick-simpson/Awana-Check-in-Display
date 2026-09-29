@@ -109,7 +109,7 @@ export default function FlagshipSlide() {
       {/* The wrapper holds them unseen until their beat (a keyframe list, not
           a long delay), so the cluster's own pop-in can run from its start. */}
       <M.div className="flagship-doodle-slot flagship-doodle-slot--left" aria-hidden="true" {...landsAt(3.9, 0.2, { opacity: [0, 1] }, 'linear')}>
-        <DoodleCluster items={DOODLES_LEFT} color="#fff" className="flagship-doodles" />
+        <DoodleCluster items={DOODLES_LEFT} color="var(--brand-blue)" className="flagship-doodles" />
       </M.div>
       <M.div className="flagship-doodle-slot flagship-doodle-slot--right" aria-hidden="true" {...landsAt(4.0, 0.2, { opacity: [0, 1] }, 'linear')}>
         <DoodleCluster items={DOODLES_RIGHT} color="var(--brand-sun)" className="flagship-doodles" />

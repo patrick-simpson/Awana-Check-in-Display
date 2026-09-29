@@ -49,11 +49,19 @@ test('a screen with no slides of its own opens on the finished flagship, at rest
   // house wave and its sunflower, and the orange corner tab, all home.
   await expect(page.locator('.lobby-chrome')).not.toHaveClass(/lobby-chrome--away/);
   const chrome = await page.evaluate(() => {
-    const box = (sel) => { const e = document.querySelector(sel); const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, op: Number(getComputedStyle(e.closest('.lobby-chrome')).opacity) }; };
+    const box = (sel) => { const e = document.querySelector(sel); const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
     return { house: box('.lobby-wave--house'), sun: box('.lobby-wave--sun'), tab: box('.lobby-tab'), vw: innerWidth, vh: innerHeight };
   });
   expect(chrome.house.b).toBeGreaterThan(chrome.vh - 2);
   expect(chrome.house.t).toBeGreaterThan(chrome.vh * 0.75);
+  // Both doodle clusters stand in their own halves of the frame (a stray
+  // `inset: auto` once stacked them both at the top-left).
+  const clusters = await page.evaluate(() => ['left', 'right'].map((side) => {
+    const b = document.querySelector(`.flagship-doodle-slot--${side} .flagship-doodles`).getBoundingClientRect();
+    return { side, l: b.left, r: b.right, vw: innerWidth };
+  }));
+  expect(clusters[0].r).toBeLessThan(clusters[0].vw * 0.4);
+  expect(clusters[1].l).toBeGreaterThan(clusters[1].vw * 0.6);
   expect(chrome.tab.l).toBeLessThanOrEqual(1);
   expect(chrome.tab.t).toBeLessThanOrEqual(1);
   // Zero animation: nothing is moving, and the sheen has left.

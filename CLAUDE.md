@@ -654,8 +654,9 @@ over it. `src/lib/flagship.js` is the pure half (`FLAGSHIP_SLIDE`,
 - **The foot and the corner tab are the scene's own chrome.** Unlike a video
   or a poster (`chromeAway`), the flagship leaves `CatalogScene`'s orange
   corner tab and its sunflower + orange house waves at home, so it wears the
-  same orange shape as every typed slide and the hand-offs into and out of it
-  behave exactly like a copy slide's (`ManualSlideshow`:
+  same orange shape as every typed slide; the chrome simply stands still across
+  a change into or out of it (the house wave only swells copy-to-copy, see
+  `nextTransition`) (`ManualSlideshow`:
   `chromeAway={kind === 'video' || kind === 'promo'}`). It draws neither a
   tab nor waves of its own; do not add them back (they would double up).
 - **Layout.** Everything stands in the 100u x 56.25u frame; the headline
