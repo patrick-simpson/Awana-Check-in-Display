@@ -149,10 +149,16 @@ export function boardPlacement(state, phase) {
  * }} s
  */
 export function lobbyRoom({ overlay = false, criticalLive = false, boardState, phase, checkInUp = false }) {
-  const board = overlay || checkInUp ? null : boardPlacement(boardState, phase);
+  // Where the board sits, whether or not a check-in run is hiding it right
+  // now. The notice's seat and the celebration hold follow the SEAT, so a late
+  // arrival at pickup time does not throw a band notice into the middle for
+  // the length of the run (and over the WELCOME kicker), nor let a queued
+  // toast up only to hide it again when the run ends.
+  const seat = overlay ? null : boardPlacement(boardState, phase);
+  const board = checkInUp ? null : seat;
   /** @type {'centre' | 'band' | null} */
-  const critical = !criticalLive ? null : overlay || board === 'centre' ? 'band' : 'centre';
-  const holdCelebrations = critical === 'band' && board === 'centre';
+  const critical = !criticalLive ? null : overlay || seat === 'centre' ? 'band' : 'centre';
+  const holdCelebrations = critical === 'band' && seat === 'centre';
   return {
     board,
     critical,

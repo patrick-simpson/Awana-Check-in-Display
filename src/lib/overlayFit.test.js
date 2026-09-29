@@ -132,6 +132,20 @@ describe('who holds which part of the room', () => {
     expect(lobbyRoom({ checkInUp: true, boardState: BOARD_NAMES, phase: 'shutdown' }))
       .toMatchObject({ board: null, copyAside: false });
   });
+
+  // A late arrival at pickup time hides the board for its run, but the board
+  // still owns the middle: a critical notice stays in the band (it used to
+  // jump over the WELCOME kicker for the run and back), and the celebrations
+  // keep waiting, so no toast comes up only to be hidden when the run ends.
+  it('a check-in run at pickup time leaves a critical notice in the band', () => {
+    const before = lobbyRoom({ criticalLive: true, boardState: BOARD_NAMES, phase: 'shutdown' });
+    const during = lobbyRoom({ criticalLive: true, checkInUp: true, boardState: BOARD_NAMES, phase: 'shutdown' });
+    expect(before).toMatchObject({ board: 'centre', critical: 'band', holdCelebrations: true });
+    expect(during).toEqual({ board: null, critical: 'band', copyAside: false, holdCelebrations: true, toastBelow: false });
+    // With no board seated, a run changes nothing about the notice either.
+    expect(lobbyRoom({ criticalLive: true, checkInUp: true, boardState: BOARD_HIDDEN, phase: 'game-time' }).critical)
+      .toBe(lobbyRoom({ criticalLive: true, boardState: BOARD_HIDDEN, phase: 'game-time' }).critical);
+  });
 });
 
 describe('fitShout', () => {
