@@ -235,6 +235,12 @@ and `doodles/`. Read its README before changing it.
   Playwright smoke suite; visual regression runs in ci.yml only
   (baselines under `e2e/__screenshots__`, regenerate via the
   update-snapshots workflow)
+- There is no `@types/react-dom`: `tsc` infers react-dom from its own JS
+  (`react-dom/index.js` → `cjs/*`), which is why jsconfig.json sets
+  `maxNodeModuleJsDepth: 3`. At the default 2, whether those `cjs/` files
+  are read depends on which import reaches react-dom first, so an unrelated
+  new file could make `import { flushSync } from 'react-dom'` fail with
+  TS2305 (it did, after the font swap's merge).
 
 ## Season promo slides (fall 2026)
 
