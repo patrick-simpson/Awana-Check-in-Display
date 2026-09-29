@@ -672,6 +672,74 @@ over it. `src/lib/flagship.js` is the pure half (`FLAGSHIP_SLIDE`,
   card tests there run first on purpose; see the comment at the top of the
   describe.
 
+## The sound room desktop app (`desktop/`, Awana Lobby Display)
+
+Owner request 2026-09-29: a Windows app for the sound room PC that shows the
+lobby signage full screen on the lobby TV on club nights, 5:00 to 8:00 pm.
+Electron, in `desktop/` with its own `package.json` (the root `npm ci` never
+installs it). `desktop/README.md` is the volunteer's guide. The owner's calls:
+
+- **The live site, not a bundled copy.** It loads
+  `https://patrick-simpson.github.io/Awana-Check-in-Display/index.html` in a
+  `persist:lobby` partition, so every deploy reaches the booth by itself and
+  the page's own settings, display login and service-worker cache survive
+  restarts. Nothing in the page knows it is in the app: `window.self ===
+  window.top`, so it is not "embedded".
+- **Club nights are the signage's own** (`src/clubNight.js`, pure): a
+  `noClub` date in `shared/schedule.json` never shows; where
+  `calendar-feed.json` covers the date (generated on or before it, events on
+  or after it) an uncancelled `kind: 'club'` event decides; otherwise the
+  schedule's meeting day (Wednesday). The window is 17:00 inclusive to 20:00
+  exclusive in the schedule's `timezone`, re-asked every minute on the
+  minute, so it closes at exactly 8:00. Both files are fetched hourly and the
+  last good copies kept in userData, so a dead internet at 5 pm still opens.
+- **One visibility rule** (`src/visibility.js`): visible = (in the window and
+  not hidden for this window) or a manual Show that has not run out. Tray Show
+  lasts `MANUAL_SHOW_MS` (3 h) and is not closed at 8 pm; tray Hide (or closing
+  the window) lasts until that window ends. A request to show while the
+  schedule already has it up changes nothing, so a click can never turn the
+  8 pm close into a manual 3 h. Launching the app by hand (no `--autostart`,
+  which only the login item passes) counts as Show; an update's relaunch does
+  not (`quietRelaunch` in state.json).
+- **The remembered monitor** (`src/displays.js`, pure): matched by id + label,
+  then label (two same-named monitors told apart by position and size), then
+  id, then position and size; anything ambiguous is "not found", and then the
+  signage opens WINDOWED on the primary screen (owner's choice) and moves to
+  the TV on `display-added`. The chooser is one numbered card per monitor
+  (`static/chooser.html`, a two-call preload); it opens on first run with
+  more than one monitor and from the tray.
+- **Sound is allowed** (owner's choice; `autoplayPolicy:
+  'no-user-gesture-required'`). The cursor hides after 3 s still; display sleep
+  is blocked while visible; external links open in the default browser; a
+  failed first load shows `static/offline.html` and retries every 30 s.
+- **Updates** (electron-updater, GitHub provider, channel `lobby`, so the app
+  reads `lobby.yml` and can never install another app's `latest.yml`):
+  downloaded in the background, installed only while nothing is on screen.
+  The feed is this repo's ONE "Latest" release, so **no other release may
+  ever be published in this repo as Latest** (create anything else as a
+  prerelease or with `make_latest: false`), and the version stays plain
+  X.Y.Z (a prerelease version switches electron-updater to a path that skips
+  `desktop-v*` tags). Unsigned: first install needs "More info, Run anyway";
+  updates install without prompts. `name` (`awana-lobby-display`) and `appId`
+  (`org.kvbc.awana-lobby-display`) fix the install folder, userData and the
+  upgrade identity: never rename them.
+- **Releasing:** bump `desktop/package.json` (and `npm install
+  --package-lock-only` there), push to main, then dispatch
+  `create-desktop-release.yml` with the version (`mcp__github__actions_run_trigger`,
+  ref main). It creates `desktop-vX.Y.Z` and dispatches `build-desktop.yml`
+  against it (a GITHUB_TOKEN tag push fires nothing by itself): tests + lint,
+  Windows build, silent install and a `--smoke-test` launch that must load
+  the live page with the right version, then the release with the `.exe`,
+  its blockmap and `lobby.yml`, and a check that `releases/latest` is the new
+  tag. Never tag by hand; a stray release goes with `delete-desktop-release.yml`.
+- **Gates.** The desktop tests run in `build-desktop.yml`
+  (`npx vitest run --config desktop/vitest.config.js`), NOT in the website's
+  deploy gate: the root vitest excludes `desktop/**`, so a desktop change can
+  never block an urgent site redeploy. The root `eslint .` does lint
+  `desktop/` (its `node_modules/` and `release/` are ignored). Dev-only
+  environment overrides (`AWANA_LOBBY_SITE`, `AWANA_LOBBY_NOW`,
+  `AWANA_LOBBY_USERDATA`) are ignored in a packaged build.
+
 ## The check-in moment (rebrand stage 3)
 
 Every arrival is one component, `src/components/CheckInMoment.jsx`: the
