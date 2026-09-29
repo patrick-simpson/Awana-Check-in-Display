@@ -11,8 +11,8 @@
     "jsx": "react-jsx",
     "resolveJsonModule": true,
     "skipLibCheck": true,
-    "maxNodeModuleJsDepth": 3,
+    "paths": { "react-dom": ["./types/react-dom.d.ts"] },
     "types": []
   },
-  "include": ["src", "types/env.d.ts"]
+  "include": ["src", "types/env.d.ts", "types/react-dom.d.ts"]
 }

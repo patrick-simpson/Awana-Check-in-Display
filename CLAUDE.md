@@ -254,12 +254,16 @@ and `doodles/`. Read its README before changing it.
   Playwright smoke suite; visual regression runs in ci.yml only
   (baselines under `e2e/__screenshots__`, regenerate via the
   update-snapshots workflow)
-- There is no `@types/react-dom`: `tsc` infers react-dom from its own JS
-  (`react-dom/index.js` → `cjs/*`), which is why jsconfig.json sets
-  `maxNodeModuleJsDepth: 3`. At the default 2, whether those `cjs/` files
-  are read depends on which import reaches react-dom first, so an unrelated
-  new file could make `import { flushSync } from 'react-dom'` fail with
-  TS2305 (it did, after the font swap's merge).
+- There is no `@types/react-dom`, and `tsc` (TypeScript 7, whose program
+  load runs in parallel) must never infer react-dom from its own JS:
+  whether it reads `react-dom/index.js`'s `cjs/` files changes from run to
+  run, so `import { flushSync } from 'react-dom'` failed with TS2305 on
+  some runs and not others (it surfaced after the font swap's merge, and a
+  deeper `maxNodeModuleJsDepth` only made it rarer). jsconfig.json's
+  `paths` maps the bare `react-dom` specifier to `types/react-dom.d.ts`,
+  which declares exactly what the checked code imports (`flushSync`);
+  `react-dom/client` still resolves to the package. Import anything else
+  from bare `react-dom` and you add its declaration there first.
 
 ## Season promo slides (fall 2026)
 
