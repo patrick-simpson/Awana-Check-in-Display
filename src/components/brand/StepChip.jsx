@@ -21,20 +21,28 @@ const TEXT = {
  * its measured width with textLength: a late-loading font can squeeze, but
  * never overflow. Scale the whole chip with `size` (the value's font size).
  *
+ * `icon` puts a small decorative glyph at the head of the value block (the
+ * weather chip's sky doodle, src/components/WeatherGlyph.jsx), `iconEm`
+ * wide: the block grows to make room, so the value never sits under it.
+ * It is an HTML overlay on the chip's own em grid, so it can animate like
+ * any M element; the chip's accessible name stays its label and value.
+ *
  * @param {{
  *   label: string | number,
  *   value: string | number,
  *   size?: string,
  *   plate?: string,
+ *   icon?: import('react').ReactNode,
+ *   iconEm?: number,
  *   className?: string,
  *   style?: import('react').CSSProperties,
  * }} props
  */
-export default function StepChip({ label, value, size = '1rem', plate, className = '', style }) {
+export default function StepChip({ label, value, size = '1rem', plate, icon = null, iconEm = 1.15, className = '', style }) {
   useFontsReady();
   const l = String(label);
   const v = String(value);
-  const g = chipGeometry(measureEm(l), measureEm(v));
+  const g = chipGeometry(measureEm(l), measureEm(v), icon ? iconEm : 0);
   const plateFill = plate ? { fill: plate } : { fill: '#030404', fillOpacity: 0.5 };
   return (
     <span
@@ -53,6 +61,20 @@ export default function StepChip({ label, value, size = '1rem', plate, className
           {v}
         </text>
       </svg>
+      {icon && g.icon && (
+        <span
+          className="step-chip__icon"
+          aria-hidden="true"
+          style={{
+            left: `${(g.icon.x + 0.04).toFixed(3)}em`,
+            top: `${(g.icon.y + 0.04).toFixed(3)}em`,
+            width: `${g.icon.size.toFixed(3)}em`,
+            height: `${g.icon.size.toFixed(3)}em`,
+          }}
+        >
+          {icon}
+        </span>
+      )}
     </span>
   );
 }

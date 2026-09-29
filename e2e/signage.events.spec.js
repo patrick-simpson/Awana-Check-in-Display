@@ -345,3 +345,116 @@ test('a check-in washes the background in the arriving club’s color, then clea
   // Once the banner retires, the wash goes with it.
   await expect(scene).not.toHaveClass(/catalog-scene--club-tinted/, { timeout: 15000 });
 });
+
+// ── Who holds which part of the room (rebrand stage 4b-2) ──────────────────
+// src/lib/overlayFit.js lobbyRoom decides it and the unit tests pin the
+// decision; these check what the real page PAINTS: stacking, the slide copy's
+// computed opacity, and a club mark staying inside its slot.
+
+/** Pin the schedule's phase: one window of `kind` around now, today. */
+async function pinPhase(page, kind) {
+  await page.addInitScript((k) => {
+    const pad = (n) => String(n).padStart(2, '0');
+    const d = new Date();
+    const hm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+    const mins = d.getHours() * 60 + d.getMinutes();
+    localStorage.setItem('awanaSchedule.v1', JSON.stringify({
+      fetchedAt: d.toISOString(),
+      raw: {
+        meeting: { day: d.getDay() },
+        windows: [{ start: hm(Math.max(0, mins - 60)), end: hm(Math.min(1439, mins + 60)), kind: k }],
+        specialDates: {},
+      },
+    }));
+  }, kind);
+}
+
+const TYPED_DECK = [{ id: 's_1', type: 'text', eyebrow: 'This week', text: 'Bring your handbook', theme: 'sky' }];
+const copyOpacity = (page) => page.locator('.manual-slideshow .manual-slide-copy').evaluate((el) => Number(getComputedStyle(el).opacity));
+
+test('a critical notice stays on top of a check-in, and the slide copy steps aside for it', async ({ page }) => {
+  await page.addInitScript((slides) => {
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ backgroundSource: 'manual', calendarEnabled: false, seasonPromos: false, manualSlides: slides }));
+  }, TYPED_DECK);
+  await goSignage(page);
+  await expect.poll(() => copyOpacity(page)).toBe(1);
+  await openDebug(page);
+  await page.getByRole('button', { name: 'Show cancellation alert' }).click();
+  const notice = page.locator('.notice-banner--critical');
+  await expect(notice).toBeVisible();
+  await expect.poll(() => copyOpacity(page)).toBe(0);
+  await page.getByRole('button', { name: 'Standard welcome' }).click();
+  await expect(page.locator('.banner').first()).toBeVisible();
+  // The debug panel sits above everything on the stage: put it away.
+  await page.keyboard.press('Control+Shift+D');
+  await expect(page.locator('.debug')).toHaveCount(0);
+  // Whatever is painted at the alert's centre belongs to the alert, not the
+  // check-in wave that has risen behind it. (Every overlay here ignores the
+  // pointer, which hit-testing honours, so it is switched back on for the
+  // question: what is on top at this point?)
+  await page.addStyleTag({ content: '* { pointer-events: auto !important; }' });
+  const onTop = await notice.evaluate((el) => {
+    const r = el.querySelector('.notice-banner-message').getBoundingClientRect();
+    // The confetti canvas floats over the whole page on purpose; skip it.
+    const hit = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      .find((e) => e.tagName !== 'CANVAS');
+    if (hit && hit.closest('.notice-banner--critical')) return 'notice';
+    return hit ? `${hit.tagName}.${String(hit.getAttribute('class') || '')}` : 'nothing';
+  });
+  expect(onTop).toBe('notice');
+});
+
+test('at pickup time the pickup list takes the middle and the slide copy steps aside', async ({ page }) => {
+  const config = { backgroundSource: 'manual', calendarEnabled: false, seasonPromos: false, manualSlides: TYPED_DECK, checkoutBoardMode: 'always', sharedScheduleUrl: '' };
+  await page.addInitScript((c) => localStorage.setItem('awanaConfig.v1', JSON.stringify(c)), config);
+  await pinPhase(page, 'shutdown');
+  await goSignage(page);
+  await openDebug(page);
+  await page.getByRole('button', { name: /Still-here board: 9 children/ }).click();
+  await expect(page.locator('.checkout-board.names')).toBeVisible();
+  await expect(page.locator('.checkout-name__chip')).toHaveCount(9);
+  // The copy steps fully aside behind the list.
+  await expect.poll(() => copyOpacity(page)).toBe(0);
+});
+
+test('during the program an "always" board sits at the foot and the slides keep showing', async ({ page }) => {
+  const config = { backgroundSource: 'manual', calendarEnabled: false, seasonPromos: false, manualSlides: TYPED_DECK, checkoutBoardMode: 'always', sharedScheduleUrl: '' };
+  await page.addInitScript((c) => localStorage.setItem('awanaConfig.v1', JSON.stringify(c)), config);
+  await pinPhase(page, 'game');
+  await goSignage(page);
+  await openDebug(page);
+  await page.getByRole('button', { name: /Still-here board: 9 children/ }).click();
+  const foot = page.locator('.checkout-board--foot');
+  await expect(foot).toBeVisible();
+  await expect(foot).toContainText('9 not checked out yet');
+  await expect(page.locator('.checkout-name__chip')).toHaveCount(0);
+  await page.waitForTimeout(800);
+  expect(await copyOpacity(page)).toBe(1);
+  // …and the foot card stays below the copy's box.
+  const card = await foot.boundingBox();
+  const copy = await page.locator('.manual-slideshow .manual-slide-copy .lobby-headline').first().boundingBox();
+  expect(card.y).toBeGreaterThan(copy.y + copy.height);
+});
+
+test('a T&T check-in keeps its square mark inside its slot, on screen', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.addInitScript(() => {
+    localStorage.setItem('awanaConfig.v1', JSON.stringify({ standardDisplayMs: 3000, firstArrivalMoment: false }));
+  });
+  await goSignage(page);
+  await openDebug(page);
+  await page.getByRole('button', { name: 'Trigger every club' }).click();
+  // One run, every club in turn: T&T's name flips in a few children along.
+  const tnt = page.locator('.checkin[data-club="T&T"]');
+  await expect(tnt).toBeVisible({ timeout: 30000 });
+  // The previous club's mark has crossed out by now; the name holds 3 s.
+  await page.waitForTimeout(700);
+  const { mark, slot, vh } = await tnt.evaluate((el) => {
+    const m = el.querySelector('.checkin__mark').getBoundingClientRect();
+    const s = el.querySelector('.checkin__mark-slot').getBoundingClientRect();
+    return { mark: [m.top, m.bottom, m.height], slot: [s.top, s.bottom, s.height], vh: window.innerHeight };
+  });
+  expect(mark[2]).toBeGreaterThan(0);
+  expect(mark[2]).toBeLessThanOrEqual(slot[2] + 1);
+  expect(mark[1]).toBeLessThanOrEqual(vh);
+});

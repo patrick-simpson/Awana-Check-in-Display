@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
+import { DUR, EASE, beats } from '../lib/brand.js';
 import { isFresh } from '../lib/freshness.js';
 import { TONIGHT_STALE_MS } from '../lib/constants.js';
 
@@ -33,6 +34,12 @@ export function tonightRows(tonight) {
  * Lobby "tonight" stat strip fed by the printer's `onTonight` broadcast
  * — aggregate counts across every club (checked in, books finished,
  * awards earned, friends brought).
+ *
+ * Drawn as the kit's count chips (the printer dashboard's club chips: a
+ * pill, white Londrina caps, a Galindo number), sitting on the house waves
+ * bottom-centre between the settings gear and the corner chip. These four
+ * counts are the whole room's, not one club's, so they wear the house blue:
+ * club colour on this screen always means that club.
  *
  * This joins the stage as a persistent low-profile strip rather than
  * another item in the corner rotation (src/lib/cornerInfo.js), which holds
@@ -67,25 +74,31 @@ export default function TonightTicker({ tonight, active }) {
           key="tonight-ticker"
           className="tonight-ticker"
           aria-live="off"
-          initial={{ opacity: 0, y: 28 }}
-          animate={{ opacity: 1, y: 0, transition: { type: 'spring', stiffness: 220, damping: 24 } }}
-          exit={{ opacity: 0, y: 28, transition: { duration: 0.3 } }}
+          initial={{ opacity: 0, y: '120%' }}
+          animate={{ opacity: 1, y: '0%', transition: { duration: DUR.settle, ease: EASE.settle } }}
+          exit={{ opacity: 0, y: '120%', transition: { duration: DUR.exit, ease: EASE.exit } }}
         >
-          {rows.map((row) => (
-            <span key={row.key} className="tonight-ticker-stat">
+          {rows.map((row, i) => (
+            <M.span
+              key={row.key}
+              className="tonight-ticker-stat"
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: DUR.pop, delay: beats(i), ease: EASE.pop }}
+            >
               {/* Remounting on every value change gives each count the
-                  same joyful little pop the corner tally uses. */}
+                  same little pop the corner chips land with. */}
               <M.span
                 key={row.value}
                 className="tonight-ticker-value"
-                initial={{ scale: 1.35, opacity: 0.6 }}
+                initial={{ scale: 1.3, opacity: 0.6 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 380, damping: 16 }}
+                transition={{ duration: DUR.pop, ease: EASE.pop }}
               >
                 {row.value}
               </M.span>
               <span className="tonight-ticker-label">{row.label}</span>
-            </span>
+            </M.span>
           ))}
         </M.div>
       )}
