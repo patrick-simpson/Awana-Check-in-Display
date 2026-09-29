@@ -337,16 +337,19 @@ and `doodles/`. Read its README before changing it.
   Playwright smoke suite; visual regression runs in ci.yml only
   (baselines under `e2e/__screenshots__`, regenerate via the
   update-snapshots workflow)
-- There is no `@types/react-dom`, and `tsc` (TypeScript 7, whose program
-  load runs in parallel) must never infer react-dom from its own JS:
-  whether it reads `react-dom/index.js`'s `cjs/` files changes from run to
-  run, so `import { flushSync } from 'react-dom'` failed with TS2305 on
-  some runs and not others (it surfaced after the font swap's merge, and a
-  deeper `maxNodeModuleJsDepth` only made it rarer). jsconfig.json's
-  `paths` maps the bare `react-dom` specifier to `types/react-dom.d.ts`,
-  which declares exactly what the checked code imports (`flushSync`);
-  `react-dom/client` still resolves to the package. Import anything else
-  from bare `react-dom` and you add its declaration there first.
+- There is no `@types/react` or `@types/react-dom`, and `tsc` (TypeScript 7,
+  whose program load runs in parallel) must never infer either from its own
+  JS: whether it reads `react/index.js`' or `react-dom/index.js`' `cjs/`
+  files changes from run to run, so `flushSync` failed with TS2305 on some
+  runs, and later `useState` failed a deploy the same way after passing 30 of
+  30 runs locally (a deeper `maxNodeModuleJsDepth` only made it rarer).
+  jsconfig.json's `paths` maps the bare `react` and `react-dom` specifiers to
+  `types/react.d.ts` and `types/react-dom.d.ts`, which declare exactly what
+  the checked code imports (a handful of hooks, and `flushSync`);
+  `react/jsx-runtime`, `react-dom/client` and friends still resolve to the
+  packages, and Vite never reads jsconfig, so builds and tests use real
+  React. Import anything else from bare `react` or `react-dom` in a checked
+  file and you add its declaration there first.
 
 ## About page (`public/about.html`)
 
