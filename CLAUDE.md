@@ -853,6 +853,52 @@ house waves, and who holds which part of the room is one pure function,
   partial list, and the names come up when pickup starts. A stale board is
   never allowed to blank the lobby (it stays up until data or a reload
   clears it, and a visible board still counts as busy for the self-updater).
+- **The first-run card has the foot too** (`OVERLAY.setup`, `setupUp()`,
+  `.panel.setup-card`; live smoke check 2026-09-29: it hid "(MAKING
+  BRACELETS)" at 720p and the chip row at 1080p). A corner is never free on
+  the lobby: parked above the gear it was 25u square, inside the copy's own
+  box at every size. It is a strip now, in the one zone nothing on a slide
+  reaches: under the copy's lowest line (45u, `LAYOUT.safeBottom`), from a
+  gap past the gear to a gap short of the corner chip (~82u), on the chip's
+  own line 1.8u off the bottom, its words in columns (heading and buttons on
+  one row, the two steps side by side) so it fits the ~11u that leaves at a
+  12px floor: 102px of the 121px there is at 1280x720. Keep it that way: a
+  taller card, or one moved above the strip, is the bug again. It yields, by
+  the pure `setupUp(...)` (given lobbyRoom's answer), to whatever legitimately
+  holds that part of the room: a name (the check-in wave rises through it), a
+  held poster or slide (the chrome steps aside for those), an open panel,
+  the pickup list, the board's foot card, the tonight strip while it has
+  counts to show (content over instructions: the strip is what the room is
+  looking at, and the debug panel's "Show tonight ticker" must work on a
+  fresh screen) and a critical notice in the middle. App keeps the strip's
+  30 s clock and hands it to `TonightTicker` (`now`), so the two agree the
+  moment the feed goes stale. Whether the screen still wants the card
+  (`useSetupCard`: unconfigured, not dismissed) is separate from whether the
+  room has space for it, so App can ask both. `e2e/setup-card.spec.js`
+  measures every drawn box of copy and chrome against the card at five sizes.
+  **It is judged by what the ROOM sees, not by the flags that lead it**
+  (review of the first fix, 2026-09-29; both pinned by
+  `e2e/setup-card.events.spec.js`, which samples real frames):
+  - *A name is up until its run has left, and a quiet beat after.*
+    `currentEvent` goes null the moment a hold ends, but the run is still
+    leaving for `RUN_EXIT_MS` and the next may be a second away; judged by it
+    alone the white card came back over "WELCOME NOAH" and the club's mark as
+    they left, and popped in and out between children a few seconds apart. So
+    App asks `useLinger(currentEvent != null || gap, SETUP_CARD_QUIET_MS)`:
+    the child on screen, the gap (`useCheckInQueue` returns it; it is never
+    shorter than the exit), then 5 s more before the card returns.
+  - *A held slide is up until its stinger has cleared.* `checkInsHeld` drops
+    the moment the slideshow moves on, while the poster is on screen until the
+    wave covers the screen (`SWAP_AT`) and the wave itself until it has gone
+    (`STINGER_SEC`). The falling edge lingers `STINGER_SEC` (`useLinger`, zero
+    under zero animation, where there is no wave); the rising edge is
+    immediate. And `ManualSlideshow` reports `onSlide` from a LAYOUT effect, so
+    App learns a held slide is up in the commit that mounts it: passive, the
+    report landed a frame or more late, which under `?lowPower=1` on a weak Pi
+    left the card drawn over a poster already swapped in.
+  - `useLinger(flag, ms)` starts its linger in the render the flag falls in
+    (React's adjust-state-during-render), never from an effect, or one
+    committed frame would have the flag off and the linger not yet on.
 - **When two meet.** A critical notice over the pickup list keeps to the top
   band (`is-band`) so both stay whole, and the celebrations wait (the queue
   holds and a toast already up steps aside) until one of them goes. On an OBS
@@ -1072,6 +1118,43 @@ type, the club colours and marks, the stepped chip and the edge waves.
   lower and smaller on game time (clear of the top waves) and fades away
   only for a bare wall: views report it through `onBareChange` (the
   opening's closing blackout, the shutdown idle blackout).
+- **The first-run setup note is a strip in the wall's bottom margin band**
+  (`SETUP_NOTE`, `.pj-setup-note`; live smoke check 2026-09-29: as a 23rem
+  corner card it covered the left of the upcoming-nights list at 720p and
+  the coming-up chips at 1080p, since a corner of a centred, full-width
+  layout is never free). The band is below 51.75u down the frame: the
+  Upcoming Awana Nights list stops there (`COMING_UP.bottom`, its title-safe
+  margin) and every other view ends higher (the countdown ~46u with its
+  four special nights listed and ~50u with the week's theme chip too, game
+  time ~46u, the shutdown ~42u, the slides ~31u). Two lines, on the slides'
+  own left margin (8u), as wide as its words up to their 84u text block,
+  anchored to the window's bottom so a 4:3 window has the black band under the
+  frame too; sized in `--u` with a 12px floor; the button rides beside them;
+  no animation. It is ~44px tall at 1280x720, ~7px clear of the packed
+  coming-up list. Keep it inside the band: a taller note, or a third line, is
+  the bug again (the coming-up list is the tightest fit on any wall, and
+  `e2e/setup-card.spec.js` packs it and measures every text and chip against
+  the note at five sizes). The game-time mascots stand on the bottom wave, so
+  the note clips their shoes while it is up; that is art, not content.
+  **The band also holds the wall's own overlays** (review of the first fix):
+  - The slideshow's hover Prev / Next pill stands at the window's
+    bottom-right (`fixed bottom-8 right-8`, ~11.75rem wide, `data-slideshow-nav`),
+    so the note stops 14.5rem short of the right edge (`max-width`) and wraps
+    rather than run under it; at 4:3 that third line lands in the black band.
+    At 1920x1080 the full-width note had "DON'T SHOW AGAIN" clipped to "DON'T
+    SHOW AG" by it, and a quarter to two fifths of that button routed a click
+    to Prev. `e2e/setup-card.spec.js` measures both at five sizes, and asks
+    `elementFromPoint` along the button.
+  - The ESC toast ("Exit slides / Press ESC again") and the watchdog's "Back
+    to schedule in" pill stand at bottom-centre, over the middle of any strip
+    wide enough to read. Both carry `data-pj-bottom-overlay`, and
+    `:root:has([data-pj-bottom-overlay]) .pj-setup-note { visibility: hidden }`
+    hides the note while either is in the DOM. An overlay that leaves by an
+    exit animation stays in the DOM until it ends, so the note returns only
+    once it is truly gone, with no plumbing between the components. Any NEW
+    overlay that stands in the bottom band takes the same attribute (a marker
+    on something always mounted would hide the note for good; a vitest pins
+    the list).
 - **Slide changes are the sweep, not the old 3D flip**: every kicker,
   headline word, body word and chip is a PART that inherits its slide's
   `hidden`/`shown`/`gone` variant (`lib/landing.js`, keyframe lists, never

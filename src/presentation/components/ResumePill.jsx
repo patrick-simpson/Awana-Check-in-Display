@@ -23,6 +23,9 @@ export const ResumePill = ({ now, resumeAt, onStay }) => {
         <motion.div
           className="absolute left-1/2 z-50 flex items-center"
           data-resume-pill
+          // Stands on the bottom band: the first-run setup note gives way
+          // while it is up (index.css).
+          data-pj-bottom-overlay
           style={{ bottom: 'calc(2.4 * var(--u))', gap: 'calc(1.2 * var(--u))', x: '-50%' }}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0, transition: { duration: DUR.pop, ease: EASE.pop } }}

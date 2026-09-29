@@ -163,11 +163,14 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
         <ColorSweep key={w.id} direction={w.dir} onDone={() => sweepDone(w.id)} />
       ))}
 
-      {/* Exit confirmation toast */}
+      {/* Exit confirmation toast. data-pj-bottom-overlay: it stands on the
+          bottom band, so the first-run setup note gives way while it is up
+          (index.css). */}
       <AnimatePresence>
         {escArmed && (
           <motion.div
             className="absolute left-1/2 z-50"
+            data-pj-bottom-overlay
             style={{ bottom: 'calc(3 * var(--u))', x: '-50%' }}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0, transition: { duration: DUR.pop, ease: EASE.pop } }}
@@ -178,8 +181,14 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
         )}
       </AnimatePresence>
 
-      {/* Hover navigation */}
-      <div className="fixed bottom-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50">
+      {/* Hover navigation. Fixed at the window's bottom-right, 2rem in and
+          about 11.75rem wide: the first-run setup note stops short of it
+          (index.css .pj-setup-note), and e2e/setup-card.spec.js measures it
+          through data-slideshow-nav. */}
+      <div
+        className="fixed bottom-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50"
+        data-slideshow-nav
+      >
         <div className="pj-panel flex gap-1 p-1">
           <NavPill disabled={index === 0} onClick={goPrev}>
             <ChevronLeft size={16} strokeWidth={2.5} />

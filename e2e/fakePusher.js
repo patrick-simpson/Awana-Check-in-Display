@@ -2,9 +2,9 @@ import { expect } from '@playwright/test';
 
 // A stand-in for Pusher (page.routeWebSocket), for the specs that need a real
 // first name on the wire: only the socket can deliver one. Publish plaintext,
-// as a printer with no display key does. Shared by signage.events.spec.js and
-// embedded.events.spec.js (a plain module: Playwright refuses a spec that
-// imports another).
+// as a printer with no display key does. Shared by signage.events.spec.js,
+// embedded.events.spec.js and setup-card.events.spec.js (a plain module:
+// Playwright refuses a spec that imports another).
 
 /** A stand-in Pusher socket; resolves to `send(event, data)` once the page has subscribed. */
 export async function fakePusher(page) {

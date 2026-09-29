@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import TonightTicker, { tonightRows } from './TonightTicker.jsx';
+import TonightTicker, { tickerRows, tonightRows } from './TonightTicker.jsx';
 import { TONIGHT_STALE_MS } from '../lib/constants.js';
 
 // The staleness re-check timer is the only thing under test here, not
@@ -35,6 +35,22 @@ describe('tonightRows', () => {
 
   it('returns nothing when every stat is zero', () => {
     expect(tonightRows({ checkedIn: 0, booksCompleted: 0, awardsEarned: 0, friendsBrought: 0, at: 1 })).toEqual([]);
+  });
+});
+
+describe('tickerRows', () => {
+  const at = 1_000_000;
+  const all = { checkedIn: 63, booksCompleted: 4, awardsEarned: 0, friendsBrought: 0, at };
+
+  it('is what the strip would draw at a given moment: the rows while the feed is fresh, none once it is stale', () => {
+    expect(tickerRows(all, at + 1000).map((r) => r.key)).toEqual(['checkedIn', 'booksCompleted']);
+    expect(tickerRows(all, at + TONIGHT_STALE_MS).length).toBe(2);
+    expect(tickerRows(all, at + TONIGHT_STALE_MS + 1)).toEqual([]);
+  });
+
+  it('is nothing before a broadcast, and nothing when every stat is zero', () => {
+    expect(tickerRows(null, at)).toEqual([]);
+    expect(tickerRows({ ...all, checkedIn: 0, booksCompleted: 0 }, at)).toEqual([]);
   });
 });
 
@@ -104,6 +120,17 @@ describe('TonightTicker', () => {
     expect(screen.getByText('63')).toBeTruthy();
 
     act(() => vi.advanceTimersByTime(TONIGHT_STALE_MS + 60000));
+    expect(container.querySelector('.tonight-ticker')).toBeNull();
+  });
+
+  it('judges staleness on the clock its caller hands it, and runs none of its own then', () => {
+    const t = payload();
+    const { container, rerender } = render(<TonightTicker tonight={t} active now={t.at} />);
+    expect(screen.getByText('63')).toBeTruthy();
+    // Wall-clock time passing changes nothing: the caller's clock rules.
+    act(() => vi.advanceTimersByTime(TONIGHT_STALE_MS + 60000));
+    expect(screen.getByText('63')).toBeTruthy();
+    rerender(<TonightTicker tonight={t} active now={t.at + TONIGHT_STALE_MS + 1} />);
     expect(container.querySelector('.tonight-ticker')).toBeNull();
   });
 

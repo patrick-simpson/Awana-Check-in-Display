@@ -31,6 +31,16 @@ export function tonightRows(tonight) {
 }
 
 /**
+ * The rows the strip would draw at `now`: none until a broadcast has arrived,
+ * none once the feed has gone stale (TONIGHT_STALE_MS), and only the stats
+ * worth showing (tonightRows). Pure, so App can ask the same question the
+ * strip does: is anything of tonight's on the lobby right now?
+ */
+export function tickerRows(tonight, now) {
+  return isFresh(tonight?.at, TONIGHT_STALE_MS, now) ? tonightRows(tonight) : [];
+}
+
+/**
  * Lobby "tonight" stat strip fed by the printer's `onTonight` broadcast
  * — aggregate counts across every club (checked in, books finished,
  * awards earned, friends brought).
@@ -54,17 +64,23 @@ export function tonightRows(tonight) {
  * out and back, and no strip sitting inertly behind a birthday banner.
  * Hidden entirely until the first broadcast arrives, and again once the
  * feed goes stale (TONIGHT_STALE_MS) — a frozen "63 checked in" from an
- * hour ago is worse than showing nothing.
+ * hour ago is worse than showing nothing. It holds the foot of the lobby:
+ * the first-run card waits for it (src/lib/overlayFit.js setupUp), never the
+ * other way round, since these counts are what the room is looking at.
  */
-export default function TonightTicker({ tonight, active }) {
-  const [now, setNow] = useState(() => Date.now());
+export default function TonightTicker({ tonight, active, now: clock }) {
+  const [own, setOwn] = useState(() => Date.now());
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), FRESHNESS_CHECK_MS);
+    // A caller that needs to know whether the strip is up (App gives the first-run
+    // card the foot when it is not) keeps the clock itself and hands it in, so the
+    // two never disagree at the staleness edge.
+    if (clock !== undefined) return undefined;
+    const interval = setInterval(() => setOwn(Date.now()), FRESHNESS_CHECK_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [clock]);
+  const now = clock ?? own;
 
-  const fresh = isFresh(tonight?.at, TONIGHT_STALE_MS, now);
-  const rows = fresh ? tonightRows(tonight) : [];
+  const rows = tickerRows(tonight, now);
   const show = active && rows.length > 0;
 
   return (

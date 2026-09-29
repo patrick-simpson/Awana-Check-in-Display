@@ -3234,23 +3234,44 @@ input:focus-visible {
 .stage.april-fools .debug { transform: rotate(180deg); }
 .stage.april-fools .settings-gear:hover { transform: rotate(225deg) scale(1.05); }
 
-/* ── First-run card (signage): a kit card parked above the gear ─────
+/* ── First-run card (signage): a kit card in the foot of the lobby ───
    The printer dashboard's card: white, a hard offset in the house blue,
    the heading as a hot Londrina kicker, Figtree to read, the kit's one hot
    button for the way in and an outline button beside it. Still a .panel,
-   so it keeps the panel's hint and kbd styles. Sized in em off a root in
-   the lobby's u (with a 12px floor, because a volunteer reads it from
-   arm's length), so on a 720p TV it shrinks with the headline it sits
-   beside instead of running into it. */
+   so it keeps the panel's hint and kbd styles.
+
+   It stands in the strip UNDER the copy's lowest line (OVERLAY.setup in
+   src/lib/overlayFit.js: 45u down the 16:9 box), between the gear and the
+   corner chip, because nothing the lobby draws on a slide comes below that
+   line. Parked above the gear it was 25u square and inside the copy's own
+   box at every size: it hid the start of a headline at 720p and the chip
+   row at 1080p. The strip is ~11u tall, so the words lie in columns: the
+   heading with the buttons beside it, the two steps side by side under
+   them. Sized in em off a root in the lobby's u (with a 12px floor, because
+   a volunteer reads it from arm's length), so on a 720p TV it holds its
+   space instead of running up into the headline. */
 .panel.setup-card {
   position: absolute;
-  left: var(--safe-inset);
-  bottom: calc(var(--safe-inset) + max(46px, calc(2.9 * var(--u))) + 14px);
+  left: calc(var(--safe-inset) + max(46px, calc(2.9 * var(--u))) + calc(1.2 * var(--u)));
+  right: calc(19.2 * var(--u));
+  bottom: calc(1.8 * var(--u));
   font-size: max(12px, calc(0.78 * var(--u)));
-  width: min(27em, 90vw);
+  width: auto;
+  /* On an ultrawide window the strip would run far past the 16:9 box the
+     copy stands in: keep it to the box's width, centred between the gear
+     and the chip. */
+  max-width: calc(80 * var(--u));
+  margin-inline: auto;
   max-height: none;
   overflow: visible;
-  padding: 1.15em 1.3em 1.2em;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'head actions'
+    'steps steps';
+  align-items: center;
+  gap: 0.5em 1.4em;
+  padding: 0.8em 1.15em 0.85em;
   background: #fff;
   color: var(--brand-ink);
   border-radius: 1.1em;
@@ -3258,8 +3279,9 @@ input:focus-visible {
   font-family: var(--font-body);
   z-index: 45;
 }
+.setup-card__head { grid-area: head; min-width: 0; }
 .setup-card h3 {
-  margin: 0 0 0.45em;
+  margin: 0 0 0.2em;
   font-family: var(--font-condensed);
   font-size: 1.3em;
   font-weight: 400;
@@ -3269,17 +3291,20 @@ input:focus-visible {
   color: var(--brand-hot);
 }
 .setup-card ol {
-  margin: 0 0 0.6em;
-  padding-left: 1.3em;
+  grid-area: steps;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 2.6em;
+  margin: 0;
+  padding: 0 0 0 1.3em;
   font-size: 0.95em;
-  line-height: 1.45;
+  line-height: 1.4;
 }
 .setup-card li::marker {
   font-family: var(--font-condensed);
   color: var(--brand-hot);
 }
-.setup-card li + li { margin-top: 0.35em; }
-.setup-card .hint { font-size: 0.85em; }
+.setup-card .hint { display: block; font-size: 0.85em; line-height: 1.35; }
 .setup-card li.done { color: #6b7079; text-decoration: line-through; }
 .setup-card kbd {
   font: inherit;
@@ -3290,7 +3315,7 @@ input:focus-visible {
   border-radius: 4px;
   background: #fff;
 }
-.setup-card .actions { margin-top: 0.8em; justify-content: flex-start; gap: 0.6em; }
+.setup-card .actions { grid-area: actions; margin: 0; justify-content: flex-end; flex-wrap: nowrap; gap: 0.6em; }
 .panel.setup-card .actions button {
   padding: 0.5em 1.1em 0.45em;
   border-radius: 999px;
@@ -3300,6 +3325,7 @@ input:focus-visible {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   line-height: 1.1;
+  white-space: nowrap;
 }
 .panel.setup-card .actions button.primary {
   background: var(--brand-hot);
@@ -3314,6 +3340,24 @@ input:focus-visible {
   border: 2px solid var(--brand-ink);
 }
 .panel.setup-card .actions button.ghost:hover { background: rgba(35, 31, 32, 0.06); }
+/* A window too narrow for a strip (a phone) stacks the card above the gear,
+   the way it always stood. No lobby TV is this narrow: the strip holds down
+   to 800x600. */
+@media (max-width: 639px) {
+  .panel.setup-card {
+    left: var(--safe-inset);
+    right: var(--safe-inset);
+    max-width: none;
+    bottom: calc(var(--safe-inset) + max(46px, calc(2.9 * var(--u))) + 14px);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'head'
+      'steps'
+      'actions';
+  }
+  .setup-card ol { grid-template-columns: minmax(0, 1fr); row-gap: 0.35em; }
+  .setup-card .actions { justify-content: flex-start; }
+}
 .stage.april-fools .setup-card { transform: rotate(180deg); }
 
 /* Settings → Connection: the by-hand key fields fold away behind the login. */

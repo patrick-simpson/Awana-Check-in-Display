@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import ManualSlideshow, { MISSING_VIDEO_SKIP_MS } from './ManualSlideshow.jsx';
@@ -442,5 +443,25 @@ describe('ManualSlideshow on the lobby scene (rebrand stage 4b)', () => {
     act(() => vi.advanceTimersByTime(5000));
     expect(container.querySelectorAll('.lobby-copy')).toHaveLength(1);
     expect(headlines()).toEqual(['Making bracelets']);
+  });
+});
+
+describe('ManualSlideshow: the slide report reaches App before the frame is painted', () => {
+  // App turns what stands over the lobby (the first-run card) off from this
+  // report, so a passive effect left a frame or more with the card drawn over
+  // a poster that zero animation had already put on screen. A layout effect
+  // runs inside the commit that mounts the slide; a passive one only after
+  // every layout effect of that commit, the parent's included. So a parent's
+  // own layout effect sees whether the report has been made yet.
+  it('has told App a held slide is up by the time the parent\'s layout effects run', () => {
+    const onSlide = vi.fn();
+    let toldAtParentLayout = null;
+    function Parent({ slides }) {
+      useLayoutEffect(() => { toldAtParentLayout = onSlide.mock.calls.map(([info]) => info); }, []);
+      return <ManualSlideshow slides={slides} slideshowDelaySec={5} onSlide={onSlide} />;
+    }
+    const held = { id: 's_h', eyebrow: '', text: 'Held', theme: 'sky', durationSec: 0, holdCheckIns: true };
+    render(<Parent slides={[held, deck[0]]} />);
+    expect(toldAtParentLayout).toEqual([expect.objectContaining({ special: true })]);
   });
 });

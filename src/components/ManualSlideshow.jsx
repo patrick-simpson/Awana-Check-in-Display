@@ -1,4 +1,4 @@
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { M, ZeroAnimationContext } from '../lib/motion.jsx';
 import { EASE } from '../lib/brand.js';
@@ -213,7 +213,13 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
     else advance();
   }, [advance]);
 
-  useEffect(() => {
+  // Told before the frame is painted (a layout effect, not a passive one): App
+  // turns what stands over the lobby (the first-run card) off the moment a
+  // held slide mounts. Passive, the report landed a frame or more after the
+  // slide, and under zero animation (?lowPower=1, where a poster is on screen
+  // at once, and a weak Pi is slow to run the effect) the card was drawn over
+  // the new poster's date chip for that long.
+  useLayoutEffect(() => {
     onSlide?.({ key: slideKey, special, poster: kind === 'promo' });
   }, [onSlide, slideKey, special, kind]);
   // Leaving the slideshow (the background switched away) must never leave

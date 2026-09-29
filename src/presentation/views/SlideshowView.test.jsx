@@ -170,3 +170,24 @@ describe('slide copy helpers', () => {
     expect(nightLabel(new Date('2026-09-23T00:00:00'))).toMatch(/^WED SEP 23$/);
   });
 });
+
+describe('SlideshowView: the exit toast is a bottom overlay the setup note yields to', () => {
+  afterEach(cleanup);
+
+  it('carries the marker while it is up, and is gone with it', async () => {
+    const { container } = render(deck());
+    expect(container.querySelector('[data-pj-bottom-overlay]')).toBeNull();
+    press('Escape');
+    const toast = container.querySelector('[data-pj-bottom-overlay]');
+    expect(toast).not.toBeNull();
+    expect(toast.textContent).toMatch(/Press ESC again/);
+    // Escape twice leaves the deck instead: the toast is not a second, hidden state.
+    const onExit = vi.fn();
+    cleanup();
+    const again = render(deck({ onExit }));
+    press('Escape');
+    press('Escape');
+    expect(onExit).toHaveBeenCalledTimes(1);
+    again.unmount();
+  });
+});
