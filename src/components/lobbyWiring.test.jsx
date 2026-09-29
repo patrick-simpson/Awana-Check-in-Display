@@ -9,21 +9,25 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
 import { EASE } from '../lib/brand.js';
+import { READ } from '../lib/lobbyFrame.js';
 import {
   HANDOFF, STINGER_SEC, SWAP_AT, chromeMove, entranceHold, exitDelay, holdThenLeave, swellKeyframes, vanishAtSwap,
 } from '../lib/lobbyMotion.js';
 
 const fonts = vi.hoisted(() => {
   // A canvas whose metrics change when the "web font" lands: the fallback
-  // face sets narrow, Paytone One wide (it runs ~9% wider than Baloo 2).
-  const state = { real: false, loads: 0, listeners: new Set() };
+  // face sets narrow, Paytone One wide (it runs ~9% wider than Baloo 2). A
+  // test can set `faces` instead: per face named in the canvas font, the width
+  // of a letter before and after the fonts land (any face it leaves out: 0.55).
+  const state = { real: false, loads: 0, listeners: new Set(), faces: null };
   class FakeCanvas {
     getContext() {
       return {
         font: '',
         measureText(text) {
           const shout = /Paytone One/.test(this.font);
-          const per = shout ? (state.real ? 0.95 : 0.5) : 0.55;
+          const face = state.faces && Object.keys(state.faces).find((name) => this.font.includes(name));
+          const per = state.faces ? (face ? state.faces[face][state.real ? 1 : 0] : 0.55) : shout ? (state.real ? 0.95 : 0.5) : 0.55;
           return { width: [...text].reduce((w, ch) => w + (ch === ' ' ? 0.28 : per), 0) * 100 };
         },
       };
@@ -112,6 +116,7 @@ beforeEach(() => {
   getVideo.mockReset();
   getVideo.mockResolvedValue(new Blob(['x'], { type: 'video/webm' }));
   fonts.real = false;
+  fonts.faces = null;
 });
 afterEach(() => {
   cleanup();
@@ -287,8 +292,8 @@ describe('a web font that lands late', () => {
     });
   });
 
-  it('a run of words against the headline\'s direction keeps its <bdi> and its words through the refit', () => {
-    const mixed = { ...frame, headline: 'Please say שבת שלום to your friends at club' };
+  it('a run of words against the headline\'s direction keeps its <bdi>, its words and its edge punctuation through the refit', () => {
+    const mixed = { ...frame, headline: 'Please say "שבת שלום" to your friends at club' };
     const { container } = render(<SlideCopy frame={mixed} via="boot" />);
     const headline = () => container.querySelector('.lobby-headline');
     expect(headline().classList.contains('lobby-headline--shout')).toBe(true);
@@ -296,6 +301,11 @@ describe('a web font that lands late', () => {
     const before = piecesOf(container);
     const inRun = [...run.querySelectorAll('.lobby-word')];
     expect(inRun.map((w) => w.textContent)).toEqual(['שבת', 'שלום']);
+    // The quotes are drawn outside the run, each on its own word's beat.
+    const marks = [...container.querySelectorAll('.lobby-punct')];
+    expect(marks.map((m) => m.textContent)).toEqual(['"', '"']);
+    expect(landsAt(marks[0])).toBe(landsAt(inRun[0]));
+    expect(landsAt(marks[1])).toBe(landsAt(inRun[1]));
 
     fonts.real = true;
     act(() => {
@@ -305,11 +315,85 @@ describe('a web font that lands late', () => {
     expect(headline().classList.contains('lobby-headline--read')).toBe(true);
     expect(container.querySelector('bdi.lobby-run')).toBe(run);
     expect([...run.querySelectorAll('.lobby-word')]).toEqual(inRun);
+    expect([...container.querySelectorAll('.lobby-punct')]).toEqual(marks);
+    for (const m of marks) expect(rec(m).history).toHaveLength(1);
     const after = piecesOf(container);
     expect(after).toHaveLength(before.length);
     after.forEach((el, i) => {
       expect(el).toBe(before[i]);
       expect(rec(el).history).toHaveLength(1);
     });
+  });
+
+  // What sits outside a run's <bdi> depends on the fit: a run-on list's
+  // separator is there only once the operator's line breaks are joined, and a
+  // word too wide for any line keeps its own punctuation. A refit across
+  // either line must change what the run's edge slots hold, never which
+  // elements there are: one mounted by the refit would land all over again.
+  /**
+   * Render, read the headline, let the fonts land, read it again; in between,
+   * every element must be the one it was, on the target it had.
+   */
+  const acrossTheRefit = (frame, read) => {
+    const { container } = render(<SlideCopy frame={frame} via="boot" />);
+    const all = () => [...container.querySelectorAll('.lobby-kicker, .lobby-word, .lobby-punct, .lobby-sub, .lobby-chip, bdi')];
+    const headline = () => container.querySelector('.lobby-headline');
+    const before = all();
+    const was = read(headline());
+    fonts.real = true;
+    act(() => {
+      fonts.loads += 1;
+      for (const cb of fonts.listeners) cb();
+    });
+    const after = all();
+    expect(after.filter((el) => !before.includes(el)).map((el) => el.outerHTML), 'mounted by the refit').toEqual([]);
+    expect(before.filter((el) => !after.includes(el)).map((el) => el.outerHTML), 'unmounted by the refit').toEqual([]);
+    after.forEach((el, i) => {
+      expect(el).toBe(before[i]);
+      if (el.tagName !== 'BDI') expect(rec(el).history).toHaveLength(1);
+    });
+    const now = read(headline());
+    cleanup();
+    return [was, now];
+  };
+  /** The headline's text, what each edge slot of its one run holds, and the word it cut, if any. */
+  const readRun = (h) => {
+    const run = h.querySelector('bdi.lobby-run');
+    const slot = (el) => (el?.className === 'lobby-punct' ? el.textContent : null);
+    return {
+      text: h.textContent,
+      run: run.textContent,
+      slots: [slot(run.previousElementSibling), slot(run.nextElementSibling)],
+      cut: h.querySelector('.lobby-word--wide')?.textContent ?? null,
+    };
+  };
+
+  it('a list that runs on (or stops running on) at the refit only fills (or empties) a run\'s edge slot', () => {
+    const names = ['Ava', 'Ben', 'שרה כהן', 'Cal', 'Dee', 'Eli', 'Fay', 'Gus', 'Hal', 'Ivy', 'Jo', 'Kit', 'Lu', 'Max', 'Ned'];
+    const frame = { kicker: 'Thank you to all our amazing leaders', headline: names.join('\n'), sub: '', chip: null, textSize: 'auto' };
+    const kept = { text: names.join(' '), run: 'שרה כהן', slots: ['', ''], cut: null };
+    const joined = { text: names.join(`${READ.joiner} `), run: 'שרה כהן', slots: ['', READ.joiner.trim()], cut: null };
+    // Londrina lands wider: the kicker then crowds the corners, and the names
+    // lose the room to keep their breaks at 1.5u. Or narrower, and they win it.
+    fonts.faces = { Londrina: [0.46, 0.62] };
+    expect(acrossTheRefit(frame, readRun)).toEqual([kept, joined]);
+    fonts.real = false;
+    fonts.faces = { Londrina: [0.62, 0.46] };
+    expect(acrossTheRefit(frame, readRun)).toEqual([joined, kept]);
+  });
+
+  it('a long word drawn whole (or cut) at the refit only moves its punctuation into (or out of) its run\'s edge slot', () => {
+    const url = 'https://kvbc.example.org/awana/fall-2026/register?ref=lobbytv';
+    const headline = `הירשמו עכשיו: Sign up at ${url}.`;
+    const frame = { kicker: '', headline, sub: '', chip: null, textSize: 'auto' };
+    const cut = { text: headline, run: `Sign up at ${url}.`, slots: ['', ''], cut: `${url}.` };
+    const whole = { text: headline, run: `Sign up at ${url}`, slots: ['', '.'], cut: null };
+    // Figtree lands narrower: the URL now fits whole at a readable size. Or
+    // wider, and it is cut across rows of its own, keeping its full stop.
+    fonts.faces = { Figtree: [0.55, 0.45] };
+    expect(acrossTheRefit(frame, readRun)).toEqual([cut, whole]);
+    fonts.real = false;
+    fonts.faces = { Figtree: [0.45, 0.55] };
+    expect(acrossTheRefit(frame, readRun)).toEqual([whole, cut]);
   });
 });

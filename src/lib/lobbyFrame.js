@@ -338,14 +338,14 @@ export function slideFrame(slide) {
 /**
  * Scripts that stack vowel and tone marks above and below the letter: Thai,
  * Lao, Khmer, Myanmar and Tibetan, and the Brahmic scripts of India and Sri
- * Lanka. None has a letter in Paytone One (or Baloo 2), so a shout would set
- * them in a system face at a caps line height, where the marks of one row
- * touch the next (measured: Thai in the fallback face). They read instead,
- * at the read layout's 1.22. Devanagari is not here: Baloo 2, the shout's
- * own fallback, draws it, and its rows take the room their measured ink
- * needs (shoutBox).
+ * Lanka, Devanagari among them. None has a letter in Paytone One, and at a
+ * caps line height the marks of one row reach into the next: Thai in the
+ * fallback face, and Devanagari even in Baloo 2, the shout's own fallback,
+ * which draws it (the u-matra under the bha of "प्रभु" runs through the
+ * i-matra's loop over "ति" on the row below, 0.17em deep). They read instead,
+ * at the read layout's 1.22.
  */
-const STACKED = /[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\p{Script=Tibetan}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}]/u;
+const STACKED = /[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\p{Script=Tibetan}\p{Script=Devanagari}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}]/u;
 
 // Scripts a line may break inside with no dictionary (UAX #14 class ID)…
 const IDEOGRAPHIC = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
@@ -493,11 +493,11 @@ export function tokenDirection(text) {
  * sees a box as one neutral object: left alone, a Hebrew phrase in an English
  * sentence, or English in a Hebrew one, would lay its words out in the
  * paragraph's order, reversed for its reader. So the page isolates each run
- * of tokens that read against the paragraph, in the run's own direction
- * (<bdi dir>). The runs follow the bidi algorithm's own rules at the level of
- * tokens: the paragraph takes the direction of its first strong token; a
- * number reads with the text before it; a token of punctuation between two
- * tokens of one direction takes it, and otherwise the paragraph's.
+ * of two or more tokens that read against the paragraph, in the run's own
+ * direction (bidiIsolates). The runs follow the bidi algorithm's own rules at
+ * the level of tokens: the paragraph takes the direction of its first strong
+ * token; a number reads with the text before it; a token of punctuation
+ * between two tokens of one direction takes it, and otherwise the paragraph's.
  *
  * It depends on the words alone (the READ.joiner a run-on list gains is
  * punctuation, which changes no token's direction), never on the fit, so a
@@ -536,6 +536,70 @@ export function bidiRuns(tokens) {
     i = j;
   }
   return { dir, runs };
+}
+
+// A character the bidi algorithm places by the text around it rather than by
+// itself: anything but a letter, a digit, a combining mark or a direction
+// mark (punctuation, quotes, brackets, symbols, emoji, READ.joiner).
+const NEUTRAL = /[^\p{L}\p{N}\p{M}\u200E\u200F\u061C]/u;
+// The signs a number carries as its own (50%, $5, 30°): the bidi algorithm
+// reads them as part of the number, never as neutrals beside it.
+const NUMBER_SIGN = /[#%°‰‱′″‴\p{Sc}\u066A]/u;
+const DIGIT = /\p{Nd}/u;
+
+/**
+ * One token as [lead, core, trail]: the neutral characters before its first
+ * letter or digit, the rest, and the neutrals after its last. A token of
+ * neutrals alone is all core.
+ * @param {string} text
+ * @returns {[string, string, string]}
+ */
+export function edgeNeutrals(text) {
+  const chars = [...text];
+  let a = 0;
+  while (a < chars.length && NEUTRAL.test(chars[a])) a += 1;
+  if (a === chars.length) return ['', text, ''];
+  let b = chars.length;
+  while (b > a && NEUTRAL.test(chars[b - 1])) b -= 1;
+  if (DIGIT.test(chars[a])) while (a > 0 && NUMBER_SIGN.test(chars[a - 1])) a -= 1;
+  if (DIGIT.test(chars[b - 1])) while (b < chars.length && NUMBER_SIGN.test(chars[b])) b += 1;
+  return [chars.slice(0, a).join(''), chars.slice(a, b).join(''), chars.slice(b).join('')];
+}
+
+/**
+ * The runs the page isolates in a <bdi dir> of their own, and the neutrals
+ * each leaves outside it.
+ *
+ * Inside the <bdi> every word's box takes the run's direction, and a box lays
+ * out its own punctuation by its own direction. Between two words of the run
+ * that is right: the plain bidi algorithm puts the comma in "שבת, שלום" on the
+ * run's side too. But the neutrals at the run's two edges sit between the run
+ * and the headline, and there the algorithm gives them the headline's
+ * direction: "Say שלום, friends!" keeps its comma after the Hebrew, and
+ * "مرحبا بكم في Awana!" its "!" at the end of the Arabic sentence. So the
+ * first word's leading neutrals and the last word's trailing ones (quotes, a
+ * comma, a full stop, READ.joiner's dot) are drawn outside the <bdi>, in the
+ * headline's own direction.
+ *
+ * A run of one token is not isolated at all: a single box already places
+ * itself in the headline's order whatever it holds, and inside, in the
+ * headline's direction, it lays its letters and punctuation out as the plain
+ * algorithm would ("שלום," after "Say", "ל-Awana" as typed).
+ *
+ * Its runs are bidiRuns', so they come from the words alone; the neutrals
+ * follow the tokens it is given, so in a run-on list a run's `trail` carries
+ * READ.joiner. The page keeps a slot for both edges of every run in every fit
+ * (SlideCopy), so a refit only changes what they hold.
+ *
+ * @param {Array<{ text: string }>} tokens
+ * @returns {Array<{ from: number, to: number, dir: 'ltr' | 'rtl', lead: string, trail: string }>}
+ *   lead: the part of token `from`'s text drawn before the <bdi>;
+ *   trail: the part of token `to`-1's drawn after it
+ */
+export function bidiIsolates(tokens) {
+  return bidiRuns(tokens).runs
+    .filter((run) => run.to - run.from > 1)
+    .map((run) => ({ ...run, lead: edgeNeutrals(tokens[run.from].text)[0], trail: edgeNeutrals(tokens[run.to - 1].text)[2] }));
 }
 
 /* ── Line breaking ───────────────────────────────────────────────── */

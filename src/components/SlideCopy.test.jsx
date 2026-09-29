@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { ZeroAnimationContext } from '../lib/motion.jsx';
 import SlideCopy from './SlideCopy.jsx';
-import { SHOUT, fitFrame } from '../lib/lobbyFrame.js';
+import { READ, SHOUT, bidiIsolates, fitFrame } from '../lib/lobbyFrame.js';
 
 afterEach(cleanup);
 
@@ -116,9 +116,15 @@ describe('SlideCopy', () => {
       expect(runs).toHaveLength(1);
       expect(runs[0].getAttribute('dir')).toBe('rtl');
       expect([...runs[0].querySelectorAll('.lobby-word')].map((w) => w.textContent)).toEqual(['שבת', 'שלום', 'טוב']);
-      // The space before the run sits outside it, between it and "say".
+      // The space before the run sits outside it, between it and "say", and
+      // so do the run's two edge slots, empty here (lobbyWiring.test.jsx has
+      // why they are there at all).
       expect(runs[0].textContent).toBe('שבת שלום טוב');
-      expect(runs[0].previousSibling.textContent).toBe(' ');
+      for (const slot of [runs[0].previousSibling, runs[0].nextSibling]) {
+        expect(slot.className).toBe('lobby-punct');
+        expect(slot.childNodes).toHaveLength(0);
+      }
+      expect(runs[0].previousSibling.previousSibling.textContent).toBe(' ');
       // Every other word is outside any run, and the headline still reads as typed.
       expect(h.querySelectorAll('.lobby-word:not(bdi .lobby-word)').length).toBe(h.querySelectorAll('.lobby-word').length - 3);
       expect(h.textContent).toBe(headline);
@@ -128,6 +134,59 @@ describe('SlideCopy', () => {
     const run = container.querySelector('bdi.lobby-run');
     expect(run.getAttribute('dir')).toBe('ltr');
     expect([...run.querySelectorAll('.lobby-word')].map((w) => w.textContent)).toEqual(['Awana', 'Clubs', 'Tonight']);
+  });
+
+  it('draws a row break inside a run where the fit put it, and nowhere else', () => {
+    for (const headline of ['Say שבת שלום טוב tonight', 'Please say שבת שלום to your friends at club', 'Say שבת שלום לכל החברים tonight at club']) {
+      const { container, unmount } = render(<SlideCopy frame={{ ...FRAME, kicker: '', headline, sub: '', chip: null }} still />);
+      const h = container.querySelector('.lobby-headline');
+      const fit = fitFrame({ kicker: '', headline, sub: '', chip: null, textSize: 'auto' }).headline;
+      const [run] = bidiIsolates(fit.tokens);
+      const inRun = fit.starts.filter((t) => t > run.from && t < run.to).length;
+      expect(inRun, headline).toBeGreaterThan(0);
+      expect(h.querySelectorAll('br'), headline).toHaveLength(fit.starts.length - 1);
+      expect(h.querySelectorAll('bdi br'), headline).toHaveLength(inRun);
+      expect(h.dataset.rows).toBe(String(fit.lines.length));
+      unmount();
+    }
+  });
+
+  it('draws the punctuation at a run\'s edges outside its <bdi>, in the headline\'s own direction', () => {
+    const headline = 'We say "שבת שלום" to all';
+    const { container } = render(<SlideCopy frame={{ ...FRAME, headline, sub: '', chip: null }} still />);
+    const h = container.querySelector('.lobby-headline');
+    const run = h.querySelector('bdi.lobby-run');
+    expect([...run.querySelectorAll('.lobby-word')].map((w) => w.textContent)).toEqual(['שבת', 'שלום']);
+    expect(run.textContent.replace(/\s/g, '')).toBe('שבתשלום');
+    expect(run.previousElementSibling?.className).toBe('lobby-punct');
+    expect(run.previousElementSibling.textContent).toBe('"');
+    expect(run.nextElementSibling?.className).toBe('lobby-punct');
+    expect(run.nextElementSibling.textContent).toBe('"');
+    expect(h.textContent).toBe(headline);
+  });
+
+  it('a lone word against the headline is not isolated: its own box keeps its punctuation', () => {
+    for (const [headline, word] of [['Say שלום, friends!', 'שלום,'], ['مرحبا بكم في Awana!', 'Awana!'], ['Welcome ל-Awana tonight', 'ל-Awana']]) {
+      const { container, unmount } = render(<SlideCopy frame={{ ...FRAME, headline, sub: '', chip: null }} still />);
+      expect(container.querySelector('bdi'), headline).toBeNull();
+      expect(container.querySelector('.lobby-punct'), headline).toBeNull();
+      expect([...container.querySelectorAll('.lobby-word')].map((w) => w.textContent)).toContain(word);
+      unmount();
+    }
+  });
+
+  it('a run-on list keeps one separator on each side of a name that reads against it', () => {
+    const names = 'Ava Ben Cal Dee Eli Fay Gus Hal Ivy Jo Kit Lu Max Ned Oli Pia Quin Rose Sam Tess Uma Vic Wes Xan Yui Zane'.split(' ');
+    const headline = ['Book finishers!', ...names.slice(0, 12), 'שרה כהן', ...names.slice(12)].join('\n');
+    const { container } = render(<SlideCopy frame={{ ...FRAME, kicker: 'Thank you', headline, sub: '', chip: null }} still />);
+    const h = container.querySelector('.lobby-headline');
+    const run = h.querySelector('bdi.lobby-run');
+    expect(run.textContent).toBe('שרה כהן');
+    // The separator after the name sits outside its run, after a space.
+    expect(run.nextSibling.textContent).toBe(' ');
+    expect(run.nextSibling.nextSibling.className).toBe('lobby-punct');
+    expect(run.nextSibling.nextSibling.textContent).toBe(READ.joiner.trim());
+    expect(h.textContent).toContain(`Lu${READ.joiner} שרה כהן${READ.joiner} Max`);
   });
 
   it('a headline in one direction has no runs', () => {

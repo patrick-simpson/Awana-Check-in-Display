@@ -14,7 +14,7 @@ const HYPHENS = `https://kvbc.example.org/${Array.from({ length: 14 }, (_, i) =>
 // Whole on one line only at about 1.5u.
 const URL90 = 'https://kvbc.example.org/awana/fall-2026/registration-form-for-families?ref=lobby-signage';
 
-async function showSlide(page, { eyebrow = '', text, config = {}, weather = null }) {
+async function showSlide(page, { eyebrow = '', text, textSize = 'auto', config = {}, weather = null }) {
   await page.route(/pusher|twotimtwo|sockjs/, (route) => route.abort());
   if (weather) {
     await page.route(/open-meteo/, (route) => route.fulfill({
@@ -34,7 +34,7 @@ async function showSlide(page, { eyebrow = '', text, config = {}, weather = null
     calendarEnabled: false,
     seasonPromos: false,
     slideshowDelaySec: 3,
-    manualSlides: [{ id: 's_fit', eyebrow, text, theme: 'sky', textSize: 'auto', durationSec: 0 }],
+    manualSlides: [{ id: 's_fit', eyebrow, text, theme: 'sky', textSize, durationSec: 0 }],
     ...config,
   });
   await page.goto('/index.html?lowPower=1');
@@ -91,16 +91,74 @@ const rowsOf = (page) => page.evaluate(() => {
     range.selectNodeContents(n);
     rects.push(...[...range.getClientRects()].filter((r) => r.width > 0.5));
   }
-  const tops = [...new Set(rects.map((r) => Math.round(r.top)))];
+  // One row per band of text, by centre: a row whose Hebrew falls back to
+  // another face than its Latin still counts once.
+  const lh = parseFloat(getComputedStyle(headline).fontSize) * parseFloat(headline.style.lineHeight);
+  const rows = [];
+  for (const r of rects) {
+    const y = (r.top + r.bottom) / 2;
+    if (!rows.some((c) => Math.abs(c - y) < lh * 0.45)) rows.push(y);
+  }
   const mid = (stage.left + stage.right) / 2;
   return {
+    mode: headline.classList.contains('lobby-headline--shout') ? 'shout' : 'read',
     counted: Number(headline.dataset.rows),
-    drawn: tops.length,
+    drawn: rows.length,
+    breaksInRuns: headline.querySelectorAll('bdi br').length,
     size: parseFloat(getComputedStyle(headline).fontSize) / u,
     bottom: (headline.closest('.lobby-copy').getBoundingClientRect().bottom - stage.top) / u,
     left: (Math.min(...rects.map((r) => r.left)) - mid) / u,
     right: (Math.max(...rects.map((r) => r.right)) - mid) / u,
   };
+});
+
+/**
+ * Each drawn row's characters in the order they sit on screen, left to right,
+ * beside the same row's text set as plain text in a dir="auto" paragraph of
+ * the same face: what the bidi algorithm itself makes of the row.
+ */
+const bidiRows = (page) => page.evaluate(() => {
+  const headline = document.querySelector('.lobby-headline');
+  const cs = getComputedStyle(headline);
+  const lh = parseFloat(cs.fontSize) * parseFloat(headline.style.lineHeight);
+  const rowsIn = (root) => {
+    const rows = [];
+    let last = null;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      let off = 0;
+      for (const ch of n.data) {
+        const range = document.createRange();
+        range.setStart(n, off);
+        off += ch.length;
+        range.setEnd(n, off);
+        const r = [...range.getClientRects()].find((b) => b.width > 0.3);
+        if (!r || /\s/.test(ch)) {
+          if (last) last.text += ch;
+          continue;
+        }
+        const y = (r.top + r.bottom) / 2;
+        let row = rows.find((w) => Math.abs(w.y - y) < lh * 0.45);
+        if (!row) rows.push(row = { y, text: '', chars: [] });
+        row.text += ch;
+        row.chars.push({ ch, x: (r.left + r.right) / 2 });
+        last = row;
+      }
+    }
+    return rows.sort((a, b) => a.y - b.y).map((row) => ({ text: row.text.trim(), seen: row.chars.sort((a, b) => a.x - b.x).map((c) => c.ch).join('') }));
+  };
+  const drawn = rowsIn(headline);
+  const plain = document.createElement('p');
+  plain.dir = 'auto';
+  plain.style.cssText = `position:fixed;left:0;top:0;margin:0;white-space:nowrap;visibility:hidden;font-size:${cs.fontSize};font-family:${cs.fontFamily};font-weight:${cs.fontWeight};text-transform:${cs.textTransform};line-height:${headline.style.lineHeight}`;
+  drawn.forEach((row, i) => {
+    if (i) plain.append(document.createElement('br'));
+    plain.append(row.text);
+  });
+  document.body.append(plain);
+  const want = rowsIn(plain);
+  plain.remove();
+  return drawn.map((row, i) => ({ text: row.text, seen: row.seen, want: want[i]?.seen }));
 });
 
 /** The left edge of each headline word, by its text. */
@@ -230,6 +288,70 @@ test('a Hebrew phrase in an English sentence keeps its own order when shouted', 
   const pairs = [['שבת', 'שלום'], ['שלום', 'טוב']].filter(([a, b]) => w[a].top === w[b].top);
   expect(pairs.length).toBeGreaterThan(0);
   for (const [a, b] of pairs) expect(w[b].left).toBeLessThan(w[a].left);
+});
+
+// Punctuation at the edge of a phrase in the other direction: plain text
+// gives it the headline's direction, so "Say שלום, friends!" keeps its comma
+// after the Hebrew, and an Arabic sentence ending "Awana!" its "!" at the end.
+for (const [name, textSize, texts] of [
+  ['a lone word, shouted', 'auto', ['Say שלום, friends!', 'مرحبا بكم في Awana!', 'We always say שלום.', 'Can you say مرحبا? Try it tonight']],
+  ['a phrase, shouted', 'auto', ['We say "שבת שלום" to all', 'ברוכים הבאים, Awana Clubs.', 'Welcome ל-Awana tonight', 'Say שבת שלום!']],
+  ['read', 'md', ['We say שבת שלום, and see you next week', 'Say שלום, friends!', 'مرحبا بكم في Awana!', 'אנחנו אומרים Hello World, לכולם']],
+]) {
+  test(`punctuation at the edge of a phrase in the other direction sits where plain text puts it: ${name}`, async ({ context }) => {
+    for (const text of texts) {
+      const page = await context.newPage();
+      await showSlide(page, { text, textSize });
+      for (const row of await bidiRows(page)) expect(row.seen, `${text}: "${row.text}"`).toBe(row.want);
+      await page.close();
+    }
+  });
+}
+
+test('a quoted phrase split across two shouted rows keeps its quotes where plain text puts them', async ({ page }) => {
+  await showSlide(page, { text: 'We say "שבת שלום" to all' });
+  const rows = await rowsOf(page);
+  expect(rows.mode).toBe('shout');
+  expect(rows.drawn).toBe(rows.counted);
+  for (const row of await bidiRows(page)) expect(row.seen, row.text).toBe(row.want);
+  // The row break falls inside the phrase, so this is the case it covers.
+  expect(rows.breaksInRuns).toBeGreaterThan(0);
+});
+
+test('a run-on list keeps one separator on each side of a name in the other direction', async ({ context }) => {
+  for (const name of ['שרה כהן', 'محمد']) {
+    const page = await context.newPage();
+    await showSlide(page, { eyebrow: 'Thank you', text: ['Book finishers!', ...NAMES.slice(0, 12), name, ...NAMES.slice(12)].join('\n') });
+    const rows = await bidiRows(page);
+    expect(rows.some((row) => row.text.includes(name)), name).toBe(true);
+    for (const row of rows) expect(row.seen, `${name}: "${row.text}"`).toBe(row.want);
+    await page.close();
+  }
+});
+
+// A row break inside a phrase in the other direction: the <br> sits inside
+// its <bdi>, and without it the rows the fit counted run together off the
+// stage.
+for (const text of ['Say שבת שלום טוב tonight', 'Say שבת שלום לכל החברים tonight at club']) {
+  test(`a row break inside a phrase in the other direction is drawn: ${text}`, async ({ page }) => {
+    await showSlide(page, { text });
+    const rows = await rowsOf(page);
+    expect(rows.drawn).toBe(rows.counted);
+    const half = rows.mode === 'shout' ? 42.05 : 38.05;
+    expect(rows.left).toBeGreaterThanOrEqual(-half);
+    expect(rows.right).toBeLessThanOrEqual(half);
+    expect(rows.bottom).toBeLessThanOrEqual(45.05);
+    // The fit put a row break inside the phrase, so this is the case it covers.
+    expect(rows.breaksInRuns).toBeGreaterThan(0);
+  });
+}
+
+test('Devanagari reads rather than shouts, so its marks clear the next row', async ({ page }) => {
+  await showSlide(page, { text: 'प्रभु की\nस्तुति करो' });
+  await expect(page.locator('.lobby-headline--read')).toBeVisible();
+  const rows = await rowsOf(page);
+  expect(rows.drawn).toBe(rows.counted);
+  expect(rows.counted).toBe(2);
 });
 
 test('English inside a Hebrew headline keeps its own order', async ({ page }) => {
