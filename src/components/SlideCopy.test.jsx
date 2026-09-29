@@ -83,9 +83,15 @@ describe('SlideCopy', () => {
       expect(runs).toHaveLength(1);
       expect(runs[0].getAttribute('dir')).toBe('rtl');
       expect([...runs[0].querySelectorAll('.lobby-word')].map((w) => w.textContent)).toEqual(['שבת', 'שלום', 'טוב']);
-      // The space before the run sits outside it, between it and "say".
+      // The space before the run sits outside it, between it and "say", and
+      // so do the run's two edge slots, empty here (lobbyWiring.test.jsx has
+      // why they are there at all).
       expect(runs[0].textContent).toBe('שבת שלום טוב');
-      expect(runs[0].previousSibling.textContent).toBe(' ');
+      for (const slot of [runs[0].previousSibling, runs[0].nextSibling]) {
+        expect(slot.className).toBe('lobby-punct');
+        expect(slot.childNodes).toHaveLength(0);
+      }
+      expect(runs[0].previousSibling.previousSibling.textContent).toBe(' ');
       // Every other word is outside any run, and the headline still reads as typed.
       expect(h.querySelectorAll('.lobby-word:not(bdi .lobby-word)').length).toBe(h.querySelectorAll('.lobby-word').length - 3);
       expect(h.textContent).toBe(headline);

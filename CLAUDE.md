@@ -447,10 +447,17 @@ thumbnail is the TV at 0.15 scale and fits the same way).
 - **A refit never replays.** Every headline token is one element in both
   layouts, keyed by its place, and the beat sheet is fixed when the copy first
   appears, so a web font landing late only re-lays the same elements out. The
-  `<bdi>` runs and the punctuation left outside them come from the words
-  alone, so a refit never moves a word into or out of one. (A word too wide
-  for any line keeps its edge punctuation: it is a block of rows of its own,
-  and a piece after it would start a row the fit never counted.)
+  `<bdi>` runs come from the words alone, so a refit never moves a word into
+  or out of one. What a run leaves outside it does depend on the fit: the
+  run-on list's " · " is there only once the lines are joined, and a word too
+  wide for any line keeps its own edge punctuation (it is a block of rows of
+  its own, and a piece after it would start a row the fit never counted). So
+  every run has both its `.lobby-punct` edge boxes in every fit, and a refit
+  only changes their text; an empty one is `display: inline`, which adds
+  nothing to its row and no row of its own. Mounted by a refit instead, a box
+  landed all over again (`lobbyWiring.test.jsx` pins both cases). The rule
+  for anything new here: an element that can exist in any fit exists in
+  every fit, and only its content follows the fit.
 - **The calendar's `frame` field is local-only.** `buildCalendarSlides` adds
   `frame` (headline, sub, date chip) for the lobby; `sanitizeSlides` and the
   wire contract never accept it, so a published or typed slide can never

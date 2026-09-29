@@ -546,7 +546,10 @@ export function edgeNeutrals(text) {
  * headline's direction, it lays its letters and punctuation out as the plain
  * algorithm would ("שלום," after "Say", "ל-Awana" as typed).
  *
- * Like bidiRuns, it depends on the words alone, never on the fit.
+ * Its runs are bidiRuns', so they come from the words alone; the neutrals
+ * follow the tokens it is given, so in a run-on list a run's `trail` carries
+ * READ.joiner. The page keeps a slot for both edges of every run in every fit
+ * (SlideCopy), so a refit only changes what they hold.
  *
  * @param {Array<{ text: string }>} tokens
  * @returns {Array<{ from: number, to: number, dir: 'ltr' | 'rtl', lead: string, trail: string }>}

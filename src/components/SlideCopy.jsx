@@ -101,7 +101,9 @@ function rowBreaks(h) {
  * Hebrew) sits in a <bdi> of its own direction (bidiIsolates), so its words
  * keep their order, with the punctuation at its two edges drawn outside it,
  * in the headline's direction, as plain text would place it. The runs come
- * from the words alone, so a refit never moves a word into or out of one.
+ * from the words alone, so a refit never moves a word into or out of one, and
+ * both of a run's edge slots are there in every fit: a refit that runs a list
+ * on (READ.joiner) or draws a long word whole only changes the slots' text.
  *
  * @param {{
  *   frame: import('../lib/lobbyFrame.js').Frame,
@@ -183,15 +185,19 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
    * headline's direction as plain text would; they land and leave on their
    * word's beat. The space READ.joiner starts with stays plain text beside
    * them: a box of its own would drop it.
+   *
+   * What sits there depends on the fit (READ.joiner only in a run-on list,
+   * nothing beside a word too wide for any line), but the slot does not: every
+   * run has both, in every fit, and a refit only changes their text, because a
+   * slot a refit mounted would land all over again. An empty one draws
+   * nothing (app.css).
    */
   const edge = (i, text) => {
-    if (!text || wide.has(i)) return false;
-    const gap = /^\s/u.test(text) ? ' ' : '';
-    const marks = text.trimStart();
+    const shown = wide.has(i) ? '' : text;
     return (
       <Fragment>
-        {gap}
-        {marks && <Piece still={still} className="lobby-punct" enter={land(i)} leave={leave(tokenBeat(i))}>{marks}</Piece>}
+        {/^\s/u.test(shown) && ' '}
+        <Piece still={still} className="lobby-punct" enter={land(i)} leave={leave(tokenBeat(i))}>{shown.trimStart()}</Piece>
       </Fragment>
     );
   };

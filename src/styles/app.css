@@ -358,6 +358,13 @@ html, body, #root {
 .lobby-punct {
   display: inline-block;
 }
+/* A run keeps both edge boxes in every fit, so a refit never mounts one that
+   would land again; where this fit leaves nothing outside the run, the box is
+   empty and inline, which adds nothing to its row and no row of its own (an
+   empty inline-block after a word too wide for any line would). */
+.lobby-punct:empty {
+  display: inline;
+}
 /* Only a word wider than any line (a pasted URL) is ever cut: it takes rows
    of its own, inside the read layout's width (set inline from the fit), and
    each row is one of the pieces the fit cut it into, split by <br>. It never
