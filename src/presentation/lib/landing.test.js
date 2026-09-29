@@ -66,6 +66,23 @@ describe('a slide\'s parts', () => {
     expect(ambient.opacity).toEqual([null, 0]);
   });
 
+  // ...and land from wherever each part is now. Space then ← inside ~250 ms
+  // brings back a slide that is still leaving; a landing started from an
+  // explicit 0 dropped its words from 1.00 to 0.00 in one frame (measured)
+  // and left the wall blank for ~600 ms. A fresh part is already at `hidden`.
+  it('land from wherever each part is now, never from an explicit zero', () => {
+    for (const i of [0, 1, 7, 30]) {
+      const { shown } = partVariants(i, 0.56);
+      expect(shown.opacity.slice(0, -1).every((k) => k === null)).toBe(true);
+      expect(shown.y.slice(0, -1).every((k) => k === null)).toBe(true);
+      expect(shown.opacity.at(-1)).toBe(1);
+      expect(shown.y.at(-1)).toBe('0em');
+    }
+    const ambient = ambientVariants(0.56).shown;
+    expect(ambient.opacity.slice(0, -1).every((k) => k === null)).toBe(true);
+    expect(ambient.opacity.at(-1)).toBe(1);
+  });
+
   it('holdThen keeps a null start as a null hold', () => {
     const t = holdThen(0.2, 0.3, { opacity: null }, { opacity: 0 }, EASE.exit);
     expect(t.opacity).toEqual([null, null, 0]);
