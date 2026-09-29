@@ -700,7 +700,9 @@ installs it). `desktop/README.md` is the volunteer's guide. The owner's calls:
   lasts `MANUAL_SHOW_MS` (3 h) and is not closed at 8 pm; tray Hide (or closing
   the window) lasts until that window ends. A request to show while the
   schedule already has it up changes nothing, so a click can never turn the
-  8 pm close into a manual 3 h. Launching the app by hand (no `--autostart`,
+  8 pm close into a manual 3 h ("already up" is judged from the schedule
+  alone, `scheduledNow`, since an earlier manual Show outranks it in the
+  rule). Launching the app by hand (no `--autostart`,
   which only the login item passes) counts as Show; an update's relaunch does
   not (`quietRelaunch` in state.json).
 - **The remembered monitor** (`src/displays.js`, pure): matched by id + label,
@@ -719,7 +721,16 @@ installs it). `desktop/README.md` is the volunteer's guide. The owner's calls:
   and the printer); external links open in the default browser; downloads save
   straight to Downloads (`will-download`), never a Save dialog on the TV;
   localStorage is flushed before the window closes and on quit; a failed first
-  load shows `static/offline.html` and retries every 30 s. The tray's **Set up
+  load, or a 4xx/5xx answer from Pages, shows `static/offline.html` and retries
+  every 30 s. The lobby session DENIES every permission but fullscreen, the
+  screen wake lock, persistent storage and sanitized clipboard writes
+  (Electron's default grants all silently: microphone, clipboard reads, OS
+  protocol handlers from an iframe). The PC is kept awake (display-sleep
+  blocker) while the lobby is up and all through a club night until 8:00 pm,
+  so a PC switched on at 4:15 is still awake at 5:00. Full screen on a TV that
+  is not the main monitor is topmost, so the TV's own taskbar never sits over
+  the signage; closing the setup window with its X means "back to the TV",
+  never Hide. The tray's **Set up
   on this screen** shows the page windowed on the primary monitor (display
   login, uploads) until "Back to the lobby TV" or the showing ends.
 - **Updates** (electron-updater, GitHub provider, channel `lobby`, so the app
@@ -744,8 +755,8 @@ installs it). `desktop/README.md` is the volunteer's guide. The owner's calls:
   tag. Never tag by hand; a stray release goes with `delete-desktop-release.yml`.
 - **Gates.** The desktop tests run in `build-desktop.yml`
   (`npx vitest run --config desktop/vitest.config.js`), NOT in the website's
-  deploy gate: the root vitest excludes `desktop/**`, so a desktop change can
-  never block an urgent site redeploy. The root `eslint .` does lint
+  deploy gate: the root vitest excludes `desktop/**`, so a desktop test can
+  never block an urgent site redeploy (a lint error in desktop/ still does). The root `eslint .` does lint
   `desktop/` (its `node_modules/` and `release/` are ignored). Dev-only
   environment overrides (`AWANA_LOBBY_SITE`, `AWANA_LOBBY_NOW`,
   `AWANA_LOBBY_USERDATA`) are ignored in a packaged build.

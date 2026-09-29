@@ -168,9 +168,16 @@ function place(focus = false) {
       lobby.setBounds(b);
       lobby.setFullScreen(true);
     }
+    // Shown inactive, a fullscreen window is not raised above the TV's own
+    // taskbar ("taskbar on all displays"), which would cover the house waves
+    // all night: keep it topmost there. Only on a TV that is NOT the main
+    // monitor: on a one-screen PC, topmost would lock the volunteer out of
+    // every other window.
+    lobby.setAlwaysOnTop(screen.getAllDisplays().length > 1 && display.id !== screen.getPrimaryDisplay().id, 'screen-saver');
     lobby.setTitle(APP_NAME);
     placedAs = 'fullscreen';
   } else {
+    lobby.setAlwaysOnTop(false);
     if (placedAs !== 'windowed') {
       if (lobby.isFullScreen()) lobby.setFullScreen(false);
       const width = Math.min(1280, Math.round(wa.width * 0.8));
@@ -256,6 +263,15 @@ function openLobby() {
     clearTimeout(retryTimer);
     retryTimer = setTimeout(() => { if (lobby && !lobby.isDestroyed()) lobby.loadURL(PAGE_URL); }, RETRY_LOAD_MS);
   });
+  // A 404 or 5xx from GitHub Pages is a failed load too, never a page to sit on.
+  wc.on('did-navigate', (_e, url, code) => {
+    if (code >= 400 && isSitePage(url)) {
+      log('page answered', code, url);
+      wc.loadFile(path.join(HERE, 'static', 'offline.html')).catch(() => {});
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => { if (lobby && !lobby.isDestroyed()) lobby.loadURL(PAGE_URL); }, RETRY_LOAD_MS);
+    }
+  });
   wc.on('render-process-gone', (_e, details) => {
     log('page crashed', details);
     setTimeout(() => { if (lobby && !lobby.isDestroyed()) lobby.loadURL(PAGE_URL); }, 3000);
@@ -265,8 +281,16 @@ function openLobby() {
   lobby.on('leave-html-full-screen', () => setTimeout(place, 50));
   // Closing it by hand (Alt+F4, or the window's X while it is windowed) is
   // the tray's Hide: gone until the next club night.
-  lobby.on('close', () => {
+  lobby.on('close', (event) => {
     if (closingByApp) return;
+    // The setup window's X means "done setting up", never "hide tonight".
+    if (setupMode) {
+      event.preventDefault();
+      setupMode = false;
+      placedAs = null;
+      place();
+      return;
+    }
     state.overrides = hide(state.overrides, currentWindow());
     saveState();
     log('closed by hand: hidden until the next club night');
@@ -274,15 +298,25 @@ function openLobby() {
   lobby.on('closed', () => {
     lobby = null;
     placedAs = null;
-    stopBlocker();
     updateTray();
   });
   lobby.once('ready-to-show', () => place());
   // A page that hangs before its first paint still gets a window.
   setTimeout(() => { if (lobby && !lobby.isDestroyed() && !lobby.isVisible()) place(); }, 10_000);
   lobby.loadURL(PAGE_URL);
-  if (blocker < 0) blocker = powerSaveBlocker.start('prevent-display-sleep');
   log('lobby opened');
+}
+
+/**
+ * Keeps the PC and its screens awake while the lobby is up AND all through a
+ * club night before the 8:00 pm close: a PC switched on at 4:15 and left alone
+ * would otherwise be asleep (or its screens off) when 5:00 comes, and a timer
+ * cannot wake a sleeping machine. 'prevent-display-sleep' blocks system sleep
+ * too.
+ */
+function holdAwake(want) {
+  if (want && blocker < 0) blocker = powerSaveBlocker.start('prevent-display-sleep');
+  if (!want) stopBlocker();
 }
 
 function stopBlocker() {
@@ -301,7 +335,6 @@ function closeLobby() {
   try { lobby.destroy(); } finally { closingByApp = false; }
   lobby = null;
   placedAs = null;
-  stopBlocker();
   log('lobby closed');
 }
 
@@ -311,6 +344,17 @@ const currentWindow = () => displayWindow(now(), sources);
 let lastReason = null;
 
 /**
+ * The schedule itself has the lobby up right now (inside the window and not
+ * hidden for it), whatever a manual Show also says. Judged WITHOUT the manual
+ * override on purpose: a Show from before 5 pm is still running at 6:15, and a
+ * second click then must not stretch the showing past the 8:00 pm close.
+ */
+function scheduledNow(t = now()) {
+  const win = displayWindow(t, sources);
+  return win.inWindow && state.overrides.hiddenForWindow !== win.windowKey;
+}
+
+/**
  * "Show it" from a person (the tray, or opening the app again). Already up
  * for club night, it only brings the window back where it belongs: a click
  * must not turn the schedule's showing into a three-hour manual one that
@@ -318,8 +362,7 @@ let lastReason = null;
  */
 function requestShow() {
   const t = now();
-  const { reason } = decideVisibility(displayWindow(t, sources), state.overrides, t.getTime());
-  if (reason !== 'schedule') {
+  if (!scheduledNow(t)) {
     state.overrides = showNow(state.overrides, t.getTime());
     saveState();
   }
@@ -336,6 +379,8 @@ function evaluate() {
   const { visible, reason } = SMOKE ? { visible: true, reason: 'manual' } : decideVisibility(win, state.overrides, t.getTime());
   if (reason !== lastReason) { log('state', reason, win.dateKey); lastReason = reason; }
   if (visible) openLobby(); else closeLobby();
+  const clubNightAhead = nextClubNight(t, sources) === win.dateKey && win.minutes < CLOSE_AT_MIN;
+  holdAwake(visible || clubNightAhead);
   updateTray();
   if (!visible) maybeInstallUpdate();
 }
@@ -387,7 +432,8 @@ function openChooser() {
         current: savedHere && savedHere.id === display.id ? '1' : '',
       },
     });
-    win.once('ready-to-show', () => win.show());
+    // Above the topmost lobby on the TV.
+    win.once('ready-to-show', () => { win.setAlwaysOnTop(true, 'screen-saver'); win.show(); win.moveTop(); });
   });
 }
 
@@ -408,7 +454,11 @@ ipcMain.on('chooser:cancel', () => closeChoosers());
 /** @type {Tray | null} */
 let tray = null;
 
-const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const churchZone = () => sources.schedule?.timezone || 'America/New_York';
+const fmtTime = (ms) => {
+  try { return new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: churchZone() }); }
+  catch { return new Date(ms).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
+};
 const clock = (min) => {
   const h = Math.floor(min / 60); const m = min % 60;
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
@@ -443,7 +493,7 @@ function updateTray() {
   if (!tray) return;
   const t = now();
   const win = displayWindow(t, sources);
-  const { visible, reason } = decideVisibility(win, state.overrides, t.getTime());
+  const { visible } = decideVisibility(win, state.overrides, t.getTime());
   const overridden = state.overrides.manualUntil > t.getTime() || state.overrides.hiddenForWindow != null;
   const lines = [{ label: statusLine(), enabled: false }];
   if (lobby && placedAs === 'windowed') {
@@ -452,7 +502,7 @@ function updateTray() {
   const menu = Menu.buildFromTemplate([
     ...lines,
     { type: 'separator' },
-    { label: 'Show now (for 3 hours)', enabled: reason !== 'schedule', click: requestShow },
+    { label: 'Show now (for 3 hours)', enabled: !scheduledNow(t), click: requestShow },
     { label: 'Hide until the next club night', enabled: visible, click: () => { state.overrides = hide(state.overrides, currentWindow()); saveState(); evaluate(); } },
     { label: 'Resume schedule', enabled: overridden, click: () => { state.overrides = NO_OVERRIDES; saveState(); evaluate(); } },
     { type: 'separator' },
@@ -539,6 +589,16 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
 
+    // Deny by default what the remote page may ask for: in Chrome each of these
+    // would prompt, and Electron's default is to grant them all silently (the
+    // booth microphone, the clipboard, OS protocol handlers from an iframe).
+    // The signage uses fullscreen (double-click), the screen wake lock and
+    // persistent storage; nothing else.
+    const lobbySession = session.fromPartition('persist:lobby');
+    const ALLOWED = new Set(['fullscreen', 'screen-wake-lock', 'persistent-storage', 'clipboard-sanitized-write']);
+    lobbySession.setPermissionRequestHandler((_wc, permission, callback) => callback(ALLOWED.has(permission)));
+    lobbySession.setPermissionCheckHandler((_wc, permission) => ALLOWED.has(permission));
+
     // Settings and slide exports are <a download> links: save them straight
     // to Downloads and show the file, instead of a Save dialog on the TV.
     session.fromPartition('persist:lobby').on('will-download', (_e, item) => {
@@ -574,12 +634,9 @@ if (!app.requestSingleInstanceLock()) {
     // see it (and on the very first run, to set it up).
     const quiet = SMOKE || process.argv.includes('--autostart') || state.quietRelaunch === true;
     if (state.quietRelaunch) { delete state.quietRelaunch; saveState(); }
-    if (!quiet) {
-      const t = now();
-      if (decideVisibility(displayWindow(t, sources), state.overrides, t.getTime()).reason !== 'schedule') {
-        state.overrides = showNow(state.overrides, t.getTime());
-        saveState();
-      }
+    if (!quiet && !scheduledNow()) {
+      state.overrides = showNow(state.overrides, now().getTime());
+      saveState();
     }
 
     evaluate();

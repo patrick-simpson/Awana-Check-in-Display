@@ -143,7 +143,8 @@ export default defineConfig({
     environment: 'jsdom',
     // Playwright specs live in e2e/ and must never run under vitest. The
     // desktop app's tests run in its own pipeline (build-desktop.yml), so a
-    // desktop change can never block a site redeploy.
+    // desktop TEST can never block a site redeploy (the root lint still
+    // covers desktop/).
     exclude: [...configDefaults.exclude, 'e2e/**', 'desktop/**'],
     coverage: {
       provider: 'v8',
