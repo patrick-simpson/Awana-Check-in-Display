@@ -872,16 +872,25 @@ html, body, #root {
   transform: scale(0.97);
 }
 /* The same step back, all the way, for the two things that take the middle
-   of the room over (rebrand stage 4b-2): a critical notice and the pickup
-   board. Their opaque plates sit on the copy's own box, so a faded
-   headline would only show as a ghost round their edges; it steps aside
-   entirely and comes back when they go. */
+   of the room over (rebrand stage 4b-2): a critical notice, and the pickup
+   board while it is the room's focus (src/lib/overlayFit.js lobbyRoom).
+   Their opaque plates sit on the copy's own box, so a faded headline would
+   only show as a ghost round their edges; it steps aside entirely and comes
+   back when they go. A poster or a video steps aside with it: a promo's
+   headline is as much the slide's copy as a typed one's. (Their wrapper's
+   own opacity is framer-motion's, inline, hence the !important; the field
+   and the chrome stay.) */
 .stage.notice-takeover .background-placeholder .placeholder-copy,
 .stage.notice-takeover .manual-slideshow .manual-slide-copy,
 .stage.board-up .background-placeholder .placeholder-copy,
 .stage.board-up .manual-slideshow .manual-slide-copy {
   opacity: 0;
   transform: scale(0.97);
+}
+.stage.notice-takeover .manual-slideshow .lobby-media,
+.stage.board-up .manual-slideshow .lobby-media {
+  opacity: 0 !important;
+  transition: opacity var(--brand-dur-settle) var(--brand-ease-settle);
 }
 /* The idle gear would sit on the club's mark; it still comes back the
    moment an operator moves the mouse. */
@@ -1624,6 +1633,23 @@ html, body, #root {
 }
 .milestone-toast .milestone-count__line {
   display: block;
+}
+/* A line too long even for two lines at the smallest size (an unbroken
+   word of fifty letters): the fit says so (fitShout's `fits: false`) and the
+   line wraps inside the band rather than running out of it. */
+.milestone-toast .milestone-count--wrap {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* Under the flag strip the band is shorter: the wordmark comes down to fit. */
+.milestone-toast--compact .club-logo-slot {
+  height: calc(2.9 * var(--u));
+}
+/* On an OBS feed a critical notice keeps the band and never yields, so the
+   toast drops below it (OVERLAY.band.bottom, plus a unit), not under it. */
+.milestone-toast--below {
+  top: calc(11.4 * var(--u));
 }
 /* The club's wordmark on its own colour (#332). Its art runs up to 800px
    wide, so the slot pins its height and caps its width. */
@@ -2752,10 +2778,22 @@ input:focus-visible {
   right: 0;
   margin-inline: auto;
   width: fit-content;
+  /* Between the corner tab (24u) and the top-right stack (~78u): OVERLAY.flags. */
+  max-width: calc(54 * var(--u));
   display: flex;
   gap: calc(0.6 * var(--u));
   z-index: 61;
   pointer-events: none;
+}
+/* All three hanging at once (simplified mode, a latched demo and a
+   rehearsal) would run 63u wide, over the corner tab and the status
+   sticker's pill: the tabs set tighter so the strip keeps to its 54u. */
+.top-flags--tight .demo-pill,
+.top-flags--tight .rehearsal-pill,
+.top-flags--tight .panic-pill {
+  padding-inline: calc(0.75 * var(--u));
+  font-size: max(9px, calc(0.95 * var(--u)));
+  letter-spacing: 0.05em;
 }
 .demo-pill,
 .rehearsal-pill,
@@ -2981,17 +3019,21 @@ input:focus-visible {
   line-height: 1.15;
   text-shadow: 0.05em 0.05em 0 var(--brand-hot-deep);
 }
-/* An OBS / ProPresenter overlay feed has no slide to step back: the alert
-   keeps to the top band there, smaller, over whatever the feed shows. */
-.stage.overlay .notice-banner--critical {
+/* Where the middle is not the alert's to take (an OBS / ProPresenter feed,
+   which has no slide to step back, or the pickup board holding the middle:
+   lobbyRoom), it keeps to the top band instead (`is-band`): the band's
+   place and width, fitted to end where the band ends (noticeFit), still the
+   hot chip and still the highest thing on the stage. */
+.notice-banner--critical.is-band {
   --plate-label: calc(1.4 * var(--u));
   top: var(--band-top);
   bottom: auto;
   height: auto;
-  max-width: calc(60 * var(--u));
+  max-width: calc(50 * var(--u));
+  transform-origin: 50% 0%;
 }
-.stage.overlay .notice-banner--critical .notice-banner-message {
-  font-size: min(var(--notice-size), calc(2.6 * var(--u)));
+.notice-banner--critical.is-band .notice-banner-body {
+  padding: calc(0.55 * var(--u)) calc(1.1 * var(--u)) calc(0.6 * var(--u));
 }
 
 /* ── Weather mood over the season's scene ──────────────────────────────
@@ -3065,11 +3107,14 @@ input:focus-visible {
    the house blue, and a wavy corner tab carrying the title. Each name is a
    chip in its club's colour (Galindo on the club, a hard shadow in its deep
    shade), each club's run of chips led by its name in Londrina; the count
-   in the foot is Galindo. While it is up it takes the middle of the room,
-   centred on the copy's own box (12u to 46u of the 16:9 frame), and the
-   slide copy steps back behind it (.stage.board-up). The name size comes
-   from the component's fit (--name-size): every chip metric below is in
-   em of it, which is the model src/lib/overlayFit.js boardRowsHeight uses. */
+   in the foot is Galindo. While it is the room's focus (a live list during
+   pickup time: overlayFit.js boardPlacement) it takes the middle of the
+   room, centred on the copy's own box (12u to 46u of the 16:9 frame), and
+   the slide copy steps back behind it (.stage.board-up). The name size
+   comes from the component's fit (--name-size): every chip metric below is
+   in em of it, which is the model src/lib/overlayFit.js boardRowsHeight
+   uses. The rest of the time it is on, it is a one-line card at the foot
+   (.checkout-region--foot, below). */
 .checkout-region {
   position: absolute;
   left: 0;
@@ -3127,6 +3172,54 @@ input:focus-visible {
   box-shadow: calc(0.5 * var(--u)) calc(0.5 * var(--u)) 0 var(--brand-hot);
 }
 .checkout-board.stale .checkout-tab { color: var(--brand-hot); }
+
+/* The foot (OVERLAY.foot): a stale or empty board, or an "always" board
+   while the program runs. One line on a small white card, bottom-centre
+   between the copy's lowest line (45u) and the ticker, clear of the gear and
+   the corner chip; the tab rides its left end instead of its corner. The
+   slides keep playing above it. */
+.checkout-region--foot {
+  top: auto;
+  bottom: calc(5.6 * var(--u));
+  display: flex;
+  justify-content: center;
+}
+.checkout-board--foot {
+  display: flex;
+  align-items: center;
+  gap: calc(1 * var(--u));
+  min-width: 0;
+  max-width: calc(56 * var(--u));
+  padding: calc(0.55 * var(--u)) calc(1.4 * var(--u)) calc(0.55 * var(--u)) 0;
+  border-radius: calc(0.9 * var(--u));
+  box-shadow: calc(0.35 * var(--u)) calc(0.35 * var(--u)) 0 var(--brand-blue);
+}
+.checkout-board--foot.stale {
+  box-shadow: calc(0.35 * var(--u)) calc(0.35 * var(--u)) 0 var(--brand-hot);
+}
+.checkout-board--foot .checkout-tab {
+  position: relative;
+  flex: none;
+  align-self: stretch;
+  height: auto;
+  margin: calc(-0.55 * var(--u)) 0;
+  /* The tab's wave eats into its right end: the title keeps clear of it. */
+  padding: 0 calc(4.6 * var(--u)) 0 calc(1.2 * var(--u));
+}
+.checkout-board--foot .checkout-title {
+  font-size: calc(1.05 * var(--u));
+}
+.checkout-board--foot .checkout-line,
+.checkout-board--foot .checkout-foot {
+  margin: 0;
+  max-width: none;
+  font-size: calc(1.2 * var(--u));
+  font-weight: 700;
+  line-height: 1.25;
+}
+.checkout-board--foot .checkout-count {
+  font-size: calc(1.8 * var(--u));
+}
 
 .checkout-clubs {
   list-style: none;
@@ -3422,10 +3515,15 @@ details.advanced-fields[open] > summary { margin-bottom: 0.5rem; }
    (brand.js PLATE). The outline is drawn from the measured boxes behind the
    label and the body. */
 .step-plate {
-  --plate-label: 1rem;
-  --plate-pill: calc(2.05 * var(--plate-label));
+  /* --plate-label is set by the overlay that owns the plate (the sticker, a
+     notice, a toast), on an ANCESTOR, so it is read here with a fallback and
+     never declared: a declaration on the plate itself would beat the
+     inherited size and pin every label to 1rem. */
+  --plate-pill: calc(2.05 * var(--plate-label, 1rem));
   position: relative;
   display: inline-grid;
+  /* Never wider than its owner: a toast line left to wrap wraps inside it. */
+  max-width: 100%;
   grid-template-columns: auto;
   justify-items: start;
   color: #fff;
@@ -3445,14 +3543,14 @@ details.advanced-fields[open] > summary { margin-bottom: 0.5rem; }
   position: relative;
   box-sizing: border-box;
   height: var(--plate-pill);
-  min-width: calc(3.93 * var(--plate-label));
-  padding: calc(0.1 * var(--plate-label)) calc(0.75 * var(--plate-label)) 0;
+  min-width: calc(3.93 * var(--plate-label, 1rem));
+  padding: calc(0.1 * var(--plate-label, 1rem)) calc(0.75 * var(--plate-label, 1rem)) 0;
   margin-right: calc(0.435 * var(--plate-pill));
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: var(--font-condensed);
-  font-size: var(--plate-label);
+  font-size: var(--plate-label, 1rem);
   font-weight: 400;
   line-height: 1;
   letter-spacing: 0.08em;

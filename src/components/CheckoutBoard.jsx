@@ -28,11 +28,19 @@ import {
 //
 // The look (rebrand stage 4b-2) is the kit's card, the printer dashboard's:
 // a white card with a hard offset shadow and a wavy corner tab carrying its
-// title, each name a chip in its club's colour, the count in Galindo. While
-// it is up it takes the middle of the room and the slide copy steps back
-// behind it (App's `board-up` stage class), as it does for a name: pickup is
-// the one part of the night when this list matters more than the slides, and
-// reserving room for up to sixty names would shrink every slide all evening.
+// title, each name a chip in its club's colour, the count in Galindo. WHERE it
+// goes is src/lib/overlayFit.js boardPlacement, handed in as `placement`:
+//
+//  - 'centre' while it is the room's focus (a live list during pickup time):
+//    it takes the middle of the room and the slide copy steps back behind it
+//    (App's `board-up` stage class), as it does for a name. Reserving room for
+//    up to sixty names would shrink every slide all evening.
+//  - 'foot' the rest of the time it is on (a stale or empty board, or an
+//    "always" board while the program is running): a one-line card at the
+//    foot, beside the slides, which keep playing. It says the same things,
+//    in the same words; a live list there is its count line, because a
+//    partial list must never pass for the whole one, and the names are for
+//    pickup, when the board comes back to the middle.
 
 // The name chips' fit, in u: the card's inner width (70u less 2 x 2.2u of
 // padding), and the height left in the centre region after the tab (4.7u),
@@ -47,8 +55,9 @@ const NAMES = { width: OVERLAY.centre.width - 4.6, height: OVERLAY.centre.bottom
  *   OS-level reduced-motion is already handled globally by App's
  *   <MotionConfig reducedMotion="user">, so this only covers the operator's own
  *   "simplified mode" switch.
+ * @param {'centre' | 'foot'} [props.placement] where it goes (boardPlacement)
  */
-export default function CheckoutBoard({ decision, checkout, calm }) {
+export default function CheckoutBoard({ decision, checkout, calm, placement = 'centre' }) {
   useFontsReady();
   const state = decision?.state;
   if (state !== BOARD_NAMES && state !== BOARD_ANONYMOUS
@@ -56,10 +65,12 @@ export default function CheckoutBoard({ decision, checkout, calm }) {
     return null;
   }
 
+  const foot = placement === 'foot';
   const entries = checkout?.entries || [];
-  const groups = state === BOARD_NAMES ? groupByClub(entries) : [];
+  const listed = state === BOARD_NAMES && !foot;
+  const groups = listed ? groupByClub(entries) : [];
   const count = entries.length;
-  const fit = state === BOARD_NAMES ? fitBoard(groups, NAMES) : null;
+  const fit = listed ? fitBoard(groups, NAMES) : null;
 
   const anim = calm
     ? {}
@@ -70,9 +81,11 @@ export default function CheckoutBoard({ decision, checkout, calm }) {
       };
 
   return (
-    <div className="checkout-region">
+    // Keyed on the placement, so moving between the foot and the middle
+    // lands the card afresh rather than sliding it across the slide.
+    <div key={placement} className={`checkout-region${foot ? ' checkout-region--foot' : ''}`}>
       <M.section
-        className={`checkout-board ${state}`}
+        className={`checkout-board ${state}${foot ? ' checkout-board--foot' : ''}`}
         aria-live="polite"
         style={fit ? { '--name-size': `calc(${fit.size} * var(--u))` } : undefined}
         {...anim}
@@ -107,48 +120,49 @@ export default function CheckoutBoard({ decision, checkout, calm }) {
           </p>
         )}
 
+        {listed && (
+          <ul className="checkout-clubs">
+            {/* One run of chips per club, each name in its club's colour so
+                the board speaks the same colour-coding as the banners; the
+                rows ease in a beat apart. Quiet, no springs: this is a
+                reference list a volunteer scans, not a celebration. */}
+            {groups.map((g, i) => {
+              const club = getClubPalette(g.club);
+              return (
+                <M.li
+                  key={g.club}
+                  className="checkout-club"
+                  style={{ '--club': club.primary, '--club-deep': club.deep || club.primary }}
+                  initial={calm ? false : { opacity: 0, y: '0.5em' }}
+                  animate={{ opacity: 1, y: '0em' }}
+                  transition={{ duration: DUR.settle, delay: beats(1 + i * 0.7), ease: EASE.settle }}
+                >
+                  <span className="checkout-club-name">{g.club}</span>
+                  <span className="checkout-names">
+                    {g.names.map((name, j) => (
+                      // A real separator between chips, so the list still
+                      // reads (and copies) as "Demo Kid · Sample Star".
+                      <span key={`${name}-${j}`} className="checkout-name">
+                        {j ? <span className="checkout-sep"> · </span> : null}
+                        <span className="checkout-name__chip">{name}</span>
+                      </span>
+                    ))}
+                  </span>
+                </M.li>
+              );
+            })}
+          </ul>
+        )}
+
         {state === BOARD_NAMES && (
-          <>
-            <ul className="checkout-clubs">
-              {/* One run of chips per club, each name in its club's colour so
-                  the board speaks the same colour-coding as the banners; the
-                  rows ease in a beat apart. Quiet, no springs: this is a
-                  reference list a volunteer scans, not a celebration. */}
-              {groups.map((g, i) => {
-                const club = getClubPalette(g.club);
-                return (
-                  <M.li
-                    key={g.club}
-                    className="checkout-club"
-                    style={{ '--club': club.primary, '--club-deep': club.deep || club.primary }}
-                    initial={calm ? false : { opacity: 0, y: '0.5em' }}
-                    animate={{ opacity: 1, y: '0em' }}
-                    transition={{ duration: DUR.settle, delay: beats(1 + i * 0.7), ease: EASE.settle }}
-                  >
-                    <span className="checkout-club-name">{g.club}</span>
-                    <span className="checkout-names">
-                      {g.names.map((name, j) => (
-                        // A real separator between chips, so the list still
-                        // reads (and copies) as "Demo Kid · Sample Star".
-                        <span key={`${name}-${j}`} className="checkout-name">
-                          {j ? <span className="checkout-sep"> · </span> : null}
-                          <span className="checkout-name__chip">{name}</span>
-                        </span>
-                      ))}
-                    </span>
-                  </M.li>
-                );
-              })}
-            </ul>
-            <p className="checkout-foot">
-              {/* "not checked out yet", never "still in the building" — the data
-                  cannot support the stronger claim, and the weaker one is what a
-                  volunteer needs to act on anyway. */}
-              <span className="checkout-count">{count}</span> not checked out yet
-              {typeof checkout?.printed === 'number' && ` · ${checkout.printed} labels printed tonight`}
-              {decision.ageMin > 1 && ` · updated ${decision.ageMin} min ago`}
-            </p>
-          </>
+          <p className="checkout-foot">
+            {/* "not checked out yet", never "still in the building" — the data
+                cannot support the stronger claim, and the weaker one is what a
+                volunteer needs to act on anyway. */}
+            <span className="checkout-count">{count}</span> not checked out yet
+            {typeof checkout?.printed === 'number' && ` · ${checkout.printed} labels printed tonight`}
+            {decision.ageMin > 1 && ` · updated ${decision.ageMin} min ago`}
+          </p>
         )}
       </M.section>
     </div>

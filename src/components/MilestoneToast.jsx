@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
 import { DUR, EASE, beats } from '../lib/brand.js';
+import { holdThenLand } from '../lib/lobbyMotion.js';
 import { isBigMilestone, ordinalNight } from '../lib/milestones.js';
-import { OVERLAY, fitShout } from '../lib/overlayFit.js';
+import { OVERLAY, bandRoom, fitShout, plateChrome } from '../lib/overlayFit.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 import StepPlate from './brand/StepPlate.jsx';
 import DoodleCluster from './brand/DoodleCluster.jsx';
@@ -28,20 +30,51 @@ import ClubBadge from './ClubBadge.jsx';
  * plate in --skin-a behind it, sparkles in --skin-b; app.css), and a club's
  * plate keeps the club's colours, the same rule the confetti follows.
  *
- * The line is fitted to the band by measurement (fitShout): one line from
- * 3u down to 2u, then two balanced lines, so a 40-character first name on
- * the doors-open flourish shrinks instead of spilling onto the headline.
- * `compact` is the band with the demo / rehearsal tab hanging over it.
+ * The line is fitted to the band by measurement (toastFit): one line from
+ * 3u down to 2u, then the two most balanced lines, sized so the plate still
+ * ends where the band ends; a first name too long even for that wraps
+ * inside the band rather than running out of it. `compact` is the band with
+ * the flag strip hanging over it.
+ *
+ * The band is one at a time. With a band notice up (`afterNotice`) the toast
+ * holds out of sight until the notice has lifted away, then pops; the notice
+ * waits for the toast's exit in turn (NoticeBanner). A critical notice never
+ * moves, so on an OBS feed, where it keeps to the band, the toast drops below
+ * it (`below`); over the pickup board there is no room below, so App holds
+ * the queue and a toast already up steps aside (`yielding`).
  */
 
 // Band geometry for the fit, in u (app.css .milestone-toast carries the same).
 const LABEL = 1.45;
 const PAD_X = 1.2;
+const PAD_Y = 1.2;
 const LOGO = 7.4;
-const LINE = { max: 3, min: 2 };
+const LINE = { max: 3, min: 2, twoLineMax: 2.2, twoLineMin: 1.4, lineHeight: 1.02 };
+// The plate's out-of-register offset and keyline reach a little past its box.
+const PLATE_SPILL = 0.3;
 
 /** The pill's inset under the block, per the kit's chip (brand.js PLATE). */
 const INSET = LABEL * 2.05 * 0.73;
+
+/**
+ * The line's fit for one toast. Pure and exported for tests: it never lets
+ * the plate end below the band's bottom (bandRoom) while the line can still
+ * be read at twoLineMin.
+ * @param {string} line
+ * @param {{ compact?: boolean, logo?: boolean }} [opts]
+ */
+export function toastFit(line, { compact = false, logo = false } = {}) {
+  const width = OVERLAY.band.width - INSET - PAD_X * 2 - (logo ? LOGO + 1 : 0);
+  const room = bandRoom(compact) - plateChrome(LABEL) - PAD_Y - PLATE_SPILL;
+  const tenth = (/** @type {number} */ v) => Math.floor(v * 10 + 1e-9) / 10;
+  return fitShout(line, {
+    width,
+    max: Math.min(LINE.max, tenth(room / LINE.lineHeight)),
+    min: LINE.min,
+    twoLineMax: Math.min(LINE.twoLineMax, tenth(room / (2 * LINE.lineHeight))),
+    twoLineMin: LINE.twoLineMin,
+  });
+}
 
 /**
  * The words and the look for one celebration. Pure and exported for tests.
@@ -84,9 +117,12 @@ const SPARKLES = [
  *   celebration: any,
  *   club: any,
  *   compact?: boolean,
+ *   below?: boolean,
+ *   yielding?: boolean,
+ *   afterNotice?: boolean,
  * }} props
  */
-export default function MilestoneToast({ celebration, club, compact = false }) {
+export default function MilestoneToast({ celebration, club, compact = false, below = false, yielding = false, afterNotice = false }) {
   useFontsReady();
   return (
     <AnimatePresence>
@@ -96,35 +132,48 @@ export default function MilestoneToast({ celebration, club, compact = false }) {
           celebration={celebration}
           club={club}
           compact={compact}
+          below={below}
+          yielding={yielding}
+          afterNotice={afterNotice}
         />
       )}
     </AnimatePresence>
   );
 }
 
-function Toast({ celebration, club, compact }) {
+const FROM = { opacity: 0, y: '-35%', scale: 0.85 };
+const TO = { opacity: 1, y: '0%', scale: 1 };
+const AWAY = { opacity: 0, y: '-30%', scale: 0.96, transition: { duration: DUR.exit, ease: EASE.exit } };
+
+function Toast({ celebration, club, compact, below, yielding, afterNotice }) {
   const t = toastFor(celebration);
   const logo = t.tone === 'club' && club?.logo;
-  const bandW = OVERLAY.band.width;
-  const width = bandW - INSET - PAD_X * 2 - (logo ? LOGO + 1 : 0);
-  // With the flag tab hanging over the band there is less height: two
-  // lines must come down a size so the pair still ends above the copy.
-  const fit = fitShout(t.line, { width, max: LINE.max, min: LINE.min, twoLineMax: compact ? 1.8 : 2.2 });
+  const fit = toastFit(t.line, { compact: compact && !below, logo: Boolean(logo) });
+  // The beat sheet is fixed when the toast appears: with a band notice up
+  // it waits out the notice's exit, so the two never share the band.
+  const [beat] = useState(() => {
+    const hold = afterNotice ? DUR.exit : 0;
+    return {
+      hold,
+      plate: holdThenLand(hold, DUR.pop, FROM, TO, EASE.pop),
+      line: holdThenLand(hold + beats(1.5), DUR.settle, { opacity: 0, y: '0.35em' }, { opacity: 1, y: '0em' }, EASE.settle),
+    };
+  });
   const plate = t.tone === 'club' ? (club?.primary || 'var(--brand-orange)')
     : t.tone === 'handbook' ? 'var(--brand-blue)'
       : 'var(--brand-hot)';
   const style = {
     '--toast-line': `calc(${fit.size} * var(--u))`,
-    ...(t.tone === 'club' && club ? { '--club-primary': club.primary, '--club-deep': club.deep || 'rgba(3, 4, 4, 0.35)' } : null),
+    ...(t.tone === 'club' && club ? { '--club-deep': club.deep || 'rgba(3, 4, 4, 0.35)' } : null),
   };
+  const lines = fit.lines.length > 1 && fit.fits;
   return (
     <M.div
-      className={`${t.className} milestone-toast--${t.tone}${t.big ? ' milestone-toast--big' : ''}`}
+      className={`${t.className} milestone-toast--${t.tone}${t.big ? ' milestone-toast--big' : ''}${below ? ' milestone-toast--below' : ''}${compact && !below ? ' milestone-toast--compact' : ''}`}
       style={style}
-      initial={{ opacity: 0, y: '-35%', scale: 0.85 }}
-      animate={{ opacity: 1, y: '0%', scale: 1 }}
-      exit={{ opacity: 0, y: '-30%', scale: 0.96, transition: { duration: DUR.exit, ease: EASE.exit } }}
-      transition={{ duration: DUR.pop, ease: EASE.pop }}
+      initial={beat.plate.initial}
+      animate={yielding ? AWAY : { ...beat.plate.animate, transition: beat.plate.transition }}
+      exit={AWAY}
     >
       <StepPlate
         label={t.label}
@@ -142,19 +191,20 @@ function Toast({ celebration, club, compact }) {
           </M.span>
         )}
         <M.span
-          className={`milestone-count${fit.lines.length > 1 ? ' milestone-count--two' : ''}`}
-          initial={{ opacity: 0, y: '0.35em' }}
-          animate={{ opacity: 1, y: '0em' }}
-          transition={{ duration: DUR.settle, delay: beats(1.5), ease: EASE.settle }}
+          className={`milestone-count${lines ? ' milestone-count--two' : ''}${fit.fits ? '' : ' milestone-count--wrap'}`}
+          initial={beat.line.initial}
+          animate={beat.line.animate}
+          transition={beat.line.transition}
         >
           {/* Two lines keep a real space between them, so the toast's text
-              still reads as one sentence to anything that reads it. */}
-          {fit.lines.length > 1
+              still reads as one sentence to anything that reads it. A line
+              too long for even two (fits false) is left to wrap. */}
+          {lines
             ? fit.lines.map((l, i) => <span key={i} className="milestone-count__line">{i ? ' ' : ''}{l}</span>)
             : t.line}
         </M.span>
       </StepPlate>
-      <DoodleCluster className="milestone-doodles" items={SPARKLES} color="var(--toast-doodle, #fff)" delay={beats(3)} twinkle />
+      <DoodleCluster className="milestone-doodles" items={SPARKLES} color="var(--toast-doodle, #fff)" delay={beat.hold + beats(3)} twinkle />
     </M.div>
   );
 }

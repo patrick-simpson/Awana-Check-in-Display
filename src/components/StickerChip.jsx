@@ -12,7 +12,8 @@ import StepPlate from './brand/StepPlate.jsx';
  * kit's curve, a beat after it mounts), and `tilt` rides framer-motion's
  * rotate rather than a CSS transform the two would fight over. `...rest`
  * forwards role / aria-* straight to the root, so consumers keep their
- * accessibility contracts. `sparkle` perches one kit sparkle on the plate's
+ * accessibility contracts; `rootRef` reaches the root (App measures the
+ * status sticker's height with it). `sparkle` perches one kit sparkle on the plate's
  * shoulder, winking now and then; its loop ends at full size, which is
  * where ?lowPower=1 freezes it.
  */
@@ -30,11 +31,13 @@ export default function StickerChip({
   sparkleDelay = 0,
   plate,
   className = '',
+  rootRef,
   children,
   ...rest
 }) {
   return (
     <M.div
+      ref={rootRef}
       className={`sticker-chip ${className}`.trim()}
       style={{ rotate: tilt }}
       variants={pop}

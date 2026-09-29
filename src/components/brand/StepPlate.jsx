@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { PLATE, plateOutline } from '../../lib/brand.js';
 
 /**
@@ -13,8 +14,13 @@ import { PLATE, plateOutline } from '../../lib/brand.js';
  * label and the block out (app.css `.step-plate`, sized by `--plate-label`,
  * the label's font size), and a layout effect reads their sizes and draws
  * the path behind them before the first paint. A ResizeObserver redraws it
- * when a font lands or the content changes; nothing runs per frame, and a
- * transform on an ancestor (a toast popping in) never changes the reading.
+ * when a font lands or the content changes ("connected" becoming
+ * "disconnected · retry 3 in ~10s"), and it redraws SYNCHRONOUSLY
+ * (flushSync): the observer runs after layout and before paint, so the new
+ * outline is in the same frame as the new words, never a frame late with
+ * the text running off the old plate. Nothing runs per frame or per render,
+ * and a transform on an ancestor (a toast popping in) never changes the
+ * reading.
  *
  * `plate` is the fill (a CSS colour or var); the default is the kit's chip
  * charcoal at 50%. Static by design: the caller animates the whole plate.
@@ -56,7 +62,7 @@ export default function StepPlate({
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return undefined;
-    const ro = new ResizeObserver(measure);
+    const ro = new ResizeObserver(() => flushSync(measure));
     ro.observe(el);
     if (pill.current) ro.observe(pill.current);
     if (body.current) ro.observe(body.current);

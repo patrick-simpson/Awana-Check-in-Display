@@ -56,3 +56,38 @@ describe('CheckoutBoard', () => {
     expect(empty.textContent).toContain('Everyone has been checked out. Thanks for a great night!');
   });
 });
+
+describe('CheckoutBoard at the foot', () => {
+  // Where it goes is overlayFit.js boardPlacement; at the foot it is one line
+  // beside the slides, in the same words.
+  it('lists nobody at the foot: a live list there is its honest count line', () => {
+    const { container } = still(<CheckoutBoard decision={{ state: 'names', ageMin: 3 }} checkout={checkout} placement="foot" />);
+    expect(container.querySelector('.checkout-region--foot')).not.toBeNull();
+    const board = container.querySelector('.checkout-board.names.checkout-board--foot');
+    expect(board.querySelector('.checkout-title').textContent).toBe('Still to be picked up');
+    // A partial list must never pass for the whole one: no names at all.
+    expect(board.querySelector('.checkout-name__chip')).toBeNull();
+    expect(board.textContent).not.toMatch(/Demo Kid|Sample Star|Test Kid/);
+    expect(board.querySelector('.checkout-foot').textContent)
+      .toBe('3 not checked out yet · 43 labels printed tonight · updated 3 min ago');
+  });
+
+  it('keeps the stale, empty and anonymous wording at the foot', () => {
+    const stale = still(<CheckoutBoard decision={{ state: 'stale', ageMin: 1560 }} checkout={checkout} placement="foot" />).container;
+    expect(stale.querySelector('.checkout-board--foot').textContent)
+      .toContain('This list stopped updating about 1560 min ago — please check with the check-in desk rather than relying on it.');
+    cleanup();
+    const empty = still(<CheckoutBoard decision={{ state: 'empty', ageMin: 0 }} checkout={{ ...checkout, entries: [] }} placement="foot" />).container;
+    expect(empty.textContent).toContain('Everyone has been checked out. Thanks for a great night!');
+    cleanup();
+    const anon = still(<CheckoutBoard decision={{ state: 'anonymous', ageMin: 0 }} checkout={checkout} placement="foot" />).container;
+    expect(anon.textContent).toContain('Almost everyone has been picked up. Please see the check-in desk.');
+    expect(anon.textContent).not.toMatch(/\d+ not checked out/);
+  });
+
+  it('the middle is the default, and lists the names', () => {
+    const { container } = still(<CheckoutBoard decision={{ state: 'names', ageMin: 0 }} checkout={checkout} />);
+    expect(container.querySelector('.checkout-region--foot')).toBeNull();
+    expect(container.querySelectorAll('.checkout-name__chip')).toHaveLength(3);
+  });
+});

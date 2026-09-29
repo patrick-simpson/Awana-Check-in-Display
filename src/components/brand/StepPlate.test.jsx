@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { cleanup, render } from '@testing-library/react';
 import StepPlate from './StepPlate.jsx';
 
@@ -66,6 +66,73 @@ describe('StepPlate', () => {
       expect(svg.querySelector('.step-plate__echo')).not.toBeNull();
       // The SVG comes first, so the words paint over it.
       expect(container.querySelector('.step-plate').firstElementChild).toBe(svg);
+    });
+
+    describe('when its content resizes', () => {
+      // jsdom has no ResizeObserver: a fake one that records what it watches
+      // and lets the test deliver the browser's callback.
+      let observers;
+      let reads;
+      beforeEach(() => {
+        observers = [];
+        reads = 0;
+        vi.stubGlobal('ResizeObserver', class {
+          constructor(cb) { this.cb = cb; this.targets = []; this.disconnected = false; observers.push(this); }
+          observe(el) { this.targets.push(el); }
+          unobserve() {}
+          disconnect() { this.disconnected = true; }
+        });
+        const w = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth');
+        Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+          configurable: true,
+          get() { if (this.classList.contains('step-plate')) reads += 1; return w.get.call(this); },
+        });
+      });
+      afterEach(() => {
+        vi.unstubAllGlobals();
+        Object.defineProperty(HTMLElement.prototype, 'offsetWidth', { configurable: true, get() { return pick(this, 0); } });
+        sizes['step-plate'] = [400, 120];
+      });
+
+      it('watches the plate, its pill and its block, and lets go when it leaves', () => {
+        const { container, unmount } = render(<StepPlate label="Signal">connected</StepPlate>);
+        expect(observers).toHaveLength(1);
+        const [ro] = observers;
+        expect(ro.targets).toEqual([
+          container.querySelector('.step-plate'),
+          container.querySelector('.step-plate__label'),
+          container.querySelector('.step-plate__body'),
+        ]);
+        unmount();
+        expect(ro.disconnected).toBe(true);
+      });
+
+      it('redraws in the same frame as the new words, never a frame late', () => {
+        const { container } = render(<StepPlate label="Signal">connected</StepPlate>);
+        const svg = () => container.querySelector('svg.step-plate__shape');
+        expect(svg().getAttribute('viewBox')).toBe('0 0 400 120');
+        sizes['step-plate'] = [640, 120];
+        // The browser delivers the observer after layout and before paint,
+        // outside any React batch: the outline must be redrawn by the time
+        // the callback returns, or that frame paints the words off the plate.
+        const prev = globalThis.IS_REACT_ACT_ENVIRONMENT;
+        globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+        try {
+          observers[0].cb([]);
+          expect(svg().getAttribute('viewBox')).toBe('0 0 640 120');
+        } finally {
+          globalThis.IS_REACT_ACT_ENVIRONMENT = prev;
+        }
+      });
+
+      it('reads its size only when something resized: never per render or per frame', async () => {
+        const { rerender } = render(<StepPlate label="Signal">connected</StepPlate>);
+        const after = reads;
+        rerender(<StepPlate label="Signal">connected</StepPlate>);
+        rerender(<StepPlate label="Signal">connected</StepPlate>);
+        await new Promise((r) => setTimeout(r, 80));
+        expect(reads).toBe(after);
+      });
     });
   });
 });

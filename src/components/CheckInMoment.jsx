@@ -7,7 +7,7 @@ import { playBirthdayChime, playChime, playFirstTimerChime } from '../lib/audio.
 import { nameAccent } from '../lib/nameAccent.js';
 import { DUR, EASE, measureEm } from '../lib/brand.js';
 import {
-  kickerFor, momentFor, nameSizeU, PER_LETTER_MAX, stickerFor, sublineFor, WAVE_EXIT,
+  FRONT_WAVE_DELAY, kickerFor, momentFor, nameSizeU, PER_LETTER_MAX, stickerFor, sublineFor, WAVE_EXIT,
 } from '../lib/checkInMoment.js';
 import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
@@ -270,7 +270,7 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
         initial={{ y: '106%' }}
         animate={{ y: 0 }}
         exit={{ y: '106%', transition: { ...WAVE_EXIT.front, ease: EASE.exit } }}
-        transition={{ duration: DUR.wipe, delay: 0.07, ease: EASE.wipe }}
+        transition={{ duration: DUR.wipe, delay: FRONT_WAVE_DELAY, ease: EASE.wipe }}
       >
         <AnimatePresence initial={false}>
           <Wave

@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, render, screen } from '@testing-library/react';
-import NoticeBanner, { noticeFit } from './NoticeBanner.jsx';
+import NoticeBanner, { noticeFit, noticeShowing } from './NoticeBanner.jsx';
 import { NOTICE_MAX_AGE_MS } from '../lib/constants.js';
+import { OVERLAY, bandRoom, plateChrome } from '../lib/overlayFit.js';
 
 // Same rationale as TonightTicker.test.jsx / DataCycle.test.jsx: the
 // staleness timer is what's under test, not framer-motion's tweening.
@@ -98,6 +99,10 @@ describe('NoticeBanner', () => {
 describe('noticeFit / the band', () => {
   afterEach(cleanup);
   const long = 'Parents: pick-up tonight moves to the gym doors on the north side because of the parking lot work. Please drive around the back and wait in the loop — volunteers in orange will walk each child out.';
+  const medium = 'Bring your Bible next week for double shares, and bring a friend along too!';
+  // How far down a band plate reaches (u), from the band's top: its pill,
+  // its padding and its lines (app.css .notice-banner--info / .is-band).
+  const reach = (fit, label, lineHeight) => plateChrome(label) + 1.15 + fit.lines * fit.size * lineHeight;
 
   it('shouts a critical notice bigger than a band notice, and steps long ones down', () => {
     const band = noticeFit('info', 'Doors close at 6:15 tonight.');
@@ -105,8 +110,26 @@ describe('noticeFit / the band', () => {
     expect(takeover.size).toBeGreaterThan(band.size);
     expect(noticeFit('info', long).size).toBeLessThan(band.size);
     expect(noticeFit('critical', long).size).toBeLessThan(takeover.size);
-    // The flag tab over the band leaves less height: a smaller ceiling.
-    expect(noticeFit('info', 'Doors close at 6:15 tonight.', true).size).toBeLessThan(band.size);
+    // Under the flag strip the band is shorter: a two-line notice comes down.
+    expect(noticeFit('info', medium, { compact: true }).size).toBeLessThan(noticeFit('info', medium).size);
+  });
+
+  it('fits every band plate to end where the band ends, with or without the flag strip', () => {
+    for (const compact of [false, true]) {
+      for (const message of ['Doors close at 6:15 tonight.', medium, long]) {
+        const info = noticeFit('info', message, { compact });
+        expect(info.fits).toBe(true);
+        expect(reach(info, 1.25, 1.2)).toBeLessThanOrEqual(bandRoom(compact));
+        // A critical notice kept to the band (an OBS feed, or over the pickup
+        // board) is fitted to the band too, not to the middle it is not in.
+        const critical = noticeFit('critical', message, { compact, place: 'band' });
+        expect(critical.fits).toBe(true);
+        expect(reach(critical, 1.4, 1.15)).toBeLessThanOrEqual(bandRoom(compact));
+      }
+    }
+    expect(noticeFit('critical', long, { place: 'band' }).size)
+      .toBeLessThan(noticeFit('critical', long, { place: 'centre' }).size);
+    expect(OVERLAY.band.bottom).toBeLessThan(OVERLAY.centre.top);
   });
 
   it('keeps every word of the message, in order, across its lines', () => {
@@ -114,10 +137,29 @@ describe('noticeFit / the band', () => {
     expect(container.querySelector('.notice-banner-message').textContent).toBe(long);
   });
 
-  it('a band notice steps aside while a toast holds the band; a critical one never does', () => {
-    const { container, rerender } = render(<NoticeBanner notice={{ level: 'info', message: 'Hi', at: Date.now() }} yielding />);
-    expect(container.querySelector('.notice-banner--info').classList.contains('is-yielding')).toBe(true);
-    rerender(<NoticeBanner notice={{ level: 'critical', message: 'Hi', at: Date.now() + 1 }} yielding />);
-    expect(container.querySelector('.notice-banner--critical').classList.contains('is-yielding')).toBe(false);
+  it('marks a critical notice kept to the band, and only a critical one', () => {
+    const { container, rerender } = render(<NoticeBanner notice={{ level: 'critical', message: 'Hi', at: Date.now() }} place="band" />);
+    expect(container.querySelector('.notice-banner--critical').classList.contains('is-band')).toBe(true);
+    rerender(<NoticeBanner notice={{ level: 'critical', message: 'Hi', at: Date.now() + 1 }} />);
+    expect(container.querySelector('.notice-banner--critical').classList.contains('is-band')).toBe(false);
+    rerender(<NoticeBanner notice={{ level: 'info', message: 'Hi', at: Date.now() + 2 }} place="band" />);
+    expect(container.querySelector('.notice-banner--info').classList.contains('is-band')).toBe(false);
+  });
+});
+
+describe('one clock', () => {
+  afterEach(cleanup);
+  it('is judged on the clock it is handed, so App and the banner can never disagree', () => {
+    const at = 1_000_000;
+    expect(noticeShowing({ level: 'critical', message: 'x', at }, at + NOTICE_MAX_AGE_MS)).toBe(true);
+    expect(noticeShowing({ level: 'critical', message: 'x', at }, at + NOTICE_MAX_AGE_MS + 1)).toBe(false);
+    expect(noticeShowing({ level: 'critical', message: '', at }, at)).toBe(false);
+    expect(noticeShowing(null, at)).toBe(false);
+    // Fresh by the wall clock, stale by the clock it is given: it hides.
+    const notice = { level: 'critical', message: 'CLUB CANCELLED', at: Date.now() };
+    const { container, rerender } = render(<NoticeBanner notice={notice} now={notice.at + 1000} />);
+    expect(container.querySelector('.notice-banner--critical')).not.toBeNull();
+    rerender(<NoticeBanner notice={notice} now={notice.at + NOTICE_MAX_AGE_MS + 1} />);
+    expect(container.querySelector('.notice-banner--critical')).toBeNull();
   });
 });

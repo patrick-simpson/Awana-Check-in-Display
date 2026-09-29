@@ -9,6 +9,7 @@
 // the unit the lobby scene, the corner chips and the check-in moment use.
 
 import { measureText } from './lobbyFrame.js';
+import { BOARD_ANONYMOUS, BOARD_EMPTY, BOARD_NAMES, BOARD_STALE, PICKUP_PHASES } from './checkoutBoard.js';
 
 /** @typedef {import('./lobbyFrame.js').Face} Face */
 /** @typedef {(text: string, face: Face) => number} Measure */
@@ -24,41 +25,161 @@ import { measureText } from './lobbyFrame.js';
  *    wording, ~88u without it;
  *  - the slide copy starts at 15.1u and only ever rises to 11u (lobbyFrame
  *    LAYOUT.safeTop), and ends by 45u;
- *  - the house waves' crests sit at ~46.5-48u; the corner chip bottom-right
+ *  - the house waves' crests sit at ~46.5-48u; the tonight ticker's chips
+ *    ride the waves up to ~5u off the bottom; the corner chip bottom-right
  *    starts at ~80u; the gear bottom-left ends at ~4u;
  *  - the check-in wave is the bottom 29.25u (52% of the 16:9 box).
  *
  * `band`: the top-centre strip between the corner tab and the top-right
  * stack, above the highest the copy can rise. Notices and milestone toasts
- * take turns in it, one at a time. `flags` is the demo / rehearsal tab that
- * hangs from the top edge above it; while one hangs, the band starts under
- * it and has that much less height.
+ * take turns in it, one at a time, and every plate in it is fitted to END
+ * by `band.bottom` (bandRoom). `flags` is the demo / rehearsal / simplified
+ * strip that hangs from the top edge above it; while it hangs, the band
+ * starts under it (bandTop) and has that much less height.
  *
  * `centre`: the copy's own region, for the two things that take the room
- * over while they are up (a critical notice and the pickup board); the copy
- * steps back behind them the way it does for a name.
+ * over while they are up (a critical notice, and the pickup board while it
+ * is the room's focus: see boardPlacement); the copy steps back behind them
+ * the way it does for a name.
+ *
+ * `stack.stickerMax`: how tall the status sticker may stand before the chip
+ * stacked under it would reach a raised headline.
+ *
+ * `foot`: the pickup board's small spot when it is NOT the room's focus (a
+ * stale or empty board, or one outside pickup time): bottom-centre, between
+ * the copy's lowest line and the ticker, beside the slides rather than
+ * over them.
  */
 export const OVERLAY = {
   band: { top: 1.4, width: 50, bottom: 10.4 },
-  flags: { height: 2.5, gap: 0.6 },
+  flags: { height: 2.5, gap: 0.6, width: 54 },
   centre: { top: 12, bottom: 46, width: 70 },
+  foot: { bottom: 5.6, width: 56 },
+  // The top-right stack: the status sticker, then the weather chip (~6.4u
+  // tall, 0.9u under it) from ~1.4u down. The chip must end by 14u, where a
+  // raised row wider than 45u starts (lobbyFrame), so a sticker taller than
+  // this sends the weather out of the rotation (App's stickerTall).
+  stack: { stickerMax: 5.2 },
 };
+
+/**
+ * Where the band starts: under the flag strip while one hangs. app.css's
+ * `--band-top` carries the same two values (.stage / .stage.has-flags).
+ * @param {boolean} [flags]
+ */
+export function bandTop(flags = false) {
+  return flags ? OVERLAY.flags.height + OVERLAY.flags.gap : OVERLAY.band.top;
+}
+
+/**
+ * How much height a plate in the band has, top to `band.bottom`.
+ * @param {boolean} [flags]
+ */
+export function bandRoom(flags = false) {
+  return OVERLAY.band.bottom - bandTop(flags);
+}
+
+/**
+ * The stepped plate's height above its block's content, for a label of
+ * `label` u: the pill (2.05 x the label's size) less the block's tuck up
+ * under it (0.087 of the pill), the numbers app.css `.step-plate` uses.
+ * @param {number} label
+ */
+export function plateChrome(label) {
+  return 2.05 * label * (1 - 0.087);
+}
+
+/* ── Who holds which part of the room ────────────────────────────── */
+
+/**
+ * The phases in which the room is being picked up: decideBoard's pickup
+ * window, plus the schedule's own post-program 'shutdown' (19:35 to
+ * midnight on the default schedule, which is when families actually come
+ * to the door).
+ */
+export const PICKUP_TIME = new Set([...PICKUP_PHASES, 'shutdown']);
+
+/**
+ * Where the pickup board goes, given the decision decideBoard made (that
+ * decision, what it may show and whether it may name anyone, is not this
+ * function's business; this only decides WHERE and how much room it takes).
+ *
+ *  - 'centre': it is the room's focus: a live list (names, or the
+ *    anonymous "almost everyone") during pickup time. It takes the middle
+ *    and the slide copy steps aside.
+ *  - 'foot': it is on, but the room is not being picked up (an "always"
+ *    board during the program), or it has nothing live to list (stale,
+ *    empty). A one-line card in the foot beside the slides, which keep
+ *    playing: a stale card on a Tuesday must never blank the lobby.
+ *  - null: hidden.
+ *
+ * @param {string | undefined} state  the BoardDecision's state
+ * @param {string | undefined} phase  the schedule's phase
+ * @returns {'centre' | 'foot' | null}
+ */
+export function boardPlacement(state, phase) {
+  if (state === BOARD_NAMES || state === BOARD_ANONYMOUS) {
+    return PICKUP_TIME.has(String(phase)) ? 'centre' : 'foot';
+  }
+  if (state === BOARD_STALE || state === BOARD_EMPTY) return 'foot';
+  return null;
+}
+
+/**
+ * Who holds which part of the lobby right now. Pure, so every rule about two
+ * overlays meeting is tested rather than eyeballed; App renders the answer.
+ *
+ *  - The board: boardPlacement, never on an OBS feed and never while a name
+ *    is up (a child at the door outranks the pickup list).
+ *  - A critical notice takes the centre, except where the centre is not its
+ *    to take: on an OBS feed (no slide behind it) and while the pickup board
+ *    holds the centre (both must stay whole). There it takes the top band.
+ *  - The copy steps aside for whichever holds the centre.
+ *  - A toast never shares the band with a critical notice: on a feed it drops
+ *    below the notice; over the pickup board there is no room below, so the
+ *    celebrations wait (and one already up steps aside) until one of the two
+ *    goes.
+ *
+ * @param {{
+ *   overlay?: boolean,
+ *   criticalLive?: boolean,
+ *   boardState?: string,
+ *   phase?: string,
+ *   checkInUp?: boolean,
+ * }} s
+ */
+export function lobbyRoom({ overlay = false, criticalLive = false, boardState, phase, checkInUp = false }) {
+  const board = overlay || checkInUp ? null : boardPlacement(boardState, phase);
+  /** @type {'centre' | 'band' | null} */
+  const critical = !criticalLive ? null : overlay || board === 'centre' ? 'band' : 'centre';
+  const holdCelebrations = critical === 'band' && board === 'centre';
+  return {
+    board,
+    critical,
+    copyAside: board === 'centre' || critical === 'centre',
+    holdCelebrations,
+    toastBelow: critical === 'band' && !holdCelebrations,
+  };
+}
 
 /* ── One shouted line (a toast) ──────────────────────────────────── */
 
 /**
  * The largest size (on `step`) at which `text` fits `width`, shouted in
  * Galindo caps: one line if it can be read at `min` or more, else the most
- * balanced two-line break at the largest size that fits. Never below `min`:
- * past that the caller's CSS wraps, which is the right failure for a
- * 40-character first name.
+ * balanced two-line break (the split whose longer line is shortest, which is
+ * also the one that can be set largest) at up to `twoLineMax`, and no smaller
+ * than `twoLineMin`. `fits` false means even that is too wide: the caller
+ * must let the line wrap (a 40-character first name), never set it unbroken.
  *
  * @param {string} text
- * @param {{ width: number, max: number, min: number, step?: number, twoLineMax?: number }} box
+ * @param {{ width: number, max: number, min: number, step?: number, twoLineMax?: number, twoLineMin?: number }} box
  * @param {Measure} [measure]
  * @returns {{ size: number, lines: string[], fits: boolean }}
  */
-export function fitShout(text, { width, max, min, step = 0.1, twoLineMax = max }, measure = measureText) {
+export function fitShout(text, {
+  width, max, min, step = 0.1, twoLineMax = max, twoLineMin = Math.min(min, twoLineMax),
+}, measure = measureText) {
   const clean = String(text ?? '').trim().replace(/\s+/g, ' ');
   const caps = clean.toUpperCase();
   const one = measure(caps, 'shout');
@@ -72,16 +193,19 @@ export function fitShout(text, { width, max, min, step = 0.1, twoLineMax = max }
 
   const words = clean.split(' ');
   if (words.length > 1) {
-    let best = /** @type {{ size: number, lines: string[] } | null} */ (null);
+    let best = /** @type {{ em: number, lines: string[] } | null} */ (null);
     for (let i = 1; i < words.length; i++) {
       const a = words.slice(0, i).join(' ');
       const b = words.slice(i).join(' ');
       const em = Math.max(measure(a.toUpperCase(), 'shout'), measure(b.toUpperCase(), 'shout'));
-      const s = sizeFor(em, twoLineMax);
-      if (!best || s > best.size) best = { size: s, lines: [a, b] };
+      if (!best || em < best.em) best = { em, lines: [a, b] };
     }
-    if (best && best.size >= min) return { ...best, fits: true };
-    if (best) return { size: min, lines: best.lines, fits: false };
+    if (best) {
+      const size = sizeFor(best.em, twoLineMax);
+      return size >= twoLineMin
+        ? { size, lines: best.lines, fits: true }
+        : { size: twoLineMin, lines: best.lines, fits: false };
+    }
   }
   return { size: min, lines: [clean], fits: false };
 }
@@ -174,18 +298,22 @@ export function balanceLines(text, count, size, face, measure = measureText) {
 /**
  * The largest size (on `step`, from `max` down to `min`) at which `text`
  * wraps into at most `maxLines` lines of `width`, and those lines, balanced.
- * At `min` it may take more lines than that (the caller's box grows);
- * `fits` says which happened. `hug` says every line was measured to fit, so
- * the caller may set them unbroken and let its plate hug the longest; a
- * word wider than the whole line (a pasted URL) turns it off, and the
- * caller lets the browser wrap instead.
+ * With a `height` (u), the lines must also stack inside it at `lineHeight`,
+ * so a plate in the band ends where the band ends. At `min` it may take more
+ * lines than that (the caller's box grows); `fits` says which happened.
+ * `hug` says every line was measured to fit, so the caller may set them
+ * unbroken and let its plate hug the longest; a word wider than the whole
+ * line (a pasted URL) turns it off, and the caller lets the browser wrap
+ * instead.
  *
  * @param {string} text
- * @param {{ width: number, max: number, min: number, maxLines: number, step?: number, face?: Face }} box
+ * @param {{ width: number, max: number, min: number, maxLines: number, step?: number, face?: Face, height?: number, lineHeight?: number }} box
  * @param {Measure} [measure]
  * @returns {{ size: number, lines: number, fits: boolean, text: string[], hug: boolean }}
  */
-export function fitParagraph(text, { width, max, min, maxLines, step = 0.1, face = 'body' }, measure = measureText) {
+export function fitParagraph(text, {
+  width, max, min, maxLines, step = 0.1, face = 'body', height = Infinity, lineHeight = 1.2,
+}, measure = measureText) {
   const done = (/** @type {number} */ size, /** @type {number} */ count, /** @type {boolean} */ fits) => {
     const lines = balanceLines(text, count, size, face, measure);
     const hug = lines.every((l) => measure(l, face) * size <= width + 1e-6);
@@ -193,7 +321,7 @@ export function fitParagraph(text, { width, max, min, maxLines, step = 0.1, face
   };
   for (let s = max; s >= min - 1e-9; s = Number((s - step).toFixed(3))) {
     const lines = wrapLines(text, s, width, face, measure).length;
-    if (lines <= maxLines) return done(s, lines, true);
+    if (lines <= maxLines && lines * s * lineHeight <= height + 1e-9) return done(s, lines, true);
   }
   return done(min, wrapLines(text, min, width, face, measure).length, false);
 }

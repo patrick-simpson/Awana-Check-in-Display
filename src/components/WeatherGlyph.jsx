@@ -27,8 +27,17 @@ const MOON = 'M15.2,3.4A8.9,8.9 0 1 0 20.8,18.2A7.2,7.2 0 0 1 15.2,3.4Z';
 
 const LOOP = { repeat: Infinity, ease: 'easeInOut' };
 
+// Every looping group starts from an `initial` holding its transform keys
+// at their first keyframe. That is not decoration: framer-motion measures an
+// SVG element's box (which it needs to place any transform on it) only at
+// mount, and only if the element's first values already carry a transform;
+// without one it throws every rotate / x / y frame away and only the opacity
+// moves. Under zero animation M replaces `initial` with false, so ?lowPower=1
+// still jumps straight to each loop's LAST keyframe, the finished glyph.
+//
 // The rays' group is symmetric about the disc, so framer-motion's default
-// SVG origin (the centre of the group's own box) is the disc's centre.
+// SVG origin (the centre of the group's own box) is the disc's centre, and
+// its last keyframe (45 degrees, one ray on) is the same drawing as its first.
 
 /** Place a kit doodle (its own viewBox) centred on (cx, cy), `w` units wide. */
 function Kit({ shape, cx, cy, w }) {
@@ -47,6 +56,8 @@ function Kit({ shape, cx, cy, w }) {
 function Rays({ cx, cy, inner, outer, width = 1.8, spin = 18 }) {
   return (
     <M.g
+      data-loop="rays"
+      initial={{ rotate: 0 }}
       animate={{ rotate: [0, 45] }}
       transition={{ duration: spin, repeat: Infinity, ease: 'linear' }}
     >
@@ -73,7 +84,7 @@ function Rays({ cx, cy, inner, outer, width = 1.8, spin = 18 }) {
 
 function Drift({ children, x = 0.9, duration = 6, delay = 0 }) {
   return (
-    <M.g animate={{ x: [0, x, 0] }} transition={{ duration, delay, ...LOOP }}>
+    <M.g data-loop="drift" initial={{ x: 0 }} animate={{ x: [0, x, 0] }} transition={{ duration, delay, ...LOOP }}>
       {children}
     </M.g>
   );
@@ -83,6 +94,8 @@ function Drift({ children, x = 0.9, duration = 6, delay = 0 }) {
 function Fall({ children, delay, duration, depth }) {
   return (
     <M.g
+      data-loop="fall"
+      initial={{ y: 0, opacity: 1 }}
       animate={{ y: [0, depth, -depth * 0.5, 0], opacity: [1, 0, 0, 1] }}
       transition={{ duration, delay, times: [0, 0.55, 0.56, 1], repeat: Infinity, ease: 'easeIn' }}
     >
@@ -105,6 +118,8 @@ function Sky({ kind, maskId }) {
         <>
           <path d={MOON} fill="currentColor" />
           <M.g
+            data-loop="twinkle"
+            initial={{ scale: 1, rotate: 0 }}
             animate={{ scale: [1, 0.55, 1], rotate: [0, 20, 0] }}
             transition={{ duration: 3.6, ...LOOP }}
           >
@@ -159,6 +174,8 @@ function Sky({ kind, maskId }) {
           <M.path
             d={BOLT}
             fill="currentColor"
+            data-loop="flicker"
+            initial={{ opacity: 1 }}
             animate={{ opacity: [1, 1, 0.2, 1, 0.45, 1] }}
             transition={{ duration: 4.6, times: [0, 0.7, 0.74, 0.79, 0.83, 1], repeat: Infinity, ease: 'linear' }}
           />
@@ -189,6 +206,9 @@ function Sky({ kind, maskId }) {
       );
   }
 }
+
+/** The storm's bolt, exported so a test can find it in the drawing. */
+export const WEATHER_BOLT = BOLT;
 
 /** The glyph kinds this draws; anything else draws the plain cloud. */
 export const WEATHER_GLYPHS = ['sun', 'moon', 'partly', 'cloud', 'fog', 'rain', 'snow', 'storm'];
