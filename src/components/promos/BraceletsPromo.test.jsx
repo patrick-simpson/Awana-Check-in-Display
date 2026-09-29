@@ -3,7 +3,7 @@ import { cleanup, render } from '@testing-library/react';
 import { ZeroAnimationContext } from '../../lib/motion.jsx';
 import PromoSlide, { detailsFor } from '../PromoSlide.jsx';
 import BraceletsPromo, {
-  BEADS, BRACELET_SHAKE, DETAILS, FLOODS, POSTER, T_GONE, floodRadius, posterDate,
+  BEADS, BRACELET_SHAKE, DETAILS, FLOODS, POSTER, T_GONE, discScale, posterDate,
 } from './BraceletsPromo.jsx';
 
 // No global test setup file in this repo, so RTL's automatic cleanup
@@ -120,24 +120,30 @@ describe('BraceletsPromo', () => {
       .toMatch(/shared\/brand\/logos\/awana-clubs-white\.svg$/);
   });
 
-  // A fast wipe to 150% swept the whole frame in about 0.1 s: a full-screen
-  // flash every bead (reported as strobing). Each circle now grows only to
-  // just past the farthest corner, on 16:9 and 4:3 alike.
-  it('sizes each colour wipe to just cover the screen, never far past it', () => {
+  // The colours are small solid discs the GPU scales up: a phone could not
+  // keep up with full-screen clip-path wipes and flashed stale rectangles.
+  // Each must still cover the frame on every screen shape, from a wide TV
+  // to a phone held upright, without growing far past it.
+  it('scales each colour disc to just cover any screen, never far past it', () => {
     for (const [x, y] of [[0.28, 0.7], [0.5, 0.7], [0.72, 0.7], [0.75, 0.54]]) {
-      const r = floodRadius(x, y) / 100;
-      for (const ratio of [16 / 9, 4 / 3]) {
-        const ref = Math.sqrt((ratio * ratio + 1) / 2);
+      const radius = (discScale(x, y) * 10) / 100; // in vmax fractions
+      for (const aspect of [16 / 9, 4 / 3, 1, 9 / 16]) {
+        const w = (aspect >= 1 ? 1 : aspect) * 1.06;
+        const h = (aspect >= 1 ? 1 / aspect : 1) * 1.06;
         for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-          expect(r * ref).toBeGreaterThanOrEqual(Math.hypot((cx - x) * ratio, cy - y));
+          expect(radius).toBeGreaterThanOrEqual(Math.hypot((cx - x) * w, (cy - y) * h));
         }
       }
-      expect(r).toBeLessThan(1.3);
+      expect(radius).toBeLessThan(1.25);
     }
+  });
+
+  it('spreads every colour by transform alone: no clip-path, one disc per truth plus the poster', () => {
     const { container } = mount(promo());
-    for (const el of container.querySelectorAll('.promo-brc-flood')) {
-      expect(el.style.clipPath || '').not.toContain('150%');
-    }
+    const discs = container.querySelectorAll('.promo-brc-disc');
+    expect(discs).toHaveLength(7);
+    for (const d of discs) expect(d.style.clipPath || '').toBe('');
+    for (const f of [...FLOODS, POSTER]) expect(Object.keys(f.animate)).not.toContain('clipPath');
   });
 
   // A flood that switched itself off (opacity, on the browser's own timeline)

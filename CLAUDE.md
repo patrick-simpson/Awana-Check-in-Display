@@ -357,22 +357,29 @@ wins over readability, but every fact lands on the end card. Signage only
     dark, then six beads fall onto it in gospel order, each flooding the
     screen in its colour out of the bead itself with its truth slammed
     above the cord, in the bracelet kit's own words (SIN, BLOOD, PURITY,
-    BAPTISM, GROWTH, HEAVEN; owner's order and wording, 2026-09-28). Each
-    flood carries its word and effect (the thud and dust, a cross of
-    light, glints, ripples, vines, rays), so the next flood wipes the last
-    away. The cord morphs into the loop (same four cubic segments, so `d`
+    BAPTISM, GROWTH, HEAVEN; owner's order and wording, 2026-09-28), each
+    with its effect (the thud and dust, a cross of light, glints, ripples,
+    vines, rays); a word lands only once its colour has reached it, and
+    the last word is gone before it does. The cord morphs into the loop (same four cubic segments, so `d`
     interpolates), the knot cinches, the poster floods out of the knot,
     and a dotted flight line runs east from a pin on Waterville, Maine
     (where the club meets) to Uganda, both hand drawn from the real
     borders, smoothed, each on its own little map (no people drawn, by
-    choice). The
-    stage is one 1600x900 SVG; the full-bleed layers overscan 3% so the
-    shake never shows an edge. No flood ever switches itself off
-    mid-sequence: each paints over the last, and they all clear together
-    at `T_GONE`, well after the poster wipe. A flood that hid itself (opacity,
-    on the browser's timeline) the moment the next clip-path wipe was due
-    flashed black at every bead on a lobby TV, where the wipe ran late. The kicker chip reads "This week" / "Tonight!", and
-    the mark is the white knockout (`Wordmark`'s `src`).
+    choice). The stage is one 1600x900 SVG; the full-bleed layers overscan 3% so the
+    shake never shows an edge. Three rules, each learned from a real screen
+    (owner's phone recording, 2026-09-28): (1) every colour is a SMALL
+    solid disc the GPU scales up (`discScale()` covers 16:9 to an upright
+    phone), never a full-screen clip-path wipe, which a phone could not
+    raster in time and composited as stale rectangles of earlier colours;
+    (2) no colour ever switches itself off mid-sequence, they all clear
+    together at `T_GONE`, well after the poster's own disc; (3) the discs,
+    word layers, words and the end card's copy gate all carry one
+    `onUpdate` (`SAME_CLOCK`), which keeps framer-motion from handing their
+    opacity to the browser's animation engine, so they share the JS frame
+    loop with the SVG beads and a slow screen slows down together instead of
+    showing a colour or a word before its bead. The kicker chip reads
+    "This week" / "Tonight!", and the mark is the white knockout
+    (`Wordmark`'s `src`).
 - **Copy lives next to its art.** Each poster exports its `DETAILS`
   (`default`, `tonight`, and `afterContest` for Parents' Night; tonight
   wins), and its test pins that copy, the fixed end-card facts for every

@@ -293,60 +293,95 @@ const FLOAT = {
 };
 
 // ── The floods ───────────────────────────────────────────────
-// Each truth floods out of its own bead and carries its word with it, and
-// simply paints OVER the last: no flood switches itself off mid-sequence.
-// It once did, the moment the next wipe had covered it, and on a lobby TV
-// that flashed black at every bead: the browser ran the opacity switch-off
-// on its own timeline, on time, while the clip-path wipe it was waiting for
-// ran late, so for a few frames no colour covered the stage at all. So
-// nothing here waits on another element's clock any more. The dark stays
-// under everything, and all the floods are cleared together at T_GONE,
-// long after the poster (itself a wipe) has covered them.
+// Each truth's colour spreads out of its own bead as a DISC: a small solid
+// circle (20vmax across) that the GPU scales up until it covers the frame.
+// It is rasterised once, at its small size, and the spread is pure
+// compositing: no clip-path, no repaint, nothing screen-sized to re-draw.
+// The first cut clipped six full-screen gradient layers with animated
+// clip-paths, and a phone's GPU could not keep up: it composited stale
+// tiles, flashing hard-edged rectangles of the dark and of earlier
+// colours at every bead (owner's screen recording, 2026-09-28).
 //
-// The wipe is a slow, even spread (owner, 2026-09-28: a fast one strobed).
-// Its circle only grows to just past the farthest corner: a 150% circle on
-// a front-loaded ease swept the whole frame in about 0.1 s, a full-screen
-// colour flash every 1.2 s. A clip-path circle's % is of sqrt((w² + h²) / 2),
-// so the radius is worked out per bead, for the widest and the squarest
-// screens the lobby runs (16:9 down to 4:3), plus a sliver of margin.
+// Each disc simply paints OVER the last. None switches itself off
+// mid-sequence (one that did, the moment the next was due to cover it,
+// could leave a frame with nothing covering the stage); they all clear
+// together at T_GONE, long after the poster's own disc has covered them.
+// Each word and effect lives in its own small layer above the discs, and
+// fades as the next colour arrives.
+//
+// The spread is slow and even (a fast one strobed), and each disc grows
+// only to just past the farthest corner of whatever screen it is on, from
+// a wide TV down to a phone held upright.
 const FLOOD_OPEN = 0.95;
 const EASE_SPREAD = [0.37, 0, 0.25, 1];
-export function floodRadius(xPct, yPct) {
+const DISC_VMAX = 20;
+/**
+ * How far a disc starting at (xPct, yPct) of the overscanned box must scale
+ * to cover it, on every screen shape the signage may be shown on.
+ */
+export function discScale(xPct, yPct) {
   let need = 0;
-  for (const ratio of [16 / 9, 4 / 3]) {
-    const w = ratio;
-    const h = 1;
-    const ref = Math.sqrt((w * w + h * h) / 2);
+  for (const aspect of [16 / 9, 4 / 3, 1, 9 / 16]) {
+    // The box, in fractions of vmax (it overscans the frame by BLEED).
+    const grow = (100 + BLEED * 2) / 100;
+    const w = (aspect >= 1 ? 1 : aspect) * grow;
+    const h = (aspect >= 1 ? 1 / aspect : 1) * grow;
     for (const [cx, cy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
-      need = Math.max(need, Math.hypot((cx - xPct) * w, (cy - yPct) * h) / ref);
+      need = Math.max(need, Math.hypot((cx - xPct) * w, (cy - yPct) * h));
     }
   }
-  return Math.ceil(need * 104);
+  // need is a radius in vmax fractions; the disc's own radius is DISC_VMAX / 2.
+  return Math.ceil(((need * 100 * 1.04) / (DISC_VMAX / 2)) * 10) / 10;
 }
-const flood = (i) => {
-  const x = parseFloat(pct(BEAD_X[i], VIEW_W)) / 100;
-  const y = parseFloat(pct(CORD_Y, VIEW_H)) / 100;
-  const at = `${pct(BEAD_X[i], VIEW_W)} ${pct(CORD_Y, VIEW_H)}`;
-  return keyframes([
-    [0, { clipPath: `circle(0% at ${at})`, opacity: 1 }],
-    [T_BEADS[i], { clipPath: `circle(0% at ${at})` }],
-    [T_BEADS[i] + FLOOD_OPEN, { clipPath: `circle(${floodRadius(x, y)}% at ${at})` }],
-    [T_GONE, { opacity: 1 }],
-    [T_GONE + 0.02, { opacity: 0 }],
-  ], [EASE_OUT, EASE_SPREAD, 'linear', 'linear']);
-};
-export const FLOODS = BEADS.map((_, i) => flood(i));
+const disc = (at, x, y, gone, open = FLOOD_OPEN) => keyframes([
+  [0, { scale: 0, opacity: 1 }],
+  [at, { scale: 0 }],
+  [at + open, { scale: discScale(x, y) }],
+  ...(gone ? [[gone, { opacity: 1 }], [gone + 0.02, { opacity: 0 }]] : []),
+], gone ? [EASE_OUT, EASE_SPREAD, 'linear', 'linear'] : [EASE_OUT, EASE_SPREAD]);
+const BEAD_XP = BEAD_X.map((x) => parseFloat(pct(x, VIEW_W)) / 100);
+const CORD_YP = parseFloat(pct(CORD_Y, VIEW_H)) / 100;
+export const FLOODS = BEADS.map((_, i) => disc(T_BEADS[i], BEAD_XP[i], CORD_YP, T_GONE));
 
-// The word lands just behind its flood, then keeps pushing in until the
-// next flood covers it.
+// Each truth's word and effect: in once its colour is spreading, out just
+// after the next bead lands. The word itself slams in only when its colour
+// has reached the top of the frame (WORD_IN), so it never sits on the last
+// colour (white BAPTISM on white), and the last word is gone by then, so
+// two never overlap.
+const WORLD_IN = 0.2;
+const WORD_IN = 0.42;
+const WORLDS = BEADS.map((_, i) => {
+  const at = T_BEADS[i];
+  const out = i < BEADS.length - 1 ? T_BEADS[i + 1] + 0.1 : T_POSTER + 0.25;
+  return keyframes([
+    [0, { opacity: 0 }],
+    [at + WORLD_IN, { opacity: 0 }],
+    [at + WORLD_IN + 0.05, { opacity: 1 }],
+    [out, { opacity: 1 }],
+    [out + 0.2, { opacity: 0 }],
+  ], 'linear');
+});
+
+// ONE CLOCK for the whole bead sequence. framer-motion hands opacity (and a
+// whole `transform` string) to the browser's own animation engine but runs
+// individual transforms (scale, x, y) and every SVG value on its JavaScript
+// frame loop; on a busy screen the two drift apart, and a colour or a word
+// arrived a second before its bead. An `onUpdate` callback keeps a value on
+// the frame loop (framer-motion's own documented rule), so every disc, word
+// layer and word carries this one, and the sequence slows down together on
+// a slow screen instead of coming apart.
+const SAME_CLOCK = () => {};
+
+// The word slams in just behind its colour, then keeps pushing in until
+// its layer fades as the next bead lands.
 const word = (i) => {
   const at = T_BEADS[i];
   const until = i < BEADS.length - 1 ? T_BEADS[i + 1] + 0.3 : T_POSTER + 0.4;
   return keyframes([
-    [0, { opacity: 0, scale: 1.7, y: '6vh', letterSpacing: '0.3em' }],
-    [at + 0.04, { opacity: 0, scale: 1.7, y: '6vh', letterSpacing: '0.3em' }],
-    [at + 0.3, { opacity: 1, scale: 0.95, y: '0vh', letterSpacing: '0.02em' }],
-    [at + 0.46, { scale: 1 }],
+    [0, { opacity: 0, scale: 1.7, y: '6vh' }],
+    [at + WORD_IN, { opacity: 0, scale: 1.7, y: '6vh' }],
+    [at + WORD_IN + 0.26, { opacity: 1, scale: 0.95, y: '0vh' }],
+    [at + WORD_IN + 0.42, { scale: 1 }],
     [until, { scale: 1.07, opacity: 1 }],
   ], ['linear', EASE_SLAM, EASE_OUT, 'linear']);
 };
@@ -395,12 +430,24 @@ const RAYS = keyframes([
 const BLOOM = landsAt(T_BEADS[5] + 0.05, 0.8, { opacity: [0, 1, 0.75], scale: [0.3, 1.2, 1] }, EASE_OUT);
 
 // ── The poster ground ────────────────────────────────────────
-export const POSTER = keyframes([
-  [0, { clipPath: `circle(0% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
-  [T_POSTER, { clipPath: `circle(0% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
-  [T_POSTER + 0.7, { clipPath: `circle(${floodRadius(parseFloat(pct(KNOT.x, VIEW_W)) / 100, parseFloat(pct(KNOT.y, VIEW_H)) / 100)}% at ${pct(KNOT.x, VIEW_W)} ${pct(KNOT.y, VIEW_H)})` }],
-], ['linear', EASE_SPREAD]);
-const CREAM = landsAt(T_POSTER + 0.2, 0.8, { y: ['40%', '-3%', '0%'] }, EASE_OUT);
+const KNOT_XP = parseFloat(pct(KNOT.x, VIEW_W)) / 100;
+const KNOT_YP = parseFloat(pct(KNOT.y, VIEW_H)) / 100;
+// The poster's lavender spreads a touch faster than a truth's colour: the
+// copy waits for it (COPY_GATE), and the card has a beat sheet to keep.
+const POSTER_OPEN = 0.75;
+export const POSTER = disc(T_POSTER, KNOT_XP, KNOT_YP, null, POSTER_OPEN);
+// The end card's copy and shapes open only once the lavender covers the
+// frame, on the SAME clock as the lavender (see SAME_CLOCK), so a slow
+// screen can never set the copy on the gold. Each piece still makes its
+// own entrance inside the gate.
+export const COPY_GATE = keyframes([
+  [0, { opacity: 0 }],
+  [T_POSTER + POSTER_OPEN, { opacity: 0 }],
+  [T_POSTER + POSTER_OPEN + 0.02, { opacity: 1 }],
+], 'linear');
+// The poster's shapes arrive once its lavender has most of the frame.
+const GROUND = landsAt(T_POSTER + 0.3, 0.35, { opacity: [0, 1] }, 'easeOut');
+const CREAM = landsAt(T_POSTER + 0.3, 0.8, { y: ['40%', '-3%', '0%'] }, EASE_OUT);
 const BLOB_A = landsAt(T_POSTER + 0.3, 0.9, { scale: [0.6, 1], opacity: [0, 1] }, EASE_OUT);
 const BLOB_B = landsAt(T_POSTER + 0.4, 0.9, { scale: [0.6, 1], opacity: [0, 1] }, EASE_OUT);
 
@@ -566,11 +613,11 @@ const WORDMARK_URL = (() => {
 })();
 
 const MAKING = [
-  landsAt(9.7, 0.5, { opacity: [0, 1], y: ['0.6em', '0em'], rotate: [-6, 0] }, EASE_OUT),
-  landsAt(9.83, 0.5, { opacity: [0, 1], y: ['0.6em', '0em'], rotate: [6, 0] }, EASE_OUT),
+  landsAt(9.85, 0.5, { opacity: [0, 1], y: ['0.6em', '0em'], rotate: [-6, 0] }, EASE_OUT),
+  landsAt(9.98, 0.5, { opacity: [0, 1], y: ['0.6em', '0em'], rotate: [6, 0] }, EASE_OUT),
 ];
 const HERO = 'BRACELETS';
-const HERO_AT = 9.95;
+const HERO_AT = 10.1;
 const heroLetter = (i) => {
   const bead = BEADS[i % BEADS.length];
   const at = HERO_AT + i * 0.06;
@@ -583,9 +630,9 @@ const heroLetter = (i) => {
   ], ['linear', [0.5, 0, 0.9, 0.5], EASE_OUT, 'easeOut']);
 };
 const HERO_LETTERS = [...HERO].map((_, i) => heroLetter(i));
-const FOR_KIDS = landsAt(10.45, 0.6, { clipPath: ['inset(0% 100% 0% 0%)', 'inset(0% 0% 0% 0%)'], x: ['-0.4em', '0em'] }, EASE_OUT);
-const DATE_PILL = landsAt(10.85, 0.5, { opacity: [0, 1, 1], scale: [0.5, 1.08, 1], rotate: [-6, 1, 0] }, EASE_SLAM);
-const DATE_TEXT = landsAt(10.95, 0.4, { opacity: [0, 1], y: ['0.4em', '0em'] }, EASE_OUT);
+const FOR_KIDS = landsAt(10.6, 0.6, { clipPath: ['inset(0% 100% 0% 0%)', 'inset(0% 0% 0% 0%)'], x: ['-0.4em', '0em'] }, EASE_OUT);
+const DATE_PILL = landsAt(10.95, 0.5, { opacity: [0, 1, 1], scale: [0.5, 1.08, 1], rotate: [-6, 1, 0] }, EASE_SLAM);
+const DATE_TEXT = landsAt(11.05, 0.4, { opacity: [0, 1], y: ['0.4em', '0em'] }, EASE_OUT);
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUG', 'SEPT', 'OCT', 'NOV', 'DEC'];
@@ -650,9 +697,23 @@ export default function BraceletsPromo({ promo, lines }) {
           {/* The dark the story opens in. */}
           <div className="promo-brc-night" aria-hidden="true" />
 
-          {/* One flood per truth, each carrying its word and its effect. */}
+          {/* One disc per truth, each spreading its colour out of its bead. */}
+          <div className="promo-brc-discs" aria-hidden="true">
+            {BEADS.map((bead, i) => (
+              <M.div
+                key={bead.key}
+                className={`promo-brc-disc promo-brc-disc--${bead.key}`}
+                style={{ left: pct(BEAD_X[i], VIEW_W), top: pct(CORD_Y, VIEW_H) }}
+                onUpdate={SAME_CLOCK}
+                {...FLOODS[i]}
+              />
+            ))}
+          </div>
+          <div className="promo-brc-light" aria-hidden="true" />
+
+          {/* Each truth's word and effect, over its colour. */}
           {BEADS.map((bead, i) => (
-            <M.div key={bead.key} className={`promo-brc-flood promo-brc-flood--${bead.key}`} aria-hidden="true" {...FLOODS[i]}>
+            <M.div key={bead.key} className={`promo-brc-world promo-brc-world--${bead.key}`} aria-hidden="true" onUpdate={SAME_CLOCK} {...WORLDS[i]}>
               {bead.key === 'blood' && (
                 <div className="promo-brc-cross">
                   <M.div className="promo-brc-cross-v" {...CROSS_V} />
@@ -697,13 +758,22 @@ export default function BraceletsPromo({ promo, lines }) {
                 </>
               )}
               <div className="promo-brc-word-slot">
-                <M.h2 className={`promo-brc-word promo-brc-word--${bead.key}`} {...WORDS[i]}>{bead.word}</M.h2>
+                <M.h2 className={`promo-brc-word promo-brc-word--${bead.key}`} onUpdate={SAME_CLOCK} {...WORDS[i]}>{bead.word}</M.h2>
               </div>
             </M.div>
           ))}
 
-          {/* The printed poster floods out of the knot. */}
-          <M.div className="promo-brc-poster" aria-hidden="true" {...POSTER}>
+          {/* The printed poster's lavender spreads out of the knot, over
+              everything above, then its shapes arrive on it. */}
+          <div className="promo-brc-discs" aria-hidden="true">
+            <M.div
+              className="promo-brc-disc promo-brc-disc--poster"
+              style={{ left: pct(KNOT.x, VIEW_W), top: pct(KNOT.y, VIEW_H) }}
+              onUpdate={SAME_CLOCK}
+              {...POSTER}
+            />
+          </div>
+          <M.div className="promo-brc-poster" aria-hidden="true" onUpdate={SAME_CLOCK} {...GROUND}>
             <svg className="promo-brc-ground" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} preserveAspectRatio="none">
               <M.path d={BLOB_TR} fill="#c4b6f6" style={{ transformOrigin: '100% 0%' }} {...BLOB_A} />
               <M.path d={BLOB_L} fill="#c4b6f6" style={{ transformOrigin: '0% 50%' }} {...BLOB_B} />
@@ -805,31 +875,33 @@ export default function BraceletsPromo({ promo, lines }) {
       </M.div>
 
       <PosterDepth />
-      <Wordmark at={9.75} src={WORDMARK_URL} />
+      <M.div className="promo-brc-copy" onUpdate={SAME_CLOCK} {...COPY_GATE}>
+        <Wordmark at={9.9} src={WORDMARK_URL} />
 
-      <div className="promo-brc-stack">
-        <CountdownChip label={kicker} at={9.8} pulses={[...END_PULSES]} />
-        <h2 className="promo-brc-headline" aria-label={`We’re making ${HERO} for kids in Uganda`}>
-          <span className="promo-brc-making" aria-hidden="true">
-            <M.span className="promo-brc-beat" {...MAKING[0]}>WE’RE</M.span>
-            {' '}
-            <M.span className="promo-brc-beat" {...MAKING[1]}>MAKING</M.span>
-          </span>
-          <span className="promo-brc-hero" aria-hidden="true">
-            {[...HERO].map((ch, i) => (
-              <M.span key={i} className="promo-brc-letter" {...HERO_LETTERS[i]}>{ch}</M.span>
-            ))}
-          </span>
-          <M.span className="promo-brc-for" aria-hidden="true" {...FOR_KIDS}>FOR KIDS IN UGANDA</M.span>
-        </h2>
-      </div>
+        <div className="promo-brc-stack">
+          <CountdownChip label={kicker} at={9.95} pulses={[...END_PULSES]} />
+          <h2 className="promo-brc-headline" aria-label={`We’re making ${HERO} for kids in Uganda`}>
+            <span className="promo-brc-making" aria-hidden="true">
+              <M.span className="promo-brc-beat" {...MAKING[0]}>WE’RE</M.span>
+              {' '}
+              <M.span className="promo-brc-beat" {...MAKING[1]}>MAKING</M.span>
+            </span>
+            <span className="promo-brc-hero" aria-hidden="true">
+              {[...HERO].map((ch, i) => (
+                <M.span key={i} className="promo-brc-letter" {...HERO_LETTERS[i]}>{ch}</M.span>
+              ))}
+            </span>
+            <M.span className="promo-brc-for" aria-hidden="true" {...FOR_KIDS}>FOR KIDS IN UGANDA</M.span>
+          </h2>
+        </div>
 
-      <div className="promo-brc-foot">
-        <RotatingDetail lines={lines} startMs={10700} stepMs={1100} />
-        <M.div className="promo-brc-date" {...DATE_PILL}>
-          <M.span className="promo-date promo-brc-date-text" {...DATE_TEXT}>{posterDate(promo.eventDate)}</M.span>
-        </M.div>
-      </div>
+        <div className="promo-brc-foot">
+          <RotatingDetail lines={lines} startMs={10800} stepMs={1100} />
+          <M.div className="promo-brc-date" {...DATE_PILL}>
+            <M.span className="promo-date promo-brc-date-text" {...DATE_TEXT}>{posterDate(promo.eventDate)}</M.span>
+          </M.div>
+        </div>
+      </M.div>
     </div>
   );
 }

@@ -44,29 +44,40 @@
 }
 /* The full-bleed layers overscan by 3% (BLEED in the component), so the
    shake never shows an edge. */
-.promo-brc-flood {
+.promo-brc-discs,
+.promo-brc-light,
+.promo-brc-world {
   position: absolute;
   inset: -3%;
   overflow: hidden;
+  pointer-events: none;
 }
-.promo-brc-flood--sin {
-  background: radial-gradient(ellipse 70% 60% at 50% 40%, #16141d 0%, #050407 100%);
+
+/* The colours: small solid discs the GPU scales up to cover the frame.
+   Rasterised once at 20vmax and only ever transformed (will-change keeps
+   the browser from re-drawing them at every scale), so a phone never has
+   a screen-sized layer to repaint mid-wipe. The scaled edge comes out a
+   touch soft, which suits a spreading colour. */
+.promo-brc-disc {
+  position: absolute;
+  width: 20vmax;
+  height: 20vmax;
+  margin: -10vmax 0 0 -10vmax;
+  border-radius: 50%;
+  will-change: transform;
 }
-.promo-brc-flood--blood {
-  background: radial-gradient(ellipse 70% 62% at 50% 40%, #d11f36 0%, #8c0b1d 100%);
-}
-.promo-brc-flood--purity {
-  /* Pearl rather than paper white: the jump from red is the biggest one. */
-  background: radial-gradient(ellipse 70% 62% at 50% 40%, #f6f3fb 0%, #dcd5ee 100%);
-}
-.promo-brc-flood--baptism {
-  background: radial-gradient(ellipse 70% 62% at 50% 40%, #2a6ae6 0%, #0f3288 100%);
-}
-.promo-brc-flood--growth {
-  background: radial-gradient(ellipse 70% 62% at 50% 40%, #27b050 0%, #0c6526 100%);
-}
-.promo-brc-flood--heaven {
-  background: radial-gradient(ellipse 70% 62% at 50% 40%, #ffd23f 0%, #f0a106 100%);
+.promo-brc-disc--sin { background: #0a090e; }
+.promo-brc-disc--blood { background: #b8142c; }
+/* Pearl rather than paper white: the jump from red is the biggest one. */
+.promo-brc-disc--purity { background: #ebe6f5; }
+.promo-brc-disc--baptism { background: #1a4fc4; }
+.promo-brc-disc--growth { background: #18933f; }
+.promo-brc-disc--heaven { background: #f8b818; }
+.promo-brc-disc--poster { background: #ae9ced; }
+
+/* One static pool of light over whichever colour is up, drawn once. */
+.promo-brc-light {
+  background: radial-gradient(ellipse 70% 62% at 50% 40%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 60%, rgba(0, 0, 0, 0.16) 100%);
 }
 
 /* The truth, big, above the cord. */
@@ -164,9 +175,9 @@
   pointer-events: none;
 }
 .promo-brc-rays {
-  width: 150vmax;
-  height: 150vmax;
-  margin: -75vmax 0 0 -75vmax;
+  width: 110vmax;
+  height: 110vmax;
+  margin: -55vmax 0 0 -55vmax;
   background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.34) 0deg 6deg, rgba(255, 255, 255, 0) 6deg 18deg);
   -webkit-mask-image: radial-gradient(circle closest-side, #000 8%, rgba(0, 0, 0, 0.6) 40%, transparent 100%);
   mask-image: radial-gradient(circle closest-side, #000 8%, rgba(0, 0, 0, 0.6) 40%, transparent 100%);
@@ -182,9 +193,7 @@
 .promo-brc-poster {
   position: absolute;
   inset: -3%;
-  background:
-    radial-gradient(ellipse 60% 50% at 30% 30%, #b9a9f1 0%, rgba(185, 169, 241, 0) 70%),
-    #ae9ced;
+  background: radial-gradient(ellipse 60% 50% at 30% 30%, #b9a9f1 0%, rgba(185, 169, 241, 0) 70%);
 }
 .promo-brc-ground {
   position: absolute;
@@ -273,6 +282,13 @@
 .promo-brc-map-label--ug { fill: #ffffff; }
 
 /* ── The copy ────────────────────────────────────────────── */
+/* The end card's copy, gated on the same clock as the poster's lavender. */
+.promo-brc-copy {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
 .promo-slide--bracelets .promo-wordmark-slot {
   z-index: 5;
   top: 5.2%;
