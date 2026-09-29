@@ -110,7 +110,8 @@ design language and full official branding. `shared/brand/` is the one
 canonical kit: `tokens.json` (club primary/deep/tint, house colors, fonts,
 the motion table), `tokens.css` (the same as `--brand-*` properties),
 `fonts.css` + `fonts/` (Paytone One, Londrina Solid, Figtree; WOFF2 for the
-web, TTF for the printer's canvas; OFL), `logos/` (every club mark as white
+web, TTF for the printer's canvas; OFL; Paytone One and Londrina Solid ship
+WHOLE, see below), `logos/` (every club mark as white
 knockout / full color / one color, plus the Awana Clubs mark), `shapes/`
 and `doodles/`. Read its README before changing it.
 
@@ -124,6 +125,24 @@ and `doodles/`. Read its README before changing it.
   projector's `index.css` each declare the one `@font-face` (the tests pin
   them identical); it draws Latin-1, Latin Extended-A, Ș Ț and Vietnamese,
   and Baloo 2 stays behind it only for Devanagari.
+- **Londrina Solid (the label voice) is held to the same rule.** Its license
+  reserves "Londrina Solid" too, so the kit ships the upstream TTFs
+  (`LondrinaSolid-Regular.ttf`, `-Black.ttf`, sha256 pinned) and, beside them,
+  `londrina-solid-full-{400,900}-normal.woff2`: every table of the TTF through
+  the WOFF2 null transform, differing only where the WOFF2 spec requires
+  (head flags bit 11 and checksum; the TTF's empty 8-byte DSIG stub is
+  removed). The signage and the projector declare the 400 cut in one
+  `@font-face` each (`app.css`, `presentation/index.css`, pinned identical by
+  `presentation/lib/kit.test.js`) and load no `@fontsource/londrina-solid`;
+  the package is not a dependency. The 900 is not declared there, on purpose
+  (the 400 is already bold, and a declared 900 would answer every
+  `font-weight: 700+` rule). `brandKit.test.js` derives the reserved names
+  from the kit's own `OFL-*.txt` and fails on any reserved-name WOFF2 that is
+  not a proven whole font, on any font file `fonts.css` does not serve, and
+  on an `@fontsource` package or import of a reserved-name face anywhere in
+  `src/` or `package.json`. Figtree's license reserves no name, so its latin
+  `@fontsource` subset is fine. The mirrors take the whole kit, both fonts
+  included.
 - **Its ascent/descent overrides (96% / 43.6%) seat the caps, nothing else.**
   Paytone's own metrics sit its caps ~0.17em lower in any line box than the
   face the mockup and every rule were drawn with, so chips' values sagged and
@@ -249,12 +268,16 @@ and `doodles/`. Read its README before changing it.
   Playwright smoke suite; visual regression runs in ci.yml only
   (baselines under `e2e/__screenshots__`, regenerate via the
   update-snapshots workflow)
-- There is no `@types/react-dom`: `tsc` infers react-dom from its own JS
-  (`react-dom/index.js` → `cjs/*`), which is why jsconfig.json sets
-  `maxNodeModuleJsDepth: 3`. At the default 2, whether those `cjs/` files
-  are read depends on which import reaches react-dom first, so an unrelated
-  new file could make `import { flushSync } from 'react-dom'` fail with
-  TS2305 (it did, after the font swap's merge).
+- There is no `@types/react-dom`, and `tsc` (TypeScript 7, whose program
+  load runs in parallel) must never infer react-dom from its own JS:
+  whether it reads `react-dom/index.js`'s `cjs/` files changes from run to
+  run, so `import { flushSync } from 'react-dom'` failed with TS2305 on
+  some runs and not others (it surfaced after the font swap's merge, and a
+  deeper `maxNodeModuleJsDepth` only made it rarer). jsconfig.json's
+  `paths` maps the bare `react-dom` specifier to `types/react-dom.d.ts`,
+  which declares exactly what the checked code imports (`flushSync`);
+  `react-dom/client` still resolves to the package. Import anything else
+  from bare `react-dom` and you add its declaration there first.
 
 ## Season promo slides (fall 2026)
 
@@ -797,9 +820,9 @@ type, the club colours and marks, the stepped chip and the edge waves.
   `schedule.json`: `index.css` `@import`s `shared/brand/tokens.css` (bundled
   and hashed at build time, exactly like the lobby's `app.css`), and
   `lib/kit.js` / `lib/motion-tokens.js` import `shared/brand/tokens.json`.
-  Fonts are the same files the lobby bundles (Paytone One from the kit's
-  own full files through the same `@font-face`, and `@fontsource` Londrina
-  Solid 400, Figtree and Baloo 2 for Devanagari), so the service worker
+  Fonts are the same files the lobby bundles (Paytone One and Londrina Solid
+  400 from the kit's own full files through the same `@font-face`s, and
+  `@fontsource` Figtree and Baloo 2 for Devanagari), so the service worker
   precaches one copy for both pages and nothing is fetched at showtime. The mark and the club wave come in as
   build assets / `?raw` from `shared/brand/`. It never imports
   `src/lib/brand.js`, `src/lib/motion.jsx` or `src/components/brand/*`:

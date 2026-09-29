@@ -3,12 +3,12 @@ import ReactDOM from 'react-dom/client';
 // Bundled fonts (no CDN) so the display looks right even on a church
 // network that blocks or throttles font hosts. The three brand voices
 // (shared/brand/README.md): Paytone One shouts (--font-shout, and
-// --font-display at the old footprint; both are @font-face rules in app.css
-// on the kit's own full font files, never an @fontsource subset, because its
-// license reserves the name), Londrina Solid labels (--font-condensed; the
-// 400 cut only, which is already bold, so no CSS weight can reach for the
-// much fatter 900) and Figtree is read (--font-body).
-import '@fontsource/londrina-solid/400.css';
+// --font-display at the old footprint) and Londrina Solid labels
+// (--font-condensed; the 400 cut only, which is already bold, so no CSS
+// weight can reach for the much fatter 900). Both are @font-face rules in
+// app.css on the kit's own full font files, never an @fontsource subset,
+// because each license reserves the font's name. Figtree is read
+// (--font-body) and comes from @fontsource: its license reserves no name.
 import '@fontsource-variable/figtree';
 // Baloo 2 stays for good: it backs the shout stack for Devanagari, the one
 // script a name may use that Paytone One lacks and a chunky face still draws,

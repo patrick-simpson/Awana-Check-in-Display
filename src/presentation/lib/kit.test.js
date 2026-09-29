@@ -51,29 +51,49 @@ describe('the projector kit', () => {
   });
 
   it('index.css bundles the kit\'s three voices and no retired face', () => {
-    for (const pkg of ['@fontsource/londrina-solid', '@fontsource-variable/figtree']) {
-      expect(css).toContain(`@import "${pkg}`);
-    }
-    for (const retired of ['lilita-one', 'barlow-condensed', 'nunito-sans', 'caveat', 'fontsource/galindo', 'fontsource/paytone']) {
+    // Figtree's license reserves no font name, so it may come from @fontsource.
+    expect(css).toContain('@import "@fontsource-variable/figtree');
+    // Paytone One and Londrina Solid do (the kit's README, "Reserved Font Names
+    // and the OFL"): they come only from the kit's full files, below, and never
+    // from an @fontsource subset.
+    for (const reserved of ['londrina', 'paytone']) expect(css).not.toContain(`fontsource/${reserved}`);
+    for (const retired of ['lilita-one', 'barlow-condensed', 'nunito-sans', 'caveat', 'fontsource/galindo']) {
       expect(css).not.toContain(retired);
     }
     expect(css).toMatch(/--font-display:\s*"Paytone One", "Baloo 2 Variable"/);
+    expect(css).toMatch(/--font-condensed:\s*"Londrina Solid"/);
   });
 
+  const faces = (text, family) => [...text.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/@font-face\s*\{([^}]*)\}/g)]
+    .map(([, body]) => Object.fromEntries(body.split(';').map((l) => l.trim()).filter(Boolean).map((l) => {
+      const at = l.indexOf(':');
+      return [l.slice(0, at).trim(), l.slice(at + 1).trim().replace(/\s+/g, ' ').replace(/"/g, "'")];
+    })))
+    .filter((d) => d['font-family'] === `'${family}'`);
+  const lobbyCss = readFileSync(resolve(__dirname, '../../styles/app.css'), 'utf8');
+
   it('the shout is the lobby\'s own Paytone One face: the kit\'s full files, the same overrides', () => {
-    const faces = (text) => [...text.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/@font-face\s*\{([^}]*)\}/g)]
-      .map(([, body]) => Object.fromEntries(body.split(';').map((l) => l.trim()).filter(Boolean).map((l) => {
-        const at = l.indexOf(':');
-        return [l.slice(0, at).trim(), l.slice(at + 1).trim().replace(/\s+/g, ' ').replace(/"/g, "'")];
-      })))
-      .filter((d) => d['font-family'] === "'Paytone One'");
-    const lobby = faces(readFileSync(resolve(__dirname, '../../styles/app.css'), 'utf8'));
-    const projector = faces(css);
+    const lobby = faces(lobbyCss, 'Paytone One');
+    const projector = faces(css, 'Paytone One');
     expect(projector).toHaveLength(1);
     expect(lobby).toHaveLength(1);
     expect(projector[0]).toEqual(lobby[0]);
     expect(projector[0].src).toContain("url('../../shared/brand/fonts/paytone-one-full-400-normal.woff2') format('woff2')");
     expect(projector[0].src).toContain("url('../../shared/brand/fonts/PaytoneOne-Regular.ttf') format('truetype')");
+  });
+
+  it('the label voice is the lobby\'s own Londrina Solid face: the kit\'s full 400 files, never a subset', () => {
+    const lobby = faces(lobbyCss, 'Londrina Solid');
+    const projector = faces(css, 'Londrina Solid');
+    // One @font-face each: a second (a latin cut) would be a Modified Version of a reserved name.
+    expect(projector).toHaveLength(1);
+    expect(lobby).toHaveLength(1);
+    expect(projector[0]).toEqual(lobby[0]);
+    expect(projector[0].src).toBe(
+      "url('../../shared/brand/fonts/londrina-solid-full-400-normal.woff2') format('woff2'), url('../../shared/brand/fonts/LondrinaSolid-Regular.ttf') format('truetype')",
+    );
+    expect(projector[0]['unicode-range']).toBeUndefined();
+    expect(projector[0]['font-weight']).toBe('400');
   });
 
   it('every club colour token in index.css is theme.json\'s', () => {

@@ -9,18 +9,18 @@
 
    Fonts are bundled (the same files the lobby bundles, so the service
    worker precaches one copy for both pages and nothing is fetched from the
-   network at showtime): Paytone One from the kit's own full font files (its
-   license reserves the name, so never an @fontsource subset; see the
-   @font-face below), the rest from @fontsource. The kit's own tokens.css is
-   pulled into this bundle at build time, exactly as the lobby's app.css
-   does, so the --brand-* values ARE the kit's file and cannot drift.
+   network at showtime): Paytone One and Londrina Solid from the kit's own
+   full font files (each license reserves the name, so never an @fontsource
+   subset; see the @font-faces below), the rest from @fontsource. The kit's
+   own tokens.css is pulled into this bundle at build time, exactly as the
+   lobby's app.css does, so the --brand-* values ARE the kit's file and
+   cannot drift.
 
    This stylesheet is loaded ONLY by the presentation page
    (countdown.html → src/presentation/main.jsx). Tailwind's source
    scanning is pinned to this subtree so the signage app's class strings
    never leak in, and the signage CSS graph never sees Tailwind at all.
    ════════════════════════════════════════════════════════════════════ */
-@import "@fontsource/londrina-solid/400.css";
 @import "@fontsource-variable/figtree";
 /* Baloo 2 draws Devanagari, the one script a name may use that Paytone One
    lacks and a chunky face still draws, so a birthday name stays in one
@@ -47,6 +47,20 @@
   line-gap-override: 0%;
   src: url("../../shared/brand/fonts/paytone-one-full-400-normal.woff2") format("woff2"),
        url("../../shared/brand/fonts/PaytoneOne-Regular.ttf") format("truetype");
+}
+
+/* The label voice: Londrina Solid, the kit's own full, unmodified files (its
+   license reserves the name, so never the @fontsource latin subset this page
+   used to import), byte for byte the lobby's declaration (app.css). The 400
+   cut only, which is already bold; declaring the 900 file would let a
+   `font-weight: 700+` rule reach for the much fatter Black. */
+@font-face {
+  font-family: "Londrina Solid";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url("../../shared/brand/fonts/londrina-solid-full-400-normal.woff2") format("woff2"),
+       url("../../shared/brand/fonts/LondrinaSolid-Regular.ttf") format("truetype");
 }
 
 @theme {

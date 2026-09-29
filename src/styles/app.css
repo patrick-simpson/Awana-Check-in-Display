@@ -12,8 +12,9 @@
 /* The shout: Paytone One, from the kit's own files (owner's decision
    2026-09-29: it replaced Galindo, which "looks too much like SpongeBob").
    Its license reserves the name "Paytone One", so this is the FULL,
-   unmodified font (shared/brand/README.md, "Paytone One and the OFL"): no
-   @fontsource subset, which would be a Modified Version under that name. The
+   unmodified font (shared/brand/README.md, "Reserved Font Names and the
+   OFL"): no @fontsource subset, which would be a Modified Version under that
+   name. The
    WOFF2 is the TTF's own tables, losslessly compressed; the TTF is only the
    fallback for a browser that refuses the WOFF2. One file covers every
    letter a name here has needed (Latin-1, Latin Extended-A, Ș Ț, Vietnamese),
@@ -39,6 +40,24 @@
   line-gap-override: 0%;
   src: url('../../shared/brand/fonts/paytone-one-full-400-normal.woff2') format('woff2'),
        url('../../shared/brand/fonts/PaytoneOne-Regular.ttf') format('truetype');
+}
+/* The label voice: Londrina Solid, from the kit's own files, for the same
+   reason as the shout above: its license reserves the name "Londrina Solid",
+   so this is the FULL, unmodified font in a WOFF2 of its untouched tables
+   (README, "Reserved Font Names and the OFL"), never the @fontsource latin
+   subset this page used to import (a Modified Version under that name).
+   The 400 cut only: it is already bold, and declaring the 900 file would
+   let any `font-weight: 700+` rule reach for the much fatter Black. The
+   `font-synthesis-weight: none` on :root keeps such a rule from smearing a
+   fake bold over it instead. The projector declares the same face in
+   src/presentation/index.css (its kit.test.js pins the two together). */
+@font-face {
+  font-family: 'Londrina Solid';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('../../shared/brand/fonts/londrina-solid-full-400-normal.woff2') format('woff2'),
+       url('../../shared/brand/fonts/LondrinaSolid-Regular.ttf') format('truetype');
 }
 /* The shout at the pre-rebrand footprint, for a rule still written against
    --font-display: one sized for Baloo 2 ExtraBold, which Paytone One sets
