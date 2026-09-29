@@ -34,8 +34,9 @@ two can run side by side for as long as needed.
    (QuickNav → Display Settings, or `?key=…&cluster=…` on first
    load); birthdays sync themselves from the print server's broadcast.
    *Tooling shipped 2026-07-18:* the presentation page detects a
-   fresh origin (no key) and shows a dismissible setup note pointing
-   at that QuickNav action — the cutover is a self-guided one-step
+   fresh origin (no key) and shows a dismissible setup note (a strip in
+   the wall's bottom margin, clear of every view) pointing at that
+   QuickNav action — the cutover is a self-guided one-step
    now (the CSV roster was retired in favor of live sync).
 4. ~~**Flip canonical (this repo's half)**~~ — **done 2026-07-17**:
    `shared/README.md` here now declares this copy canonical. The old

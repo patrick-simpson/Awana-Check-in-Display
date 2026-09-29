@@ -101,9 +101,9 @@ Pick whichever is easier — most people use the Settings panel.
 Keeps the key in the browser's local storage on that device, so it never enters
 your repository and is not inherited by anyone who forks it.
 
-1. Open your deployed app (see step 6). A brand-new screen shows a small
-   **New display?** card in the bottom-left corner with these same steps and an
-   **Open Settings** button.
+1. Open your deployed app (see step 6). A brand-new screen shows a slim
+   **New display?** card along the bottom, beside the gear, with these same
+   steps and an **Open Settings** button.
 2. Or click the gear icon in the bottom-left corner (it stays faintly visible),
    or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.
 3. **Connection** tab → **Display login** → type the church's display passphrase

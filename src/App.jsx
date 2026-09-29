@@ -4,7 +4,7 @@ import { M, ZeroAnimationContext } from './lib/motion.jsx';
 import BackgroundIframe from './components/BackgroundIframe.jsx';
 import Overlay from './components/Overlay.jsx';
 import ParticleLayer from './components/ParticleLayer.jsx';
-import TonightTicker from './components/TonightTicker.jsx';
+import TonightTicker, { tickerRows } from './components/TonightTicker.jsx';
 import CheckoutBoard from './components/CheckoutBoard.jsx';
 import NoticeBanner, { NOTICE_CHECK_MS, noticeShowing } from './components/NoticeBanner.jsx';
 import CornerChip from './components/CornerChip.jsx';
@@ -12,7 +12,7 @@ import StepChip from './components/brand/StepChip.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import SlideEditorPanel from './components/SlideEditorPanel.jsx';
 import DebugPanel from './components/DebugPanel.jsx';
-import SetupCard from './components/SetupCard.jsx';
+import SetupCard, { useSetupCard } from './components/SetupCard.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import StickerChip from './components/StickerChip.jsx';
 import MilestoneToast from './components/MilestoneToast.jsx';
@@ -35,7 +35,7 @@ import { buildPromoSlot } from './lib/promos.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { BOARD_HIDDEN, decideBoard } from './lib/checkoutBoard.js';
-import { OVERLAY, lobbyRoom } from './lib/overlayFit.js';
+import { OVERLAY, lobbyRoom, setupUp } from './lib/overlayFit.js';
 import { birthdayRibbon } from './lib/birthdayWeek.js';
 import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
@@ -627,6 +627,31 @@ export default function App() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [gearIdle, setGearIdle] = useState(true);
 
+  // The first-run card: still wanted on this screen (useSetupCard), and does
+  // the room have space for it right now (setupUp: not over a name, a poster,
+  // an open panel, a pickup list, a critical notice or the tonight strip, all
+  // of which are what the lobby is showing). It stands in the foot of the lobby.
+  // The strip's clock is kept here and handed to it, so the card and the strip
+  // agree at the moment the feed goes stale.
+  const [tonightNow, setTonightNow] = useState(() => Date.now());
+  useEffect(() => {
+    const advance = () => setTonightNow(Date.now());
+    advance();
+    const t = setInterval(advance, 30000);
+    return () => clearInterval(t);
+  }, [tonight]);   // re-stamp on new data so a fresh payload is never judged aged
+  const tickerActive = !currentEvent && !checkInsHeld;
+  const setupCard = useSetupCard({ status, hasDisplayKey });
+  const setupSeated = setupUp({
+    due: setupCard.due,
+    overlay: FLAGS.overlay,
+    panelOpen: settingsOpen || slideEditorOpen,
+    checkInUp: currentEvent != null,
+    held: checkInsHeld,
+    ticker: !FLAGS.overlay && tickerActive && tickerRows(tonight, tonightNow).length > 0,
+    room,
+  });
+
   // If the realtime pipe drops mid-club, surface the status dot even when
   // it's switched off in settings — a dead connection must never be
   // silent. A short grace period ignores ordinary reconnect blips.
@@ -1102,7 +1127,7 @@ export default function App() {
           check-in banner via `active`; see TonightTicker.jsx. */}
       {!overlay && (
         <ErrorBoundary label="tonight-ticker" eventKey={boardNow} onError={() => recordLayerFault('tonight strip')}>
-          <TonightTicker tonight={tonight} active={!currentEvent && !checkInsHeld} />
+          <TonightTicker tonight={tonight} active={tickerActive} now={tonightNow} />
         </ErrorBoundary>
       )}
 
@@ -1247,12 +1272,14 @@ export default function App() {
       )}
 
       {/* First-run card: an unconfigured TV must offer a volunteer a way in.
-          Never on an OBS/ProPresenter overlay feed; hidden while a panel is
-          up; hides itself once the screen is connected and keyed. */}
-      {!overlay && !settingsOpen && !slideEditorOpen && (
+          It stands in the strip under the copy's lowest line, beside the
+          gear (OVERLAY.setup), so it never covers a headline; setupUp() says
+          when the room has space for it (never on an OBS/ProPresenter feed,
+          over a panel, a name, a poster or a pickup list), and it hides
+          itself once the screen is connected and keyed. */}
+      {setupSeated && (
         <SetupCard
-          status={status}
-          hasDisplayKey={hasDisplayKey}
+          card={setupCard}
           onOpenSettings={() => { setSettingsTab('connection'); setSettingsOpen(true); }}
         />
       )}

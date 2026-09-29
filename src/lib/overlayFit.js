@@ -50,12 +50,23 @@ import { BOARD_ANONYMOUS, BOARD_EMPTY, BOARD_NAMES, BOARD_STALE, PICKUP_PHASES }
  * stale or empty board, or one outside pickup time): bottom-centre, between
  * the copy's lowest line and the ticker, beside the slides rather than
  * over them.
+ *
+ * `setup`: the first-run card's seat (SetupCard.jsx, app.css `.setup-card`):
+ * the strip under the copy's lowest line (`top`: LAYOUT.safeBottom, 45u
+ * down the 16:9 box), from the gear's right edge to the corner chip's left
+ * edge (`chipLeft`, ~82u, the number the ticker's room is measured to), a
+ * `gap` clear of each. It used to stand above the gear, 25u wide and 25u
+ * tall, which is inside the copy's own box at every size: it hid the start
+ * of a headline at 720p and the chip row at 1080p. Nothing the lobby draws
+ * on a slide comes below `top`, so a card that stays under it can never
+ * cover copy; it lays its words out in columns to fit the 11u that leaves.
  */
 export const OVERLAY = {
   band: { top: 1.4, width: 50, bottom: 10.4 },
   flags: { height: 2.5, gap: 0.6, width: 54 },
   centre: { top: 12, bottom: 46, width: 70 },
   foot: { bottom: 5.6, width: 56 },
+  setup: { top: 45, gap: 1.2, chipLeft: 82 },
   // The top-right stack: the status sticker, then the weather chip (~6.4u
   // tall, 0.9u under it) from ~1.4u down. The chip must end by 14u, where a
   // raised row wider than 45u starts (lobbyFrame), so a sticker taller than
@@ -167,6 +178,43 @@ export function lobbyRoom({ overlay = false, criticalLive = false, boardState, p
     holdCelebrations,
     toastBelow: critical === 'band' && !holdCelebrations,
   };
+}
+
+/**
+ * Whether the first-run card has the foot of the room right now. `due` is
+ * the card's own judgement (unconfigured and not dismissed: SetupCard's
+ * `useSetupCard`); this decides only whether the room has space for it.
+ * Pure, like lobbyRoom, so the rules are tested rather than eyeballed.
+ *
+ *  - Never on an OBS feed (operator chrome never reaches one), and never
+ *    over an open panel, which has its own backdrop.
+ *  - A name outranks it: the check-in wave rises through the bottom of the
+ *    room, exactly where the card stands.
+ *  - A held slide (a promo poster, a marked slide) is its own moment and
+ *    the chrome steps aside for it, so does the card.
+ *  - Whatever holds the middle of the room (the pickup list, a critical
+ *    notice) or the foot (the pickup board's one-line card, the tonight
+ *    strip while it has counts to show) has the room: the card waits, as
+ *    the celebrations do. Content over instructions, every time: the card is
+ *    a prompt for one volunteer, and these are what the lobby is showing.
+ *
+ * `room` is lobbyRoom's answer for the same moment; `ticker` says the
+ * tonight strip is up (TonightTicker.jsx tickerRows).
+ *
+ * @param {{
+ *   due?: boolean,
+ *   overlay?: boolean,
+ *   panelOpen?: boolean,
+ *   checkInUp?: boolean,
+ *   held?: boolean,
+ *   ticker?: boolean,
+ *   room?: { board?: 'centre' | 'foot' | null, critical?: 'centre' | 'band' | null },
+ * }} s
+ * @returns {boolean}
+ */
+export function setupUp({ due = false, overlay = false, panelOpen = false, checkInUp = false, held = false, ticker = false, room = {} }) {
+  if (!due || overlay || panelOpen || checkInUp || held || ticker) return false;
+  return room.board == null && room.critical !== 'centre';
 }
 
 /* ── One shouted line (a toast) ──────────────────────────────────── */

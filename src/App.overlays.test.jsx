@@ -173,6 +173,104 @@ describe('the room rules, wired up', () => {
   });
 });
 
+describe('the first-run card\'s seat', () => {
+  // The card stands in the foot of the lobby, in the strip under the copy's
+  // lowest line (OVERLAY.setup). App asks setupUp() whether the room has
+  // space for it, and clears the tonight strip out of the foot while it is up.
+  const card = (c) => c.querySelector('.setup-card');
+  const ticker = (c) => c.querySelector('.tonight-ticker');
+  const night = () => ({ checkedIn: 12, booksCompleted: 0, awardsEarned: 0, friendsBrought: 0, at: Date.now() });
+
+  it('an unconfigured screen shows it, and the card gives the foot to the tonight strip while the strip has counts', async () => {
+    setup();
+    const { container } = await mount();
+    expect(card(container)).not.toBeNull();
+    // Counts to show: the strip is what the lobby is showing, so the card waits.
+    await act(async () => { bound.tonight(night()); });
+    expect(ticker(container)).not.toBeNull();
+    expect(card(container)).toBeNull();
+    // Nothing to show (every stat zero) and the strip stays away: the card is back.
+    await act(async () => { bound.tonight({ ...night(), checkedIn: 0 }); });
+    await waitFor(() => expect(ticker(container)).toBeNull());
+    expect(card(container)).not.toBeNull();
+  });
+
+  it('the card comes back when the tonight feed goes stale, on the strip\'s own clock', async () => {
+    // Only the intervals and the wall clock are faked: framer-motion keeps its own frame clock.
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+    setup();
+    const { container } = await mount();
+    await act(async () => { bound.tonight(night()); });
+    expect(ticker(container)).not.toBeNull();
+    expect(card(container)).toBeNull();
+    for (let i = 0; i < 22; i++) await act(async () => { vi.advanceTimersByTime(30_000); });
+    // Eleven minutes on: no broadcast since, so the strip is gone and the card has the foot back.
+    await waitFor(() => expect(ticker(container)).toBeNull());
+    expect(card(container)).not.toBeNull();
+  });
+
+  it('a configured screen never shows it, and the strip is never held back', async () => {
+    localStorage.setItem('awanaSetupCardDismissed.v1', '1');
+    setup();
+    const { container } = await mount();
+    await act(async () => { bound.tonight(night()); });
+    expect(card(container)).toBeNull();
+    expect(ticker(container)).not.toBeNull();
+  });
+
+  it('waits behind a critical notice that takes the middle, and comes back when it goes', async () => {
+    setup();
+    const { container } = await mount();
+    expect(card(container)).not.toBeNull();
+    await act(async () => { bound.notice({ level: 'critical', message: 'CLUB CANCELLED TONIGHT', at: Date.now() }); });
+    expect(has(container, 'notice-takeover')).toBe(true);
+    expect(card(container)).toBeNull();
+    await act(async () => { bound.notice({ level: 'info', message: 'All clear', at: Date.now() + 1 }); });
+    expect(card(container)).not.toBeNull();
+  });
+
+  it('waits behind a pickup list, and behind the board\'s one-line card at the foot', async () => {
+    seedPhase('shutdown');
+    setup({ checkoutBoardMode: 'always' });
+    const list = await mount();
+    expect(card(list.container)).not.toBeNull();
+    await act(async () => { bound.checkout({ entries: kids(9), printed: 40, at: Date.now() }); });
+    expect(has(list.container, 'board-up')).toBe(true);
+    expect(card(list.container)).toBeNull();
+    cleanup();
+
+    bound = {};
+    seedPhase('game');
+    setup({ checkoutBoardMode: 'always' });
+    const foot = await mount();
+    expect(card(foot.container)).not.toBeNull();
+    await act(async () => { bound.checkout({ entries: kids(9), printed: 40, at: Date.now() }); });
+    expect(foot.container.querySelector('.checkout-board--foot')).not.toBeNull();
+    expect(card(foot.container)).toBeNull();
+  });
+
+  it('gives way to a name: the check-in wave rises through the foot', async () => {
+    setup();
+    const { container } = await mount();
+    expect(card(container)).not.toBeNull();
+    await act(async () => { bound.checkin({ firstName: 'Ann', club: 'Sparks', id: 'a1', at: Date.now() }); });
+    expect(has(container, 'checkin-active')).toBe(true);
+    expect(card(container)).toBeNull();
+  });
+
+  it('opening Settings takes it off the stage, and closing Settings brings it back', async () => {
+    setup();
+    const { container } = await mount();
+    await act(async () => { container.querySelector('.setup-card .primary').click(); });
+    expect(container.querySelector('.panel--tabbed')).not.toBeNull();
+    expect(card(container)).toBeNull();
+    // Escape closes an untouched panel, and the card is still due.
+    await act(async () => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
+    await waitFor(() => expect(container.querySelector('.panel--tabbed')).toBeNull());
+    expect(card(container)).not.toBeNull();
+  });
+});
+
 describe('one clock for a notice', () => {
   it('the takeover and the banner go together when a critical notice expires, whatever the board is doing', async () => {
     // Only the intervals and the wall clock are faked: framer-motion keeps

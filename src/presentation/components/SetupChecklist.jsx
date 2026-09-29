@@ -2,15 +2,29 @@ import React, { useState } from 'react';
 import { FLAGS } from '../lib/flags.js';
 import { useConfig } from '../../hooks/useConfig.js';
 import { useDisplayLogin } from '../../hooks/useDisplayLogin.js';
-import { GlassPanel } from './GlassPanel.jsx';
 
 // First-run helper: a new screen needs (a) the Pusher key — baked into the
 // build when the repository variables are set, else typed — and (b) to be
 // logged in with the church's display passphrase, which provisions the
 // display key (sealed birthdays) and the publish token. Until both are
-// true (or the operator dismisses it), show a quiet corner note that
-// points at the QuickNav menu. Dismissal is remembered per device.
+// true (or the operator dismisses it), show a quiet note that points at the
+// QuickNav menu. Dismissal is remembered per device.
 const DISMISS_KEY = 'awanaSetupChecklistDismissed.v1';
+
+/**
+ * Where the note stands, in projector units down the 16:9 frame (index.css
+ * `.pj-setup-note`): the bottom margin band. `top` is the first line below
+ * anything a view draws: the Upcoming Awana Nights list stops at 51.75u
+ * (Slide.jsx COMING_UP.bottom, its title-safe margin) and every other view
+ * ends higher (the countdown ~46u with its four special nights listed, ~50u
+ * with the week's theme chip too; game time ~46u, the shutdown ~42u, the
+ * slides ~31u; e2e/setup-card.spec.js measures them). The
+ * note used to be a 23rem card in the bottom-left corner, which sat on the
+ * left of the events list at 720p and the coming-up chips at 1080p, since a
+ * corner of a centred, full-width layout is never free. It is a strip now:
+ * two lines, 84u wide like the slides' own text block, from `top` down.
+ */
+export const SETUP_NOTE = { top: 51.75, width: 84 };
 
 function dismissed() {
   try {
@@ -40,27 +54,23 @@ export const SetupChecklist = () => {
   };
 
   return (
-    <div className="absolute bottom-4 left-4 z-40" style={{ maxWidth: '23rem' }} data-setup-checklist>
-      <GlassPanel className="p-4 flex flex-col gap-2">
-        <p className="pj-kicker text-sm" style={{ color: 'var(--brand-orange)', letterSpacing: '0.1em', marginRight: 0 }}>
+    <div className="pj-panel pj-setup-note" role="region" aria-label="Display setup" data-setup-checklist>
+      <div className="pj-setup-note__text">
+        <p className="pj-kicker pj-setup-note__kicker">
           New display? {hasKey ? 'one quick setup step' : 'two quick setup steps'}
         </p>
-        <ul className="pj-panel-note flex flex-col gap-1 text-[0.8rem] leading-snug text-white/85">
-          {!hasKey && <li>⬜ Live data key — hover the top-right corner → Display Settings → Advanced</li>}
-          <li>{loggedIn ? '✅' : '⬜'} Log in with the display passphrase — hover the top-right corner → Display Settings</li>
-          <li className="text-white/55">Counts, names and birthdays then sync themselves from check-in.</li>
+        <ul className="pj-panel-note pj-setup-note__steps">
+          {!hasKey && <li>⬜ Live data key (under Advanced)</li>}
+          <li>{loggedIn ? '✅' : '⬜'} Log in with the display passphrase</li>
         </ul>
-        <p className="pj-panel-note text-[0.7rem] leading-snug text-white/50">
-          The passphrase is on the print-server dashboard (Settings → Display login). Settings don't
-          follow bookmarks between sites, so a display moved from the old countdown page needs this once here.
+        <p className="pj-panel-note pj-setup-note__where">
+          Hover the top-right corner → Display Settings. The passphrase is on the print-server dashboard
+          (Settings → Display login).
         </p>
-        <button
-          onClick={dismiss}
-          className="pj-line-button self-end px-3 py-1.5 text-xs"
-        >
-          Don't show again
-        </button>
-      </GlassPanel>
+      </div>
+      <button onClick={dismiss} className="pj-line-button pj-setup-note__dismiss">
+        Don't show again
+      </button>
     </div>
   );
 };

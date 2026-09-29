@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   NAME_CHIP_CLEAR, NAME_CHIP_TEXT, OVERLAY, PICKUP_TIME, balanceLines, bandRoom, bandTop, boardPlacement, boardRowsHeight,
-  fitBoard, fitParagraph, fitShout, lobbyRoom, nameChipSeat, plateChrome, wrapLines,
+  fitBoard, fitParagraph, fitShout, lobbyRoom, nameChipSeat, plateChrome, setupUp, wrapLines,
 } from './overlayFit.js';
 import { LAYOUT } from './lobbyFrame.js';
 import { PLATE, SHOUT_BOX } from './brand.js';
@@ -57,6 +57,23 @@ describe('the overlay bands', () => {
     // 16:9: the stage is 56.25u tall; the card is at most ~5u tall.
     expect(56.25 - OVERLAY.foot.bottom - 5).toBeGreaterThanOrEqual(LAYOUT.safeBottom);
     expect(OVERLAY.foot.width).toBeLessThanOrEqual(80 - 20);
+  });
+
+  it('keep the first-run card\'s seat under the copy\'s lowest line, between the gear and the corner chip', () => {
+    // Nothing the slide copy draws comes below LAYOUT.safeBottom, so a card
+    // that stays under it can never cover a headline, whatever the size.
+    expect(OVERLAY.setup.top).toBeGreaterThanOrEqual(LAYOUT.safeBottom);
+    const rule = /\.panel\.setup-card \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    // Its right edge stops a gap short of the corner chip (which starts at
+    // chipLeft, the number the ticker's room is measured to) ...
+    expect(rule).toMatch(new RegExp(`right: calc\\(${100 - OVERLAY.setup.chipLeft + OVERLAY.setup.gap} \\* var\\(--u\\)\\)`));
+    // ... its left edge a gap past the gear's ...
+    expect(rule).toMatch(new RegExp(`left: calc\\(var\\(--safe-inset\\) \\+ max\\(46px, calc\\(2\\.9 \\* var\\(--u\\)\\)\\) \\+ calc\\(${OVERLAY.setup.gap} \\* var\\(--u\\)\\)\\)`));
+    // ... and it rides the chip's own line, 1.8u off the bottom.
+    expect(rule).toMatch(/bottom: calc\(1\.8 \* var\(--u\)\)/);
+    expect(css).toMatch(/\.corner-bottom \{[^}]*bottom: calc\(1\.8 \* min\(1vw, 1\.7778vh\)\)/);
+    // The strip that leaves (56.25u - 45u) is what the card's columns are made for.
+    expect(56.25 - OVERLAY.setup.top).toBeGreaterThan(9);
   });
 
   it('let the status sticker stand only as tall as keeps the chip under it above a raised row', () => {
@@ -149,6 +166,48 @@ describe('who holds which part of the room', () => {
     // With no board seated, a run changes nothing about the notice either.
     expect(lobbyRoom({ criticalLive: true, checkInUp: true, boardState: BOARD_HIDDEN, phase: 'game-time' }).critical)
       .toBe(lobbyRoom({ criticalLive: true, boardState: BOARD_HIDDEN, phase: 'game-time' }).critical);
+  });
+});
+
+describe('the first-run card\'s seat (setupUp)', () => {
+  const room = (over = {}) => lobbyRoom({ boardState: BOARD_HIDDEN, phase: 'off', ...over });
+
+  it('is up on an ordinary lobby, and only while the screen is still due for setup', () => {
+    expect(setupUp({ due: true, room: room() })).toBe(true);
+    expect(setupUp({ due: false, room: room() })).toBe(false);
+    expect(setupUp({ room: room() })).toBe(false);
+  });
+
+  it('is never on an OBS feed or over an open panel', () => {
+    expect(setupUp({ due: true, overlay: true, room: room({ overlay: true }) })).toBe(false);
+    expect(setupUp({ due: true, panelOpen: true, room: room() })).toBe(false);
+  });
+
+  it('gives way to a name, and to a poster or a marked slide (their own moment)', () => {
+    expect(setupUp({ due: true, checkInUp: true, room: room({ checkInUp: true }) })).toBe(false);
+    expect(setupUp({ due: true, held: true, room: room() })).toBe(false);
+  });
+
+  it('gives way to whatever holds the middle or the foot of the room', () => {
+    // A critical notice in the middle, the pickup list in the middle at pickup time ...
+    expect(setupUp({ due: true, room: room({ criticalLive: true }) })).toBe(false);
+    expect(setupUp({ due: true, room: room({ boardState: BOARD_NAMES, phase: 'shutdown' }) })).toBe(false);
+    // ... the board's one-line card at the foot, in the strip the card would take ...
+    expect(setupUp({ due: true, room: room({ boardState: BOARD_STALE, phase: 'game-time' }) })).toBe(false);
+    // ... and the tonight strip on the waves there, while it has counts to show.
+    expect(setupUp({ due: true, ticker: true, room: room() })).toBe(false);
+    expect(setupUp({ due: true, ticker: false, room: room() })).toBe(true);
+  });
+
+  it('a critical notice that keeps to the top band leaves the card its seat, unless a list holds the middle', () => {
+    // On an OBS feed the notice always keeps to the band (the card is never
+    // there anyway); over a live pickup list it does too, and the list still
+    // holds the room, so the card waits for the list, not for the notice.
+    const overList = room({ criticalLive: true, boardState: BOARD_NAMES, phase: 'shutdown' });
+    expect(overList.critical).toBe('band');
+    expect(overList.board).toBe('centre');
+    expect(setupUp({ due: true, room: overList })).toBe(false);
+    expect(setupUp({ due: true, room: { board: null, critical: 'band' } })).toBe(true);
   });
 });
 

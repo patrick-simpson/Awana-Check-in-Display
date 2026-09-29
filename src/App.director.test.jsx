@@ -184,6 +184,26 @@ describe('the lobby director, end to end', { timeout: 20_000 }, () => {
     expect(cornerIds()).toEqual(['tally']);
   });
 
+  it('the first-run card steps aside for a held slide, like the corner, and comes back after it', async () => {
+    configure();
+    await mount();
+    await settle();
+    const card = () => document.querySelector('.setup-card');
+    expect(onScreen('Slide A')).toBe(true);
+    expect(card()).not.toBeNull();
+
+    // A poster is full-bleed art with its own footer: the card leaves it whole.
+    await tick(5000);
+    await settle();
+    expect(onScreen('Held poster')).toBe(true);
+    expect(card()).toBeNull();
+
+    await tick(10000);
+    await settle();
+    expect(onScreen('Slide B')).toBe(true);
+    expect(card()).not.toBeNull();
+  });
+
   it('a tally correction reaches the corner with the corrected number, once', async () => {
     localStorage.setItem('awanaTally.v1', JSON.stringify({ date: todayKey(), count: 80 }));
     configure({ manualSlides: [A, B] });
