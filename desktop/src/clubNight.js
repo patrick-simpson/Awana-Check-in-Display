@@ -4,20 +4,22 @@
 // the rules are unit-tested; main.js hands it the time and the two files.
 //
 // A club night is decided the same way the signage decides one
-// (src/lib/calendarLogic.js clubNights()):
+// (src/lib/calendarLogic.js clubNights() / deriveClubInfo()):
 //   1. shared/schedule.json's specialDates marks a date `noClub: true`:
 //      never a club night, whatever else says so;
-//   2. otherwise, when the calendar feed (calendar-feed.json, built nightly
-//      from TwoTimTwo) COVERS the date (generated on or before it, with
-//      events on or after it), the date is a club night exactly when the feed
-//      lists an uncancelled `kind: 'club'` event on it;
-//   3. otherwise (no feed, or a stale one that ends before the date), the
-//      schedule's meeting day (Wednesday) is.
-// Rule 3 errs toward showing: the booth PC is switched on by a person, so a
-// wrong "yes" costs someone a click on Hide, while a wrong "no" leaves the
-// lobby TV dark on a real club night.
+//   2. a specialDates entry with its own `windows` table is a special meeting
+//      (the projector runs one even on a non-Wednesday): a club night;
+//   3. with a calendar feed (calendar-feed.json, built nightly from TwoTimTwo,
+//      listing the whole season): a date after its last event is past the
+//      season (the page itself says "season over"), so not a club night; a
+//      date it covers (generated on or before it) is a club night exactly
+//      when it lists an uncancelled `kind: 'club'` event on it;
+//   4. with no feed at all (or for a date before the feed was generated): the
+//      schedule's meeting day (Wednesday).
+// Rule 3's "season over" keeps the TV dark all summer; the tray's Show now is
+// the way to put it up for a summer event.
 
-/** @typedef {{ meeting?: { day?: number }, timezone?: string, specialDates?: Record<string, { noClub?: boolean }> }} Schedule */
+/** @typedef {{ meeting?: { day?: number }, timezone?: string, specialDates?: Record<string, { noClub?: boolean, windows?: unknown[] }> }} Schedule */
 /** @typedef {{ generatedAt?: string, events?: Array<{ date?: string, kind?: string, isCancelled?: boolean }> }} Feed */
 
 export const DEFAULT_TIMEZONE = 'America/New_York';
@@ -68,6 +70,7 @@ export function zonedParts(now, timeZone = DEFAULT_TIMEZONE) {
 export function isClubNight(dateKey, weekday, { schedule = null, feed = null, timeZone = DEFAULT_TIMEZONE } = {}) {
   const special = schedule?.specialDates && typeof schedule.specialDates === 'object' ? schedule.specialDates : {};
   if (special[dateKey]?.noClub === true) return false;
+  if (Array.isArray(special[dateKey]?.windows) && special[dateKey].windows.length > 0) return true;
 
   const events = Array.isArray(feed?.events)
     ? feed.events.filter((e) => e && typeof e.date === 'string' && DATE_KEY.test(e.date))
@@ -75,7 +78,8 @@ export function isClubNight(dateKey, weekday, { schedule = null, feed = null, ti
   const generated = feed?.generatedAt ? new Date(feed.generatedAt) : null;
   const generatedKey = generated && !Number.isNaN(generated.getTime()) ? zonedParts(generated, timeZone).dateKey : null;
   const lastKey = events.reduce((max, e) => (e.date > max ? e.date : max), '');
-  const covered = generatedKey != null && generatedKey <= dateKey && lastKey >= dateKey;
+  if (events.length && dateKey > lastKey) return false; // past the season
+  const covered = events.length > 0 && generatedKey != null && generatedKey <= dateKey;
   if (covered) {
     return events.some((e) => e.date === dateKey && e.kind === 'club' && e.isCancelled !== true);
   }

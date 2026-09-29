@@ -15,9 +15,10 @@ booth on its own, and it updates itself from this repo's GitHub Releases.
 3. **Pick the lobby TV.** With more than one monitor connected, a numbered
    orange card appears on every screen: click **Show the lobby on this
    screen** on the TV. It remembers that monitor from then on.
-4. **Set up the page** the way you would on any display: open the gear
-   (bottom left) and enter the church's display login. This is saved inside
-   the app and survives restarts.
+4. **Set up the page** the way you would on any display: choose **Set up on
+   this screen** in the tray, open the gear (bottom left) and enter the
+   church's display login, then choose **Back to the lobby TV**. It is saved
+   inside the app (not in Chrome) and survives restarts.
 
 It starts with Windows from then on, and waits in the system tray (the orange
 Awana icon by the clock).
@@ -29,8 +30,10 @@ full screen on the TV and at exactly 8:00 pm it closes. If the PC is switched
 on after 5:00, it appears straight away.
 
 **Which nights?** The same nights the signage itself counts: the church's
-calendar feed, less any break week the shared schedule marks as no club. With
-no calendar at all it falls back to every Wednesday.
+calendar feed, less any break week the shared schedule marks as no club, plus
+any special meeting the shared schedule adds. After the calendar's last club
+night the season is over and it stays dark all summer (use **Show now** for a
+summer event). With no calendar at all it falls back to every Wednesday.
 
 **The TV is off or unplugged?** It opens in a normal window on the main
 screen instead (so someone notices) and moves to the TV the moment Windows
@@ -43,6 +46,7 @@ sees it again.
 | Show now (for 3 hours) | Shows it on the TV now, on any day. It hides itself three hours later. |
 | Hide until the next club night | Takes it down; the schedule brings it back next club night. (Closing the window does the same.) |
 | Resume schedule | Drops a Show now or a Hide and goes back to the clock. |
+| Set up on this screen (in a window) | Shows the signage in a normal window on this monitor, for the display login, uploads and exports. "Back to the lobby TV" returns it. |
 | Choose the lobby TV... | Shows the numbered cards again to pick a different monitor. |
 | Reload the page | Reloads the signage. |
 | Start with Windows | On by default. |
@@ -54,8 +58,11 @@ the same as **Show now**.
 
 ## Notes
 
-- Sound is on: a video slide with audio plays through the PC's normal output
-  (and so, in a sound booth, possibly into the room's mix).
+- Video slides are always silent (the signage mutes them on every screen). The
+  one sound it can make is the check-in chime, off unless turned on in the
+  page's Settings; it plays through the PC's default output, which in a sound
+  booth may be the room's mix.
+- Exports from Settings or the slide editor save straight to Downloads.
 - The mouse pointer hides itself over the TV after a few seconds still.
 - The PC's display is kept awake while the signage is up.
 - If the internet drops, the page keeps running from its offline copy; if it

@@ -8,7 +8,7 @@
 // resume the schedule. Everything about WHEN lives in the pure modules under
 // src/; this file only wires them to Electron.
 
-import { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, net, powerMonitor, powerSaveBlocker, screen, shell } from 'electron';
+import { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage, net, powerMonitor, powerSaveBlocker, screen, session, shell } from 'electron';
 import updaterPkg from 'electron-updater';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,6 +31,9 @@ const PAGE_URL = new URL('index.html', SITE).href;
 const SCHEDULE_URL = new URL('shared/schedule.json', SITE).href;
 const FEED_URL = new URL('calendar-feed.json', SITE).href;
 const SITE_ORIGIN = new URL(SITE).origin;
+// patrick-simpson.github.io also serves Journey Display and the printer's
+// site: the lobby window stays on THIS site's pages, which own its storage.
+const SITE_PATH = new URL(SITE).pathname;
 const CLOCK_OFFSET = (() => {
   const fake = DEV && process.env.AWANA_LOBBY_NOW ? Date.parse(process.env.AWANA_LOBBY_NOW) : NaN;
   return Number.isFinite(fake) ? fake - Date.now() : 0;
@@ -131,6 +134,10 @@ let blocker = -1;
 let retryTimer = null;
 let closingByApp = false;
 let placedAs = null; // 'fullscreen' | 'windowed'
+// "Set up on this screen": the page in a normal window on the booth's main
+// monitor, so the display login, file pickers and Save dialogs are where the
+// volunteer is sitting instead of on the lobby TV. Ends with the showing.
+let setupMode = false;
 
 /**
  * Where the lobby goes: the remembered monitor, full screen. With nothing
@@ -139,6 +146,7 @@ let placedAs = null; // 'fullscreen' | 'windowed'
  * so someone notices; it moves to the TV the moment Windows sees it.
  */
 function target() {
+  if (setupMode) return { display: screen.getPrimaryDisplay(), fullscreen: false };
   const displays = screen.getAllDisplays();
   const saved = findDisplay(displays, state.display);
   if (saved) return { display: saved, fullscreen: true };
@@ -146,7 +154,8 @@ function target() {
   return { display: screen.getPrimaryDisplay(), fullscreen: false };
 }
 
-function place() {
+/** @param {boolean} [focus]  a person asked for it; the 5 pm open never steals focus from the booth */
+function place(focus = false) {
   if (!lobby || lobby.isDestroyed()) return;
   const { display, fullscreen } = target();
   const wa = display.workArea;
@@ -168,12 +177,17 @@ function place() {
       const height = Math.round(width * 9 / 16);
       lobby.setBounds({ x: wa.x + Math.round((wa.width - width) / 2), y: wa.y + Math.round((wa.height - height) / 2), width, height });
     }
-    lobby.setTitle(state.display
-      ? `${APP_NAME}: the lobby TV is not connected (it will move there when it is)`
-      : `${APP_NAME}: choose the lobby TV from the tray icon`);
+    lobby.setTitle(setupMode
+      ? `${APP_NAME}: setting up (choose "Back to the lobby TV" in the tray when done)`
+      : state.display
+        ? `${APP_NAME}: the lobby TV is not connected (it will move there when it is)`
+        : `${APP_NAME}: choose the lobby TV from the tray icon`);
     placedAs = 'windowed';
   }
-  if (!lobby.isVisible()) lobby.show();
+  if (!lobby.isVisible()) {
+    if (focus) lobby.show(); else lobby.showInactive();
+  }
+  if (focus) lobby.focus();
   updateTray();
 }
 
@@ -188,7 +202,10 @@ const CURSOR_JS = `(() => {
 })();`;
 
 function isSitePage(url) {
-  try { return new URL(url).origin === SITE_ORIGIN; } catch { return false; }
+  try {
+    const u = new URL(url);
+    return u.origin === SITE_ORIGIN && u.pathname.startsWith(SITE_PATH);
+  } catch { return false; }
 }
 
 function openLobby() {
@@ -260,7 +277,7 @@ function openLobby() {
     stopBlocker();
     updateTray();
   });
-  lobby.once('ready-to-show', place);
+  lobby.once('ready-to-show', () => place());
   // A page that hangs before its first paint still gets a window.
   setTimeout(() => { if (lobby && !lobby.isDestroyed() && !lobby.isVisible()) place(); }, 10_000);
   lobby.loadURL(PAGE_URL);
@@ -275,7 +292,11 @@ function stopBlocker() {
 
 function closeLobby() {
   clearTimeout(retryTimer);
+  setupMode = false;
   if (!lobby || lobby.isDestroyed()) return;
+  // Chromium writes localStorage lazily: commit tonight's login, tally and
+  // seen-set before the page goes, so a reboot or power cut loses nothing.
+  try { lobby.webContents.session.flushStorageData(); } catch { /* best effort */ }
   closingByApp = true;
   try { lobby.destroy(); } finally { closingByApp = false; }
   lobby = null;
@@ -303,7 +324,7 @@ function requestShow() {
     saveState();
   }
   evaluate();
-  if (lobby && !lobby.isDestroyed()) { place(); lobby.focus(); }
+  if (lobby && !lobby.isDestroyed()) place(true);
 }
 
 /** The whole rule, re-asked every minute on the minute and after anything changes. */
@@ -435,6 +456,9 @@ function updateTray() {
     { label: 'Hide until the next club night', enabled: visible, click: () => { state.overrides = hide(state.overrides, currentWindow()); saveState(); evaluate(); } },
     { label: 'Resume schedule', enabled: overridden, click: () => { state.overrides = NO_OVERRIDES; saveState(); evaluate(); } },
     { type: 'separator' },
+    setupMode
+      ? { label: 'Back to the lobby TV', click: () => { setupMode = false; placedAs = null; place(true); } }
+      : { label: 'Set up on this screen (in a window)', click: () => { setupMode = true; requestShow(); place(true); } },
     { label: 'Choose the lobby TV...', click: openChooser },
     { label: 'Reload the page', enabled: Boolean(lobby), click: () => lobby?.loadURL(PAGE_URL) },
     { type: 'separator' },
@@ -507,14 +531,30 @@ if (!app.requestSingleInstanceLock()) {
 
   // A tray app: closing its last window is not quitting.
   app.on('window-all-closed', () => {});
-  app.on('before-quit', () => { closingByApp = true; });
+  app.on('before-quit', () => {
+    closingByApp = true;
+    try { if (lobby && !lobby.isDestroyed()) lobby.webContents.session.flushStorageData(); } catch { /* best effort */ }
+  });
 
   app.whenReady().then(() => {
     Menu.setApplicationMenu(null);
+
+    // Settings and slide exports are <a download> links: save them straight
+    // to Downloads and show the file, instead of a Save dialog on the TV.
+    session.fromPartition('persist:lobby').on('will-download', (_e, item) => {
+      const file = path.join(app.getPath('downloads'), item.getFilename());
+      item.setSavePath(file);
+      item.once('done', (_ev, st) => { if (st === 'completed') shell.showItemInFolder(file); log('download', st, file); });
+    });
     state = { display: null, overrides: NO_OVERRIDES, ...readJson(statePath(), {}) };
     if (!state.overrides || typeof state.overrides !== 'object') state.overrides = NO_OVERRIDES;
     sources = { schedule: null, feed: null, fetchedAt: 0, ...readJson(sourcesPath(), {}) };
     log(`start ${app.getVersion()}`, { site: SITE, argv: process.argv.slice(1), clockOffset: CLOCK_OFFSET });
+    // The app keeps the church's clock (schedule.json's timezone); the page
+    // keeps the PC's. They only disagree if Windows is set to the wrong zone.
+    const pcZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const churchZone = sources.schedule?.timezone || 'America/New_York';
+    if (pcZone !== churchZone) log(`warning: this PC's time zone is ${pcZone}, the church's is ${churchZone}`);
 
     // Start with Windows from the first run on; the tray can turn it off.
     if (!DEV && !SMOKE && !state.autostartSet) {

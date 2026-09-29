@@ -686,10 +686,12 @@ installs it). `desktop/README.md` is the volunteer's guide. The owner's calls:
   restarts. Nothing in the page knows it is in the app: `window.self ===
   window.top`, so it is not "embedded".
 - **Club nights are the signage's own** (`src/clubNight.js`, pure): a
-  `noClub` date in `shared/schedule.json` never shows; where
-  `calendar-feed.json` covers the date (generated on or before it, events on
-  or after it) an uncancelled `kind: 'club'` event decides; otherwise the
-  schedule's meeting day (Wednesday). The window is 17:00 inclusive to 20:00
+  `noClub` date in `shared/schedule.json` never shows; a specialDates entry
+  with its own `windows` is a special meeting and does; with a
+  `calendar-feed.json` (it lists the whole season), a date after its last
+  event is past the season and stays dark (summer), and a date it covers
+  shows exactly when an uncancelled `kind: 'club'` event is on it; with no
+  feed at all, the schedule's meeting day (Wednesday). The window is 17:00 inclusive to 20:00
   exclusive in the schedule's `timezone`, re-asked every minute on the
   minute, so it closes at exactly 8:00. Both files are fetched hourly and the
   last good copies kept in userData, so a dead internet at 5 pm still opens.
@@ -708,10 +710,18 @@ installs it). `desktop/README.md` is the volunteer's guide. The owner's calls:
   the TV on `display-added`. The chooser is one numbered card per monitor
   (`static/chooser.html`, a two-call preload); it opens on first run with
   more than one monitor and from the tray.
-- **Sound is allowed** (owner's choice; `autoplayPolicy:
-  'no-user-gesture-required'`). The cursor hides after 3 s still; display sleep
-  is blocked while visible; external links open in the default browser; a
-  failed first load shows `static/offline.html` and retries every 30 s.
+- **Sound is allowed, videos stay muted** (owner, 2026-09-29): `autoplayPolicy:
+  'no-user-gesture-required'` lets the page's optional check-in chime play
+  without a gesture, but the page's `<video muted>` is left alone. The cursor
+  hides after 3 s still; display sleep is blocked while visible; the 5 pm open
+  uses `showInactive()` so it never takes focus from the booth; the window only
+  navigates within this site's path (the github.io origin also serves Journey
+  and the printer); external links open in the default browser; downloads save
+  straight to Downloads (`will-download`), never a Save dialog on the TV;
+  localStorage is flushed before the window closes and on quit; a failed first
+  load shows `static/offline.html` and retries every 30 s. The tray's **Set up
+  on this screen** shows the page windowed on the primary monitor (display
+  login, uploads) until "Back to the lobby TV" or the showing ends.
 - **Updates** (electron-updater, GitHub provider, channel `lobby`, so the app
   reads `lobby.yml` and can never install another app's `latest.yml`):
   downloaded in the background, installed only while nothing is on screen.

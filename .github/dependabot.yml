@@ -19,6 +19,17 @@ updates:
       prod-minor-patch:
         dependency-type: production
         update-types: ["minor", "patch"]
+  # The sound room desktop app (desktop/): an always-on Electron window that
+  # loads a remote page, so its Electron must keep getting security updates.
+  - package-ecosystem: npm
+    directory: "/desktop"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      electron:
+        patterns: ["electron", "electron-builder", "electron-updater"]
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

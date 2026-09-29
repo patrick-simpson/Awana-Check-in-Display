@@ -46,9 +46,17 @@ describe('isClubNight', () => {
     expect(isClubNight('2026-09-30', 3, { schedule })).toBe(false);
   });
 
-  it('with no feed, or a stale one, falls back to the meeting day', () => {
-    expect(isClubNight('2026-11-04', 3, { schedule: SCHEDULE, feed: FEED })).toBe(true); // after the feed ends
-    expect(isClubNight('2026-11-05', 4, { schedule: SCHEDULE, feed: FEED })).toBe(false);
+  it('after the feed\'s last event the season is over: summer Wednesdays stay dark', () => {
+    expect(isClubNight('2026-11-04', 3, { schedule: SCHEDULE, feed: FEED })).toBe(false);
+    expect(isClubNight('2027-07-07', 3, { schedule: SCHEDULE, feed: FEED })).toBe(false);
+  });
+
+  it('a special meeting in the shared schedule is a club night, on any day', () => {
+    const schedule = { ...SCHEDULE, specialDates: { '2026-10-01': { label: 'Special', windows: [{ kind: 'game', start: '18:00', end: '19:00' }] } } };
+    expect(isClubNight('2026-10-01', 4, { schedule, feed: FEED })).toBe(true);
+  });
+
+  it('with no feed (or for a date before it was generated) falls back to the meeting day', () => {
     expect(isClubNight('2026-09-23', 3, { schedule: SCHEDULE, feed: FEED })).toBe(true); // before it was generated
     expect(isClubNight('2026-09-30', 3, {})).toBe(true);
     expect(isClubNight('2026-09-29', 2, {})).toBe(false);
