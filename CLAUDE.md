@@ -642,21 +642,28 @@ over it. `src/lib/flagship.js` is the pure half (`FLAGSHIP_SLIDE`,
   notice (it is a `.lobby-media`). `e2e/flagship.events.spec.js` drives all of
   that in a real browser.
 - **A 10 second title sequence** (`FLAGSHIP_DURATION_SEC`, the slide's own
-  hold): clouds drift in, six club-colour waves sweep up, the corner tab
-  drops, WELCOME and TO AWANA! assemble letter by letter with a spring,
-  sparkles land, and a sheen crosses the headline once. No club plates and no
-  kicker (owner's call, 2026-09-29). The beat sheet is at the top of the
-  component. Same rules as the posters: every element is `M.*`, every beat is
-  a `landsAt` / `keyframes` list (never `initial` plus a long delay), the LAST
-  keyframe is the finished slide (that is what `?lowPower=1` freezes on; the
-  sheen ends invisible), and the whole slide is a `role="img"` with one label
-  so screen readers do not read 15 letters.
+  hold): two clouds drift in, WELCOME and TO AWANA! assemble letter by letter
+  with a spring, sparkles land, and a sheen crosses the headline once. No club
+  plates, no kicker and no waves of its own (owner's calls, 2026-09-29). The
+  beat sheet is at the top of the component. Same rules as the posters: every
+  element is `M.*`, every beat is a `landsAt` / `keyframes` list (never
+  `initial` plus a long delay), the LAST keyframe is the finished slide (that
+  is what `?lowPower=1` freezes on; the sheen ends invisible), and the whole
+  slide is a `role="img"` with one label so screen readers do not read 15
+  letters.
+- **The foot and the corner tab are the scene's own chrome.** Unlike a video
+  or a poster (`chromeAway`), the flagship leaves `CatalogScene`'s orange
+  corner tab and its sunflower + orange house waves at home, so it wears the
+  same orange shape as every typed slide and the hand-offs into and out of it
+  behave exactly like a copy slide's (`ManualSlideshow`:
+  `chromeAway={kind === 'video' || kind === 'promo'}`). It draws neither a
+  tab nor waves of its own; do not add them back (they would double up).
 - **Layout.** Everything stands in the 100u x 56.25u frame; the headline
-  starts 17u down (clear of the corner tab and the top-right stack) and ends
-  above 45u, where the lobby's content stops, so the first-run card and the
-  corner chips never cover it (`e2e/flagship.spec.js` measures that at five
-  sizes). The headline is Paytone One in `--font-shout` with the kit's hard
-  offset shadow, never a blur.
+  starts 19u down (clear of the corner tab and the top-right stack) and ends
+  above 45u, where the lobby's content stops and the house waves begin, so the
+  first-run card and the corner chips never cover it (`e2e/flagship.spec.js`
+  measures that at five sizes). The headline is Paytone One in `--font-shout`
+  with the kit's hard offset shadow, never a blur.
 - **What it changed elsewhere.** Every deck now has one more slide, so a test
   that watches a deck from boot starts on the flagship: `App.director.test.jsx`
   plays it out first (`mountPastFlagship`) where it needs Slide A, and the

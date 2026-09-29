@@ -235,7 +235,9 @@ export default function ManualSlideshow({ slides, slideshowDelaySec, clubTint = 
       <CatalogScene
         theme={transition.theme}
         wipe={transition.wipe}
-        chromeAway={kind !== 'copy'}
+        // The flagship keeps the scene's own chrome (the orange tab and house
+        // waves every other slide has); only a video or a poster covers it.
+        chromeAway={kind === 'video' || kind === 'promo'}
         chromeVia={transition.via}
         swell={transition.swells}
         clubTint={clubTint}

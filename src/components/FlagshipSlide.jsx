@@ -1,8 +1,4 @@
 import { M } from '../lib/motion.jsx';
-import { getClubPalette } from '../lib/clubs.js';
-import { FLAGSHIP_CLUBS } from '../lib/flagship.js';
-import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
-import Wave from './brand/Wave.jsx';
 import DoodleCluster from './brand/DoodleCluster.jsx';
 import { landsAt, keyframes, EASE_SLAM, EASE_OUT, EASE_INOUT } from './promos/kit.jsx';
 
@@ -12,9 +8,8 @@ import { landsAt, keyframes, EASE_SLAM, EASE_OUT, EASE_INOUT } from './promos/ki
 //
 // Beat sheet (seconds into the 10 s hold):
 //   0.0  the studio sky is already up; two clouds drift in from the sides.
-//   0.2  six club-colour waves sweep up from below, one after another, and
-//        settle into a banner across the foot of the screen.
-//   0.7  the orange corner tab drops in with the Awana Clubs mark.
+//        (The orange corner tab and the house waves along the foot are the
+//        scene's own chrome, the same on every slide: not drawn here.)
 //   1.3  WELCOME assembles letter by letter, each letter springing up from
 //        below its mask with a little tilt; 2.1 TO AWANA! does the same, a
 //        beat behind.
@@ -31,15 +26,6 @@ import { landsAt, keyframes, EASE_SLAM, EASE_OUT, EASE_INOUT } from './promos/ki
 // ─────────────────────────────────────────────────────────────
 
 const ROWS = Object.freeze(['Welcome', 'to Awana!']);
-
-/** The waves, back to front: each club's colour, height (% of the screen) and offset. */
-const WAVES = FLAGSHIP_CLUBS.map((club, i) => ({
-  club,
-  color: getClubPalette(club).primary,
-  height: 22 - i * 2.4,
-  flip: i % 2 === 1,
-  at: 0.2 + i * 0.16,
-}));
 
 /** One headline row: each letter its own beat. */
 function Row({ text, startAt, row }) {
@@ -111,27 +97,6 @@ export default function FlagshipSlide() {
         <M.i className="flagship-cloud flagship-cloud--a" {...landsAt(0, 1.4, { x: ['-30%', '0%'], opacity: [0, 1] }, EASE_OUT)} />
         <M.i className="flagship-cloud flagship-cloud--b" {...landsAt(0.15, 1.4, { x: ['30%', '0%'], opacity: [0, 1] }, EASE_OUT)} />
       </div>
-
-      <div className="flagship-waves" aria-hidden="true">
-        {WAVES.map((w) => (
-          <Wave
-            key={w.club}
-            className="flagship-wave"
-            color={w.color}
-            flip={w.flip}
-            style={{ height: `${w.height}%` }}
-            {...landsAt(w.at, 0.9, { y: ['110%', '0%'] }, EASE_SLAM)}
-          />
-        ))}
-      </div>
-
-      <M.div
-        className="flagship-tab"
-        aria-hidden="true"
-        {...landsAt(0.7, 0.6, { y: ['-105%', '0%'] }, EASE_SLAM)}
-      >
-        <img src={awanaClubsMark} alt="" />
-      </M.div>
 
       <div className="flagship-copy">
         <div className="flagship-title">

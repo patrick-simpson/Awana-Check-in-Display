@@ -44,7 +44,18 @@ test('a screen with no slides of its own opens on the finished flagship, at rest
     expect(l.op).toBe(1);
     expect(['none', 'matrix(1, 0, 0, 1, 0, 0)']).toContain(l.t);
   }
-  expect(await page.locator('.flagship-plate, .flagship-kicker').count()).toBe(0);
+  expect(await page.locator('.flagship-plate, .flagship-kicker, .flagship-wave, .flagship-tab').count()).toBe(0);
+  // The foot is the scene's own chrome, as on every typed slide: the orange
+  // house wave and its sunflower, and the orange corner tab, all home.
+  await expect(page.locator('.lobby-chrome')).not.toHaveClass(/lobby-chrome--away/);
+  const chrome = await page.evaluate(() => {
+    const box = (sel) => { const e = document.querySelector(sel); const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, op: Number(getComputedStyle(e.closest('.lobby-chrome')).opacity) }; };
+    return { house: box('.lobby-wave--house'), sun: box('.lobby-wave--sun'), tab: box('.lobby-tab'), vw: innerWidth, vh: innerHeight };
+  });
+  expect(chrome.house.b).toBeGreaterThan(chrome.vh - 2);
+  expect(chrome.house.t).toBeGreaterThan(chrome.vh * 0.75);
+  expect(chrome.tab.l).toBeLessThanOrEqual(1);
+  expect(chrome.tab.t).toBeLessThanOrEqual(1);
   // Zero animation: nothing is moving, and the sheen has left.
   expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running').length)).toBe(0);
   expect(Number(await page.locator('.flagship-sheen').evaluate((e) => getComputedStyle(e).opacity))).toBe(0);
@@ -58,7 +69,7 @@ test('the headline stays clear of the corner tab and the foot at every common si
     const boxes = await page.evaluate(() => {
       const r = (sel) => { const e = document.querySelector(sel); const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
       const rows = [...document.querySelectorAll('.flagship-row')].map((e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; });
-      return { tab: r('.flagship-tab'), rows, vw: innerWidth, vh: innerHeight };
+      return { tab: r('.lobby-tab'), rows, vw: innerWidth, vh: innerHeight };
     });
     const u = Math.min(boxes.vw / 100, boxes.vh / 56.25);
     const frameTop = (boxes.vh - 56.25 * u) / 2;

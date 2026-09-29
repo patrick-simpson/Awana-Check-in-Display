@@ -430,6 +430,19 @@ describe('ManualSlideshow on the lobby scene (rebrand stage 4b)', () => {
     expect(container.querySelector('.catalog-scene--night')).not.toBeNull();
   });
 
+  it('keeps the orange tab and house waves at home under the flagship, and sends them aside for a poster', () => {
+    const flagship = { id: 'flagship_welcome', type: 'flagship', durationSec: 5 };
+    const { container } = render(<ManualSlideshow slides={[flagship, sky[0], promo]} slideshowDelaySec={5} />);
+    const chrome = () => container.querySelector('.lobby-chrome');
+    expect(container.querySelector('.flagship')).not.toBeNull();
+    expect(chrome().className).toContain('lobby-chrome--home');
+    expect(chrome().className).not.toContain('lobby-chrome--away');
+    act(() => vi.advanceTimersByTime(5000)); // → an ordinary slide
+    expect(chrome().className).toContain('lobby-chrome--home');
+    act(() => vi.advanceTimersByTime(5000)); // → the poster
+    expect(chrome().className).toContain('lobby-chrome--away');
+  });
+
   // Where the chrome goes for a poster and for a video, and when, is pinned
   // at the wiring (lobbyWiring.test.jsx) and in the styles it ends at
   // (CatalogScene.test.jsx).
