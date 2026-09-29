@@ -146,3 +146,29 @@ describe('the shout face (app.css)', () => {
     expect(SHOUT_BOX.ascent + SHOUT_BOX.descent).toBeCloseTo(1.396, 3);
   });
 });
+
+describe('the label face (app.css)', () => {
+  const faces = fontFaces(css);
+  const label = faces.filter((f) => f.family === 'Londrina Solid');
+  const main = readFileSync(resolve(__dirname, '../main.jsx'), 'utf8');
+
+  it('is Londrina Solid from the kit\'s own full files: never a subset under its reserved name', () => {
+    // Exactly one @font-face: a second (say a latin cut by unicode-range) would
+    // be a Modified Version carrying the reserved name "Londrina Solid".
+    expect(label).toHaveLength(1);
+    expect(label[0].d.src).toBe(
+      "url('../../shared/brand/fonts/londrina-solid-full-400-normal.woff2') format('woff2'), url('../../shared/brand/fonts/LondrinaSolid-Regular.ttf') format('truetype')",
+    );
+    expect(label[0].d['unicode-range']).toBeUndefined();
+    expect(main).not.toMatch(/@fontsource\/londrina/);
+    expect(css).not.toMatch(/@fontsource\/londrina/);
+  });
+
+  it('is the 400 cut only: declaring the Black would let any font-weight 700+ rule pick it', () => {
+    expect(label[0].d['font-weight']).toBe('400');
+    expect(label[0].d['font-style']).toBe('normal');
+    expect(css).not.toMatch(/londrina-solid-full-900|LondrinaSolid-Black/);
+    // ...and no synthesized bold is smeared over the 400 cut when a rule asks for one.
+    expect(ALL.find((r) => r.selector === ':root' && /--font-display/.test(r.body))?.body).toMatch(/font-synthesis-weight:\s*none/);
+  });
+});
