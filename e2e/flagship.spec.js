@@ -44,16 +44,13 @@ test('a screen with no slides of its own opens on the finished flagship, at rest
     expect(l.op).toBe(1);
     expect(['none', 'matrix(1, 0, 0, 1, 0, 0)']).toContain(l.t);
   }
-  // Six club plates, each with its mark, all resting.
-  const plates = await page.locator('.flagship-plate').evaluateAll((els) => els.map((e) => ({ op: Number(getComputedStyle(e).opacity), img: !!e.querySelector('img'), w: e.getBoundingClientRect().width })));
-  expect(plates).toHaveLength(6);
-  for (const p of plates) { expect(p.op).toBe(1); expect(p.img).toBe(true); expect(p.w).toBeGreaterThan(50); }
+  expect(await page.locator('.flagship-plate, .flagship-kicker').count()).toBe(0);
   // Zero animation: nothing is moving, and the sheen has left.
   expect(await page.evaluate(() => document.getAnimations().filter((a) => a.playState === 'running').length)).toBe(0);
   expect(Number(await page.locator('.flagship-sheen').evaluate((e) => getComputedStyle(e).opacity))).toBe(0);
 });
 
-test('the headline and the plates stay clear of the corner tab and the foot at every common size', async ({ page }) => {
+test('the headline stays clear of the corner tab and the foot at every common size', async ({ page }) => {
   await boot(page);
   for (const [w, h] of [[1024, 768], [1280, 720], [1366, 768], [1920, 1080], [3840, 2160]]) {
     await page.setViewportSize({ width: w, height: h });
@@ -61,8 +58,7 @@ test('the headline and the plates stay clear of the corner tab and the foot at e
     const boxes = await page.evaluate(() => {
       const r = (sel) => { const e = document.querySelector(sel); const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
       const rows = [...document.querySelectorAll('.flagship-row')].map((e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; });
-      const plates = [...document.querySelectorAll('.flagship-plate')].map((e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; });
-      return { tab: r('.flagship-tab'), rows, plates, vw: innerWidth, vh: innerHeight };
+      return { tab: r('.flagship-tab'), rows, vw: innerWidth, vh: innerHeight };
     });
     const u = Math.min(boxes.vw / 100, boxes.vh / 56.25);
     const frameTop = (boxes.vh - 56.25 * u) / 2;
@@ -72,10 +68,8 @@ test('the headline and the plates stay clear of the corner tab and the foot at e
       expect(row.l, `${w}x${h}`).toBeGreaterThan(0);
       expect(row.r, `${w}x${h}`).toBeLessThan(boxes.vw);
     }
-    // The lobby's content ends 45u down (LAYOUT.safeBottom): nothing of this slide's text or plates below it.
-    for (const p of boxes.plates) expect(p.b - frameTop, `${w}x${h}: a plate below 45u`).toBeLessThanOrEqual(45.2 * u);
-    // ...and the plates do not touch the headline above them.
+    // The lobby's content ends 45u down (LAYOUT.safeBottom): nothing of the headline below it.
     const lowestRow = Math.max(...boxes.rows.map((r) => r.b));
-    for (const p of boxes.plates) expect(p.t, `${w}x${h}: a plate up in the headline`).toBeGreaterThan(lowestRow - 0.5 * u);
+    expect(lowestRow - frameTop, `${w}x${h}: the headline below 45u`).toBeLessThanOrEqual(45.2 * u);
   }
 });

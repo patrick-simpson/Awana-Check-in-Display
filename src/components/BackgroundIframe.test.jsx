@@ -51,7 +51,7 @@ describe('normalizeEmbedUrl', () => {
 // The typed/published deck is the DEFAULT source now, so a screen with nothing
 // else set plays it; and panic mode's placeholder path (powerpoint + no URL)
 // must keep showing the placeholder, never a deck.
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
 import { FLAGSHIP_DURATION_SEC } from '../lib/flagship.js';
 
@@ -66,13 +66,19 @@ const BackgroundIframe = (await import('./BackgroundIframe.jsx')).default;
 // holds FLAGSHIP_DURATION_SEC; these tests look at what comes after it.
 const pastFlagship = () => act(() => { vi.advanceTimersByTime(FLAGSHIP_DURATION_SEC * 1000 + 50); });
 
+// The flagship is off the air Wednesday 6:30-8:30 pm (flagshipOnAir), so every
+// test runs on a Tuesday noon rather than whenever the suite happens to run.
+const TUESDAY = new Date(2026, 8, 29, 12, 0);
+beforeEach(() => { vi.useFakeTimers({ toFake: ['Date'], now: TUESDAY }); });
+afterEach(() => { vi.useRealTimers(); });
+
 const DECK = [{ id: 's_1', eyebrow: '', text: 'Synced deck', theme: 'sky', durationSec: 0, textSize: 'auto' }];
 
 describe('source selection', () => {
   afterEach(cleanup);
 
   it('renders the typed/published deck under the manual source, after the flagship welcome', () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ now: TUESDAY });
     try {
       const { container } = render(
         <BackgroundIframe backgroundSource="manual" manualSlides={DECK} calendarSlides={[]} url="" slideshowDelaySec={5} />
@@ -102,6 +108,21 @@ describe('source selection', () => {
   });
 });
 
+describe('the flagship is off the air during Wednesday club', () => {
+  afterEach(cleanup);
+
+  it('leaves the deck to its own slides from 6:30 pm, and comes back at 8:30 pm', () => {
+    vi.useFakeTimers({ now: new Date(2026, 8, 30, 19, 0) }); // a Wednesday
+    const { container } = render(
+      <BackgroundIframe backgroundSource="manual" manualSlides={DECK} calendarSlides={[]} url="" slideshowDelaySec={5} />
+    );
+    expect(container.querySelector('.flagship')).toBeNull();
+    expect(container.querySelector('.manual-slide-text').textContent).toBe('Synced deck');
+    act(() => { vi.setSystemTime(new Date(2026, 8, 30, 20, 30)); vi.advanceTimersByTime(31_000); });
+    expect(container.querySelector('.flagship')).toBeTruthy();
+  });
+});
+
 describe('an all-expired typed deck (#345) is never a blank screen', () => {
   afterEach(cleanup);
 
@@ -111,7 +132,7 @@ describe('an all-expired typed deck (#345) is never a blank screen', () => {
   const CAL = [{ id: 'cal_1', eyebrow: 'Tonight', text: 'Welcome to Awana!', theme: 'sky', durationSec: 0, textSize: 'auto' }];
 
   it('falls back to the calendar slides, behind the flagship', () => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ now: TUESDAY });
     try {
       const { container } = render(
         <BackgroundIframe backgroundSource="manual" manualSlides={[]} calendarSlides={CAL} url="" slideshowDelaySec={5} />

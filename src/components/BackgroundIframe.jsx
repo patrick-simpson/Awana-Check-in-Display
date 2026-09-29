@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { withFlagship } from '../lib/flagship.js';
+import { useEffect, useMemo, useState } from 'react';
+import { flagshipOnAir, withFlagship } from '../lib/flagship.js';
 import PptxSlideshow from './PptxSlideshow.jsx';
 import ManualSlideshow from './ManualSlideshow.jsx';
 import CatalogScene from './CatalogScene.jsx';
@@ -112,9 +112,16 @@ export default function BackgroundIframe({
   // built in, never stored. It is only ever put in front of the typed deck
   // that ManualSlideshow plays, so the video, PowerPoint and embed sources
   // are untouched.
+  // Off the air Wednesdays 6:30-8:30 pm (flagshipOnAir): a boolean, so the
+  // deck's identity only changes when the window opens or closes.
+  const [flagshipOn, setFlagshipOn] = useState(() => flagshipOnAir());
+  useEffect(() => {
+    const t = setInterval(() => setFlagshipOn(flagshipOnAir()), 30_000);
+    return () => clearInterval(t);
+  }, []);
   const deck = useMemo(
-    () => withFlagship([...(calendarSlides || []), ...(manualSlides || [])]),
-    [calendarSlides, manualSlides]
+    () => withFlagship([...(calendarSlides || []), ...(manualSlides || [])], flagshipOn),
+    [calendarSlides, manualSlides, flagshipOn]
   );
 
   // Full-screen looping video (#25): one file uploaded in Settings,

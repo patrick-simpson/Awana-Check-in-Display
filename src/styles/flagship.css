@@ -3,7 +3,7 @@
    FlagshipSlide.jsx owns the timing; this file owns the look. It stands in
    the same 100u x 56.25u frame as the lobby copy (u = 1% of a 16:9 stage),
    full-bleed field behind it. Layers, lowest first: clouds 0, waves 1,
-   headline 2, doodles 3, the parade 4, the corner tab 5. */
+   headline 2, doodles 3, the corner tab 5. */
 
 .flagship {
   position: absolute;
@@ -26,7 +26,6 @@
 .flagship-clouds,
 .flagship-waves,
 .flagship-copy,
-.flagship-parade,
 .flagship-doodle-slot {
   position: absolute;
   inset: 0;
@@ -71,16 +70,8 @@
   flex-direction: column;
   align-items: center;
   /* Above the waves, clear of the tab and the top-right stack. */
-  padding-top: calc(13.4 * var(--u));
+  padding-top: calc(17 * var(--u));
   box-sizing: border-box;
-}
-.flagship-kicker {
-  font-family: var(--font-condensed);
-  font-size: calc(3 * var(--u));
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--brand-blue-deep);
-  margin-bottom: calc(0.6 * var(--u));
 }
 .flagship-title { position: relative; }
 .flagship-row {
@@ -88,12 +79,12 @@
   justify-content: center;
   gap: 0.28em;
   font-family: var(--font-shout);
-  font-size: calc(10.4 * var(--u));
+  font-size: calc(11.6 * var(--u));
   line-height: 0.9;
   text-transform: uppercase;
   color: #fff;
 }
-.flagship-row--1 { font-size: calc(9.2 * var(--u)); }
+.flagship-row--1 { font-size: calc(10.2 * var(--u)); }
 .flagship-word { display: flex; }
 /* The mask each letter rises from; padded so the hard shadow and the tall
    accents are never cut by it. */
@@ -121,27 +112,3 @@
 .flagship-doodles { position: absolute; }
 .flagship-doodle-slot--left .flagship-doodles { left: calc(5 * var(--u)); top: calc(15 * var(--u)); width: calc(20 * var(--u)); height: calc(18 * var(--u)); inset: auto; }
 .flagship-doodle-slot--right .flagship-doodles { right: calc(5 * var(--u)); top: calc(13 * var(--u)); width: calc(20 * var(--u)); height: calc(18 * var(--u)); inset: auto; }
-
-.flagship-parade {
-  z-index: 4;
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  gap: calc(2.4 * var(--u));
-  /* Above the first-run card's strip and the corner chips (45u down is where
-     the lobby's content ends), so nothing here is ever covered. */
-  padding-bottom: calc(12 * var(--u));
-  box-sizing: border-box;
-}
-.flagship-plate {
-  width: calc(10.4 * var(--u));
-  height: calc(5.6 * var(--u));
-  display: grid;
-  place-items: center;
-  background: var(--plate);
-  border-radius: calc(1.6 * var(--u));
-  /* A hard offset shadow, never a blur (the kit's rule). */
-  box-shadow: calc(0.35 * var(--u)) calc(0.4 * var(--u)) 0 var(--plate-deep);
-  outline: calc(0.28 * var(--u)) solid #fff;
-}
-.flagship-plate img { display: block; width: 80%; height: 68%; object-fit: contain; }

@@ -15,15 +15,12 @@ import { landsAt, keyframes, EASE_SLAM, EASE_OUT, EASE_INOUT } from './promos/ki
 //   0.2  six club-colour waves sweep up from below, one after another, and
 //        settle into a banner across the foot of the screen.
 //   0.7  the orange corner tab drops in with the Awana Clubs mark.
-//   1.0  TONIGHT rises; 1.3 WELCOME assembles letter by letter, each letter
-//        springing up from below its mask with a little tilt; 2.1 TO AWANA!
-//        does the same, a beat behind.
-//   3.0  the six club marks pop onto their waves left to right, each on its
-//        own club-colour plate, with an overshoot.
-//   3.9  sparkles and dots land round the headline; the whole parade then
-//        breathes once (4.4) and the headline throws its hard shadow (4.2).
-//   6.4  a bright band sweeps once across both headline rows.
-//   8.2  the six plates hop in a wave, left to right, and the frame holds.
+//   1.3  WELCOME assembles letter by letter, each letter springing up from
+//        below its mask with a little tilt; 2.1 TO AWANA! does the same, a
+//        beat behind.
+//   3.9  sparkles and dots land round the headline.
+//   6.4  a bright band sweeps once across both headline rows, and the frame
+//        holds.
 //
 // Rules (CLAUDE.md, "Season promo slides" and zero animation): every animated
 // element is M.*, every beat is a keyframe list that holds and then lands
@@ -33,7 +30,6 @@ import { landsAt, keyframes, EASE_SLAM, EASE_OUT, EASE_INOUT } from './promos/ki
 // Check-ins play OVER this slide and it steps back for them (app.css).
 // ─────────────────────────────────────────────────────────────
 
-const KICKER = 'Tonight';
 const ROWS = Object.freeze(['Welcome', 'to Awana!']);
 
 /** The waves, back to front: each club's colour, height (% of the screen) and offset. */
@@ -94,39 +90,6 @@ function Sheen() {
   );
 }
 
-/** The club parade: six marks on six plates, popping in order, then hopping once. */
-function Parade() {
-  return (
-    <div className="flagship-parade">
-      {FLAGSHIP_CLUBS.map((club, i) => {
-        const p = getClubPalette(club);
-        const at = 3.0 + i * 0.18;
-        const hop = 8.2 + i * 0.1;
-        return (
-          <M.div
-            key={club}
-            className="flagship-plate"
-            style={{ '--plate': p.primary, '--plate-deep': p.deep }}
-            {...keyframes([
-              [0, { scale: 0, y: 30, opacity: 0 }],
-              [at, { scale: 0, y: 30, opacity: 0 }],
-              [at + 0.22, { scale: 1.22, y: -8, opacity: 1 }],
-              [at + 0.42, { scale: 0.95, y: 0, opacity: 1 }],
-              [at + 0.6, { scale: 1, y: 0, opacity: 1 }],
-              [hop, { scale: 1, y: 0, opacity: 1 }],
-              [hop + 0.18, { scale: 1.06, y: -16, opacity: 1 }],
-              [hop + 0.42, { scale: 1, y: 0, opacity: 1 }],
-              [10, { scale: 1, y: 0, opacity: 1 }],
-            ], EASE_OUT)}
-          >
-            <img src={p.logo} alt="" />
-          </M.div>
-        );
-      })}
-    </div>
-  );
-}
-
 const DOODLES_LEFT = [
   { kind: 'sparkle', x: '4%', y: '10%', size: 'calc(3.6 * var(--u))', rotate: -8 },
   { kind: 'dot', x: '24%', y: '2%', size: 'calc(1.1 * var(--u))' },
@@ -143,7 +106,7 @@ const DOODLES_RIGHT = [
  */
 export default function FlagshipSlide() {
   return (
-    <div className="flagship" role="img" aria-label="Tonight, welcome to Awana!">
+    <div className="flagship" role="img" aria-label="Welcome to Awana!">
       <div className="flagship-clouds" aria-hidden="true">
         <M.i className="flagship-cloud flagship-cloud--a" {...landsAt(0, 1.4, { x: ['-30%', '0%'], opacity: [0, 1] }, EASE_OUT)} />
         <M.i className="flagship-cloud flagship-cloud--b" {...landsAt(0.15, 1.4, { x: ['30%', '0%'], opacity: [0, 1] }, EASE_OUT)} />
@@ -171,13 +134,6 @@ export default function FlagshipSlide() {
       </M.div>
 
       <div className="flagship-copy">
-        <M.div
-          className="flagship-kicker"
-          aria-hidden="true"
-          {...landsAt(1.0, 0.5, { opacity: [0, 1], y: [16, 0] }, EASE_OUT)}
-        >
-          {KICKER}
-        </M.div>
         <div className="flagship-title">
           <Row text={ROWS[0]} startAt={1.3} row={0} />
           <Row text={ROWS[1]} startAt={2.1} row={1} />
@@ -193,8 +149,6 @@ export default function FlagshipSlide() {
       <M.div className="flagship-doodle-slot flagship-doodle-slot--right" aria-hidden="true" {...landsAt(4.0, 0.2, { opacity: [0, 1] }, 'linear')}>
         <DoodleCluster items={DOODLES_RIGHT} color="var(--brand-sun)" className="flagship-doodles" />
       </M.div>
-
-      <Parade />
     </div>
   );
 }

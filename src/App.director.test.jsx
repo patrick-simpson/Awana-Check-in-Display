@@ -110,7 +110,10 @@ const cornerIds = () => [...document.querySelectorAll('.corner-chip')]
   .map((c) => c.replace('corner-chip--', ''));
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    // A Tuesday noon: the flagship is off the air Wednesday 6:30-8:30 pm, and
+    // these tests must not depend on when they happen to run.
+    now: new Date(2026, 8, 29, 12, 0) });
   bound = {};
   reloadBusy = null;
   localStorage.clear();

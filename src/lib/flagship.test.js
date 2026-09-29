@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  FLAGSHIP_CLUBS, FLAGSHIP_DURATION_SEC, FLAGSHIP_ID, FLAGSHIP_SLIDE, isFlagshipSlide, withFlagship,
+  FLAGSHIP_CLUBS, FLAGSHIP_DURATION_SEC, flagshipOnAir, FLAGSHIP_ID, FLAGSHIP_SLIDE, isFlagshipSlide, withFlagship,
 } from './flagship.js';
 import { holdsCheckIns, slideDurationMs } from './slides.js';
 import { sanitizeSlides } from './slides.js';
@@ -38,7 +38,19 @@ describe('the flagship slide', () => {
     expect(sanitizeSlides([FLAGSHIP_SLIDE, { id: 's_1', text: 'Real slide', durationSec: 5 }]).map((s) => s.id)).toEqual(['s_1']);
   });
 
-  it('parades every club, in the catalog order', () => {
+  it('is off the air Wednesdays from 6:30 pm to 8:30 pm, local, and only then', () => {
+    const at = (d, h, m) => new Date(2026, 8, d, h, m); // Sep 30 2026 is a Wednesday
+    expect(flagshipOnAir(at(30, 18, 29))).toBe(true);
+    expect(flagshipOnAir(at(30, 18, 30))).toBe(false);
+    expect(flagshipOnAir(at(30, 19, 45))).toBe(false);
+    expect(flagshipOnAir(at(30, 20, 29))).toBe(false);
+    expect(flagshipOnAir(at(30, 20, 30))).toBe(true);
+    expect(flagshipOnAir(at(29, 19, 0))).toBe(true); // Tuesday
+    expect(flagshipOnAir(new Date(2026, 9, 1, 19, 0))).toBe(true); // Thursday
+    expect(withFlagship([{ id: 'a' }], false).map((s) => s.id)).toEqual(['a']);
+  });
+
+  it('names every club, in the catalog order (its waves)', () => {
     expect([...FLAGSHIP_CLUBS].sort()).toEqual([...getAllClubs()].sort());
   });
 });
