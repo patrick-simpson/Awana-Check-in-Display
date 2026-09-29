@@ -8,6 +8,11 @@ import { expect, test } from '@playwright/test';
 
 const URL130 = 'https://kvbc.example.org/awana/registration/2026-27/fall-family-sign-up-form?ref=lobby-tv&utm_source=signage&utm_campaign=fall-welcome-26';
 const NAMES = 'Ava Ben Cal Dee Eli Fay Gus Hal Ivy Jo Kit Lu Max Ned Oli Pia Quin Rose Sam Tess Uma Vic Wes Xan Yui Zane'.split(' ');
+// A URL with a hyphen every few letters: Chromium, left to wrap it itself,
+// breaks after each hyphen and needs more rows than the fit counted.
+const HYPHENS = `https://kvbc.example.org/${Array.from({ length: 14 }, (_, i) => `section-${i}-a-b`).join('/')}`;
+// Whole on one line only at about 1.5u.
+const URL90 = 'https://kvbc.example.org/awana/fall-2026/registration-form-for-families?ref=lobby-signage';
 
 async function showSlide(page, { eyebrow = '', text, config = {}, weather = null }) {
   await page.route(/pusher|twotimtwo|sockjs/, (route) => route.abort());
@@ -67,6 +72,112 @@ const measure = (page) => page.evaluate(() => {
     words: [...document.querySelectorAll('.lobby-headline .lobby-word')].map((w) => ({ text: w.textContent, ...rect(w.getBoundingClientRect()) })),
     text: document.querySelector('.lobby-headline').textContent,
   };
+});
+
+/**
+ * The headline's rows as Chromium drew them (one per distinct line of text),
+ * the rows the fit counted (data-rows), and where the block ends, in u of the
+ * stage.
+ */
+const rowsOf = (page) => page.evaluate(() => {
+  const stage = document.querySelector('.lobby-stage').getBoundingClientRect();
+  const u = stage.width / 100;
+  const headline = document.querySelector('.lobby-headline');
+  const rects = [];
+  const walker = document.createTreeWalker(headline, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (!n.data.trim()) continue;
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    rects.push(...[...range.getClientRects()].filter((r) => r.width > 0.5));
+  }
+  const tops = [...new Set(rects.map((r) => Math.round(r.top)))];
+  const mid = (stage.left + stage.right) / 2;
+  return {
+    counted: Number(headline.dataset.rows),
+    drawn: tops.length,
+    size: parseFloat(getComputedStyle(headline).fontSize) / u,
+    bottom: (headline.closest('.lobby-copy').getBoundingClientRect().bottom - stage.top) / u,
+    left: (Math.min(...rects.map((r) => r.left)) - mid) / u,
+    right: (Math.max(...rects.map((r) => r.right)) - mid) / u,
+  };
+});
+
+/** The left edge of each headline word, by its text. */
+const wordLefts = (page) => page.evaluate(() => Object.fromEntries(
+  [...document.querySelectorAll('.lobby-headline .lobby-word')].map((w) => {
+    const r = w.getBoundingClientRect();
+    return [w.textContent, { left: r.left, top: Math.round(r.top) }];
+  }),
+));
+
+for (const [width, height] of [[1920, 1080], [1280, 720], [1024, 768]]) {
+  test.describe(`a pasted URL at ${width}x${height}`, () => {
+    test.use({ viewport: { width, height } });
+
+    for (const [name, eyebrow, text] of [
+      ['full of hyphens', 'Sign up', HYPHENS],
+      ['inside a sentence', 'Register online', `Please register every child for the new club year before next Wednesday at ${HYPHENS.slice(0, 190)} and bring your forms`],
+    ]) {
+      test(`${name}: draws only the rows the fit counted, and nothing passes 45u`, async ({ page }) => {
+        await showSlide(page, { eyebrow, text });
+        const rows = await rowsOf(page);
+        expect(rows.counted).toBeGreaterThan(3);
+        expect(rows.drawn).toBe(rows.counted);
+        expect(rows.bottom).toBeLessThanOrEqual(45.05);
+        expect(rows.left).toBeGreaterThanOrEqual(-38.05);
+        expect(rows.right).toBeLessThanOrEqual(38.05);
+      });
+    }
+  });
+}
+
+test('a 90-character URL is cut at a readable size, never shrunk whole to a hairline', async ({ page }) => {
+  await showSlide(page, { text: URL90 });
+  const rows = await rowsOf(page);
+  expect(rows.size).toBeGreaterThanOrEqual(2.4);
+  expect(rows.drawn).toBe(rows.counted);
+  expect(rows.drawn).toBeGreaterThan(1);
+});
+
+test('a Hebrew phrase in an English sentence keeps its own order in the read layout', async ({ page }) => {
+  await showSlide(page, { text: 'We say שבת שלום טוב to all of you and your whole family this week, see you all at club again next Wednesday night' });
+  await expect(page.locator('.lobby-headline--read')).toBeVisible();
+  const w = await wordLefts(page);
+  expect(new Set([w.say.top, w['שבת'].top, w['טוב'].top, w.to.top]).size).toBe(1);
+  // Left to right on screen: say, then the phrase right to left, then to.
+  expect(w.say.left).toBeLessThan(w['טוב'].left);
+  expect(w['טוב'].left).toBeLessThan(w['שלום'].left);
+  expect(w['שלום'].left).toBeLessThan(w['שבת'].left);
+  expect(w['שבת'].left).toBeLessThan(w.to.left);
+});
+
+test('a Hebrew phrase in an English sentence keeps its own order when shouted', async ({ page }) => {
+  await showSlide(page, { text: 'Say שבת שלום טוב tonight' });
+  await expect(page.locator('.lobby-headline--shout')).toBeVisible();
+  const w = await wordLefts(page);
+  // However the rows fall, a phrase word sits left of the one before it on its row.
+  const pairs = [['שבת', 'שלום'], ['שלום', 'טוב']].filter(([a, b]) => w[a].top === w[b].top);
+  expect(pairs.length).toBeGreaterThan(0);
+  for (const [a, b] of pairs) expect(w[b].left).toBeLessThan(w[a].left);
+});
+
+test('English inside a Hebrew headline keeps its own order', async ({ page }) => {
+  await showSlide(page, { text: 'ברוכים הבאים ל Awana Clubs Tonight' });
+  const w = await wordLefts(page);
+  // The headline runs right to left, the English left to right within it.
+  expect(w['ברוכים'].left).toBeGreaterThan(w['הבאים'].left);
+  if (w.Awana.top === w.Clubs.top) expect(w.Awana.left).toBeLessThan(w.Clubs.left);
+  if (w.Clubs.top === w.Tonight.top) expect(w.Clubs.left).toBeLessThan(w.Tonight.left);
+  expect(w.Awana.top === w.Clubs.top || w.Clubs.top === w.Tonight.top).toBe(true);
+});
+
+test('Thai reads rather than shouts, so its marks clear the next row', async ({ page }) => {
+  await showSlide(page, { eyebrow: 'Tonight', text: 'ยินดีต้อนรับสู่ชมรมคืนนี้ กรุณานำหนังสือคู่มือ และพระคัมภีร์มาด้วย' });
+  await expect(page.locator('.lobby-headline--read')).toBeVisible();
+  const rows = await rowsOf(page);
+  expect(rows.drawn).toBe(rows.counted);
+  expect(rows.bottom).toBeLessThanOrEqual(45.05);
 });
 
 test('a long list, one name per line, stays above the house waves', async ({ page }) => {

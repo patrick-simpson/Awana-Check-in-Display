@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { ZeroAnimationContext } from '../lib/motion.jsx';
 import SlideCopy from './SlideCopy.jsx';
+import { fitFrame } from '../lib/lobbyFrame.js';
 
 afterEach(cleanup);
 
@@ -73,6 +74,37 @@ describe('SlideCopy', () => {
     for (const sel of ['.lobby-kicker', '.lobby-headline', '.lobby-sub']) expect(container.querySelector(sel).getAttribute('dir')).toBe('auto');
   });
 
+  it('isolates a run of words that reads against the headline, in its own direction, in both layouts', () => {
+    for (const [headline, mode] of [['Say שבת שלום טוב tonight', 'shout'], ['We say שבת שלום טוב to all of you and your whole family this week, see you all at club again next Wednesday night', 'read']]) {
+      const { container, unmount } = render(<SlideCopy frame={{ ...FRAME, headline, sub: '', chip: null }} still />);
+      const h = container.querySelector('.lobby-headline');
+      expect(h.classList.contains(`lobby-headline--${mode}`)).toBe(true);
+      const runs = h.querySelectorAll('bdi.lobby-run');
+      expect(runs).toHaveLength(1);
+      expect(runs[0].getAttribute('dir')).toBe('rtl');
+      expect([...runs[0].querySelectorAll('.lobby-word')].map((w) => w.textContent)).toEqual(['שבת', 'שלום', 'טוב']);
+      // The space before the run sits outside it, between it and "say".
+      expect(runs[0].textContent).toBe('שבת שלום טוב');
+      expect(runs[0].previousSibling.textContent).toBe(' ');
+      // Every other word is outside any run, and the headline still reads as typed.
+      expect(h.querySelectorAll('.lobby-word:not(bdi .lobby-word)').length).toBe(h.querySelectorAll('.lobby-word').length - 3);
+      expect(h.textContent).toBe(headline);
+      unmount();
+    }
+    const { container } = render(<SlideCopy frame={{ ...FRAME, headline: 'ברוכים Awana Clubs Tonight הבאים לערב המיוחד שלנו', sub: '', chip: null }} still />);
+    const run = container.querySelector('bdi.lobby-run');
+    expect(run.getAttribute('dir')).toBe('ltr');
+    expect([...run.querySelectorAll('.lobby-word')].map((w) => w.textContent)).toEqual(['Awana', 'Clubs', 'Tonight']);
+  });
+
+  it('a headline in one direction has no runs', () => {
+    for (const headline of ['Making Bracelets', 'ברוכים הבאים לאוואנה']) {
+      const { container, unmount } = render(<SlideCopy frame={{ ...FRAME, headline }} still />);
+      expect(container.querySelector('bdi')).toBeNull();
+      unmount();
+    }
+  });
+
   it('joins the words of a sentence with no spaces with nothing', () => {
     const text = '欢迎来到今晚的俱乐部活动请带上你的手册和圣经';
     const { container } = render(<SlideCopy frame={{ ...FRAME, headline: text, sub: '', chip: null }} still />);
@@ -81,12 +113,20 @@ describe('SlideCopy', () => {
     expect(headline.querySelectorAll('.lobby-word').length).toBeGreaterThan(3);
   });
 
-  it('a word too wide for any line wraps inside the read layout\'s width, on rows of its own', () => {
+  it('a word too wide for any line is drawn as the fit\'s own pieces, on rows of its own, inside the read layout\'s width', () => {
     const url = 'https://kvbc.example.org/awana/registration/2026-27/fall-family-sign-up-form?ref=lobby-tv&utm_source=signage&utm_campaign=fall-welcome-26';
     const { container } = render(<SlideCopy frame={{ ...FRAME, kicker: '', headline: `Register at ${url} tonight`, sub: '', chip: null }} still />);
     const wide = container.querySelector('.lobby-word--wide');
     expect(wide.textContent).toBe(url);
     expect(wide.style.maxWidth).toBe('calc(76 * var(--u))');
+    // Its rows are the fit's own pieces, split by <br>, never the browser's
+    // own wrap (which breaks after every hyphen, and needs more rows).
+    const fit = fitFrame({ kicker: '', headline: `Register at ${url} tonight`, sub: '', chip: null, textSize: 'auto' });
+    const pieces = fit.headline.lines.filter((_, r) => fit.headline.starts[r] === fit.headline.wide[0]);
+    expect(pieces.length).toBeGreaterThan(1);
+    expect(wide.querySelectorAll('br')).toHaveLength(pieces.length - 1);
+    expect([...wide.childNodes].filter((n) => n.nodeType === 3).map((n) => n.data)).toEqual(pieces);
+    expect(container.querySelector('.lobby-headline').dataset.rows).toBe(String(fit.headline.lines.length));
     // It is a block of its own, so no <br> sits beside it to add an empty row.
     expect(wide.previousElementSibling?.tagName).not.toBe('BR');
     expect(wide.nextElementSibling?.tagName).not.toBe('BR');

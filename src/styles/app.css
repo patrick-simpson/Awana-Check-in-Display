@@ -349,18 +349,20 @@ html, body, #root {
   color: var(--lobby-sub);
 }
 /* Every headline token is its own box, in both layouts, so a refit keeps
-   the same elements (SlideCopy.jsx); the rows are split by <br>. */
+   the same elements (SlideCopy.jsx); the rows are split by <br>. The bidi
+   algorithm sees each box as one neutral object, so a run of words against
+   the headline's direction sits in a <bdi dir> (.lobby-run) of its own. */
 .lobby-word {
   display: inline-block;
 }
-/* Only a word wider than any line (a pasted URL) may break: it takes rows of
-   its own and wraps inside the read layout's width (set inline from the
-   fit), never across the whole screen. */
+/* Only a word wider than any line (a pasted URL) is ever cut: it takes rows
+   of its own, inside the read layout's width (set inline from the fit), and
+   each row is one of the pieces the fit cut it into, split by <br>. It never
+   wraps on its own: the browser would break it where it likes (after every
+   hyphen) and need rows the fit never counted. */
 .lobby-word--wide {
   display: block;
   margin-inline: auto;
-  white-space: normal;
-  overflow-wrap: anywhere;
 }
 .lobby-sub {
   margin: 0;

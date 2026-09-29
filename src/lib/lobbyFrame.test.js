@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CHIP, KICKER, LAYOUT, LOBBY_THEMES, READ, SHOUT, SUB,
-  balancedBreaks, fitFrame, joinTokens, lobbyTheme, measureText, paragraphs, slideFrame, splitRun, tokenize,
+  balancedBreaks, bidiRuns, fitFrame, joinTokens, lobbyTheme, measureText, paragraphs, slideFrame, splitRun, tokenDirection, tokenize,
 } from './lobbyFrame.js';
 import { SLIDE_THEMES, MAX_TEXT } from './slides.js';
 import { buildCalendarSlides, deriveClubInfo } from './calendarLogic.js';
@@ -215,6 +215,19 @@ describe('fitFrame: text too long to shout', () => {
     }
   });
 
+  it('a URL that would fit whole only below 2.4u is cut at a readable size instead', () => {
+    // 90 characters: whole on one line only at about 1.5u, a hairline from
+    // across the lobby. It keeps the largest size its cut rows fit at.
+    const url = 'https://kvbc.example.org/awana/fall-2026/registration-form-for-families?ref=lobby-signage';
+    expect(url.length).toBeGreaterThanOrEqual(88);
+    expect(measure(url, 'read') * 1.5).toBeLessThanOrEqual(READ.width);
+    const fit = fitFrame(frame({ headline: url }), measure);
+    expect(fit.headline).toMatchObject({ mode: 'read', wide: [0] });
+    expect(fit.headline.size).toBeGreaterThanOrEqual(2.4);
+    expect(fit.headline.lines.join('')).toBe(url);
+    expect(fit.headline.lines.length).toBeGreaterThan(1);
+  });
+
   it('a long word that fits whole at a readable size is never cut', () => {
     const fit = fitFrame(frame({ headline: 'x'.repeat(45) }), measure);
     expect(fit.headline).toMatchObject({ mode: 'read', wide: [] });
@@ -259,6 +272,83 @@ describe('fitFrame: text too long to shout', () => {
     expect(fit.headline.size).toBeGreaterThanOrEqual(4);
     expect(fit.headline.lines.join('')).toBe(text);
     for (const line of fit.headline.lines) expect(rowWidth(fit, line)).toBeLessThanOrEqual(READ.width + 1e-6);
+  });
+});
+
+describe('fitFrame: scripts that stack their marks', () => {
+  // At the shout's .98 line height the marks above and below these letters
+  // touch across rows (Thai, measured); at the read layout's 1.22 they clear.
+  const STACKED = {
+    thai: 'ยินดีต้อนรับสู่ชมรมคืนนี้ กรุณานำหนังสือคู่มือ',
+    lao: 'ຍິນດີຕ້ອນຮັບສູ່ສະໂມສອນຄືນນີ້',
+    khmer: 'សូមស្វាគមន៍មកកាន់ក្លឹប យប់នេះ',
+    myanmar: 'ယနေ့ညကလပ်သို့ ကြိုဆိုပါသည်',
+    tamil: 'இன்றிரவு கிளப்புக்கு வரவேற்கிறோம்',
+    bengali: 'আজ রাতে ক্লাবে স্বাগতম',
+  };
+
+  it('read instead of shouting, whatever size the slide asks for', () => {
+    for (const [script, headline] of Object.entries(STACKED)) {
+      for (const textSize of ['auto', 'xl', 'lg']) {
+        const fit = fitFrame(frame({ headline, textSize }), measure);
+        expect(fit.headline.mode, `${script} at ${textSize}`).toBe('read');
+        expect(fit.headline.lineHeight).toBe(READ.lineHeight);
+      }
+    }
+    // Even one word of them in an English headline.
+    expect(fitFrame(frame({ headline: 'Welcome ยินดีต้อนรับ' }), measure).headline.mode).toBe('read');
+  });
+
+  it('the scripts the shout\'s own faces draw still shout: Latin, Vietnamese, Devanagari (Baloo 2), Hebrew, Chinese', () => {
+    for (const headline of ['Making bracelets', 'Chào mừng các em', 'आज रात क्लब में', 'ברוכים הבאים', '欢迎来到俱乐部']) {
+      expect(fitFrame(frame({ headline }), measure).headline.mode, headline).toBe('shout');
+    }
+  });
+});
+
+describe('bidiRuns: words that read against the headline', () => {
+  const runsOf = (text) => bidiRuns(tokenize(text).flat());
+  const words = (text, run) => tokenize(text).flat().slice(run.from, run.to).map((t) => t.text);
+
+  it('reads each token\'s direction from its first strong letter', () => {
+    expect(['Awana', 'שבת', 'مرحبا', '2026', '7:30', '—', '(שלום)', 'ל-Awana', '\u200Fx'].map(tokenDirection))
+      .toEqual(['ltr', 'rtl', 'rtl', 'num', 'num', null, 'rtl', 'rtl', 'rtl']);
+  });
+
+  it('isolates a Hebrew phrase in an English sentence, and English in a Hebrew one', () => {
+    const en = 'We say שבת שלום טוב to all of you';
+    expect(runsOf(en)).toEqual({ dir: 'ltr', runs: [{ from: 2, to: 5, dir: 'rtl' }] });
+    expect(words(en, runsOf(en).runs[0])).toEqual(['שבת', 'שלום', 'טוב']);
+    const he = 'ברוכים Awana Clubs Tonight הבאים';
+    expect(runsOf(he)).toEqual({ dir: 'rtl', runs: [{ from: 1, to: 4, dir: 'ltr' }] });
+    expect(words(he, runsOf(he).runs[0])).toEqual(['Awana', 'Clubs', 'Tonight']);
+  });
+
+  it('one direction throughout has no runs', () => {
+    expect(runsOf('Bring your handbook')).toEqual({ dir: 'ltr', runs: [] });
+    expect(runsOf('ברוכים הבאים לאוואנה')).toEqual({ dir: 'rtl', runs: [] });
+    expect(runsOf('— 7:30 —')).toEqual({ dir: 'ltr', runs: [] });
+    expect(runsOf('')).toEqual({ dir: 'ltr', runs: [] });
+  });
+
+  it('a number reads with the text before it; punctuation joins a run only inside it', () => {
+    // 5 follows Hebrew: it is part of the Hebrew run.
+    expect(runsOf('We say שבת 5 שלום to all').runs).toEqual([{ from: 2, to: 5, dir: 'rtl' }]);
+    // 2026 follows English in a Hebrew headline: part of the English run.
+    expect(runsOf('ברוכים Awana 2026 הערב').runs).toEqual([{ from: 1, to: 3, dir: 'ltr' }]);
+    // A dash between two Hebrew words joins them; one at the run's edge stays outside.
+    expect(runsOf('Say שבת — שלום tonight').runs).toEqual([{ from: 1, to: 4, dir: 'rtl' }]);
+    expect(runsOf('Say שבת שלום — tonight').runs).toEqual([{ from: 1, to: 3, dir: 'rtl' }]);
+    // A URL in a Hebrew slide is a left-to-right run of one.
+    expect(runsOf('הירשמו באתר https://kvbc.example.org/ הערב').runs).toEqual([{ from: 2, to: 3, dir: 'ltr' }]);
+  });
+
+  it('depends on the words alone: a run-on list\'s separators move no token into or out of a run', () => {
+    const text = ['Thank you', 'שבת שלום', 'See you next week'].join('\n');
+    const plain = runsOf(text);
+    const joined = tokenize(text).flatMap((p, i, all) => p.map((t, j) => (i < all.length - 1 && j === p.length - 1 ? { ...t, text: t.text + READ.joiner } : t)));
+    expect(bidiRuns(joined)).toEqual(plain);
+    expect(plain.runs).toEqual([{ from: 2, to: 4, dir: 'rtl' }]);
   });
 });
 

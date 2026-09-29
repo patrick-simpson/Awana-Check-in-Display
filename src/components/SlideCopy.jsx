@@ -3,7 +3,7 @@ import { M } from '../lib/motion.jsx';
 import { EASE } from '../lib/brand.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 import StepChip from './brand/StepChip.jsx';
-import { CHIP, KICKER, READ, SUB, fitFrame, LOBBY_THEMES, lobbyTheme } from '../lib/lobbyFrame.js';
+import { CHIP, KICKER, READ, SUB, bidiRuns, fitFrame, LOBBY_THEMES, lobbyTheme } from '../lib/lobbyFrame.js';
 import {
   HANDOFF, copyBeats, entranceHold, exitDelay, holdThenLand, holdThenLeave, vanishAtSwap,
 } from '../lib/lobbyMotion.js';
@@ -95,7 +95,12 @@ function rowBreaks(h) {
  * by row) and the chip pops last. Every colour rides on the copy itself, so
  * an outgoing slide never repaints in the incoming slide's theme mid-exit.
  * The copy's own direction comes from its text (dir="auto"), so a Hebrew or
- * Arabic headline's words run right to left.
+ * Arabic headline's words run right to left; and because the bidi algorithm
+ * sees each word's box as one neutral object, every run of words that reads
+ * against the headline (a Hebrew phrase in English, English in Hebrew) sits
+ * in a <bdi> of its own direction (bidiRuns), so its words keep their order.
+ * The runs come from the words alone, so a refit never moves a word into or
+ * out of one.
  *
  * @param {{
  *   frame: import('../lib/lobbyFrame.js').Frame,
@@ -144,6 +149,50 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
   const wide = new Set(h.wide);
   const leave = (beat) => leaveFor(beat.index, beats.pieces);
   const tokenBeat = (i) => beats.tokens[i] ?? beats.tokens[beats.tokens.length - 1] ?? { index: 0, at: hold };
+  const runs = new Map(bidiRuns(h.tokens).runs.map((run) => [run.from, run]));
+
+  /** Token `i`'s own element: always the last child of its fragment, so a refit never remounts it. */
+  const word = (i) => (
+    <Piece
+      still={still}
+      className={`lobby-word${wide.has(i) ? ' lobby-word--wide' : ''}`}
+      style={wide.has(i) ? { maxWidth: u(READ.width) } : undefined}
+      enter={holdThenLand(tokenBeat(i).at, HANDOFF.word, WORD_FROM[landing], WORD_TO, EASE.settle)}
+      leave={leave(tokenBeat(i))}
+    >
+      {/* A word too wide for any line is drawn as the pieces the fit cut,
+          one per row, so the page never needs a row the fit did not count. */}
+      {wide.has(i)
+        ? h.lines.filter((_, r) => h.starts[r] === i).map((piece, k) => <Fragment key={k}>{k > 0 && <br />}{piece}</Fragment>)
+        : h.tokens[i].text}
+    </Piece>
+  );
+  const space = (i) => i > 0 && h.tokens[i].space && ' ';
+  const rowBreak = (i) => breaks.has(i) && <br />;
+  /** The headline's children: each token, or a run of tokens against the headline's direction in a <bdi>. */
+  const headlineWords = [];
+  for (let i = 0; i < h.tokens.length;) {
+    const run = runs.get(i);
+    if (!run) {
+      headlineWords.push(<Fragment key={i}>{space(i)}{rowBreak(i)}{word(i)}</Fragment>);
+      i += 1;
+      continue;
+    }
+    // The space and any row break before the run stay outside it, so they
+    // sit between it and the word before, whichever way the run reads.
+    const inside = [];
+    for (let j = run.from; j < run.to; j += 1) {
+      inside.push(<Fragment key={j}>{j > run.from && space(j)}{j > run.from && rowBreak(j)}{word(j)}</Fragment>);
+    }
+    headlineWords.push(
+      <Fragment key={`run${run.from}`}>
+        {space(i)}
+        {rowBreak(i)}
+        <bdi className="lobby-run" dir={run.dir}>{inside}</bdi>
+      </Fragment>,
+    );
+    i = run.to;
+  }
 
   return (
     <div
@@ -175,26 +224,13 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
           dir="auto"
           className={`lobby-headline lobby-headline--${h.mode}${slide ? ` manual-slide-text ${sizeClass}` : ''}`.trim()}
           style={{ fontSize: u(h.size), lineHeight: h.lineHeight }}
+          data-rows={h.lines.length}
         >
           {/* One element per token in both layouts, keyed by its place in
-              the text, and always third in its fragment: a refit that moves
+              the text, and always last in its fragment: a refit that moves
               a word to another row, or from the shout to the read layout,
               keeps the same element, so it never replays its entrance. */}
-          {h.tokens.map((tok, i) => (
-            <Fragment key={i}>
-              {i > 0 && tok.space && ' '}
-              {breaks.has(i) && <br />}
-              <Piece
-                still={still}
-                className={`lobby-word${wide.has(i) ? ' lobby-word--wide' : ''}`}
-                style={wide.has(i) ? { maxWidth: u(READ.width) } : undefined}
-                enter={holdThenLand(tokenBeat(i).at, HANDOFF.word, WORD_FROM[landing], WORD_TO, EASE.settle)}
-                leave={leave(tokenBeat(i))}
-              >
-                {tok.text}
-              </Piece>
-            </Fragment>
-          ))}
+          {headlineWords}
         </p>
       )}
 

@@ -56,7 +56,9 @@ export const KICKER = { size: 2.3, min: 1.6, gap: 1.9, tracking: 0.07, lineHeigh
  * The shouted headline: Galindo at true size, uppercase, line-height .98,
  * with a hard offset shadow of .42u at 7.2u (0.058em). `ceiling` is the
  * largest size a slide's textSize allows; below `min` a headline is no longer
- * a shout, and the frame falls back to the read layout.
+ * a shout, and the frame falls back to the read layout. So does any headline
+ * in a script that stacks its marks above and below the letter (STACKED):
+ * .98 is a line height for caps, and at it those marks touch across rows.
  */
 export const SHOUT = {
   max: 7.2,
@@ -82,9 +84,10 @@ export const SHOUT = {
  *
  * `floor` is the smallest size the operator's own line breaks are kept at;
  * below it the lines run on, separated by `joiner`. A word wider than the
- * whole line (a pasted URL) breaks across lines of its own, but only when it
+ * whole line (a pasted URL) is cut across rows of its own, but only when it
  * would not fit whole even at `wordFloor`: it keeps the largest size that
- * fits rather than shrinking the whole slide to a hairline. `last` is the
+ * fits rather than shrinking the whole slide to a hairline, and the page
+ * draws exactly the pieces the fit cut. `last` is the
  * size below which nothing ever goes; the fit only gets near it for a frame
  * no operator can type (a full slide under a two-line kicker, a chip and a
  * supporting line).
@@ -94,9 +97,12 @@ export const READ = {
 };
 
 /**
- * Where a word too wide for any line is cut: a hair short of the line, so the
- * browser, which wraps it at the full width (overflow-wrap: anywhere), never
- * needs more lines than the fit counted.
+ * Where a word too wide for any line is cut: a hair short of the line. The
+ * page draws the fit's own pieces, one per row (SlideCopy), rather than
+ * letting the browser wrap the word its own way (it prefers to break after a
+ * hyphen, and so needed more rows than the fit counted, down behind the house
+ * waves); the slack is only there so a piece drawn in the shaped face
+ * (kerning, ligatures) never runs wider than the line it was measured for.
  */
 const BREAK_SLACK = 0.97;
 
@@ -289,6 +295,17 @@ export function slideFrame(slide) {
  * @typedef {{ text: string, space: boolean }} Token
  */
 
+/**
+ * Scripts that stack vowel and tone marks above and below the letter: Thai,
+ * Lao, Khmer, Myanmar and Tibetan, and the Brahmic scripts of India and Sri
+ * Lanka. None has a letter in Galindo, so a shout would set them in a system
+ * face at the caps' .98 line height, where the marks of one row touch the
+ * next (measured: Thai in the fallback face). They read instead, at the read
+ * layout's 1.22. Devanagari is not here: Baloo 2, the shout's own fallback,
+ * draws it, and at .98 its rows stay clear.
+ */
+const STACKED = /[\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\p{Script=Tibetan}\p{Script=Bengali}\p{Script=Gurmukhi}\p{Script=Gujarati}\p{Script=Oriya}\p{Script=Tamil}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Sinhala}]/u;
+
 // Scripts a line may break inside with no dictionary (UAX #14 class ID)…
 const IDEOGRAPHIC = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
 // …and those that need one to find their words (class SA).
@@ -401,6 +418,83 @@ export function joinTokens(tokens, from = 0, to = tokens.length) {
   let out = '';
   for (let i = from; i < to; i += 1) out += (i > from && tokens[i].space ? ' ' : '') + tokens[i].text;
   return out;
+}
+
+/* ── Direction ───────────────────────────────────────────────────── */
+
+// Letters of the right-to-left scripts: Hebrew, Arabic, Syriac, Thaana, N'Ko,
+// Samaritan, Mandaic and their presentation forms, and the historic and
+// African right-to-left blocks of the supplementary planes.
+const RTL_LETTER = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF\u{10800}-\u{10FFF}\u{1E800}-\u{1EFFF}]/u;
+
+/**
+ * Which way one token reads, from its first strong character (the rule
+ * dir="auto" uses): 'rtl', 'ltr', 'num' for a number with no letters, or null
+ * for punctuation and symbols, which take their direction from around them.
+ * @param {string} text
+ * @returns {'ltr' | 'rtl' | 'num' | null}
+ */
+export function tokenDirection(text) {
+  let num = false;
+  for (const ch of text) {
+    if (ch === '\u200E') return 'ltr';
+    if (ch === '\u200F' || ch === '\u061C') return 'rtl';
+    if (/\p{L}/u.test(ch)) return RTL_LETTER.test(ch) ? 'rtl' : 'ltr';
+    if (/\p{N}/u.test(ch)) num = true;
+  }
+  return num ? 'num' : null;
+}
+
+/**
+ * The headline's direction and its runs against it, token by token.
+ *
+ * Every headline token is its own box (SlideCopy), and the bidi algorithm
+ * sees a box as one neutral object: left alone, a Hebrew phrase in an English
+ * sentence, or English in a Hebrew one, would lay its words out in the
+ * paragraph's order, reversed for its reader. So the page isolates each run
+ * of tokens that read against the paragraph, in the run's own direction
+ * (<bdi dir>). The runs follow the bidi algorithm's own rules at the level of
+ * tokens: the paragraph takes the direction of its first strong token; a
+ * number reads with the text before it; a token of punctuation between two
+ * tokens of one direction takes it, and otherwise the paragraph's.
+ *
+ * It depends on the words alone (the READ.joiner a run-on list gains is
+ * punctuation, which changes no token's direction), never on the fit, so a
+ * refit never moves a token into or out of a run.
+ *
+ * @param {Array<{ text: string }>} tokens
+ * @returns {{ dir: 'ltr' | 'rtl', runs: Array<{ from: number, to: number, dir: 'ltr' | 'rtl' }> }}
+ *   runs: tokens `from`..`to`-1, in order, none overlapping
+ */
+export function bidiRuns(tokens) {
+  const types = tokens.map((t) => tokenDirection(t.text));
+  /** @type {'ltr' | 'rtl'} */
+  const dir = /** @type {any} */ (types.find((d) => d === 'ltr' || d === 'rtl')) ?? 'ltr';
+  let strong = dir;
+  /** @type {Array<'ltr' | 'rtl' | null>} */
+  const resolved = types.map((d) => {
+    if (d === 'ltr' || d === 'rtl') strong = d;
+    return d === null ? null : strong;
+  });
+  for (let i = 0; i < resolved.length;) {
+    if (resolved[i] !== null) { i += 1; continue; }
+    let j = i;
+    while (j < resolved.length && resolved[j] === null) j += 1;
+    const before = i > 0 ? resolved[i - 1] : dir;
+    const after = j < resolved.length ? resolved[j] : dir;
+    resolved.fill(before === after ? before : dir, i, j);
+    i = j;
+  }
+  /** @type {Array<{ from: number, to: number, dir: 'ltr' | 'rtl' }>} */
+  const runs = [];
+  for (let i = 0; i < resolved.length;) {
+    if (resolved[i] === dir) { i += 1; continue; }
+    let j = i;
+    while (j < resolved.length && resolved[j] !== dir) j += 1;
+    runs.push({ from: i, to: j, dir: dir === 'ltr' ? 'rtl' : 'ltr' });
+    i = j;
+  }
+  return { dir, runs };
 }
 
 /* ── Line breaking ───────────────────────────────────────────────── */
@@ -521,9 +615,8 @@ function wrapBalanced(widths, gaps, limit) {
 
 /**
  * Cut one token too wide for any line into pieces that fit, between its
- * characters, greedily, the way the browser wraps it (overflow-wrap:
- * anywhere at the same width). Cut a hair short, so the browser can never
- * need a line more than the fit counted.
+ * characters, greedily. Each piece is one row on the page, exactly as cut
+ * here, so the rows the fit counts are the rows the room sees.
  * @param {string[]} chars its graphemes
  * @param {number[]} widths each grapheme's width
  * @param {number} limit
@@ -693,7 +786,8 @@ function fitKicker(text, measure) {
  * taking the first size that fits. Words are measured in the real face and
  * never broken. Text that cannot shout at 5u is read instead (sentence case
  * Figtree, 4.2u down to 1.5u, balanced lines of at most 76u, in the theme's
- * reading ink), and so is any slide set to "md". Explicit "xl" and "lg" cap
+ * reading ink), and so is any slide set to "md" and any headline in a script
+ * that stacks its marks (STACKED). Explicit "xl" and "lg" cap
  * the shouted size. The operator's line breaks are kept down to 1.5u; below
  * that the lines run on, separated by a dot. Whatever the text, the block
  * never reaches past LAYOUT.safeBottom, never runs wider than LAYOUT.width,
@@ -788,7 +882,8 @@ function fitHeadline(paras, textSize, room, measure) {
   if (!tokens.length) {
     return { mode: 'shout', size: SHOUT.max, lineHeight: SHOUT.lineHeight, tokens, lines: [], starts: [], wide: [], joined: false };
   }
-  return (textSize !== 'md' && fitShout(paras, textSize, room, measure)) || fitRead(paras, room, measure);
+  const shouts = textSize !== 'md' && !tokens.some((t) => STACKED.test(t.text));
+  return (shouts && fitShout(paras, textSize, room, measure)) || fitRead(paras, room, measure);
 }
 
 /**

@@ -286,4 +286,30 @@ describe('a web font that lands late', () => {
       expect(rec(el).history).toHaveLength(1);
     });
   });
+
+  it('a run of words against the headline\'s direction keeps its <bdi> and its words through the refit', () => {
+    const mixed = { ...frame, headline: 'Please say שבת שלום to your friends at club' };
+    const { container } = render(<SlideCopy frame={mixed} via="boot" />);
+    const headline = () => container.querySelector('.lobby-headline');
+    expect(headline().classList.contains('lobby-headline--shout')).toBe(true);
+    const run = container.querySelector('bdi.lobby-run');
+    const before = piecesOf(container);
+    const inRun = [...run.querySelectorAll('.lobby-word')];
+    expect(inRun.map((w) => w.textContent)).toEqual(['שבת', 'שלום']);
+
+    fonts.real = true;
+    act(() => {
+      fonts.loads += 1;
+      for (const cb of fonts.listeners) cb();
+    });
+    expect(headline().classList.contains('lobby-headline--read')).toBe(true);
+    expect(container.querySelector('bdi.lobby-run')).toBe(run);
+    expect([...run.querySelectorAll('.lobby-word')]).toEqual(inRun);
+    const after = piecesOf(container);
+    expect(after).toHaveLength(before.length);
+    after.forEach((el, i) => {
+      expect(el).toBe(before[i]);
+      expect(rec(el).history).toHaveLength(1);
+    });
+  });
 });
