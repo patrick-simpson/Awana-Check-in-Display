@@ -74,6 +74,29 @@ describe('CheckInMoment', () => {
     expect(container.querySelectorAll('.checkin__letter')).toHaveLength(3);
   });
 
+  // Inside the Journey kiosk's frame its view toggle floats over the
+  // bottom-right corner, where a name that fills the column ends
+  // (nameRoomU); a name that fits at its step is sized as it always was.
+  it('framed by a host, sizes a long name to end short of the host\'s toggle', () => {
+    const size = (firstName) => {
+      const { container, unmount } = render(still(<CheckInMoment event={kid({ firstName })} />));
+      const px = container.querySelector('.checkin__name').style.fontSize;
+      unmount();
+      return px;
+    };
+    const long = 'Maximiliana Wolfeschlegel';
+    const alone = { long: size(long), short: size('Maya') };
+    vi.stubGlobal('top', { name: 'the Journey kiosk' });
+    try {
+      const framed = { long: size(long), short: size('Maya') };
+      const n = (v) => Number(String(v).match(/calc\(([\d.]+) \* var\(--u\)\)/)?.[1]);
+      expect(n(framed.long)).toBeLessThan(n(alone.long));
+      expect(framed.short).toBe(alone.short);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('wears the child\'s club: colours, official mark, and the mode class', () => {
     const { container } = render(still(<CheckInMoment event={kid({ club: 'T&T' })} />));
     const root = container.querySelector('.checkin');

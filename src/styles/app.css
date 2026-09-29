@@ -2072,6 +2072,48 @@ html, body, #root {
   text-shadow: 0 1px 0 rgba(3, 4, 4, 0.45);
 }
 
+/* ── Embedded: the bottom-right corner belongs to the host ─────────────
+   Inside the Journey kiosk's iframe, Journey floats its own buttons over
+   this page, and nothing in here can paint over a parent's element. The two
+   agree on where they go (src/lib/embed.js): while this display is up,
+   Journey keeps both of its 48px round buttons in ONE column in the
+   bottom-right corner (the view toggle, its settings gear stacked above
+   it), max(3vw, 24px) in from the right edge. Every other corner is ours:
+   the top-right stack is budgeted to the pixel against the band beside it
+   and the raised headline under it, and a tall problem sticker needs every
+   bit of it, so it stays exactly where it is. Embedded (App.jsx puts
+   `embedded` on <html> when window.self !== window.top), everything this
+   page draws in the bottom-right steps LEFT of the column, 8px clear (above
+   the corner chip is the copy, which may reach 45u, so it cannot go up):
+   - the corner chip (the time, tonight's tally, the WAITING chip);
+   - the tonight ticker, which moves left with it: a centred box moves by
+     half its right inset, so twice the chip's shift keeps the gap the two
+     have standalone. On a narrow screen that would run the widest night
+     (four stats, three-digit counts: ~58u) into the settings gear, because
+     the row is nearly full there (640x480: gear, ticker, chip and the
+     host's toggle leave ~15px between them), so it never moves further than
+     centring it between the gear (its left inset plus 52px, or 2.9u on a
+     big screen) and the widest corner chip (the clock, 15.3u);
+   - a check-in's name column (nameRoomU sizes the name to match).
+   src/lib/embed.js HOST_CONTROL is the same geometry for the one fit done
+   in JS (the name), and embed.test.js fails if the two spellings drift.
+   Standalone none of these selectors match. */
+html.embedded {
+  --host-clear-x: calc(max(3vw, 24px) + 48px + 8px);
+}
+html.embedded .corner-bottom {
+  right: max(calc(2.6 * min(1vw, 1.7778vh)), var(--host-clear-x));
+}
+html.embedded .tonight-ticker {
+  right: max(0px, min(
+    2 * (var(--host-clear-x) - 2.6 * var(--u)),
+    var(--host-clear-x) + 15.3 * var(--u) - var(--safe-inset) - max(52px, 2.9 * var(--u))
+  ));
+}
+html.embedded .checkin__copy {
+  right: max(calc(3 * var(--u)), var(--host-clear-x));
+}
+
 /* ── Milestone toast (MilestoneToast.jsx) ─────────────────
    A kit chip in the top band: a Londrina kicker on the pill, one Paytone One
    line on the block (sized by the fit, --toast-line), three sparkles on its

@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { fakePusher } from './fakePusher.js';
 
 // End-to-end coverage of the signage page's EVENT rendering.
 //
@@ -469,31 +470,6 @@ test('a T&T check-in keeps its square mark inside its slot, on screen', async ({
 // display key does, under ?lowPower=1 so every frame is the resting one.
 // MilestoneToast.test.jsx and overlayFit.test.js pin the arithmetic; this
 // pins what Chromium actually paints.
-
-/** A stand-in Pusher socket; resolves to `send(event, data)` once the page has subscribed. */
-async function fakePusher(page) {
-  const sockets = [];
-  let subscribed = false;
-  await page.route(/open-meteo|twotimtwo|stats\.pusher|sockjs|pusher\.com\/.*\.(js|json)/, (route) => route.abort());
-  await page.routeWebSocket(/pusher/, (ws) => {
-    sockets.push(ws);
-    ws.onMessage((raw) => {
-      let m;
-      try { m = JSON.parse(String(raw)); } catch { return; }
-      if (m.event === 'pusher:subscribe') {
-        ws.send(JSON.stringify({ event: 'pusher_internal:subscription_succeeded', channel: m.data.channel, data: '{}' }));
-        if (m.data.channel === 'awana-channel') subscribed = true;
-      } else if (m.event === 'pusher:ping') {
-        ws.send(JSON.stringify({ event: 'pusher:pong', data: '{}' }));
-      }
-    });
-    ws.send(JSON.stringify({ event: 'pusher:connection_established', data: JSON.stringify({ socket_id: '1234.5678', activity_timeout: 120 }) }));
-  });
-  return async (event, data) => {
-    await expect.poll(() => subscribed, { timeout: 10000 }).toBe(true);
-    sockets[sockets.length - 1].send(JSON.stringify({ event, channel: 'awana-channel', data: JSON.stringify(data) }));
-  };
-}
 
 /** Boot the lobby on a typed slide, with a key for the stand-in socket. */
 async function goLobby(page, extra = {}) {

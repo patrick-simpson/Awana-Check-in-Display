@@ -7,9 +7,11 @@ import { playBirthdayChime, playChime, playFirstTimerChime } from '../lib/audio.
 import { nameAccent } from '../lib/nameAccent.js';
 import { DUR, EASE, inkEm, measureEm } from '../lib/brand.js';
 import {
-  FRONT_WAVE_DELAY, KICKER_TRACKING, KICKER_U, kickerFor, momentFor, nameBox, nameSizeU, nameUnderKicker,
-  PER_LETTER_MAX, stickerFor, sublineFor, WAVE_EXIT,
+  FRONT_WAVE_DELAY, KICKER_TRACKING, KICKER_U, kickerFor, momentFor, NAME_ROOM_U, nameBox, nameRoomU, nameSizeU,
+  nameUnderKicker, PER_LETTER_MAX, stickerFor, sublineFor, WAVE_EXIT,
 } from '../lib/checkInMoment.js';
+import { hostClearancePx, isEmbedded } from '../lib/embed.js';
+import { lobbyUnitPx } from '../hooks/useTallerThan.js';
 import { celebrationProfile, useCelebration } from '../hooks/useCelebration.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 import Wave from './brand/Wave.jsx';
@@ -57,6 +59,20 @@ const FLIP = { mark: 0.3, kicker: 0.26, name: 0.26, letter: 0.028, nameDur: 0.36
 const SWEPT = 0.3;
 
 const LEAVE = { duration: DUR.exit, ease: EASE.exit };
+
+/**
+ * The name column's room in u. Inside the Journey kiosk's frame, the host's
+ * buttons float over the bottom-right corner, right where a long name ends,
+ * so the column stops short of them (src/lib/embed.js; app.css moves
+ * .checkin__copy's right edge to match). Read from the viewport at render:
+ * each child's name is sized as it lands. Standalone it is NAME_ROOM_U.
+ */
+function nameRoom() {
+  if (!isEmbedded()) return NAME_ROOM_U;
+  const px = lobbyUnitPx();
+  if (!(px > 0)) return NAME_ROOM_U;
+  return nameRoomU(window.innerWidth / px, hostClearancePx(window.innerWidth) / px);
+}
 
 // The three letter entrances a name can be dealt (src/lib/nameAccent.js,
 // #336): a child flies in the same way every week. Re-cut to the brand's
@@ -211,7 +227,7 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
   const line = sublineFor(moment, { ribbon, phrase });
   const sticker = stickerFor(moment);
   const display = String(event.firstName).toUpperCase();
-  const { size, wraps } = nameSizeU(display, (s) => measureEm(s));
+  const { size, wraps } = nameSizeU(display, (s) => measureEm(s), nameRoom());
   // Room for a tall mark (JOSÉ, NGUYỄN, ȘTEFAN) clear of the kicker above and
   // the line below: measured, so only a mark that would meet one gets any.
   const kickerU = (measureEm(kicker.toUpperCase(), 'Londrina Solid') + KICKER_TRACKING * [...kicker].length) * KICKER_U;

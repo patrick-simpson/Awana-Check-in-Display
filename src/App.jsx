@@ -57,6 +57,7 @@ import {
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
 import { useBuildReload } from './hooks/useBuildReload.js';
 import { useTallerThan } from './hooks/useTallerThan.js';
+import { isEmbedded } from './lib/embed.js';
 import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
@@ -888,7 +889,7 @@ export default function App() {
     // parent fullscreen its whole page instead. The message carries nothing
     // but its type, and the Journey side checks that event.source is its own
     // iframe before acting on it. Standalone behaviour is untouched.
-    if (window.self !== window.top) {
+    if (isEmbedded()) {
       window.parent.postMessage({ type: EMBED_FULLSCREEN_MESSAGE }, '*');
       return;
     }
@@ -942,6 +943,18 @@ export default function App() {
     document.documentElement.classList.add('zero-animation-mode');
     return () => document.documentElement.classList.remove('zero-animation-mode');
   }, [config.reduceMotion]);
+
+  // Embedded (the Journey kiosk's iframe), the host's own buttons float over
+  // this page's bottom-right corner, and nothing in here can paint over a
+  // parent's element. The html.embedded rules in app.css keep the corner
+  // chip, the ticker and a long name out of the host's column there
+  // (src/lib/embed.js has the geometry). Standalone, no class and no rule:
+  // the layout is exactly what it always was.
+  useEffect(() => {
+    if (!isEmbedded()) return undefined;
+    document.documentElement.classList.add('embedded');
+    return () => document.documentElement.classList.remove('embedded');
+  }, []);
 
   // Who holds which part of the room (rebrand stage 4b-2; `room` above, the
   // bands in src/lib/overlayFit.js). The slide copy steps back behind

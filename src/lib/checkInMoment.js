@@ -88,7 +88,10 @@ export function stickerFor(moment) {
 
 // All in u, the moment's unit: 1u is 1% of a 16:9 stage's width (the CSS
 // sets --u: min(1vw, 1.7778vh)). The name column runs from 24.6u to 3u shy
-// of the right edge; NAME_ROOM leaves a little air for the hard shadow.
+// of the right edge (.checkin__copy's left and right, which a test pins);
+// NAME_ROOM leaves a little air for the hard shadow.
+export const COPY_LEFT_U = 24.6;
+export const COPY_RIGHT_U = 3;
 export const NAME_ROOM_U = 71;
 // The catalog's own steps: short names shout biggest. Sized to hold the
 // approved mockup's cap heights (it was drawn in Galindo at 10u / 8.6u /
@@ -103,6 +106,22 @@ export const NAME_MIN_U = 3.4;
 export const NAME_LINE_HEIGHT = 0.95;
 
 /**
+ * The name's room in u, for a stage `stageU` wide (100 on a 16:9 or squarer
+ * screen) whose column must also end `clearU` in from the right edge: the
+ * host's bottom-right control when this page is embedded (src/lib/embed.js;
+ * app.css moves .checkin__copy's right edge by the same amount). The air
+ * NAME_ROOM_U leaves for the shadow is kept. Standalone (`clearU` 0) it is
+ * NAME_ROOM_U exactly, on any screen.
+ * @param {number} stageU
+ * @param {number} clearU
+ */
+export function nameRoomU(stageU, clearU) {
+  const air = 100 - COPY_LEFT_U - COPY_RIGHT_U - NAME_ROOM_U;
+  const column = stageU - COPY_LEFT_U - Math.max(COPY_RIGHT_U, clearU);
+  return Math.min(NAME_ROOM_U, column - air);
+}
+
+/**
  * The name's font size in u: the catalog step for its length, shrunk just
  * enough to fit the column on one line, never below NAME_MIN_U. Measured, so
  * a wide name ("WILLIAM") shrinks where a narrow one of the same length
@@ -114,14 +133,16 @@ export const NAME_LINE_HEIGHT = 0.95;
  *
  * @param {string} name       as displayed (upper-cased)
  * @param {(text: string) => number} measure  advance width at 1em
+ * @param {number} [room]     the column's room in u (nameRoomU); NAME_ROOM_U
+ *                            unless the page is embedded
  * @returns {{ size: number, wraps: boolean }}
  */
-export function nameSizeU(name, measure) {
+export function nameSizeU(name, measure, room = NAME_ROOM_U) {
   const text = String(name ?? '');
   const len = [...text].length;
   const step = NAME_STEPS.find(([max]) => len <= max)?.[1] ?? 7.6;
   const em = measure(text);
-  const fit = em > 0 ? NAME_ROOM_U / em : step;
+  const fit = em > 0 ? room / em : step;
   const size = Math.max(NAME_MIN_U, Math.min(step, fit));
   return { size: Math.round(size * 100) / 100, wraps: fit < NAME_MIN_U && /\s/.test(text.trim()) };
 }

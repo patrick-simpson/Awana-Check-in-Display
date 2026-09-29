@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  momentFor, kickerFor, sublineFor, stickerFor, nameBox, nameSizeU, nameUnderKicker, KICKER_MARGIN_U, KICKER_TRACKING, KICKER_U,
-  NAME_LINE_HEIGHT, NAME_MARK_CLEAR_U, NAME_ROOM_U, NAME_MIN_U, NAME_SHADOW_U, NAME_STEPS, RUN_EXIT_MS, WAVE_EXIT,
+  momentFor, kickerFor, sublineFor, stickerFor, nameBox, nameRoomU, nameSizeU, nameUnderKicker, COPY_LEFT_U, COPY_RIGHT_U,
+  KICKER_MARGIN_U, KICKER_TRACKING, KICKER_U, NAME_LINE_HEIGHT, NAME_MARK_CLEAR_U, NAME_ROOM_U, NAME_MIN_U, NAME_SHADOW_U,
+  NAME_STEPS, RUN_EXIT_MS, WAVE_EXIT,
 } from './checkInMoment.js';
 import { markExtents } from './brand.js';
+import { hostClearancePx } from './embed.js';
 
 describe('momentFor', () => {
   it('ranks birthday over first-timer over welcome-back over welcome', () => {
@@ -100,6 +102,61 @@ describe('nameSizeU', () => {
   it('survives a measure that reports nothing', () => {
     expect(nameSizeU('MAYA', () => 0).size).toBe(10.6);
     expect(nameSizeU('', em(1)).size).toBe(10.6);
+  });
+});
+
+describe('nameRoomU: the column ends short of an embedding host\'s toggle', () => {
+  // Inside the Journey kiosk's frame, Journey's 48px buttons float over the
+  // bottom-right corner, in the rows a name sits on, and a name long
+  // enough to fill the column (MAXIMILIANA WOLFESCHLEGEL, MARY KATHERINE) ran
+  // under it on every screen.
+  const em = (perChar) => (t) => [...t].length * perChar;
+  const clearU = (vw, vh) => {
+    const u = Math.min(vw / 100, (vh * 1.7778) / 100);
+    return { stageU: vw / u, clear: hostClearancePx(vw) / u, u };
+  };
+
+  it('is NAME_ROOM_U standalone, on any screen', () => {
+    expect(nameRoomU(100, 0)).toBe(NAME_ROOM_U);
+    expect(nameRoomU(100, COPY_RIGHT_U)).toBe(NAME_ROOM_U);
+    // A screen wider than 16:9 has more than 100u across: still the same column.
+    expect(nameRoomU(133, 0)).toBe(NAME_ROOM_U);
+  });
+
+  it.each([[640, 480], [592, 432], [1280, 720], [1920, 1080]])(
+    'embedded at %ix%i, a name that fills its room ends left of the toggle',
+    (vw, vh) => {
+      const { stageU, clear, u } = clearU(vw, vh);
+      const room = nameRoomU(stageU, clear);
+      expect(room).toBeLessThan(NAME_ROOM_U);
+      // The name's right edge, in px, against the toggle's left edge.
+      const nameRight = (COPY_LEFT_U + room) * u;
+      const toggleLeft = vw - Math.max(0.03 * vw, 24) - 48;
+      expect(nameRight).toBeLessThan(toggleLeft);
+      // And a long name really is sized to it.
+      const long = 'MAXIMILIANA WOLFESCHLEGEL';
+      // (nameSizeU rounds the size to 0.01u, so it may run 0.005u an em
+      // over, inside the air the room leaves for the shadow.)
+      const width = long.length * 0.62;
+      const { size } = nameSizeU(long, em(0.62), room);
+      expect(size * width).toBeLessThanOrEqual(room + 0.005 * width + 1e-9);
+    },
+  );
+
+  it('keeps the air NAME_ROOM_U leaves for the shadow', () => {
+    const air = 100 - COPY_LEFT_U - COPY_RIGHT_U - NAME_ROOM_U;
+    expect(nameRoomU(100, 12.5)).toBeCloseTo(100 - COPY_LEFT_U - 12.5 - air, 9);
+  });
+
+  it('a name that fits at its step is not touched by it', () => {
+    expect(nameSizeU('BARTHOLOMEW', em(0.7), nameRoomU(100, 12.5)).size).toBe(nameSizeU('BARTHOLOMEW', em(0.7)).size);
+  });
+
+  it('its column is the stylesheet\'s .checkin__copy', () => {
+    const css = readFileSync(resolve(__dirname, '../styles/app.css'), 'utf8');
+    const rule = css.match(/\n\.checkin__copy \{([^}]*)\}/)?.[1] ?? '';
+    expect(rule).toContain(`left: calc(${COPY_LEFT_U} * var(--u))`);
+    expect(rule).toContain(`right: calc(${COPY_RIGHT_U} * var(--u))`);
   });
 });
 

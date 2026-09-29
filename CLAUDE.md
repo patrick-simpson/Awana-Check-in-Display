@@ -102,6 +102,56 @@ its type, and standalone behaviour (`window.self === window.top`) is exactly
 what it always was. Both sides have to agree on the string, so changing it
 means landing both repos together.
 
+**Embedded, the bottom-right corner belongs to the host.** Journey floats
+two always-visible 48px round buttons over the frame, and nothing in here
+can paint over a parent's element: live on 2026-09-29 its view toggle covered
+the last digit of the RIGHT NOW clock at 720p and its settings gear the end of
+OVERCAST at 1080p. The two sides now agree on one place for them: while this
+display shows, Journey stacks the gear 8px above the toggle, one column in
+the bottom-right corner, `max(3vw, 24px)` in from the right edge, the toggle
+`max(3vh, 24px)` up from the bottom (Journey's `#checkin-view:not(.hidden) ~
+#settings-btn` rule). Every other corner is ours, and the top-right has to
+be: the band beside the stack runs to ~75u, where the widest sky starts, and
+under it a tall problem sticker (a fault strip) already uses the room down to
+the raised headline at 14u. Moving the stack down under a host button ran
+that sticker into the kicker on the Pi (measured: 1.7u past 14u at 640x480),
+and moving it left ran the widest weather chip into the band.
+
+So when `isEmbedded()` (`src/lib/embed.js`: `window.self !== window.top`,
+the fullscreen hand-off's own test, which now reads it too) App puts
+`embedded` on `<html>`, and everything this page draws in the bottom-right
+steps LEFT of the host's column, 8px clear (above the corner chip is the
+copy, which may reach 45u, so it cannot go up):
+
+- the corner chip (the time, tonight's tally, the WAITING chip when a tall
+  sticker sends it down);
+- the tonight ticker, which moves left with it, never further than centring
+  it between the settings gear and the widest corner chip (at 640x480 the
+  gear, the widest night's ticker, the clock and the toggle fill the row but
+  for ~15px);
+- a check-in's name column: `nameRoomU` in `src/lib/checkInMoment.js` for the
+  fit, `.checkin__copy`'s right edge for the box (a long name, MAXIMILIANA
+  WOLFESCHLEGEL, ran under the toggle on every screen).
+
+The column's inner edge is written twice on purpose: `HOST_CONTROL` /
+`hostClearancePx` in `embed.js` (the name fit sizes type in JS) and the
+`html.embedded` custom property in `app.css`; `embed.test.js` fails if they
+drift, if an embedded rule touches the top-right stack, or if any rule reading
+`--host-clear-x` is not scoped to `html.embedded`, so the standalone layout
+cannot move (measured: 48 standalone states render identical boxes before and
+after, and 15 paused-clock screens identical pixels). `e2e/embedded.spec.js`
+(smoke) and `e2e/embedded.events.spec.js` host the page in a full-viewport
+iframe with Journey's buttons written out from JOURNEY's CSS
+(`e2e/embedHost.js`), at 640x480, 720p and 1080p. Journey's
+`test/corner-buttons.test.mjs` pins its buttons to the column, so moving one
+out of it (or back into our top-right) fails there first. Changing the
+geometry means `HOST_CONTROL`, the `html.embedded` block, `embedHost.js` and
+that Journey test together, and landing this repo first: a Journey button in
+a new place sits on whatever this page still draws there. Nothing crosses the
+wire or the URL: the signage infers its host from being framed, and any other
+page that frames it (none in the family: OBS and ProPresenter open it
+top-level) only gets its bottom-right chrome a little further in.
+
 ## Brand kit — `shared/brand/` (2026-27 catalog)
 
 Owner decision 2026-09-27: every screen in the family (lobby signage,
@@ -769,7 +819,9 @@ house waves, and who holds which part of the room is one pure function,
   The status sticker's height is measured (`useTallerThan`); while it stands
   taller than `OVERLAY.stack.stickerMax` (a fault strip, or the retry wording
   beside the printer's count) the weather sits out of the corner rotation and
-  the WAITING chip comes down to the bottom corner.
+  the WAITING chip comes down to the bottom corner. Embedded in the Journey
+  kiosk none of this moves: the host keeps its buttons out of the top-right
+  (see "Embedded, the bottom-right corner belongs to the host").
 - The ticker is house-blue count chips on the waves, between the gear and the
   corner chip (its four counts are the room's, so not club colours); "+N more
   coming" (`UpNextChip`) rides the club's wave above its mark, so it is only

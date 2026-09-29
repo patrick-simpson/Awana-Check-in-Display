@@ -219,3 +219,43 @@ describe('the lobby director, end to end', { timeout: 20_000 }, () => {
     expect(reloadBusy()).toBe(false);
   });
 });
+
+// Inside the Journey kiosk's iframe, Journey keeps its own buttons in one
+// column in this page's bottom-right corner (src/lib/embed.js). The layout
+// half is CSS under html.embedded (embed.test.js pins it; e2e/embedded.spec.js
+// measures it in Chromium); this pins what App decides, and that the
+// top-right, which is ours, is decided exactly as it is standalone.
+describe('embedded in the Journey kiosk\'s frame', { timeout: 20_000 }, () => {
+  const framed = () => vi.stubGlobal('top', { name: 'the Journey kiosk' });
+  const html = () => document.documentElement.classList.contains('embedded');
+
+  it('marks <html> embedded only while framed, and never standalone', async () => {
+    configure();
+    await mount();
+    expect(html()).toBe(false);
+    cleanup();
+
+    framed();
+    bound = {};
+    configure();
+    await mount();
+    expect(html()).toBe(true);
+    cleanup();
+    expect(html()).toBe(false);
+  });
+
+  // (jsdom has no ResizeObserver, so the sticker's measured height never
+  // reads tall: this is the short-sticker case.)
+  it.each([[false], [true]])('framed %s: with a short problem sticker up, the WAITING chip keeps the top slot', async (isFramed) => {
+    if (isFramed) framed();
+    configure({ showConnectionStatus: true });
+    await mount();
+    await tick(5000);
+    await settle();
+    expect(onScreen('Held poster')).toBe(true);
+    expect(document.querySelector('.corner-stack .status-dot')).not.toBeNull();
+
+    await act(async () => { bound.checkin({ firstName: 'Ann', club: 'Sparks', id: 'e1', at: Date.now() }); });
+    expect(waiting()?.closest('.corner-top')).not.toBeNull();
+  });
+});
