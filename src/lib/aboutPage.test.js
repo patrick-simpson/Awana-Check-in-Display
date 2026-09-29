@@ -67,6 +67,45 @@ describe('the about page wears the family kit\'s faces', () => {
   });
 });
 
+// The block above pins the css2 request's family list, but a brand face could
+// reach the page by any other road: the v1 API (css?family=Paytone+One), a
+// third-party mirror, a preload of a woff2, an @import, a page-local
+// @font-face. Paytone One's and Londrina's licenses reserve their names, so
+// the only copy this page may draw is the kit's own full file. So the test
+// lists everything the page fetches from another host and allows exactly one
+// thing: the Google stylesheet for the editorial faces (and its preconnects).
+describe('nothing but the editorial Google stylesheet comes from another host', () => {
+  const attr = (tag, name) => {
+    const m = tag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
+    return (m?.[1] ?? m?.[2] ?? m?.[3] ?? '').trim();
+  };
+  const links = [...live.matchAll(/<link\b[^>]*>/gi)].map(([tag]) => ({ rel: attr(tag, 'rel').toLowerCase(), href: attr(tag, 'href') }));
+  // Absolute (https://x) or protocol-relative (//x), whatever the scheme.
+  const isExternal = (url) => /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(url);
+  const isEditorialSheet = (l) => l.rel === 'stylesheet' && /^https:\/\/fonts\.googleapis\.com\/css2\?/.test(l.href);
+  const isGooglePreconnect = (l) => l.rel === 'preconnect'
+    && ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'].includes(l.href);
+
+  it('every <link> to another host is that one stylesheet or a Google preconnect', () => {
+    const stray = links.filter((l) => isExternal(l.href) && !isEditorialSheet(l) && !isGooglePreconnect(l));
+    expect(stray).toEqual([]);
+    expect(links.filter(isEditorialSheet)).toHaveLength(1);
+  });
+
+  it('no @import, no page-local @font-face, no url() to another host', () => {
+    expect(live).not.toMatch(/@import\b/i);
+    expect(live).not.toMatch(/@font-face\b/i);
+    const urls = [...live.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)/gi)].map((m) => (m[1] ?? m[2] ?? m[3]).trim());
+    expect(urls.filter(isExternal)).toEqual([]);
+  });
+
+  it('no address on the page names a brand face', () => {
+    const addresses = live.match(/(?:https?:)?\/\/[^\s"'<>)]+/gi) ?? [];
+    expect(addresses.length).toBeGreaterThan(0);
+    expect(addresses.filter((a) => /paytone|londrina|figtree|galindo|lilita/i.test(a))).toEqual([]);
+  });
+});
+
 describe('the stepped chips are the lobby\'s own geometry around Paytone One\'s widths', () => {
   const chips = [...live.matchAll(/<svg class="cid-step"[\s\S]*?<\/svg>/g)].map(([svg]) => {
     const texts = [...svg.matchAll(/<text [^>]*font-size="([^"]+)" textLength="([^"]+)"[^>]*>([^<]*)<\/text>/g)]
