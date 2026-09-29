@@ -128,21 +128,40 @@ copy, which may reach 45u, so it cannot go up):
 - the tonight ticker, which moves left with it, never further than centring
   it between the settings gear and the widest corner chip (at 640x480 the
   gear, the widest night's ticker, the clock and the toggle fill the row but
-  for ~15px);
+  for ~15px), and never wider than the room between those two less its own
+  stat gap (0.8u) each side: where the widest night is wider than that room
+  (a portrait phone, 226px for 174px at 390x844, and 592x432) it wraps its
+  stats into rows instead of running under the clock; at 640x480 and on every
+  16:9 screen the cap never binds;
 - a check-in's name column: `nameRoomU` in `src/lib/checkInMoment.js` for the
   fit, `.checkin__copy`'s right edge for the box (a long name, MAXIMILIANA
-  WOLFESCHLEGEL, ran under the toggle on every screen).
+  WOLFESCHLEGEL, ran under the toggle on every screen);
+- the operator's panels, which reach the right edge on a small screen:
+  Settings and the slide editor (94-96vw on `.panel-backdrop`) centre in the
+  room left of the column (the backdrop is padded by the clearance, with ONE
+  `minmax(0, 1fr)` column, because an auto track grows to the panel's own
+  width and takes it under the column anyway), and the debug panel and the
+  first-run card are capped to end short of it. At 640x480, 800x480 and
+  1024x768 SAVE, the slide editor's CANCEL and the debug panel's Close sat
+  under the host's buttons: a click on SAVE's right end opened JOURNEY's
+  settings panel and left ours open, unsaved (a click in the column always
+  reaches the host, never this page).
 
 The column's inner edge is written twice on purpose: `HOST_CONTROL` /
 `hostClearancePx` in `embed.js` (the name fit sizes type in JS) and the
 `html.embedded` custom property in `app.css`; `embed.test.js` fails if they
-drift, if an embedded rule touches the top-right stack, or if any rule reading
-`--host-clear-x` is not scoped to `html.embedded`, so the standalone layout
-cannot move (measured: 48 standalone states render identical boxes before and
-after, and 15 paused-clock screens identical pixels). `e2e/embedded.spec.js`
-(smoke) and `e2e/embedded.events.spec.js` host the page in a full-viewport
-iframe with Journey's buttons written out from JOURNEY's CSS
-(`e2e/embedHost.js`), at 640x480, 720p and 1080p. Journey's
+drift, if an embedded rule touches the top-right stack, if a panel or the
+ticker loses its cap, or if any rule reading `--host-clear-x` is not scoped to
+`html.embedded`, so the standalone layout cannot move (measured: 48 standalone
+states render identical boxes before and after, and 30 paused-clock screens,
+the panels and the first-run card among them, identical pixels).
+`e2e/embedded.spec.js` (smoke) and `e2e/embedded.events.spec.js` host the page
+in a full-viewport iframe with Journey's buttons written out from JOURNEY's
+CSS (`e2e/embedHost.js`), at 640x480, 720p and 1080p, the panels at 640x480
+and 1024x768 (each one's corner button clicked at its far end, through the
+stand-in host's real buttons), and a portrait phone for the first-run card and
+the widest ticker. A new operator surface that can reach the bottom-right
+edge needs the same cap and a case there. Journey's
 `test/corner-buttons.test.mjs` pins its buttons to the column, so moving one
 out of it (or back into our top-right) fails there first. Changing the
 geometry means `HOST_CONTROL`, the `html.embedded` block, `embedHost.js` and

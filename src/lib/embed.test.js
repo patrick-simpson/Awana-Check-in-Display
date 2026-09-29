@@ -126,3 +126,58 @@ describe('app.css spells the same geometry, embedded only', () => {
     }
   });
 });
+
+describe('app.css: the operator\'s panels and a wrapped ticker keep out of the column too', () => {
+  const rule = (selector, prop) => ALL.find((r) => r.selector === selector && (!prop || decl(r.body, prop)));
+  const rem = (v) => Number(/^([\d.]+)rem$/.exec(v)?.[1]);
+
+  // Settings and the slide editor centre on .panel-backdrop at 94-96vw, so
+  // on a small screen (the Pi's 640x480, 800x480, 1024x768) their action row
+  // ran under the host's column: a click on the right end of SAVE landed on
+  // the host's gear and opened ITS panel, and Settings stayed open unsaved.
+  it('Settings and the slide editor centre in the room left of the column', () => {
+    const backdrop = rule('html.embedded .panel-backdrop');
+    expect(backdrop).toBeTruthy();
+    expect(decl(backdrop.body, 'padding-right')).toBe('var(--host-clear-x)');
+    // An auto track grows to the panel's own width, and the panel with it.
+    expect(decl(backdrop.body, 'grid-template-columns')).toBe('minmax(0, 1fr)');
+    expect(decl(rule('html.embedded .panel--tabbed').body, 'max-width')).toBe('100%');
+  });
+
+  // Parked top-left, it ran under the host's toggle at 640 wide (its Close
+  // button among it). Its cap counts the furthest in it is ever parked.
+  it('the debug panel ends short of the column wherever it is parked', () => {
+    const max = decl(rule('html.embedded .debug').body, 'max-width');
+    const m = /^calc\(100% - ([\d.]+rem) - var\(--host-clear-x\)\)$/.exec(max);
+    expect(m, max).toBeTruthy();
+    const lefts = ALL.filter((r) => r.selector === '.debug').map((r) => decl(r.body, 'left')).filter(Boolean);
+    expect(lefts.length).toBeGreaterThanOrEqual(2); // 1.5rem, and 0.75rem on a small screen
+    for (const left of lefts) expect(rem(left)).toBeLessThanOrEqual(rem(m[1]));
+  });
+
+  it('the first-run card ends short of the column (90vw of a phone ran under it)', () => {
+    const left = decl(rule('.panel.setup-card', 'left').body, 'left');
+    expect(decl(rule('html.embedded .panel.setup-card').body, 'max-width')).toBe(`calc(100% - ${left} - var(--host-clear-x))`);
+  });
+
+  // Centred between the gear and the widest chip, the widest night is still
+  // wider than that room on a portrait phone (390x844: 226px in 174px), and it
+  // ran 26px under the shifted clock chip. It is capped to exactly the room
+  // its centring counts, and wraps into rows instead.
+  it('the ticker is capped to the room between the gear and the widest corner chip, and wraps into it', () => {
+    const ticker = rule('html.embedded .tonight-ticker');
+    const max = decl(ticker.body, 'max-width');
+    const right = decl(ticker.body, 'right');
+    expect(max).toContain('100% - var(--host-clear-x)');
+    // ...less the ticker's own stat gap on each side, so it never touches either.
+    expect(max).toMatch(/- 1\.6 \* var\(--u\) \)$/);
+    expect(decl(rule('.tonight-ticker', 'position').body, 'gap')).toBe('calc(0.8 * var(--u))');
+    for (const term of ['15.3 * var(--u)', 'var(--safe-inset)', 'max(52px, 2.9 * var(--u))']) {
+      expect(right, term).toContain(term);
+      expect(max, term).toContain(term);
+    }
+    // ...and never wider than it is standalone.
+    expect(max).toContain(decl(rule('.tonight-ticker', 'position').body, 'max-width').replace(/^calc\((.*)\)$/, '$1'));
+    expect(decl(ticker.body, 'flex-wrap')).toBe('wrap');
+  });
+});

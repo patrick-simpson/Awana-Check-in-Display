@@ -2093,8 +2093,21 @@ html, body, #root {
      the row is nearly full there (640x480: gear, ticker, chip and the
      host's toggle leave ~15px between them), so it never moves further than
      centring it between the gear (its left inset plus 52px, or 2.9u on a
-     big screen) and the widest corner chip (the clock, 15.3u);
-   - a check-in's name column (nameRoomU sizes the name to match).
+     big screen) and the widest corner chip (the clock, 15.3u).
+     That centring is only a place, not a size: on a narrow screen (a
+     portrait phone) the room between the gear and the widest chip is
+     narrower than the widest night (174px for 226px at 390x844), so the
+     ticker is capped to that room, less its own stat gap (0.8u) on each
+     side, and wraps its stats into rows instead of running under the chip.
+     Where the night fits (the Pi's 640x480, every 16:9 screen) the cap
+     never binds and it stays one row; at 592x432 (the Pi with overscan) it
+     is two rows, where it used to touch both neighbours;
+   - a check-in's name column (nameRoomU sizes the name to match);
+   - the operator's panels, which reach the bottom-right edge on a small
+     screen (the Pi's 640x480, 800x480, 1024x768): Settings and the slide editor
+     centre in the room left of the column (a click at the right end of
+     SAVE landed on the host's gear and opened ITS panel instead), and the
+     debug panel and the first-run card end short of it.
    src/lib/embed.js HOST_CONTROL is the same geometry for the one fit done
    in JS (the name), and embed.test.js fails if the two spellings drift.
    Standalone none of these selectors match. */
@@ -2109,9 +2122,30 @@ html.embedded .tonight-ticker {
     2 * (var(--host-clear-x) - 2.6 * var(--u)),
     var(--host-clear-x) + 15.3 * var(--u) - var(--safe-inset) - max(52px, 2.9 * var(--u))
   ));
+  max-width: min(
+    60 * var(--u),
+    100% - var(--host-clear-x) - 15.3 * var(--u) - var(--safe-inset) - max(52px, 2.9 * var(--u)) - 1.6 * var(--u)
+  );
+  flex-wrap: wrap;
 }
 html.embedded .checkin__copy {
   right: max(calc(3 * var(--u)), var(--host-clear-x));
+}
+html.embedded .panel-backdrop {
+  padding-left: 2vw;
+  padding-right: var(--host-clear-x);
+  /* One column exactly as wide as that room (an auto track would grow to
+     the panel's own 94-96vw and let it run on under the column). */
+  grid-template-columns: minmax(0, 1fr);
+}
+html.embedded .panel--tabbed {
+  max-width: 100%;
+}
+html.embedded .debug {
+  max-width: calc(100% - 1.5rem - var(--host-clear-x));
+}
+html.embedded .panel.setup-card {
+  max-width: calc(100% - var(--safe-inset) - var(--host-clear-x));
 }
 
 /* ── Milestone toast (MilestoneToast.jsx) ─────────────────

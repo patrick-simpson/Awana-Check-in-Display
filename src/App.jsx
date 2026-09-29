@@ -947,9 +947,9 @@ export default function App() {
   // Embedded (the Journey kiosk's iframe), the host's own buttons float over
   // this page's bottom-right corner, and nothing in here can paint over a
   // parent's element. The html.embedded rules in app.css keep the corner
-  // chip, the ticker and a long name out of the host's column there
-  // (src/lib/embed.js has the geometry). Standalone, no class and no rule:
-  // the layout is exactly what it always was.
+  // chip, the ticker, a long name and the operator's panels out of the
+  // host's column there (src/lib/embed.js has the geometry). Standalone, no
+  // class and no rule: the layout is exactly what it always was.
   useEffect(() => {
     if (!isEmbedded()) return undefined;
     document.documentElement.classList.add('embedded');

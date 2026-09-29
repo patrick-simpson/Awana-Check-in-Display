@@ -109,6 +109,53 @@ for (const [width, height] of [[640, 480], [1280, 720], [1920, 1080]]) {
   });
 }
 
+// The operator's panels, opened inside the frame. Settings and the slide
+// editor are 94-96vw wide and the debug panel is parked top-left at nearly the
+// full width, so on a small screen they reached under the host's column: at
+// 640x480 and 1024x768 Settings' SAVE sat under the host's gear (a click on
+// its right end opened JOURNEY's panel, and Settings stayed open unsaved), the
+// slide editor's CANCEL under it at 640x480, and the debug panel's Close under
+// the toggle. The stand-in host's buttons are real buttons over the frame, so
+// a click there never reaches this page, exactly as on Journey.
+const PANELS = [
+  ['Settings', 'Control+Shift+S', '.panel--tabbed', (frame) => frame.locator('.panel .actions jelly-button', { hasText: /save/i })],
+  ['the slide editor', 'Control+Shift+E', '.panel--tabbed', (frame) => frame.locator('.panel .actions button', { hasText: /^cancel$/i })],
+  ['the debug panel', 'Control+Shift+D', '.debug', (frame) => frame.locator('.debug-footer button')],
+];
+
+for (const [width, height] of [[640, 480], [1024, 768]]) {
+  test.describe(`embedded at ${width}x${height}, the operator's panels`, () => {
+    test.use({ viewport: { width, height } });
+
+    for (const [name, keys, selector, lastButton] of PANELS) {
+      test(`${name} ends short of the host's column, and its corner button takes a click at its far end`, async ({ page }) => {
+        const frame = await embed(page, { config: { seasonPromos: false } });
+        await frame.locator('.stage').click({ position: { x: 5, y: 5 } });
+        await page.keyboard.press(keys);
+        const panel = frame.locator(selector);
+        await expect(panel).toBeVisible();
+        await page.waitForTimeout(300);
+        expectClear(await boxes(frame, selector), { width, height });
+        const button = await lastButton(frame).boundingBox();
+        await page.mouse.click(button.x + button.width * 0.9, button.y + button.height / 2);
+        await expect(panel).toHaveCount(0);
+      });
+    }
+  });
+}
+
+test.describe('embedded on a portrait phone (390x844)', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  // Journey is opened on a phone now and then; the first-run card is 90vw
+  // there and ran under the host's gear.
+  test('the first-run card ends short of the host\'s column', async ({ page }) => {
+    const frame = await embed(page, { setupCard: true });
+    await expect(frame.locator('.setup-card')).toBeVisible();
+    expectClear(await boxes(frame, '.setup-card'), { width: 390, height: 844 });
+  });
+});
+
 test.describe('standalone at 1280x720', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 

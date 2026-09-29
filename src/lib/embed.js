@@ -10,7 +10,9 @@
 // toggle max(3vh, 24px) up from the bottom. Every other corner is this
 // page's own. Embedded, the signage keeps everything it draws down there out
 // of that column, 8px clear: the corner chip (the time, tonight's tally, the
-// WAITING chip), the tonight ticker beside it, and a long child's name.
+// WAITING chip), the tonight ticker beside it, a long child's name, and the
+// operator's panels (Settings, the slide editor, the debug panel and the
+// first-run card), which reach the right edge on a small screen.
 // See CLAUDE.md, "Embedded, the bottom-right corner belongs to the host".
 //
 // The column's inner edge is the one number this page needs, and it is

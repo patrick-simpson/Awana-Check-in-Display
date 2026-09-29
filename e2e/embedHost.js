@@ -34,8 +34,8 @@ export const hostPage = (src) => `<!doctype html><html><head><meta charset="utf-
 </style></head><body><iframe src="${src}" title="Awana Check-in Display"></iframe>
 <button class="host host--toggle" aria-label="Switch display"></button><button class="host host--gear" aria-label="Video settings"></button></body></html>`;
 
-/** Boot the signage inside the stand-in host. Returns the signage's frame. */
-export async function embed(page, { config = {}, weather = null, tally = 0, query = '?lowPower=1' } = {}) {
+/** Boot the signage inside the stand-in host (the first-run card dismissed unless `setupCard`). Returns the signage's frame. */
+export async function embed(page, { config = {}, weather = null, tally = 0, query = '?lowPower=1', setupCard = false } = {}) {
   await page.route(/pusher|twotimtwo|sockjs/, (route) => route.abort());
   await page.route(/open-meteo/, (route) => (weather == null ? route.abort() : route.fulfill({
     body: JSON.stringify({ current: { temperature_2m: 56, apparent_temperature: 54, weather_code: weather, is_day: 1 } }),
@@ -43,14 +43,14 @@ export async function embed(page, { config = {}, weather = null, tally = 0, quer
     headers: { 'Access-Control-Allow-Origin': '*' },
   })));
   await page.route('**/journey-host.html', (route) => route.fulfill({ contentType: 'text/html', body: hostPage(`/index.html${query}`) }));
-  await page.addInitScript(({ cfg, count }) => {
+  await page.addInitScript(({ cfg, count, card }) => {
     if (!location.pathname.endsWith('/index.html')) return;
-    localStorage.setItem('awanaSetupCardDismissed.v1', '1');
+    if (!card) localStorage.setItem('awanaSetupCardDismissed.v1', '1');
     localStorage.setItem('awanaConfig.v1', JSON.stringify(cfg));
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     if (count) localStorage.setItem('awanaTally.v1', JSON.stringify({ date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`, count }));
-  }, { cfg: { pusherAppKey: 'e2e-key', pusherCluster: 'us2', ...config }, count: tally });
+  }, { cfg: { pusherAppKey: 'e2e-key', pusherCluster: 'us2', ...config }, count: tally, card: setupCard });
   await page.goto('/journey-host.html');
   const frame = await (await page.waitForSelector('iframe')).contentFrame();
   await expect(frame.locator('.stage')).toBeVisible();

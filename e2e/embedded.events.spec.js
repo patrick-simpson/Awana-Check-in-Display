@@ -94,11 +94,20 @@ for (const [width, height] of [[640, 480], [1280, 720]]) {
       expectClear([sticker], { width, height });
       for (const r of await copyRects(frame)) expect(hits(sticker, r), 'the sticker over the headline').toBe(false);
     });
+  });
+}
+
+for (const [width, height] of [[640, 480], [1280, 720], [390, 844]]) {
+  test.describe(`embedded at ${width}x${height}`, () => {
+    test.use({ viewport: { width, height } });
 
     // Four stats with three-digit counts beside the widest corner chip (the
     // clock): at 640x480 the gear, the ticker, the chip and the host's toggle
     // fill the row but for ~15px, so the ticker must neither run into the gear
-    // nor the chip, and the chip must stay out from under the toggle.
+    // nor the chip, and the chip must stay out from under the toggle. On a
+    // portrait phone that room is narrower than the night (174px for 226px at
+    // 390x844, where it ran 26px under the clock), so it wraps into it,
+    // keeping its own stat gap from both.
     test('the widest night\'s ticker keeps clear of the gear and the corner chip, and the chip of the toggle', async ({ page }) => {
       const frame = await embed(page, { config: { showTally: false } });
       await expect(frame.locator('.corner-bottom .corner-chip--clock')).toBeVisible({ timeout: 12_000 });
@@ -107,11 +116,14 @@ for (const [width, height] of [[640, 480], [1280, 720]]) {
       await expect(frame.locator('.tonight-ticker-stat')).toHaveCount(4);
       await page.waitForTimeout(300);
       const [ticker] = await boxes(frame, '.tonight-ticker');
+      const stats = await boxes(frame, '.tonight-ticker-stat');
       const [gear] = await boxes(frame, '.settings-gear');
       const chips = await boxes(frame, '.corner-bottom .corner-chip');
-      expectClear([ticker, ...chips], { width, height });
-      expect(hits(ticker, gear), 'ticker over the settings gear').toBe(false);
-      for (const chip of chips) expect(hits(ticker, chip), 'ticker over the corner chip').toBe(false);
+      expectClear([ticker, ...stats, ...chips], { width, height });
+      for (const box of [ticker, ...stats]) {
+        expect(hits(box, gear), `${box.what} over the settings gear`).toBe(false);
+        for (const chip of chips) expect(hits(box, chip), `${box.what} over the corner chip`).toBe(false);
+      }
     });
   });
 }
