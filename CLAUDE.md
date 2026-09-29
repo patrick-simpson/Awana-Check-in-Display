@@ -415,8 +415,11 @@ thumbnail is the TV at 0.15 scale and fits the same way).
   of at most 68u from 7.2u down to 6u, then up to two lines of 84u down to 5u;
   `lg` caps it at 5.8u, `md` always reads, and so does any headline in a
   script that stacks marks above and below its letters (Thai, Lao, Khmer,
-  Myanmar, Tibetan and the Brahmic scripts bar Devanagari, which Baloo 2
-  draws: `STACKED`), whose marks touch across rows at the shout's .98.
+  Myanmar, Tibetan and the Brahmic scripts, Devanagari included: `STACKED`),
+  whose marks reach into the next row at the shout's .98. That holds even in
+  Baloo 2, which draws Devanagari: the u-matra of "प्रभु" ran 0.17em into the
+  i-matra over "स्तुति" on the row below. `lobbyFrame.test.js` has one sample
+  per script, so dropping any from the rule fails.
   Otherwise read (sentence-case Figtree in the theme's reading ink): balanced
   rows of at most 76u from 4.2u down to 1.5u, at a line height of 1.22. The
   block starts at 15.1u and rises only as far as 11u, and a
@@ -434,14 +437,33 @@ thumbnail is the TV at 0.15 scale and fits the same way).
   kicker wraps to two lines before it shrinks below 1.6u and never runs wider
   than 84u. Copy takes its direction from its text (`dir="auto"`); and since
   the bidi algorithm sees each word's box as one neutral object, every run of
-  words against the headline's direction (a Hebrew phrase in English, English
-  in Hebrew) sits in a `<bdi dir>` of its own (`bidiRuns`), or its words
-  would read in reverse order.
+  two or more words against the headline's direction (a Hebrew phrase in
+  English, English in Hebrew) sits in a `<bdi dir>` of its own
+  (`bidiIsolates`), or its words would read in reverse order. The
+  punctuation at the run's two edges (quotes, a comma, a closing "!", the
+  run-on list's " · ") is drawn outside the `<bdi>` in a `.lobby-punct` box
+  on its word's beat, because plain text gives it the headline's direction:
+  inside, "Say שלום, friends!" put its comma before the Hebrew. A run of one
+  word gets no `<bdi>`: its own box, in the headline's direction, already
+  lays it out as plain text would ("ל-Awana", "Awana!" in Arabic). The e2e
+  order tests compare each drawn row with the same row set as plain text.
+  Still not plain text's: punctuation between two words of a run where a row
+  breaks between them stays on the run's side, and Arabic-Indic digits in a
+  left-to-right headline keep their typed order.
 - **A refit never replays.** Every headline token is one element in both
   layouts, keyed by its place, and the beat sheet is fixed when the copy first
   appears, so a web font landing late only re-lays the same elements out. The
   `<bdi>` runs come from the words alone, so a refit never moves a word into
-  or out of one.
+  or out of one. What a run leaves outside it does depend on the fit: the
+  run-on list's " · " is there only once the lines are joined, and a word too
+  wide for any line keeps its own edge punctuation (it is a block of rows of
+  its own, and a piece after it would start a row the fit never counted). So
+  every run has both its `.lobby-punct` edge boxes in every fit, and a refit
+  only changes their text; an empty one is `display: inline`, which adds
+  nothing to its row and no row of its own. Mounted by a refit instead, a box
+  landed all over again (`lobbyWiring.test.jsx` pins both cases). The rule
+  for anything new here: an element that can exist in any fit exists in
+  every fit, and only its content follows the fit.
 - **The calendar's `frame` field is local-only.** `buildCalendarSlides` adds
   `frame` (headline, sub, date chip) for the lobby; `sanitizeSlides` and the
   wire contract never accept it, so a published or typed slide can never
