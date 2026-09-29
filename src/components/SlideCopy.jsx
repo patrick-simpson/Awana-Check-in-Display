@@ -3,7 +3,7 @@ import { M } from '../lib/motion.jsx';
 import { EASE } from '../lib/brand.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 import StepChip from './brand/StepChip.jsx';
-import { CHIP, KICKER, READ, SUB, bidiRuns, fitFrame, LOBBY_THEMES, lobbyTheme } from '../lib/lobbyFrame.js';
+import { CHIP, KICKER, READ, SUB, bidiIsolates, fitFrame, LOBBY_THEMES, lobbyTheme } from '../lib/lobbyFrame.js';
 import {
   HANDOFF, copyBeats, entranceHold, exitDelay, holdThenLand, holdThenLeave, vanishAtSwap,
 } from '../lib/lobbyMotion.js';
@@ -96,11 +96,12 @@ function rowBreaks(h) {
  * an outgoing slide never repaints in the incoming slide's theme mid-exit.
  * The copy's own direction comes from its text (dir="auto"), so a Hebrew or
  * Arabic headline's words run right to left; and because the bidi algorithm
- * sees each word's box as one neutral object, every run of words that reads
- * against the headline (a Hebrew phrase in English, English in Hebrew) sits
- * in a <bdi> of its own direction (bidiRuns), so its words keep their order.
- * The runs come from the words alone, so a refit never moves a word into or
- * out of one.
+ * sees each word's box as one neutral object, every run of two or more words
+ * that reads against the headline (a Hebrew phrase in English, English in
+ * Hebrew) sits in a <bdi> of its own direction (bidiIsolates), so its words
+ * keep their order, with the punctuation at its two edges drawn outside it,
+ * in the headline's direction, as plain text would place it. The runs come
+ * from the words alone, so a refit never moves a word into or out of one.
  *
  * @param {{
  *   frame: import('../lib/lobbyFrame.js').Frame,
@@ -149,7 +150,17 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
   const wide = new Set(h.wide);
   const leave = (beat) => leaveFor(beat.index, beats.pieces);
   const tokenBeat = (i) => beats.tokens[i] ?? beats.tokens[beats.tokens.length - 1] ?? { index: 0, at: hold };
-  const runs = new Map(bidiRuns(h.tokens).runs.map((run) => [run.from, run]));
+  const runs = new Map(bidiIsolates(h.tokens).map((run) => [run.from, run]));
+  // The text each token's own element draws: all of it, bar the neutrals at a
+  // run's edges, which are drawn outside its <bdi> (edge). A word too wide for
+  // any line keeps them: it is a block of rows of its own, and a piece drawn
+  // after it would start a row the fit never counted.
+  const own = h.tokens.map((t) => t.text);
+  for (const run of runs.values()) {
+    if (run.lead && !wide.has(run.from)) own[run.from] = own[run.from].slice(run.lead.length);
+    if (run.trail && !wide.has(run.to - 1)) own[run.to - 1] = own[run.to - 1].slice(0, -run.trail.length);
+  }
+  const land = (i) => holdThenLand(tokenBeat(i).at, HANDOFF.word, WORD_FROM[landing], WORD_TO, EASE.settle);
 
   /** Token `i`'s own element: always the last child of its fragment, so a refit never remounts it. */
   const word = (i) => (
@@ -157,16 +168,33 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
       still={still}
       className={`lobby-word${wide.has(i) ? ' lobby-word--wide' : ''}`}
       style={wide.has(i) ? { maxWidth: u(READ.width) } : undefined}
-      enter={holdThenLand(tokenBeat(i).at, HANDOFF.word, WORD_FROM[landing], WORD_TO, EASE.settle)}
+      enter={land(i)}
       leave={leave(tokenBeat(i))}
     >
       {/* A word too wide for any line is drawn as the pieces the fit cut,
           one per row, so the page never needs a row the fit did not count. */}
       {wide.has(i)
         ? h.lines.filter((_, r) => h.starts[r] === i).map((piece, k) => <Fragment key={k}>{k > 0 && <br />}{piece}</Fragment>)
-        : h.tokens[i].text}
+        : own[i]}
     </Piece>
   );
+  /**
+   * The neutrals at a run's edge, outside its <bdi>, so they take the
+   * headline's direction as plain text would; they land and leave on their
+   * word's beat. The space READ.joiner starts with stays plain text beside
+   * them: a box of its own would drop it.
+   */
+  const edge = (i, text) => {
+    if (!text || wide.has(i)) return false;
+    const gap = /^\s/u.test(text) ? ' ' : '';
+    const marks = text.trimStart();
+    return (
+      <Fragment>
+        {gap}
+        {marks && <Piece still={still} className="lobby-punct" enter={land(i)} leave={leave(tokenBeat(i))}>{marks}</Piece>}
+      </Fragment>
+    );
+  };
   const space = (i) => i > 0 && h.tokens[i].space && ' ';
   const rowBreak = (i) => breaks.has(i) && <br />;
   /** The headline's children: each token, or a run of tokens against the headline's direction in a <bdi>. */
@@ -179,7 +207,8 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
       continue;
     }
     // The space and any row break before the run stay outside it, so they
-    // sit between it and the word before, whichever way the run reads.
+    // sit between it and the word before, whichever way the run reads; so do
+    // the neutrals at its two edges.
     const inside = [];
     for (let j = run.from; j < run.to; j += 1) {
       inside.push(<Fragment key={j}>{j > run.from && space(j)}{j > run.from && rowBreak(j)}{word(j)}</Fragment>);
@@ -188,7 +217,9 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
       <Fragment key={`run${run.from}`}>
         {space(i)}
         {rowBreak(i)}
+        {edge(run.from, run.lead)}
         <bdi className="lobby-run" dir={run.dir}>{inside}</bdi>
+        {edge(run.to - 1, run.trail)}
       </Fragment>,
     );
     i = run.to;

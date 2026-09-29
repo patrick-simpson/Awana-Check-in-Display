@@ -287,8 +287,8 @@ describe('a web font that lands late', () => {
     });
   });
 
-  it('a run of words against the headline\'s direction keeps its <bdi> and its words through the refit', () => {
-    const mixed = { ...frame, headline: 'Please say שבת שלום to your friends at club' };
+  it('a run of words against the headline\'s direction keeps its <bdi>, its words and its edge punctuation through the refit', () => {
+    const mixed = { ...frame, headline: 'Please say "שבת שלום" to your friends at club' };
     const { container } = render(<SlideCopy frame={mixed} via="boot" />);
     const headline = () => container.querySelector('.lobby-headline');
     expect(headline().classList.contains('lobby-headline--shout')).toBe(true);
@@ -296,6 +296,11 @@ describe('a web font that lands late', () => {
     const before = piecesOf(container);
     const inRun = [...run.querySelectorAll('.lobby-word')];
     expect(inRun.map((w) => w.textContent)).toEqual(['שבת', 'שלום']);
+    // The quotes are drawn outside the run, each on its own word's beat.
+    const marks = [...container.querySelectorAll('.lobby-punct')];
+    expect(marks.map((m) => m.textContent)).toEqual(['"', '"']);
+    expect(landsAt(marks[0])).toBe(landsAt(inRun[0]));
+    expect(landsAt(marks[1])).toBe(landsAt(inRun[1]));
 
     fonts.real = true;
     act(() => {
@@ -305,6 +310,8 @@ describe('a web font that lands late', () => {
     expect(headline().classList.contains('lobby-headline--read')).toBe(true);
     expect(container.querySelector('bdi.lobby-run')).toBe(run);
     expect([...run.querySelectorAll('.lobby-word')]).toEqual(inRun);
+    expect([...container.querySelectorAll('.lobby-punct')]).toEqual(marks);
+    for (const m of marks) expect(rec(m).history).toHaveLength(1);
     const after = piecesOf(container);
     expect(after).toHaveLength(before.length);
     after.forEach((el, i) => {

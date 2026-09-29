@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CHIP, KICKER, LAYOUT, LOBBY_THEMES, READ, SHOUT, SUB,
-  balancedBreaks, bidiRuns, fitFrame, joinTokens, lobbyTheme, measureText, paragraphs, slideFrame, splitRun, tokenDirection, tokenize,
+  balancedBreaks, bidiIsolates, bidiRuns, edgeNeutrals, fitFrame, joinTokens, lobbyTheme, measureText, paragraphs, slideFrame, splitRun, tokenDirection, tokenize,
 } from './lobbyFrame.js';
 import { SLIDE_THEMES, MAX_TEXT } from './slides.js';
 import { buildCalendarSlides, deriveClubInfo } from './calendarLogic.js';
@@ -204,7 +204,7 @@ describe('fitFrame: text too long to shout', () => {
       const fit = fitFrame(frame({ headline }), measure);
       expect(fit.headline.mode).toBe('read');
       expect(fit.headline.wide.length).toBe(1);
-      expect(fit.headline.size).toBeGreaterThanOrEqual(READ.wordFloor);
+      expect(fit.headline.size).toBeGreaterThanOrEqual(2.4);
       for (const line of fit.headline.lines) expect(rowWidth(fit, line)).toBeLessThanOrEqual(READ.width + 1e-6);
       // The cut word's rows hold nothing else.
       const w = fit.headline.wide[0];
@@ -226,6 +226,18 @@ describe('fitFrame: text too long to shout', () => {
     expect(fit.headline.size).toBeGreaterThanOrEqual(2.4);
     expect(fit.headline.lines.join('')).toBe(url);
     expect(fit.headline.lines.length).toBeGreaterThan(1);
+  });
+
+  it('a word that would fit whole at 2.3u is still cut, at 2.4u or more', () => {
+    // 59 characters: whole on one line at 2.3u, but not at 2.4u. The floor is
+    // 2.4u, so it is cut at the largest size its rows fit at instead.
+    const url = 'https://kvbc.example.org/awana/fall-2026/register?ref=lobby';
+    expect(measure(url, 'read') * 2.3).toBeLessThanOrEqual(READ.width);
+    expect(measure(url, 'read') * 2.4).toBeGreaterThan(READ.width);
+    const fit = fitFrame(frame({ headline: url }), measure);
+    expect(fit.headline).toMatchObject({ mode: 'read', wide: [0] });
+    expect(fit.headline.size).toBeGreaterThanOrEqual(2.4);
+    expect(fit.headline.lines.join('')).toBe(url);
   });
 
   it('a long word that fits whole at a readable size is never cut', () => {
@@ -277,18 +289,34 @@ describe('fitFrame: text too long to shout', () => {
 
 describe('fitFrame: scripts that stack their marks', () => {
   // At the shout's .98 line height the marks above and below these letters
-  // touch across rows (Thai, measured); at the read layout's 1.22 they clear.
+  // touch across rows (Thai in the fallback face, Devanagari in Baloo 2,
+  // measured); at the read layout's 1.22 they clear. One sample per script
+  // the fit names, so dropping any of them from the rule fails here.
   const STACKED = {
-    thai: 'ยินดีต้อนรับสู่ชมรมคืนนี้ กรุณานำหนังสือคู่มือ',
-    lao: 'ຍິນດີຕ້ອນຮັບສູ່ສະໂມສອນຄືນນີ້',
+    thai: 'ยินดีต้อนรับ คืนนี้',
+    lao: 'ສະບາຍດີ ທຸກຄົນ',
     khmer: 'សូមស្វាគមន៍មកកាន់ក្លឹប យប់នេះ',
     myanmar: 'ယနေ့ညကလပ်သို့ ကြိုဆိုပါသည်',
-    tamil: 'இன்றிரவு கிளப்புக்கு வரவேற்கிறோம்',
+    tibetan: 'བཀྲ་ཤིས་བདེ་ལེགས།',
+    // The u-matra under the bha of the first row runs through the i-matra's
+    // loop over the ti of the second: 0.17em deep at .98, in Baloo 2.
+    devanagari: 'प्रभु की\nस्तुति करो',
     bengali: 'আজ রাতে ক্লাবে স্বাগতম',
+    gurmukhi: 'ਅੱਜ ਰਾਤ ਕਲੱਬ ਵਿੱਚ ਜੀ ਆਇਆਂ ਨੂੰ',
+    gujarati: 'આજે રાત્રે ક્લબમાં સ્વાગત છે',
+    oriya: 'ଆଜି ରାତିରେ କ୍ଲବକୁ ସ୍ୱାଗତ',
+    tamil: 'இன்றிரவு கிளப்புக்கு வரவேற்கிறோம்',
+    telugu: 'ఈ రాత్రి క్లబ్‌కు స్వాగతం',
+    kannada: 'ಇಂದು ರಾತ್ರಿ ಕ್ಲಬ್‌ಗೆ ಸ್ವಾಗತ',
+    malayalam: 'ഇന്ന് രാത്രി ക്ലബ്ബിലേക്ക് സ്വാഗതം',
+    sinhala: 'අද රාත්‍රී සමාජයට සාදරයෙන් පිළිගනිමු',
   };
 
   it('read instead of shouting, whatever size the slide asks for', () => {
     for (const [script, headline] of Object.entries(STACKED)) {
+      // Short enough to shout, were it in a script that could: the same
+      // number of letters in Latin shouts.
+      expect(fitFrame(frame({ headline: headline.replace(/\S/gu, 'x') }), measure).headline.mode, script).toBe('shout');
       for (const textSize of ['auto', 'xl', 'lg']) {
         const fit = fitFrame(frame({ headline, textSize }), measure);
         expect(fit.headline.mode, `${script} at ${textSize}`).toBe('read');
@@ -297,10 +325,11 @@ describe('fitFrame: scripts that stack their marks', () => {
     }
     // Even one word of them in an English headline.
     expect(fitFrame(frame({ headline: 'Welcome ยินดีต้อนรับ' }), measure).headline.mode).toBe('read');
+    expect(fitFrame(frame({ headline: 'Sparks कृपया\nकिताबें Truth' }), measure).headline.mode).toBe('read');
   });
 
-  it('the scripts the shout\'s own faces draw still shout: Latin, Vietnamese, Devanagari (Baloo 2), Hebrew, Chinese', () => {
-    for (const headline of ['Making bracelets', 'Chào mừng các em', 'आज रात क्लब में', 'ברוכים הבאים', '欢迎来到俱乐部']) {
+  it('the scripts that keep their marks clear of the next row still shout: Latin, Vietnamese, Hebrew, Arabic, Chinese', () => {
+    for (const headline of ['Making bracelets', 'Chào mừng các em', 'ברוכים הבאים', 'مرحبا بكم', '欢迎来到俱乐部']) {
       expect(fitFrame(frame({ headline }), measure).headline.mode, headline).toBe('shout');
     }
   });
@@ -349,6 +378,57 @@ describe('bidiRuns: words that read against the headline', () => {
     const joined = tokenize(text).flatMap((p, i, all) => p.map((t, j) => (i < all.length - 1 && j === p.length - 1 ? { ...t, text: t.text + READ.joiner } : t)));
     expect(bidiRuns(joined)).toEqual(plain);
     expect(plain.runs).toEqual([{ from: 2, to: 4, dir: 'rtl' }]);
+  });
+});
+
+describe('edgeNeutrals: the punctuation at a token\'s two ends', () => {
+  it('splits off what the bidi algorithm places by the words around it', () => {
+    expect(edgeNeutrals('שלום,')).toEqual(['', 'שלום', ',']);
+    expect(edgeNeutrals('"שבת')).toEqual(['"', 'שבת', '']);
+    expect(edgeNeutrals('(חברים)')).toEqual(['(', 'חברים', ')']);
+    expect(edgeNeutrals('Awana!')).toEqual(['', 'Awana', '!']);
+    expect(edgeNeutrals('«שלום»?!')).toEqual(['«', 'שלום', '»?!']);
+    expect(edgeNeutrals(`כהן${READ.joiner}`)).toEqual(['', 'כהן', READ.joiner]);
+    // Inside the word it stays: a hyphen, an apostrophe, a combining mark.
+    expect(edgeNeutrals('ל-Awana')).toEqual(['', 'ל-Awana', '']);
+    expect(edgeNeutrals('Don\'t')).toEqual(['', 'Don\'t', '']);
+    expect(edgeNeutrals('कृपया।')).toEqual(['', 'कृपया', '।']);
+  });
+
+  it('a number keeps its own signs; a token of punctuation alone is all core', () => {
+    expect(edgeNeutrals('50%')).toEqual(['', '50%', '']);
+    expect(edgeNeutrals('$5,')).toEqual(['', '$5', ',']);
+    expect(edgeNeutrals('2026.')).toEqual(['', '2026', '.']);
+    expect(edgeNeutrals('7:30')).toEqual(['', '7:30', '']);
+    expect(edgeNeutrals('—')).toEqual(['', '—', '']);
+    expect(edgeNeutrals('')).toEqual(['', '', '']);
+  });
+});
+
+describe('bidiIsolates: what the page wraps in a <bdi>, and what it leaves outside', () => {
+  const isolatesOf = (text) => bidiIsolates(tokenize(text).flat());
+
+  it('a run of one word is not isolated: its own box already reads as plain text would', () => {
+    for (const text of ['Say שלום, friends!', 'We always say שלום.', 'Can you say مرحبا? Try it tonight', 'مرحبا بكم في Awana!',
+      'ברוכים הבאים ל Awana!', 'Welcome ל-Awana tonight', 'Our friends (חברים) come tonight', 'הירשמו באתר https://kvbc.example.org/ הערב']) {
+      expect(bidiRuns(tokenize(text).flat()).runs, text).toHaveLength(1);
+      expect(isolatesOf(text), text).toEqual([]);
+    }
+  });
+
+  it('a longer run leaves the neutrals at its two edges outside, and keeps the ones between its words', () => {
+    expect(isolatesOf('We say "שבת שלום" to all')).toEqual([{ from: 2, to: 4, dir: 'rtl', lead: '"', trail: '"' }]);
+    expect(isolatesOf('We say שבת שלום, and see you next week')).toEqual([{ from: 2, to: 4, dir: 'rtl', lead: '', trail: ',' }]);
+    expect(isolatesOf('ברוכים הבאים, Awana Clubs.')).toEqual([{ from: 2, to: 4, dir: 'ltr', lead: '', trail: '.' }]);
+    expect(isolatesOf('Say שבת, שלום tonight')).toEqual([{ from: 1, to: 3, dir: 'rtl', lead: '', trail: '' }]);
+    expect(isolatesOf('Say שבת שלום 2026. Tonight')).toEqual([{ from: 1, to: 4, dir: 'rtl', lead: '', trail: '.' }]);
+  });
+
+  it('a run-on list\'s separator after a name that reads against the headline is left outside its run', () => {
+    const text = ['Thank you', 'שרה כהן', 'See you next week'].join('\n');
+    const joined = tokenize(text).flatMap((p, i, all) => p.map((t, j) => (i < all.length - 1 && j === p.length - 1 ? { ...t, text: t.text + READ.joiner } : t)));
+    expect(bidiIsolates(joined)).toEqual([{ from: 2, to: 4, dir: 'rtl', lead: '', trail: READ.joiner }]);
+    expect(bidiIsolates(tokenize(text).flat())).toEqual([{ from: 2, to: 4, dir: 'rtl', lead: '', trail: '' }]);
   });
 });
 

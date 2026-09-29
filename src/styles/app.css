@@ -351,8 +351,11 @@ html, body, #root {
 /* Every headline token is its own box, in both layouts, so a refit keeps
    the same elements (SlideCopy.jsx); the rows are split by <br>. The bidi
    algorithm sees each box as one neutral object, so a run of words against
-   the headline's direction sits in a <bdi dir> (.lobby-run) of its own. */
-.lobby-word {
+   the headline's direction sits in a <bdi dir> (.lobby-run) of its own, and
+   the punctuation at the run's edges in a box of its own outside it
+   (.lobby-punct), which lands with its word. */
+.lobby-word,
+.lobby-punct {
   display: inline-block;
 }
 /* Only a word wider than any line (a pasted URL) is ever cut: it takes rows
