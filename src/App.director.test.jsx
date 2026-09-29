@@ -50,6 +50,9 @@ vi.mock('./hooks/useBuildReload.js', () => ({
   useBuildReload: (isBusy) => { reloadBusy = isBusy; },
 }));
 
+import { STINGER_SEC } from './lib/lobbyMotion.js';
+import { SETUP_CARD_QUIET_MS } from './lib/constants.js';
+
 const App = (await import('./App.jsx')).default;
 const cfg = await import('./hooks/useConfig.js');
 
@@ -204,6 +207,72 @@ describe('the lobby director, end to end', { timeout: 20_000 }, () => {
     expect(card()).not.toBeNull();
   });
 
+  it('under zero animation the first-run card is back the moment a held slide is gone', async () => {
+    // The poster is replaced in one frame, so there is nothing to wait for.
+    const card = () => document.querySelector('.setup-card');
+    configure();
+    await mount();
+    await settle();
+    await tick(5000);
+    await settle();
+    expect(onScreen('Held poster')).toBe(true);
+    expect(card()).toBeNull();
+    // Held's 10 s end at t = 15 s: just before it, then across it.
+    await tick(9750);
+    expect(card()).toBeNull();
+    await tick(500);
+    await settle();
+    expect(onScreen('Slide B')).toBe(true);
+    expect(card()).not.toBeNull();
+  });
+
+  it('the first-run card stays down through a name, its exit and a quiet beat after it, and then returns', async () => {
+    configure({ manualSlides: [A, B] });
+    await mount();
+    await settle();
+    const card = () => document.querySelector('.setup-card');
+    expect(card()).not.toBeNull();
+
+    await act(async () => { bound.checkin({ firstName: 'Ann', club: 'Sparks', id: 'a1', at: Date.now() }); });
+    expect(banner()).not.toBeNull();
+    expect(card()).toBeNull();
+
+    // Her six seconds, then the gap (400 ms), then the quiet beat: down throughout.
+    const seen = [];
+    for (let t = 250; t <= 6000 + 400 + SETUP_CARD_QUIET_MS - 500; t += 250) {
+      await tick(250);
+      seen.push(!!card());
+    }
+    expect(banner()).toBeNull();
+    expect(seen).not.toContain(true);
+
+    await tick(1000);
+    await settle();
+    expect(card()).not.toBeNull();
+  });
+
+  it('two names a few seconds apart never have the card pop in between them', async () => {
+    configure({ manualSlides: [A, B] });
+    await mount();
+    await settle();
+    const card = () => document.querySelector('.setup-card');
+    const seen = [];
+    const watch = async (ms) => {
+      for (let left = ms; left > 0; left -= 250) { await tick(250); seen.push(!!card()); }
+    };
+
+    await act(async () => { bound.checkin({ firstName: 'Ann', club: 'Sparks', id: 'a1', at: Date.now() }); });
+    await watch(6000 + 400 + 1500);       // Ann's moment, its gap, and a second and a half of empty stage
+    expect(banner()).toBeNull();
+    await act(async () => { bound.checkin({ firstName: 'Ben', club: 'Sparks', id: 'b1', at: Date.now() }); });
+    expect(banner()).not.toBeNull();
+    await watch(6000 + 400 + SETUP_CARD_QUIET_MS - 500);
+    expect(seen).not.toContain(true);
+
+    await watch(1000);
+    expect(seen.at(-1)).toBe(true);
+  });
+
   it('a tally correction reaches the corner with the corrected number, once', async () => {
     localStorage.setItem('awanaTally.v1', JSON.stringify({ date: todayKey(), count: 80 }));
     configure({ manualSlides: [A, B] });
@@ -238,4 +307,32 @@ describe('the lobby director, end to end', { timeout: 20_000 }, () => {
     await tick(4000);
     expect(reloadBusy()).toBe(false);
   });
+  // LAST in the file on purpose: it runs the slideshow with motion on, and an
+  // exit that framer-motion had under way when the test ended keeps its frame
+  // loop busy for the tests after it in this file (their exits then outlast
+  // their fake seconds). Nothing follows it.
+  it('with motion, the first-run card waits out the stinger after a held slide before it comes back', async () => {
+    // The flag drops when the slideshow moves on, but the poster is on screen
+    // until the wave covers the screen, and the wave until it has gone
+    // (STINGER_SEC): the card returns after all of that, not before.
+    const card = () => document.querySelector('.setup-card');
+    configure({ reduceMotion: false });
+    await mount();
+    await settle();
+    await tick(5000);
+    await settle();
+    expect(card()).toBeNull();
+    await tick(9750);
+    expect(card()).toBeNull();
+    await tick(500);
+    await settle();
+    expect(onScreen('Slide B')).toBe(true);
+    // Just past the swap the wave is still on its way off the top of the screen.
+    expect(card()).toBeNull();
+    await tick(Math.ceil(STINGER_SEC * 1000) - 750);
+    expect(card()).toBeNull();
+    await tick(1000);
+    expect(card()).not.toBeNull();
+  });
+
 });

@@ -76,18 +76,52 @@ describe('where the note stands', () => {
     expect(SETUP_NOTE.top).toBeLessThan(COMING_UP.frame);
   });
 
-  it('is as wide as the slides\' own text block, centred on the frame', () => {
+  it('starts on the slides\' own left margin and is no wider than their text block', () => {
     const rule = /\.pj-setup-note \{([^}]*)\}/.exec(css)?.[1] ?? '';
-    expect(rule).toMatch(new RegExp(`width: calc\\(${SETUP_NOTE.width} \\* var\\(--u\\)\\)`));
     expect(rule).toMatch(new RegExp(`left: calc\\(50% - ${SETUP_NOTE.width / 2} \\* var\\(--u\\)\\)`));
+    // As wide as its own words, up to the block: a full-width strip ran under
+    // the slideshow's Prev / Next pill, at the window's bottom-right.
+    expect(rule).toMatch(/width: max-content/);
+    expect(rule).toMatch(new RegExp(`max-width: min\\(calc\\(${SETUP_NOTE.width} \\* var\\(--u\\)\\)`));
     // .pj-slide runs from 8u to 92u.
     const slide = /\.pj-slide \{([^}]*)\}/.exec(css)?.[1] ?? '';
     expect(slide).toMatch(new RegExp(`left: calc\\(${(100 - SETUP_NOTE.width) / 2} \\* var\\(--u\\)\\)`));
+  });
+
+  it('stops short of the window\'s right edge by the hover Prev / Next pill\'s reach, in the pill\'s own rem', () => {
+    const rule = /\.pj-setup-note \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    const reserve = Number(/calc\(50% \+ 42 \* var\(--u\) - ([\d.]+)rem\)/.exec(rule)?.[1]);
+    // right-8 (2rem) plus the pill: two 4.4rem-ish buttons, about 11.75rem in all.
+    expect(reserve).toBeGreaterThanOrEqual(2 + 11.75);
+    const nav = readFileSync(resolve(__dirname, '../views/SlideshowView.jsx'), 'utf8');
+    expect(nav).toMatch(/fixed bottom-8 right-8/);
   });
 
   it('is anchored to the window\'s bottom, so a 4:3 window has the black band under the frame too', () => {
     const rule = /\.pj-setup-note \{([^}]*)\}/.exec(css)?.[1] ?? '';
     expect(rule).toMatch(/bottom: max\(calc\(0\.5 \* var\(--u\)\), 6px\)/);
     expect(rule).toMatch(/position: absolute/);
+  });
+});
+
+describe('the note gives way to the wall\'s own bottom overlays', () => {
+  // The ESC toast and the watchdog's "back to schedule" pill stand on the same
+  // band, over its middle. CSS does the yielding (an overlay in the DOM hides
+  // the note, exit animation included), so the coupling is two things: the
+  // marker on each overlay, and the rule that reads it.
+  const read = (rel) => readFileSync(resolve(__dirname, rel), 'utf8');
+
+  it('hides the note (visibility, so nothing moves) while any marked overlay is in the DOM', () => {
+    expect(css).toMatch(/:root:has\(\[data-pj-bottom-overlay\]\) \.pj-setup-note \{\s*visibility: hidden;\s*\}/);
+  });
+
+  it('is marked on the ESC toast and on the resume pill, and on nothing that stays up', () => {
+    expect(read('../views/SlideshowView.jsx')).toMatch(/className="absolute left-1\/2 z-50"\s+data-pj-bottom-overlay/);
+    expect(read('../components/ResumePill.jsx')).toMatch(/data-resume-pill[\s\S]{0,200}data-pj-bottom-overlay/);
+    // A marker on an always-mounted element would hide the note for good.
+    const attribute = /\sdata-pj-bottom-overlay(?=[\s=>/])/;   // as a JSX attribute, not as a word in a comment
+    const marked = ['../App.jsx', '../components/AwanaMark.jsx', '../components/SetupChecklist.jsx', '../views/QuickNav.jsx']
+      .filter((rel) => attribute.test(read(rel)));
+    expect(marked).toEqual([]);
   });
 });

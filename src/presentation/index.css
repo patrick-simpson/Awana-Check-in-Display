@@ -542,15 +542,25 @@
    margin band, where no view draws anything (see SETUP_NOTE there): the
    Upcoming Awana Nights list stops at 51.75u and every other view ends
    higher, so a note that stays below 51.75u can never cover a line of any of
-   them, at any window size. Anchored to the window's bottom and centred on
-   the frame, so on a 4:3 window it drops into the black band under the
-   frame and has more room. Two lines, sized in u with a 12px floor (it is
-   read at the keyboard, not off the wall); the button rides beside them. */
+   them, at any window size. Anchored to the window's bottom, on the slides'
+   own left margin (8u), so on a 4:3 window it drops into the black band under
+   the frame and has more room. Two lines, sized in u with a 12px floor (it is
+   read at the keyboard, not off the wall); the button rides beside them.
+
+   It is as wide as its words, not the whole 84u: the bottom band is not
+   empty of the wall's OWN overlays. The slideshow's Prev / Next pill stands
+   at the window's bottom-right (SlideshowView.jsx: fixed, 2rem in, about
+   11.75rem wide, shown while the pointer is on the wall), so the note stops
+   14.5rem short of the window's right edge and wraps instead of running under
+   it. The two centred overlays (the ESC toast and the watchdog's "back to
+   schedule" pill) sit where any note wide enough to read would be, so the
+   note gives way to them entirely: see the :has() rule below. */
 .pj-setup-note {
   position: absolute;
   z-index: 40;
   left: calc(50% - 42 * var(--u));
-  width: calc(84 * var(--u));
+  width: max-content;
+  max-width: min(calc(84 * var(--u)), calc(50% + 42 * var(--u) - 14.5rem));
   bottom: max(calc(0.5 * var(--u)), 6px);
   display: flex;
   align-items: center;
@@ -606,6 +616,16 @@
   padding: 0.35em 0.9em;
   font-size: 0.85em;
   white-space: nowrap;
+}
+/* The note gives way to the wall's own bottom-centre overlays (the slideshow's
+   "Exit slides / Press ESC again" toast, the watchdog's "Back to schedule in"
+   pill), which carry data-pj-bottom-overlay. They stand on the same band, over
+   the middle of it, and an operator prompt for one volunteer must never sit
+   over (or under) a live cue for the room. visibility, not display: nothing
+   moves. The overlays leave with an exit animation and stay in the DOM until
+   it ends, so the note comes back only once they are truly gone. */
+:root:has([data-pj-bottom-overlay]) .pj-setup-note {
+  visibility: hidden;
 }
 
 /* ── Particle float ── */

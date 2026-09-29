@@ -85,6 +85,33 @@ describe('useCheckInQueue', () => {
     expect(result.current.currentEvent.firstName).toBe('Noah');
   });
 
+  it('reports the gap: true from the moment a run ends until the next may start, never while idle', () => {
+    // The first-run card judges "a name is up" by the child on screen OR the
+    // gap, because the gap is never shorter than the run's own exit.
+    const { result } = renderHook(() => useCheckInQueue(config));
+    expect(result.current.gap).toBe(false);
+    act(() => result.current.enqueue({ firstName: 'Amelia' }));
+    expect(result.current.gap).toBe(false);
+    act(() => vi.advanceTimersByTime(6000));
+    expect(result.current.currentEvent).toBeNull();
+    expect(result.current.gap).toBe(true);
+    act(() => vi.advanceTimersByTime(RUN_EXIT_MS - 1));
+    expect(result.current.gap).toBe(true);
+    act(() => vi.advanceTimersByTime(1));
+    expect(result.current.gap).toBe(false);
+  });
+
+  it('a child who flips in on the same run leaves no gap between them', () => {
+    const { result } = renderHook(() => useCheckInQueue(config));
+    act(() => {
+      result.current.enqueue({ firstName: 'Amelia' });
+      result.current.enqueue({ firstName: 'Noah' });
+    });
+    act(() => vi.advanceTimersByTime(6000));
+    expect(result.current.currentEvent.firstName).toBe('Noah');
+    expect(result.current.gap).toBe(false);
+  });
+
   it('holds birthday and first-timer banners longer', () => {
     const { result } = renderHook(() => useCheckInQueue(config));
 

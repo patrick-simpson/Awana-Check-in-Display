@@ -22,7 +22,17 @@ const DISMISS_KEY = 'awanaSetupChecklistDismissed.v1';
  * note used to be a 23rem card in the bottom-left corner, which sat on the
  * left of the events list at 720p and the coming-up chips at 1080p, since a
  * corner of a centred, full-width layout is never free. It is a strip now:
- * two lines, 84u wide like the slides' own text block, from `top` down.
+ * two lines, on the slides' own left margin (8u) and no wider than their text
+ * block (84u), from `top` down.
+ *
+ * The band is not empty of the wall's OWN overlays, though. The slideshow's
+ * hover Prev / Next pill stands at the window's bottom-right, so the note is
+ * only as wide as its words and stops 14.5rem short of the right edge
+ * (wrapping to a third line in a 4:3 window's black band if it must). The ESC
+ * toast and the watchdog's resume pill stand at bottom-centre, over the
+ * middle of any strip wide enough to read: they carry `data-pj-bottom-overlay`
+ * and the note is hidden (index.css, `:has()`) while either is in the DOM,
+ * its exit animation included.
  */
 export const SETUP_NOTE = { top: 51.75, width: 84 };
 

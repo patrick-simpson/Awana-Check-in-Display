@@ -326,3 +326,112 @@ test.describe('the projector\'s setup note, 1280x720', () => {
     await expect(page.locator('[data-setup-checklist]')).toHaveCount(0);
   });
 });
+
+/* ── The projector's note among the wall's own bottom overlays ───────── */
+
+// The bottom band is not empty of the wall's OWN overlays. The slideshow's
+// Prev / Next pill stands at the window's bottom-right while the pointer is on
+// the wall; its "Exit slides / Press ESC again" toast and the watchdog's "Back
+// to schedule in" pill stand at bottom-centre. A first pass put the note under
+// all three: at 1920x1080 "DON'T SHOW AGAIN" was clipped to "DON'T SHOW AG" by
+// the pill, and 25-41% of that button routed a click to Prev. The note now
+// stops short of the pill, and gives way to the other two while they are up.
+
+const OPENING_DECK = '/countdown.html?now=2026-09-16T18:00:30';
+const NOTE = '[data-setup-checklist]';
+
+async function showOpeningDeck(page) {
+  await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
+  await page.addInitScript(NO_KEY);
+  await page.goto(OPENING_DECK);
+  await expect(page.locator(NOTE)).toBeVisible();
+  await expect(page.locator('[data-slide="welcome"]')).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+}
+
+for (const [width, height] of SIZES) {
+  test(`the projector's note stays clear of the hover Prev / Next pill, and its button is the one clicked, at ${width}x${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await showOpeningDeck(page);
+
+    // The pointer on the wall shows the pill (a 300 ms fade), which is when it is in the way.
+    await page.mouse.move(width / 2, height / 3);
+    const nav = page.locator('[data-slideshow-nav]');
+    await expect(nav).toHaveCSS('opacity', '1');
+
+    const boxes = await page.evaluate(() => {
+      const box = (r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+      const note = document.querySelector('[data-setup-checklist]');
+      const button = note.querySelector('button').getBoundingClientRect();
+      return {
+        note: box(note.getBoundingClientRect()),
+        nav: box(document.querySelector('[data-slideshow-nav]').getBoundingClientRect()),
+        // Whatever is topmost at seven points along the button's own middle line.
+        hits: [0.05, 0.2, 0.35, 0.5, 0.65, 0.8, 0.95].map((f) => {
+          const hit = document.elementFromPoint(button.left + button.width * f, button.top + button.height / 2);
+          return note.querySelector('button').contains(hit) ? 'the button' : (hit?.closest('button')?.textContent.trim() || hit?.tagName);
+        }),
+      };
+    });
+    expect(overlaps(boxes.note, boxes.nav)).toBe(false);
+    expect(boxes.hits).toEqual(Array(7).fill('the button'));
+    expect(boxes.note.right).toBeLessThanOrEqual(boxes.nav.left);
+    expect(boxes.note.bottom).toBeLessThanOrEqual(height);
+  });
+}
+
+for (const [width, height] of [[1280, 720], [1920, 1080]]) {
+  test.describe(`at ${width}x${height}`, () => {
+    test.use({ viewport: { width, height } });
+
+    test('the projector\'s note gives way to the ESC toast, and comes back when the toast has gone', async ({ page }) => {
+      await showOpeningDeck(page);
+      await page.mouse.move(width / 2, height / 3);
+      await page.keyboard.press('Escape');
+
+      const toast = page.locator('[data-pj-bottom-overlay]');
+      await expect(toast).toBeVisible();
+      await expect(toast).toContainText('Press ESC again');
+      // They share the ground (that is why the note yields): the toast sits on the note's strip.
+      const [t, n] = await Promise.all([toast.boundingBox(), page.locator(NOTE).boundingBox()]);
+      expect(overlaps(
+        { left: t.x, top: t.y, right: t.x + t.width, bottom: t.y + t.height },
+        { left: n.x, top: n.y, right: n.x + n.width, bottom: n.y + n.height },
+      )).toBe(true);
+      await expect(page.locator(NOTE)).toBeHidden();
+
+      // The toast times itself out after 3 s; the note returns once it has left the DOM, not before.
+      await expect(toast).toHaveCount(0, { timeout: 8000 });
+      await expect(page.locator(NOTE)).toBeVisible();
+    });
+
+    test('the projector\'s note gives way to the watchdog\'s "back to schedule" pill, and comes back when it goes', async ({ page }) => {
+      await page.clock.install();
+      await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
+      await page.addInitScript(NO_KEY);
+      await page.goto('/countdown.html?now=2026-09-15T18:30:00');
+      await expect(page.locator(NOTE)).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+
+      // An operator override of the schedule, from the hover menu at the top-right.
+      await page.mouse.move(width - 20, 20);
+      await page.getByRole('button', { name: 'Opening Ceremony' }).click();
+      await page.mouse.move(width / 2, height / 3);
+      await expect(page.locator('[data-mode="slideshow"]')).toBeVisible();
+      await expect(page.locator('[data-resume-pill]')).toHaveCount(0);
+      await expect(page.locator(NOTE)).toBeVisible();
+
+      // 14 min 10 s on: 50 s of the 15-minute watchdog left, inside its 60 s warning.
+      const now = await page.evaluate(() => Date.now());
+      await page.clock.setSystemTime(now + 14 * 60_000 + 10_000);
+      const pill = page.locator('[data-resume-pill]');
+      await expect(pill).toBeVisible({ timeout: 8000 });
+      await expect(pill).toHaveAttribute('data-pj-bottom-overlay');
+      await expect(page.locator(NOTE)).toBeHidden();
+
+      await page.getByRole('button', { name: 'Stay' }).click();
+      await expect(pill).toHaveCount(0);
+      await expect(page.locator(NOTE)).toBeVisible();
+    });
+  });
+}

@@ -17,6 +17,12 @@ export const MILESTONE_TOAST_MS = 6000;
 // Settings gear fades after this much mouse stillness.
 export const GEAR_IDLE_MS = 3000;
 
+// The first-run setup card waits this long after the lobby's last name has
+// gone before it comes back. On a screen that is not keyed yet the card is
+// always due, and check-ins a few seconds apart would otherwise have it pop
+// in for a second between every pair of names.
+export const SETUP_CARD_QUIET_MS = 5000;
+
 // Grace period before a dropped realtime pipe forces the status sticker
 // visible — ordinary reconnect blips stay silent.
 export const DROPPED_GRACE_MS = 8000;

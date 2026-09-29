@@ -20,6 +20,7 @@ import UpNextChip from './components/UpNextChip.jsx';
 import { useConfig } from './hooks/useConfig.js';
 import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useCornerItem } from './hooks/useCornerItem.js';
+import { useLinger } from './hooks/useLinger.js';
 import { DUR, EASE } from './lib/brand.js';
 import { useSocket, simulateEvent } from './hooks/useSocket.js';
 import { useSyncedDeck } from './hooks/useSyncedDeck.js';
@@ -36,6 +37,7 @@ import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } fro
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { BOARD_HIDDEN, decideBoard } from './lib/checkoutBoard.js';
 import { OVERLAY, lobbyRoom, setupUp } from './lib/overlayFit.js';
+import { STINGER_SEC } from './lib/lobbyMotion.js';
 import { birthdayRibbon } from './lib/birthdayWeek.js';
 import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
@@ -57,7 +59,7 @@ import {
 import { useWatchdogReload } from './hooks/useWatchdogReload.js';
 import { useBuildReload } from './hooks/useBuildReload.js';
 import { useTallerThan } from './hooks/useTallerThan.js';
-import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX } from './lib/constants.js';
+import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, SETUP_CARD_QUIET_MS } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -127,7 +129,7 @@ export default function App() {
   const [slideInfo, setSlideInfo] = useState({ key: 'none', special: false, poster: false });
   const checkInsHeld = !FLAGS.overlay && slideInfo.special;
   const {
-    currentEvent, run: checkInRun, step: checkInStep, enqueue, skipCurrent, pending,
+    currentEvent, run: checkInRun, step: checkInStep, enqueue, skipCurrent, pending, gap: checkInGap,
   } = useCheckInQueue(config, { held: checkInsHeld });
   const { count, bump, reset: resetTally, sync: syncTally } = useTally();
   // Set (synchronously, before the reconciled `count` even commits) whenever
@@ -642,12 +644,31 @@ export default function App() {
   }, [tonight]);   // re-stamp on new data so a fresh payload is never judged aged
   const tickerActive = !currentEvent && !checkInsHeld;
   const setupCard = useSetupCard({ status, hasDisplayKey });
+  // Two of the facts setupUp judges flip before the room can see it, and the
+  // card is judged by what the room sees:
+  //  - A name is up from the moment its run starts until its exit has
+  //    finished, and the gap between runs is never shorter than that exit
+  //    (useCheckInQueue), so "a name is up" is the child on screen OR the gap.
+  //    Judged by `currentEvent` alone the card came back over a name still
+  //    leaving. And it does not come back the instant the room is clear
+  //    either: on a screen that is not keyed yet the card is always due, and
+  //    names a few seconds apart had it popping in for a second between
+  //    every pair, so it waits SETUP_CARD_QUIET_MS after the last name.
+  //  - A held slide's flag drops the moment the slideshow moves on, while its
+  //    poster is on screen until the stinger's wave covers the screen (and the
+  //    wave itself until it has gone): the card waits out the whole stinger
+  //    (STINGER_SEC) before it comes back. The flag's other edge is
+  //    immediate: the card goes when a held slide is chosen (ManualSlideshow
+  //    reports it in the same commit that mounts the slide). Zero animation
+  //    has no stinger, so no wait.
+  const setupNameUp = useLinger(currentEvent != null || checkInGap, SETUP_CARD_QUIET_MS);
+  const setupHeld = useLinger(checkInsHeld, config.reduceMotion === true ? 0 : Math.ceil(STINGER_SEC * 1000));
   const setupSeated = setupUp({
     due: setupCard.due,
     overlay: FLAGS.overlay,
     panelOpen: settingsOpen || slideEditorOpen,
-    checkInUp: currentEvent != null,
-    held: checkInsHeld,
+    checkInUp: setupNameUp,
+    held: setupHeld,
     ticker: !FLAGS.overlay && tickerActive && tickerRows(tonight, tonightNow).length > 0,
     room,
   });

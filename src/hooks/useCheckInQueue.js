@@ -89,5 +89,10 @@ export function useCheckInQueue(config, { held = false } = {}) {
     skipCurrent,
     pending: state.queue.length,
     held: state.held,
+    // The breath between runs: nobody on screen, but the last run is still
+    // leaving (the gap is never shorter than its exit) or the next is about
+    // to start. Anything that must not stand on the wave's ground (the
+    // first-run card) treats it as "a name is up".
+    gap,
   };
 }

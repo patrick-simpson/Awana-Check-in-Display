@@ -189,9 +189,17 @@ export function lobbyRoom({ overlay = false, criticalLive = false, boardState, p
  *  - Never on an OBS feed (operator chrome never reaches one), and never
  *    over an open panel, which has its own backdrop.
  *  - A name outranks it: the check-in wave rises through the bottom of the
- *    room, exactly where the card stands.
+ *    room, exactly where the card stands. `checkInUp` is "a name is on
+ *    screen", and that holds from the run's first frame to its last: the
+ *    child on screen, the run's exit still playing, the gap after it (never
+ *    shorter than the exit) and a quiet beat (SETUP_CARD_QUIET_MS) on top,
+ *    so names a few seconds apart do not have the card popping in between
+ *    them. A caller that passed only "a child is on screen" put the card
+ *    back over the name it was leaving.
  *  - A held slide (a promo poster, a marked slide) is its own moment and
- *    the chrome steps aside for it, so does the card.
+ *    the chrome steps aside for it, so does the card. `held` is judged by
+ *    what the room sees: from the moment the slide is chosen until the
+ *    stinger has cleared after it (App lingers the flag by STINGER_SEC).
  *  - Whatever holds the middle of the room (the pickup list, a critical
  *    notice) or the foot (the pickup board's one-line card, the tonight
  *    strip while it has counts to show) has the room: the card waits, as
