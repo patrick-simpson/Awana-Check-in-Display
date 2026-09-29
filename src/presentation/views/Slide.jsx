@@ -10,7 +10,7 @@ import { BodyText } from '../components/BodyText.jsx';
 import { StepChip } from '../components/StepChip.jsx';
 import { wordCount } from '../components/Words.jsx';
 import { HOUSE } from '../lib/kit.js';
-import { chipGeometry, fitChipList, measureEm } from '../lib/chip.js';
+import { chipGeometry, fitChipList, inkEm, measureEm } from '../lib/chip.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 import { ambientVariants, partVariants } from '../lib/landing.js';
 
@@ -178,7 +178,7 @@ export function comingUpLayout(title, chips) {
   const box = headlineBox(title);
   const lineU = box.lineHeight === HEADLINE_LINE_HEIGHT ? c.headlineLine : box.lineHeight;
   const listTopU = c.top + headU * (lineU * headLines + box.padTop + box.padBottom) + c.listGap;
-  const widths = chips.map(({ label, value }) => chipGeometry(measureEm(label.toUpperCase()), measureEm(value)).width);
+  const widths = chips.map(({ label, value }) => chipGeometry(measureEm(label.toUpperCase()), measureEm(value), inkEm(value)).width);
   const { sizeU, count } = fitChipList(widths, {
     maxU: c.maxU,
     minU: c.minU,

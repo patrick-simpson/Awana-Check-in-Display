@@ -40,17 +40,18 @@
   src: url('../../shared/brand/fonts/paytone-one-full-400-normal.woff2') format('woff2'),
        url('../../shared/brand/fonts/PaytoneOne-Regular.ttf') format('truetype');
 }
-/* The shout at the pre-rebrand footprint. Every rule still written against
-   --font-display (banner names, the doors-open flourish, the ticker and the
-   other surfaces not yet rebuilt; the lobby's slide headlines moved to
-   --font-shout in stage 4b) was sized for Baloo 2 ExtraBold, and Paytone One
-   sets about 9% wider than it (the median over names, headlines and figures;
-   19% on a short mixed-case name like Emma) with 11.5% taller caps. This
-   alias draws the same files at 88%, which lands at Baloo's median width less
-   4%, its cap height less 2%, and about 5% over on the widest names: the
-   envelope the old 82% Galindo alias kept. It is transitional: as each stage
-   rebuilds a surface on the kit it moves that surface onto --font-shout
-   (true-size Paytone One) and sizes it for Paytone One. */
+/* The shout at the pre-rebrand footprint, for a rule still written against
+   --font-display: one sized for Baloo 2 ExtraBold, which Paytone One sets
+   about 9% wider than (the median over names, headlines and figures; 19% on
+   a short mixed-case name like Emma) with 11.5% taller caps. This alias
+   draws the same files at 88%, which lands at Baloo's median width less 4%,
+   its cap height less 2%, and about 5% over on the widest names: the
+   envelope the old 82% Galindo alias kept. It is transitional, and nearly
+   done: every stage that rebuilt a surface on the kit moved it onto
+   --font-shout (true-size Paytone One) and sized it for Paytone One (the
+   slide headlines, the check-in name, the sticker, the toasts and the
+   doors-open flourish, the ticker, the pickup board). The one rule left on
+   it is .countdown .time (CountdownTimer.jsx, which no screen renders). */
 @font-face {
   font-family: 'Shout Fit';
   font-style: normal;
@@ -105,9 +106,10 @@
      names, headlines, big numbers (the free match for the catalog's
      RugFish; @font-face above, from the kit's own files). --font-shout is
      Paytone One at true size, for everything built from the kit
-     (src/components/brand/ and each surface a stage rebuilds);
-     --font-display is the same face at the old Baloo footprint for the
-     rules not rebuilt yet (the 'Shout Fit' @font-face above). Paytone draws
+     (src/components/brand/ and every surface a stage has rebuilt: all of
+     the lobby's shouts); --font-display is the same face at the old Baloo
+     footprint for a rule not rebuilt yet (the 'Shout Fit' @font-face
+     above; only .countdown .time is left on it). Paytone draws
      every Latin letter a name has needed, Ș, Ț and Vietnamese included;
      Baloo 2 stays behind it for Devanagari, so a Hindi or Marathi name still
      shouts in a chunky face (and the lobby fit's STACKED rule relies on it).
@@ -2033,7 +2035,7 @@ html, body, #root {
 }
 
 /* ── Milestone toast (MilestoneToast.jsx) ─────────────────
-   A kit chip in the top band: a Londrina kicker on the pill, one Galindo
+   A kit chip in the top band: a Londrina kicker on the pill, one Paytone One
    line on the block (sized by the fit, --toast-line), three sparkles on its
    shoulder. The band sits between the corner tab and the top-right stack,
    above the highest the slide copy can rise, and far above the check-in
@@ -2069,9 +2071,10 @@ html, body, #root {
 .milestone-toast .milestone-count {
   display: block;
   font-family: var(--font-shout);
-  font-size: var(--toast-line, calc(3 * var(--u)));
+  font-size: var(--toast-line, calc(3.2 * var(--u)));
   font-weight: 400;
-  line-height: 1.02;
+  /* MilestoneToast.jsx LINE.lineHeight: Galindo's 1.02, divided by 1.057. */
+  line-height: 0.97;
   white-space: nowrap;
   text-transform: uppercase;
   color: #fff;
@@ -3379,10 +3382,10 @@ input:focus-visible {
 
 /* ── Tonight ticker (onTonight): lobby stat strip ─────────────────── */
 /* The kit's count chips (the printer dashboard's club chips: a pill, white
-   Londrina caps, a Galindo number) in the house blue, on the house waves
-   bottom-centre. Its widest night (four stats, three-digit counts) runs
-   ~55u, inside the 60u between the settings gear (ends ~4u) and the corner
-   chip (from ~80u). Below the check-in wave's z-index as a belt-and-braces
+   Londrina caps, a Paytone One number) in the house blue, on the house waves
+   bottom-centre. Its widest night (four stats, three-digit counts: 263 /
+   48 / 112 / 19) runs ~59.5u, inside the 60u between the settings gear
+   (ends ~4.3u) and the corner chip (from ~82u). Below the check-in wave's z-index as a belt-and-braces
    (it also unmounts via `active` while a banner is up, see
    TonightTicker.jsx). Centred without translateX: framer-motion owns the
    transform. */
@@ -3415,8 +3418,11 @@ input:focus-visible {
 .tonight-ticker-value {
   display: inline-block;
   font-family: var(--font-shout);
-  font-size: calc(2.2 * var(--u));
-  line-height: 1;
+  /* Stage 4b-2 drew 2.2u at line-height 1 in Galindo; Paytone One's figures
+     stand 5% shorter, so 1.05x the size at 1 / 1.05 the line height holds
+     the figures' height and the pill's. */
+  font-size: calc(2.3 * var(--u));
+  line-height: 0.95;
   font-variant-numeric: tabular-nums;
 }
 .tonight-ticker-label {
@@ -3599,15 +3605,15 @@ input:focus-visible {
 /* ── Who's still here board (CheckoutBoard.jsx) ─────────────────────────────
    The kit's card, the printer dashboard's: white, a hard offset shadow in
    the house blue, and a wavy corner tab carrying the title. Each name is a
-   chip in its club's colour (Galindo on the club, a hard shadow in its deep
-   shade), each club's run of chips led by its name in Londrina; the count
-   in the foot is Galindo. While it is the room's focus (a live list during
-   pickup time: overlayFit.js boardPlacement) it takes the middle of the
-   room, centred on the copy's own box (12u to 46u of the 16:9 frame), and
-   the slide copy steps back behind it (.stage.board-up). The name size
-   comes from the component's fit (--name-size): every chip metric below is
-   in em of it, which is the model src/lib/overlayFit.js boardRowsHeight
-   uses. The rest of the time it is on, it is a one-line card at the foot
+   chip in its club's colour (Paytone One on the club, a hard shadow in its
+   deep shade), each club's run of chips led by its name in Londrina; the
+   count in the foot is Paytone One. While it is the room's focus (a live
+   list during pickup time: overlayFit.js boardPlacement) it takes the
+   middle of the room, centred on the copy's own box (12u to 46u of the
+   16:9 frame), and the slide copy steps back behind it (.stage.board-up).
+   The chip size comes from the component's fit (--name-size): every chip
+   metric below is in em of it, which is the model src/lib/overlayFit.js
+   boardRowsHeight uses (the name itself is drawn NAME_CHIP_TEXT x it). The rest of the time it is on, it is a one-line card at the foot
    (.checkout-region--foot, below). */
 .checkout-region {
   position: absolute;
@@ -3712,7 +3718,7 @@ input:focus-visible {
   line-height: 1.25;
 }
 .checkout-board--foot .checkout-count {
-  font-size: calc(1.8 * var(--u));
+  font-size: calc(1.89 * var(--u));
 }
 
 .checkout-clubs {
@@ -3757,9 +3763,14 @@ input:focus-visible {
 }
 .checkout-name__chip {
   display: inline-block;
-  height: 1.75em;
-  line-height: 1.75em;
-  padding: 0 0.65em;
+  /* The chip was drawn around Galindo's caps at --name-size: the name is
+     Paytone One at 1.057x that (overlayFit.js NAME_CHIP_TEXT), whose caps
+     stand as tall, and the pill keeps its size in --name-size (1.75 tall,
+     0.65 of padding a side), which is what boardRowsHeight models. */
+  font-size: 1.057em;
+  height: calc(1.75em / 1.057);
+  line-height: calc(1.75em / 1.057);
+  padding: 0 calc(0.65em / 1.057);
   border-radius: 999px;
   background: var(--club);
   color: #fff;
@@ -3782,8 +3793,10 @@ input:focus-visible {
 .checkout-count {
   margin-right: 0.12em;
   font-family: var(--font-shout);
-  font-size: calc(2.5 * var(--u));
-  line-height: 1;
+  /* Stage 4b-2's 2.5u at line-height 1 in Galindo, times 1.05 at 1 / 1.05:
+     Paytone One's figures stand 5% shorter. */
+  font-size: calc(2.63 * var(--u));
+  line-height: 0.95;
   color: var(--brand-ink);
   vertical-align: -0.08em;
 }

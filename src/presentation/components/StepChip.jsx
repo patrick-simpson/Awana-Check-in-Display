@@ -1,5 +1,5 @@
 import React from 'react';
-import { chipGeometry, measureEm } from '../lib/chip.js';
+import { chipGeometry, inkEm, measureEm } from '../lib/chip.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 
 const TEXT = {
@@ -21,9 +21,10 @@ const TEXT = {
  * instead of spilling off it, and each text is pinned to its measured width
  * with textLength. `fitValue` sizes the value block for a wider stand-in
  * (a ticking count sized for its widest digits) while the real value is
- * drawn at its natural width, so a counting chip neither twitches nor
- * stretches its glyphs. Scale the whole chip with `size` (the value's font
- * size).
+ * drawn at its natural width (at the size it is drawn), so a counting chip
+ * neither twitches nor stretches its glyphs. The value's ink is measured
+ * too, so a mark over or under its capitals (Élodie, Ștefan) keeps off the
+ * block's keyline. Scale the whole chip with `size` (the value's font size).
  *
  * @param {{
  *   label: string | number,
@@ -41,7 +42,7 @@ export const StepChip = ({ label, value, size = '1rem', plate, fitValue, classNa
   const l = String(label).toUpperCase();
   const v = String(value);
   const valueEm = measureEm(v);
-  const g = chipGeometry(measureEm(l), Math.max(valueEm, fitValue ? measureEm(fitValue) : 0));
+  const g = chipGeometry(measureEm(l), Math.max(valueEm, fitValue ? measureEm(fitValue) : 0), inkEm(v));
   const plateFill = plate ? { fill: plate } : { fill: '#030404', fillOpacity: 0.5 };
   return (
     <span
@@ -56,7 +57,7 @@ export const StepChip = ({ label, value, size = '1rem', plate, fitValue, classNa
         <text {...TEXT} x={g.label.x} y={g.label.y} fontSize={g.label.size} textLength={g.label.width.toFixed(3)}>
           {l}
         </text>
-        <text {...TEXT} x={g.value.x} y={g.value.y} fontSize={g.value.size} textLength={valueEm.toFixed(3)}>
+        <text {...TEXT} x={g.value.x} y={g.value.y} fontSize={g.value.size} textLength={(valueEm * g.value.size).toFixed(3)}>
           {v}
         </text>
       </svg>

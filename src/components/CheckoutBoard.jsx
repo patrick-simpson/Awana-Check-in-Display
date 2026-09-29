@@ -28,7 +28,7 @@ import {
 //
 // The look (rebrand stage 4b-2) is the kit's card, the printer dashboard's:
 // a white card with a hard offset shadow and a wavy corner tab carrying its
-// title, each name a chip in its club's colour, the count in Galindo. WHERE it
+// title, each name a chip in its club's colour, the count in Paytone One. WHERE it
 // goes is src/lib/overlayFit.js boardPlacement, handed in as `placement`:
 //
 //  - 'centre' while it is the room's focus (a live list during pickup time):

@@ -2,10 +2,11 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  OVERLAY, PICKUP_TIME, balanceLines, bandRoom, bandTop, boardPlacement, boardRowsHeight, fitBoard,
+  NAME_CHIP_TEXT, OVERLAY, PICKUP_TIME, balanceLines, bandRoom, bandTop, boardPlacement, boardRowsHeight, fitBoard,
   fitParagraph, fitShout, lobbyRoom, plateChrome, wrapLines,
 } from './overlayFit.js';
 import { LAYOUT } from './lobbyFrame.js';
+import { PLATE } from './brand.js';
 import {
   BOARD_ANONYMOUS, BOARD_EMPTY, BOARD_HIDDEN, BOARD_NAMES, BOARD_STALE, PICKUP_PHASES,
 } from './checkoutBoard.js';
@@ -66,6 +67,9 @@ describe('the overlay bands', () => {
   it('measure the plate the way app.css draws it', () => {
     expect(plateChrome(1)).toBeCloseTo(2.05 * (1 - 0.087), 9);
     expect(css).toMatch(/--plate-pill: calc\(2\.05 \* var\(--plate-label, 1rem\)\)/);
+    // The kit's PLATE is the same pill: its Londrina label keeps the catalog
+    // chip's ratio, whatever size the SVG chip draws its shouted label at.
+    expect(PLATE.pillPerLabel).toBeCloseTo(2.05, 2);
   });
 });
 
@@ -297,5 +301,49 @@ describe('the pickup board fit', () => {
     expect(boardRowsHeight(sixty, g.size, 60, measure) <= 20 || g.fits === false).toBe(true);
     const h = fitBoard(sixty, { width: 20, height: 5, max: 2.1, min: 1 }, measure);
     expect(h).toEqual({ size: 1, fits: false });
+  });
+
+  it('counts each name at the size its chip draws it, in a pill that keeps its size', () => {
+    // One name: its club's label and its chip, on one row.
+    const one = [{ club: '', names: ['Maximilian'] }];
+    const x = 0.34; // the empty label's trailing room, per unit of size
+    const row = (s) => x * s + 0.45 * s + measure('Maximilian') * NAME_CHIP_TEXT * s + 1.3 * s;
+    const s = 2;
+    // Just wide enough for the chip at its drawn size: one row; a hair less: two.
+    expect(boardRowsHeight(one, s, row(s), measure)).toBeCloseTo(1.75 * s, 9);
+    expect(boardRowsHeight(one, s, row(s) - 0.05, measure)).toBeGreaterThan(1.75 * s);
+  });
+});
+
+// Stage 4b-2 sized the overlays' shouts for Galindo; Paytone One's caps
+// stand 5.7% shorter at one size (its figures 5%), so each shout is that
+// much larger and each line height that much tighter (CLAUDE.md, the brand
+// kit), which holds the caps' height and every box around them.
+describe('the overlays\' shouts hold stage 4b-2\'s cap heights in Paytone One', () => {
+  /** @param {string} selector */
+  const body = (selector) => css.match(new RegExp(`\\n${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`))?.[1] ?? '';
+  const u = (rule) => Number(rule.match(/font-size: calc\(([\d.]+) \* var\(--u\)\)/)?.[1]);
+  const lh = (rule) => Number(rule.match(/line-height: ([\d.]+);/)?.[1]);
+
+  it('the ticker\'s figures: 2.2u at 1 in Galindo', () => {
+    const rule = body('.tonight-ticker-value');
+    expect(Math.abs(u(rule) - 2.2 * 1.05)).toBeLessThanOrEqual(0.02);
+    expect(Math.abs(lh(rule) - 1 / 1.05)).toBeLessThanOrEqual(0.005);
+  });
+
+  it('the pickup board\'s count: 2.5u (1.8u at the foot) at 1 in Galindo', () => {
+    const rule = body('.checkout-count');
+    expect(Math.abs(u(rule) - 2.5 * 1.05)).toBeLessThanOrEqual(0.01);
+    expect(Math.abs(lh(rule) - 1 / 1.05)).toBeLessThanOrEqual(0.005);
+    expect(Math.abs(u(body('.checkout-board--foot .checkout-count')) - 1.8 * 1.05)).toBeLessThanOrEqual(0.01);
+  });
+
+  it('the pickup board\'s names: drawn NAME_CHIP_TEXT x the chip\'s size, the pill as it was', () => {
+    expect(NAME_CHIP_TEXT).toBe(1.057);
+    const rule = body('.checkout-name__chip');
+    expect(rule).toMatch(new RegExp(`font-size: ${NAME_CHIP_TEXT}em;`));
+    expect(rule).toMatch(new RegExp(`height: calc\\(1\\.75em / ${NAME_CHIP_TEXT}\\);`));
+    expect(rule).toMatch(new RegExp(`line-height: calc\\(1\\.75em / ${NAME_CHIP_TEXT}\\);`));
+    expect(rule).toMatch(new RegExp(`padding: 0 calc\\(0\\.65em / ${NAME_CHIP_TEXT}\\);`));
   });
 });

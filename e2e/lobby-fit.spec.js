@@ -111,6 +111,76 @@ const wordLefts = (page) => page.evaluate(() => Object.fromEntries(
   }),
 ));
 
+/**
+ * Each headline row's ink as Chromium draws it, and the kicker's, in px: the
+ * row's baseline from a zero-height probe set on it, and the letters' reach
+ * from the canvas's own bounding box in the face and size the page drew
+ * them in, so an accent or a comma is measured from the real outlines.
+ */
+const inkOf = (page) => page.evaluate(() => {
+  const ctx = new OffscreenCanvas(1, 1).getContext('2d');
+  /** One element's ink: its baseline, and how far its letters reach above and below it. */
+  const ink = (el, text) => {
+    const cs = getComputedStyle(el);
+    const probe = document.createElement('span');
+    probe.style.cssText = 'display:inline-block;width:0;height:0;vertical-align:baseline';
+    el.appendChild(probe);
+    const baseline = probe.getBoundingClientRect().top;
+    probe.remove();
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const m = ctx.measureText(cs.textTransform === 'uppercase' ? text.toUpperCase() : text);
+    return { baseline, top: baseline - m.actualBoundingBoxAscent, bottom: baseline + m.actualBoundingBoxDescent };
+  };
+  const headline = document.querySelector('.lobby-headline');
+  const rows = [];
+  for (const w of headline.querySelectorAll('.lobby-word')) {
+    const i = ink(w, w.textContent);
+    const row = rows.find((r) => Math.abs(r.baseline - i.baseline) < 2);
+    if (row) Object.assign(row, { top: Math.min(row.top, i.top), bottom: Math.max(row.bottom, i.bottom) });
+    else rows.push(i);
+  }
+  rows.sort((a, b) => a.baseline - b.baseline);
+  const kicker = document.querySelector('.lobby-kicker');
+  const hs = getComputedStyle(headline);
+  return {
+    rows,
+    kicker: kicker ? ink(kicker, kicker.textContent) : null,
+    // The hard offset shadow hangs below each row's ink, marks and all.
+    shadow: parseFloat(hs.textShadow.match(/(-?[\d.]+)px\s+(-?[\d.]+)px/)?.[2] ?? '0'),
+    fontSize: parseFloat(hs.fontSize),
+    bottom: headline.getBoundingClientRect().bottom,
+  };
+});
+
+for (const [width, height] of [[1920, 1080], [1280, 720]]) {
+  test.describe(`marks at ${width}x${height}`, () => {
+    test.use({ viewport: { width, height } });
+
+    // Paytone One's marks reach far past its caps (É to 1.045em, Ễ to 1.161em,
+    // Ș's comma to -0.351em, on rows 0.93em apart): the fit gives the row a
+    // mark would crowd exactly the room it needs, measured in the real face.
+    for (const [name, text] of [
+      ['a lower row\'s accents clear the comma above them', 'Ștefan\nÉmile Nguyễn'],
+      ['a first row\'s accent clears the kicker, and a hanging comma stays inside the headline', 'Émile\nȘtefan'],
+    ]) {
+      test(name, async ({ page }) => {
+        await showSlide(page, { eyebrow: 'Welcome', text });
+        await expect(page.locator('.lobby-headline--shout')).toBeVisible();
+        const m = await inkOf(page);
+        expect(m.rows).toHaveLength(2);
+        // Nothing may touch: the rows' ink (and the upper row's shadow)
+        // keeps a visible gap, and the first row keeps off the kicker's.
+        const gap = 0.03 * m.fontSize;
+        expect(m.rows[1].top - (m.rows[0].bottom + m.shadow)).toBeGreaterThanOrEqual(gap);
+        expect(m.rows[0].top - m.kicker.bottom).toBeGreaterThanOrEqual(gap);
+        // The comma and its shadow hang inside the headline's own box, which
+        // is what the fit keeps clear of the waves.
+        expect(m.rows[1].bottom + m.shadow).toBeLessThanOrEqual(m.bottom + 1);
+      });
+    }
+  });
+}
+
 for (const [width, height] of [[1920, 1080], [1280, 720], [1024, 768]]) {
   test.describe(`a pasted URL at ${width}x${height}`, () => {
     test.use({ viewport: { width, height } });

@@ -42,6 +42,30 @@ describe('CheckInMoment', () => {
     expect(container.querySelectorAll('.checkin__letter')).toHaveLength(4);
   });
 
+  // Paytone One's marks reach far past its caps (nameBox): the name's line
+  // box opens for a mark that would meet the kicker above it or the line
+  // under it, and for nothing else.
+  it('gives a tall mark under the kicker room above the name, and only a tall mark', () => {
+    const pad = (firstName, extra) => {
+      const { container, unmount } = render(still(<CheckInMoment event={kid({ firstName, ...extra })} />));
+      const { paddingTop, paddingBottom } = container.querySelector('.checkin__name').style;
+      unmount();
+      return { top: parseFloat(paddingTop), bottom: parseFloat(paddingBottom), paddingTop, paddingBottom };
+    };
+    const plain = pad('Emile');
+    expect(plain).toMatchObject({ paddingTop: '0em', paddingBottom: '0em' });
+    const accent = pad('Émile');
+    expect(accent.paddingTop).toMatch(/^[\d.]+em$/);
+    expect(accent.top).toBeGreaterThan(0.1);
+    expect(accent.bottom).toBe(0);
+    // A comma under a capital needs room above the line under the name.
+    expect(pad('Stefan', { welcomeBack: true }).paddingBottom).toBe('0em');
+    const comma = pad('Ștefan', { welcomeBack: true });
+    expect(comma.paddingBottom).toMatch(/^[\d.]+em$/);
+    expect(comma.bottom).toBeGreaterThan(0.1);
+    expect(comma.top).toBe(0);
+  });
+
   it('keeps the space between words (and animates a long name per word)', () => {
     const { container } = render(still(<CheckInMoment event={kid({ firstName: 'Mary Elizabeth Anne' })} />));
     const name = container.querySelector('.checkin__name');

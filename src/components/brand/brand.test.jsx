@@ -5,7 +5,7 @@ import Wave from './Wave.jsx';
 import CornerTab from './CornerTab.jsx';
 import Sticker from './Sticker.jsx';
 import DoodleCluster from './DoodleCluster.jsx';
-import { SHAPES, DOODLES } from '../../lib/brand.js';
+import { SHAPES, DOODLES, measureEm } from '../../lib/brand.js';
 import { useFontsReady } from '../../hooks/useFontsReady.js';
 
 afterEach(cleanup);
@@ -25,6 +25,20 @@ describe('StepChip', () => {
     for (const t of [label, value]) {
       expect(Number(t.getAttribute('textLength'))).toBeGreaterThan(0);
       expect(t.getAttribute('lengthAdjust')).toBe('spacingAndGlyphs');
+    }
+  });
+
+  it('seats a value with a mark by its ink, off the keyline, and pins it at the size it is drawn', () => {
+    const value = (c) => c.querySelectorAll('text')[1];
+    const plain = value(render(<StepChip label="WELCOME" value="JOSE" />).container);
+    const accent = value(render(<StepChip label="WELCOME" value="JOSÉ" />).container);
+    const comma = value(render(<StepChip label="WELCOME" value="ȘTEFAN" />).container);
+    // The accent moves the value down, away from the block's top edge; the
+    // comma moves it up, away from its bottom edge.
+    expect(Number(accent.getAttribute('y'))).toBeGreaterThan(Number(plain.getAttribute('y')));
+    expect(Number(comma.getAttribute('y'))).toBeLessThan(Number(plain.getAttribute('y')));
+    for (const [t, text] of [[plain, 'JOSE'], [accent, 'JOSÉ'], [comma, 'ȘTEFAN']]) {
+      expect(t.getAttribute('textLength')).toBe((measureEm(text) * Number(t.getAttribute('font-size'))).toFixed(3));
     }
   });
 

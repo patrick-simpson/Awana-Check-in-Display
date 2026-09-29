@@ -28,17 +28,50 @@ const CHIP = {
   step: 0.5,
   radiusBR: 0.39,
   radiusBL: 0.27,
+  // The least room between the value's ink and its block's top and bottom
+  // edges (the white keyline), in em.
+  valueClear: 0.06,
 };
+
+/**
+ * Where the value's text sits in its block, and at what size, given its ink
+ * (inkEm): centred as the catalog draws it, unless a mark over or under its
+ * capitals (É, Ș) would come within CHIP.valueClear of the block's keyline;
+ * then it moves just far enough the other way, and a value with marks both
+ * above and below that the block cannot hold at full size is drawn as large
+ * as the block allows. The lobby's valueSeat (src/lib/brand.js), copied.
+ * @param {{ ascent: number, descent: number } | null | undefined} ink
+ * @returns {{ y: number, size: number }}
+ */
+function valueSeat(ink) {
+  const y = CHIP.blockTop + CHIP.blockHeight / 2 + 0.03;
+  const size = CHIP.valueSize;
+  if (!ink) return { y, size };
+  const ascent = Math.max(0, ink.ascent);
+  const descent = Math.max(0, ink.descent);
+  const top = CHIP.blockTop + CHIP.valueClear;
+  const bottom = CHIP.blockTop + CHIP.blockHeight - CHIP.valueClear;
+  // SVG's central baseline sits this far (em) above the alphabetic one.
+  const drop = (SHOUT_BOX.ascent - SHOUT_BOX.descent) / 2;
+  const natural = y + drop * size;
+  if (natural - ascent * size >= top && natural + descent * size <= bottom) return { y, size };
+  const s = Math.min(size, Math.floor(((bottom - top) / (ascent + descent)) * 1000) / 1000);
+  const baseline = Math.min(Math.max(y + drop * s, top + ascent * s), bottom - descent * s);
+  return { y: baseline - drop * s, size: s };
+}
 
 /**
  * Geometry for one chip, built around its own text so nothing can spill off
  * the plate. Widths are advance widths in em of a 1em font (see measureEm).
+ * `valueInk` is the value's ink (inkEm), so its marks keep off the keyline.
  * @param {number} labelEm
  * @param {number} valueEm
+ * @param {{ ascent: number, descent: number } | null} [valueInk]
  */
-export function chipGeometry(labelEm, valueEm) {
+export function chipGeometry(labelEm, valueEm, valueInk = null) {
+  const seat = valueSeat(valueInk);
   const lw = Math.max(0, labelEm) * CHIP.labelSize;
-  const vw = Math.max(0, valueEm) * CHIP.valueSize;
+  const vw = Math.max(0, valueEm) * seat.size;
   const H1 = CHIP.pillHeight;
   const r1 = H1 / 2;
   const W1 = Math.max(lw + CHIP.pillPad * 2, CHIP.pillMin);
@@ -63,7 +96,7 @@ export function chipGeometry(labelEm, valueEm) {
   return {
     d,
     label: { x: W1 / 2, y: H1 / 2 + 0.02, size: CHIP.labelSize, width: lw },
-    value: { x: (bx0 + bx1) / 2, y: by0 + CHIP.blockHeight / 2 + 0.03, size: CHIP.valueSize, width: vw },
+    value: { x: (bx0 + bx1) / 2, y: seat.y, size: seat.size, width: vw },
     // Room for the plate's out-of-register offset (below and right).
     width: bx1 + 0.2,
     height: by1 + 0.14,
@@ -198,7 +231,7 @@ export function widestDigits(value) {
  * @param {{ maxU: number, widthU: number }} fit
  */
 export function fitChipU(label, value, { maxU, widthU }) {
-  const width = chipGeometry(measureEm(label.toUpperCase()), measureEm(value)).width;
+  const width = chipGeometry(measureEm(label.toUpperCase()), measureEm(value), inkEm(value)).width;
   return Math.min(maxU, widthU / width);
 }
 

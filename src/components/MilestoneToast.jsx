@@ -13,7 +13,7 @@ import ClubBadge from './ClubBadge.jsx';
 /**
  * One celebration at a time (useCelebrationQueue), as a kit chip in the top
  * band: the catalog's stepped chip with a Londrina kicker on its pill and a
- * Galindo line on its block, three sparkles popping on its shoulder. It sits
+ * Paytone One line on its block, three sparkles popping on its shoulder. It sits
  * between the corner tab and the top-right stack, above the highest the
  * slide copy can rise, so it never covers the headline, and far above the
  * check-in wave, so it never covers a name (src/lib/overlayFit.js OVERLAY).
@@ -31,7 +31,7 @@ import ClubBadge from './ClubBadge.jsx';
  * plate keeps the club's colours, the same rule the confetti follows.
  *
  * The line is fitted to the band by measurement (toastFit): one line from
- * 3u down to 2u, then the two most balanced lines, sized so the plate still
+ * 3.2u down to 2.1u, then the two most balanced lines, sized so the plate still
  * ends where the band ends; a first name too long even for that wraps
  * inside the band rather than running out of it. `compact` is the band with
  * the flag strip hanging over it.
@@ -49,7 +49,11 @@ const LABEL = 1.45;
 const PAD_X = 1.2;
 const PAD_Y = 1.2;
 const LOGO = 7.4;
-const LINE = { max: 3, min: 2, twoLineMax: 2.2, twoLineMin: 1.4, lineHeight: 1.02 };
+// Stage 4b-2 set the line in Galindo (3u down to 2u, two lines 2.2u down to
+// 1.4u, at 1.02); Paytone One's caps stand 5.7% shorter at one size, so each
+// size is that times 1.057 and the line height 1.02 / 1.057 (app.css
+// .milestone-count carries it), which holds the caps and the plate.
+export const LINE = { max: 3.2, min: 2.1, twoLineMax: 2.3, twoLineMin: 1.5, lineHeight: 0.97 };
 // The plate's out-of-register offset and keyline reach a little past its box.
 const PLATE_SPILL = 0.3;
 

@@ -172,7 +172,7 @@ export function lobbyRoom({ overlay = false, criticalLive = false, boardState, p
 
 /**
  * The largest size (on `step`) at which `text` fits `width`, shouted in
- * Galindo caps: one line if it can be read at `min` or more, else the most
+ * Paytone One caps: one line if it can be read at `min` or more, else the most
  * balanced two-line break (the split whose longer line is shortest, which is
  * also the one that can be set largest) at up to `twoLineMax`, and no smaller
  * than `twoLineMin`. `fits` false means even that is too wide: the caller
@@ -335,15 +335,25 @@ export function fitParagraph(text, {
 /* ── The pickup board's name chips ───────────────────────────────── */
 
 /**
+ * The name's size inside its chip, per unit of the chip's size (the fit's
+ * `s`, app.css --name-size). The chips were drawn around Galindo's caps;
+ * Paytone One's stand 5.7% shorter at one size, so the name is drawn that
+ * much larger in a pill that keeps its size (app.css .checkout-name__chip
+ * carries the same number).
+ */
+export const NAME_CHIP_TEXT = 1.057;
+
+/**
  * The board's chips at chip size `s` (the name's font size, u): each club is
  * a run of chips (the club's own label chip, then one chip per name) that
  * wraps inside `width`. Returns how tall the run of rows is, so the fit can
  * pick the largest size that keeps the whole board inside its region.
  *
  * Chip metrics are the CSS's (app.css `.checkout-*`): a name chip is its
- * text plus 1.3 x s of padding, a club's label its Londrina caps at
- * 0.62 x s plus 0.34 x s after it, chips 0.45 x s apart, rows 1.75 x s
- * tall and 0.45 x s apart, and 0.7 x s between clubs.
+ * text (drawn at NAME_CHIP_TEXT x s) plus 1.3 x s of padding, a club's
+ * label its Londrina caps at 0.62 x s plus 0.34 x s after it, chips
+ * 0.45 x s apart, rows 1.75 x s tall and 0.45 x s apart, and 0.7 x s
+ * between clubs.
  *
  * @param {{ club: string, names: string[] }[]} groups
  * @param {number} s
@@ -358,7 +368,7 @@ export function boardRowsHeight(groups, s, width, measure = measureText) {
     let x = measure(String(g.club || '').toUpperCase(), 'label') * 0.62 * s + 0.34 * s;
     rows += 1;
     for (const name of g.names) {
-      const w = Math.min(width, measure(name, 'shout') * s + 1.3 * s);
+      const w = Math.min(width, measure(name, 'shout') * NAME_CHIP_TEXT * s + 1.3 * s);
       if (x + gap + w > width) {
         rows += 1;
         x = w;

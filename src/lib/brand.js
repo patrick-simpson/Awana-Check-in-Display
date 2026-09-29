@@ -89,6 +89,10 @@ export const DOODLES = {
 const CHIP = {
   valueSize: 1.06,
   labelSize: 0.59,
+  // The catalog chip's own label size (0.56 of its value), before that step.
+  // The stepped PLATE's label is Londrina, not the shout, so its pill keeps
+  // this ratio (app.css --plate-pill: 2.05 x --plate-label).
+  plateLabel: 0.56,
   pillHeight: 1.15,
   pillPad: 0.42,
   pillMin: 2.2,
@@ -99,7 +103,40 @@ const CHIP = {
   step: 0.5,
   radiusBR: 0.39,
   radiusBL: 0.27,
+  // The least room between the value's ink and its block's top and bottom
+  // edges (the white keyline), in em.
+  valueClear: 0.06,
 };
+
+/**
+ * Where the value's text sits in its block, and at what size, given its ink
+ * (inkEm: em above and below its baseline). The catalog centres it, and plain
+ * caps, figures and lowercase stay exactly there. Paytone One draws its marks
+ * far past its caps (É to 1.045em, Ș's comma to -0.351em), so a value whose
+ * ink would come within CHIP.valueClear of the block's top or bottom edge
+ * moves just far enough the other way, and one with marks both above and
+ * below that the block cannot hold at full size ("Ștefan & Élodie") is drawn
+ * as large as the block's height allows. The text hangs on SVG's central
+ * baseline, which sits halfway between the face's ascent and descent
+ * (SHOUT_BOX) above the alphabetic one.
+ * @param {{ ascent: number, descent: number } | null | undefined} ink
+ * @returns {{ y: number, size: number }}
+ */
+function valueSeat(ink) {
+  const y = CHIP.blockTop + CHIP.blockHeight / 2 + 0.03;
+  const size = CHIP.valueSize;
+  if (!ink) return { y, size };
+  const ascent = Math.max(0, ink.ascent);
+  const descent = Math.max(0, ink.descent);
+  const top = CHIP.blockTop + CHIP.valueClear;
+  const bottom = CHIP.blockTop + CHIP.blockHeight - CHIP.valueClear;
+  const drop = (SHOUT_BOX.ascent - SHOUT_BOX.descent) / 2;
+  const natural = y + drop * size;
+  if (natural - ascent * size >= top && natural + descent * size <= bottom) return { y, size };
+  const s = Math.min(size, Math.floor(((bottom - top) / (ascent + descent)) * 1000) / 1000);
+  const baseline = Math.min(Math.max(y + drop * s, top + ascent * s), bottom - descent * s);
+  return { y: baseline - drop * s, size: s };
+}
 
 /** The gap between a chip's glyph (the weather's) and its value, in em. */
 const CHIP_ICON_GAP = 0.18;
@@ -115,13 +152,19 @@ const CHIP_ICON_GAP = 0.18;
  * gap, and the value centres in what is left. Zero (the default) is the
  * plain chip, unchanged.
  *
+ * `valueInk` is the value's ink (inkEm), so a mark above or below its
+ * capitals keeps clear of the block's keyline (valueSeat); without it the
+ * value sits where plain caps do.
+ *
  * @param {number} labelEm  label advance width at 1em
  * @param {number} valueEm  value advance width at 1em
  * @param {number} [iconEm] the glyph's width at 1em, 0 for none
+ * @param {{ ascent: number, descent: number } | null} [valueInk] the value's ink, em
  */
-export function chipGeometry(labelEm, valueEm, iconEm = 0) {
+export function chipGeometry(labelEm, valueEm, iconEm = 0, valueInk = null) {
+  const seat = valueSeat(valueInk);
   const lw = Math.max(0, labelEm) * CHIP.labelSize;
-  const vw = Math.max(0, valueEm) * CHIP.valueSize;
+  const vw = Math.max(0, valueEm) * seat.size;
   // A glyph is artwork, not type: its box keeps its own size.
   const iw = Math.max(0, iconEm);
   const lead = iw > 0 ? iw + CHIP_ICON_GAP : 0;
@@ -149,7 +192,7 @@ export function chipGeometry(labelEm, valueEm, iconEm = 0) {
   return {
     d,
     label: { x: W1 / 2, y: H1 / 2 + 0.02, size: CHIP.labelSize, width: lw },
-    value: { x: (bx0 + lead + bx1) / 2, y: by0 + CHIP.blockHeight / 2 + 0.03, size: CHIP.valueSize, width: vw },
+    value: { x: (bx0 + lead + bx1) / 2, y: seat.y, size: seat.size, width: vw },
     // The glyph's box, when there is one: at the head of the value block,
     // centred on the value's line.
     icon: iw > 0
@@ -173,7 +216,7 @@ export function chipGeometry(labelEm, valueEm, iconEm = 0) {
  */
 export const PLATE = {
   /** The pill's height per unit of its label's font size. */
-  pillPerLabel: CHIP.pillHeight / CHIP.labelSize,
+  pillPerLabel: CHIP.pillHeight / CHIP.plateLabel,
   /** Where the block's left edge sits, under the pill. */
   inset: CHIP.blockLeft / CHIP.pillHeight,
   /** Where the block's top edge sits, just above the pill's foot. */

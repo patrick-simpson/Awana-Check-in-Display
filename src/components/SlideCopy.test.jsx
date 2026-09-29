@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { ZeroAnimationContext } from '../lib/motion.jsx';
 import SlideCopy from './SlideCopy.jsx';
-import { fitFrame } from '../lib/lobbyFrame.js';
+import { SHOUT, fitFrame } from '../lib/lobbyFrame.js';
 
 afterEach(cleanup);
 
@@ -57,6 +57,39 @@ describe('SlideCopy', () => {
       </ZeroAnimationContext.Provider>,
     );
     await waitFor(() => { for (const el of pieces(container)) expect(atRest(el)).toBe(true); }, { timeout: 150 });
+  });
+
+  // Paytone One's marks reach far past its caps (shoutBox): the row a mark
+  // would crowd gets exactly the room it needs, as a top margin on that
+  // row's words, and a mark hanging below the last row pads the headline.
+  it('a row whose marks need room carries it on its words, and a hanging mark pads the headline', () => {
+    const rowOf = (h, i) => h.starts.reduce((r, start, k) => (start <= i ? k : r), 0);
+    const frames = [
+      { kicker: 'Welcome', headline: 'Ștefan\nÉmile Nguyễn', sub: '', chip: null, textSize: 'auto' },
+      { kicker: 'Welcome', headline: 'Émile\nȘtefan', sub: '', chip: null, textSize: 'auto' },
+    ];
+    const fits = frames.map((f) => fitFrame(f).headline);
+    // The two frames between them need every kind of room: a lower row's
+    // marks (Ễ under Ș), a first row's under the kicker (É), and a hanging
+    // comma under the last row (Ș).
+    expect(fits.every((h) => h.mode === 'shout' && h.lines.length === 2)).toBe(true);
+    expect(fits[0].rise[0]).toBe(0);
+    expect(fits[0].rise[1]).toBeGreaterThan(0);
+    expect(fits[1].rise[0]).toBeGreaterThan(0);
+    expect(fits[0].padBottom).toBe(SHOUT.shadow);
+    expect(fits[1].padBottom).toBeGreaterThan(SHOUT.shadow);
+    frames.forEach((frame, n) => {
+      const h = fits[n];
+      const { container, unmount } = render(<SlideCopy frame={frame} still />);
+      const words = [...container.querySelectorAll('.lobby-headline .lobby-word')];
+      expect(words).toHaveLength(h.tokens.length);
+      words.forEach((w, i) => {
+        const rise = h.rise[rowOf(h, i)];
+        expect(w.style.marginTop, w.textContent).toBe(rise ? `${rise}em` : '');
+      });
+      expect(container.querySelector('.lobby-headline').style.paddingBottom).toBe(`${h.padBottom}em`);
+      unmount();
+    });
   });
 
   it('a long announcement reads instead of shouting, one element per word, rows split by <br>', () => {

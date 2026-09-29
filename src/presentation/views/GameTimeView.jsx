@@ -23,7 +23,7 @@ import { birthdaysThisWeek, listNames } from '../lib/birthdays.js';
 import { countForClub } from '../lib/tally.js';
 import { mulberry32 } from '../lib/color.js';
 import { FAR_WAVE_KEEP, HOUSE, WARNING_TONES, shade } from '../lib/kit.js';
-import { chipGeometry, measureEm } from '../lib/chip.js';
+import { chipGeometry, inkEm, measureEm } from '../lib/chip.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
 import { holdThen, partVariants } from '../lib/landing.js';
 import { useBirthdays } from '../hooks/useBirthdays.js';
@@ -226,7 +226,7 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
  */
 const BirthdayChip = ({ names, still }) => {
   const label = 'HAPPY BIRTHDAY';
-  const widthEm = chipGeometry(measureEm(label), measureEm(names)).width;
+  const widthEm = chipGeometry(measureEm(label), measureEm(names), inkEm(names)).width;
   const size = `min(calc(${CHIP_U} * var(--u)), calc(${(BIRTHDAY_MAX_U / widthEm).toFixed(3)} * var(--u)))`;
   return (
     <span className="pj-game__birthday">

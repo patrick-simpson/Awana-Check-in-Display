@@ -1,11 +1,15 @@
 import { describe, it, expect, afterEach, beforeAll, afterAll } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { ZeroAnimationContext } from '../lib/motion.jsx';
 import { getClubPalette } from '../lib/clubs.js';
 import { bookMilestoneCopy } from '../lib/milestones.js';
 import { firstOfNightCopy } from '../lib/firstOfNight.js';
 import { bandRoom, plateChrome } from '../lib/overlayFit.js';
-import MilestoneToast, { toastFit, toastFor } from './MilestoneToast.jsx';
+import MilestoneToast, { LINE, toastFit, toastFor } from './MilestoneToast.jsx';
+
+const css = readFileSync(resolve(__dirname, '../styles/app.css'), 'utf8');
 
 afterEach(cleanup);
 const still = (ui) => render(<ZeroAnimationContext.Provider value>{ui}</ZeroAnimationContext.Provider>);
@@ -86,10 +90,20 @@ describe('MilestoneToast', () => {
       for (const text of lines) {
         const f = toastFit(text, { compact });
         if (!f.fits) continue;
-        const reach = plateChrome(1.45) + 1.2 + f.lines.length * f.size * 1.02;
+        const reach = plateChrome(1.45) + 1.2 + f.lines.length * f.size * LINE.lineHeight;
         expect(reach).toBeLessThanOrEqual(bandRoom(compact));
       }
     }
+  });
+
+  it('holds stage 4b-2\'s cap heights in Paytone One: its Galindo sizes times 1.057, its line height over it', () => {
+    const galindo = { max: 3, min: 2, twoLineMax: 2.2, twoLineMin: 1.4 };
+    for (const [k, v] of Object.entries(galindo)) expect(Math.abs(LINE[k] - v * 1.057), k).toBeLessThanOrEqual(0.05);
+    expect(Math.abs(LINE.lineHeight - 1.02 / 1.057)).toBeLessThanOrEqual(0.01);
+    // The line box the fit counts is the one app.css draws.
+    const rule = css.match(/\.milestone-toast \.milestone-count \{([^}]*)\}/)?.[1] ?? '';
+    expect(rule).toMatch(new RegExp(`line-height: ${LINE.lineHeight};`));
+    expect(rule).toMatch(new RegExp(`--toast-line, calc\\(${LINE.max} \\* var\\(--u\\)\\)`));
   });
 
   it('a long first name breaks into two lines that still read as one sentence', () => {

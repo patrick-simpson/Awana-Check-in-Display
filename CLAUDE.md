@@ -135,16 +135,30 @@ and `doodles/`. Read its README before changing it.
   caps stand 5.7% shorter than Galindo's at one size (its figures 5%), so
   every shout size is the mockup's times 1.057 (1.05 for figures) and every
   shout line height the mockup's divided by it, which keeps each line box
-  where it was: see the fit, the name steps, the sticker and the projector's
-  `--text-*`. The stepped chip keeps its plate and draws both texts 1.06x
-  (`valueSize` / `labelSize` in both chip geometries).
+  where it was: see the fit, the name steps, the sticker, the stage 4b-2
+  overlays (the toast's `LINE` in `MilestoneToast.jsx`, the ticker's
+  figures, the pickup board's count) and the projector's `--text-*`;
+  `overlayFit.test.js` and `MilestoneToast.test.jsx` pin the overlays'.
+  A plate drawn around the caps keeps its size and only the text grows: the
+  stepped chip draws both texts 1.06x (`valueSize` / `labelSize` in both
+  chip geometries), and a pickup-board name chip draws its name 1.057x its
+  pill (`NAME_CHIP_TEXT` in `overlayFit.js`). The stepped PLATE's label is
+  Londrina, not the shout, so its pill keeps the catalog chip's 0.56 ratio
+  (`plateLabel`; `--plate-pill` is 2.05 x `--plate-label`).
 - **Marks never touch.** Paytone draws the marks over and under its capitals
   tall (É to 1.045em, Ễ to 1.161em, Ș's comma to -0.351em, where a caps row
   is 0.93em), so each shout measures its ink (`inkEm` / `measureInk`: the
   canvas's actual bounding box, else `markExtents` from the marks) and makes
   exactly the room a mark needs: the lobby fit per row (`rise`), the check-in
   name against its kicker and its line (`nameBox`), the projector's headline
-  (`headlineBox`). Plain caps get none, so nothing moves for them.
+  (`headlineBox`), and a stepped chip's value against its block's keylines
+  (`valueSeat`, both chip copies: it moves, and a value with marks both above
+  and below the block cannot hold at 1.06x is drawn as large as it can).
+  Plain caps get none, so nothing moves for them. jsdom has no canvas, so
+  `src/lib/inkCanvas.test.js` hands the three ink readers a fake one that
+  reports Paytone's real boxes, the render tests pin the wiring (the words'
+  `margin-top`, the name's padding, the chip's seat), and `lobby-fit.spec.js`
+  measures real ink on real rows under `?lowPower=1`.
 
 - **Three spellings of one palette.** `tokens.json`, `tokens.css` and
   `shared/theme.json` must agree; `src/lib/brandKit.test.js` fails if they
@@ -166,17 +180,19 @@ and `doodles/`. Read its README before changing it.
 - `scripts/brand/extract-catalog-brand.py` regenerates the marks and shapes
   from a catalog PDF (not committed), for next season.
 - **Two sizes of one shout.** `--font-shout` is Paytone One at true size, for
-  everything built from the kit (`src/components/brand/`, and each surface as
-  its stage rebuilds it). `--font-display` is the same files drawn at 88% (the
-  `'Shout Fit'` @font-face in app.css), so rules still sized for the old
-  Baloo 2 (banner names, the doors-open flourish, the ticker and the other
-  surfaces not yet rebuilt) keep their fit: Paytone sets ~9% wider than Baloo
-  2 ExtraBold with 11.5% taller caps, and 88% lands at Baloo's median width
-  less 4%, its caps less 2% and no more than ~5% over on the widest names
-  (the envelope the 82% Galindo alias kept). Move a rule to `--font-shout`
-  only when you re-size it, as stage 4b did for the lobby's headlines (typed
-  and calendar slides shout in `--font-shout`, sized by the fit in
-  `src/lib/lobbyFrame.js`). Both stacks fall back to Baloo 2 for Devanagari,
+  everything built from the kit (`src/components/brand/`) and every surface a
+  stage has rebuilt, which is now all of the lobby's shouts: the typed and
+  calendar slides' headlines (sized by the fit in `src/lib/lobbyFrame.js`),
+  the check-in name, the sticker, and the 4b-2 overlays (the milestone toasts
+  and the doors-open flourish, the ticker, the pickup board's names and
+  count), each sized for Paytone One. `--font-display` is the same files drawn
+  at 88% (the `'Shout Fit'` @font-face in app.css), for a rule still sized for
+  the old Baloo 2: Paytone sets ~9% wider than Baloo 2 ExtraBold with 11.5%
+  taller caps, and 88% lands at Baloo's median width less 4%, its caps less 2%
+  and no more than ~5% over on the widest names (the envelope the 82% Galindo
+  alias kept). Only `.countdown .time` is left on it (`CountdownTimer.jsx`,
+  which no screen renders). Move a rule to `--font-shout` only when you
+  re-size it. Both stacks fall back to Baloo 2 for Devanagari,
   the one script a name may use that Paytone lacks and a chunky face draws,
   which (with the promos) is why the Baloo import stays.
 - **The posters keep their own faces.** `--promo-font-*` and `--font-poster`

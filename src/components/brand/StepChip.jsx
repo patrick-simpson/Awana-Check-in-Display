@@ -1,4 +1,4 @@
-import { chipGeometry, measureEm } from '../../lib/brand.js';
+import { chipGeometry, inkEm, measureEm } from '../../lib/brand.js';
 import { useFontsReady } from '../../hooks/useFontsReady.js';
 
 const TEXT = {
@@ -19,7 +19,9 @@ const TEXT = {
  * The plate is built around its own text (chipGeometry), so a long value
  * widens the chip instead of spilling off it, and each text is pinned to
  * its measured width with textLength: a late-loading font can squeeze, but
- * never overflow. Scale the whole chip with `size` (the value's font size).
+ * never overflow. The value's ink is measured too, so a mark over or under
+ * its capitals (JOSÉ, ȘTEFAN) keeps off the block's keyline. Scale the whole
+ * chip with `size` (the value's font size).
  *
  * `icon` puts a small decorative glyph at the head of the value block (the
  * weather chip's sky doodle, src/components/WeatherGlyph.jsx), `iconEm`
@@ -42,7 +44,7 @@ export default function StepChip({ label, value, size = '1rem', plate, icon = nu
   useFontsReady();
   const l = String(label);
   const v = String(value);
-  const g = chipGeometry(measureEm(l), measureEm(v), icon ? iconEm : 0);
+  const g = chipGeometry(measureEm(l), measureEm(v), icon ? iconEm : 0, inkEm(v));
   const plateFill = plate ? { fill: plate } : { fill: '#030404', fillOpacity: 0.5 };
   return (
     <span
