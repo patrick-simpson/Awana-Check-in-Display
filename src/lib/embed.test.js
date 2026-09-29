@@ -156,8 +156,15 @@ describe('app.css: the operator\'s panels and a wrapped ticker keep out of the c
   });
 
   it('the first-run card ends short of the column (90vw of a phone ran under it)', () => {
-    const left = decl(rule('.panel.setup-card', 'left').body, 'left');
-    expect(decl(rule('html.embedded .panel.setup-card').body, 'max-width')).toBe(`calc(100% - ${left} - var(--host-clear-x))`);
+    // Both of its layouts: the strip (right of the gear, short of the corner
+    // chip) and, under 640px, the card stacked above the gear.
+    const own = ALL.filter((r) => r.selector === '.panel.setup-card' && decl(r.body, 'right')).map((r) => decl(r.body, 'right'));
+    expect(own).toEqual(['calc(19.2 * var(--u))', 'var(--safe-inset)']);
+    const embedded = ALL.filter((r) => r.selector === 'html.embedded .panel.setup-card');
+    expect(embedded.map((r) => decl(r.body, 'right'))).toEqual([`max(${own[0]}, var(--host-clear-x))`, 'var(--host-clear-x)']);
+    // Its edge, not a max-width: margin-inline centres the card, so a
+    // narrower one would only move its right edge half as far.
+    for (const r of embedded) expect(decl(r.body, 'max-width')).toBeFalsy();
   });
 
   // Centred between the gear and the widest chip, the widest night is still

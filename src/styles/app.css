@@ -2144,8 +2144,17 @@ html.embedded .panel--tabbed {
 html.embedded .debug {
   max-width: calc(100% - 1.5rem - var(--host-clear-x));
 }
+/* The first-run card is a strip between the gear and the corner chip, or a
+   stacked card above the gear on a phone, centred by margin-inline: a
+   max-width here would only re-centre it, so its right EDGE keeps clear of
+   the column (the phone card ran full width, under it). */
 html.embedded .panel.setup-card {
-  max-width: calc(100% - var(--safe-inset) - var(--host-clear-x));
+  right: max(calc(19.2 * var(--u)), var(--host-clear-x));
+}
+@media (max-width: 639px) {
+  html.embedded .panel.setup-card {
+    right: var(--host-clear-x);
+  }
 }
 
 /* ── Milestone toast (MilestoneToast.jsx) ─────────────────

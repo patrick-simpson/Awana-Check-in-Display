@@ -63,7 +63,9 @@ describe('the overlay bands', () => {
     // Nothing the slide copy draws comes below LAYOUT.safeBottom, so a card
     // that stays under it can never cover a headline, whatever the size.
     expect(OVERLAY.setup.top).toBeGreaterThanOrEqual(LAYOUT.safeBottom);
-    const rule = /\.panel\.setup-card \{([^}]*)\}/.exec(css)?.[1] ?? '';
+    // The card's own rule, at the start of a line: html.embedded's and the
+    // phone's also end in `.panel.setup-card {`.
+    const rule = /^\.panel\.setup-card \{([^}]*)\}/m.exec(css)?.[1] ?? '';
     // Its right edge stops a gap short of the corner chip (which starts at
     // chipLeft, the number the ticker's room is measured to) ...
     expect(rule).toMatch(new RegExp(`right: calc\\(${100 - OVERLAY.setup.chipLeft + OVERLAY.setup.gap} \\* var\\(--u\\)\\)`));
