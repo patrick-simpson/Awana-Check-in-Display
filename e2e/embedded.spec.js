@@ -116,9 +116,11 @@ for (const [width, height] of [[640, 480], [1280, 720], [1920, 1080]]) {
 // its right end opened JOURNEY's panel, and Settings stayed open unsaved), the
 // slide editor's CANCEL under it at 640x480, and the debug panel's Close under
 // the toggle. The stand-in host's buttons are real buttons over the frame, so
-// a click there never reaches this page, exactly as on Journey.
+// a click there never reaches this page, exactly as on Journey. (Under
+// ?lowPower=1, which the embed always passes, Save is a plain primary button:
+// Jelly UI's <jelly-button> animates its canvas whatever the page says.)
 const PANELS = [
-  ['Settings', 'Control+Shift+S', '.panel--tabbed', (frame) => frame.locator('.panel .actions jelly-button', { hasText: /save/i })],
+  ['Settings', 'Control+Shift+S', '.panel--tabbed', (frame) => frame.locator('.panel .actions :is(jelly-button, button.primary)', { hasText: /^save$/i })],
   ['the slide editor', 'Control+Shift+E', '.panel--tabbed', (frame) => frame.locator('.panel .actions button', { hasText: /^cancel$/i })],
   ['the debug panel', 'Control+Shift+D', '.debug', (frame) => frame.locator('.debug-footer button')],
 ];

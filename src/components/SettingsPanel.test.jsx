@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { ZeroAnimationContext } from '../lib/motion.jsx';
 import defaults from '../config.js';
 import { applyPanicMode } from '../lib/panic.js';
 import { getAllClubs } from '../lib/clubs.js';
@@ -472,6 +473,31 @@ describe('Banners & celebrations and Display tabs', () => {
 });
 
 describe('footer actions', () => {
+  // Jelly UI gates its canvas physics on the OS's reduced motion only, so under
+  // this app's zero animation (?lowPower=1, the Pi) Save is the kit's plain
+  // primary button: nothing on the page may move there.
+  it('under zero animation Save is a plain primary button, and it still saves', () => {
+    const props = baseProps();
+    const { container } = render(
+      <ZeroAnimationContext.Provider value>
+        <SettingsPanel {...props} />
+      </ZeroAnimationContext.Provider>,
+    );
+    expect(container.querySelector('jelly-button')).toBeNull();
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect(save.tagName).toBe('BUTTON');
+    expect(save.classList.contains('primary')).toBe(true);
+    fireEvent.change(screen.getByLabelText('Pusher App Key'), { target: { value: 'key123' } });
+    fireEvent.click(save);
+    expect(props.onChange).toHaveBeenCalledWith(expect.objectContaining({ pusherAppKey: 'key123' }));
+    expect(props.onClose).toHaveBeenCalled();
+  });
+
+  it('with motion Save is the Jelly UI button', () => {
+    const { container } = render(<SettingsPanel {...baseProps()} />);
+    expect(container.querySelector('.actions jelly-button')?.textContent).toBe('Save');
+  });
+
   it('Import is a real button that refuses a file with no display settings', async () => {
     const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
     const props = baseProps();
