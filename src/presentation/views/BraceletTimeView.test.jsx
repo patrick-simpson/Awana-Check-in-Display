@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, render, waitFor } from '@testing-library/react';
 
 // The view's own decisions (which body, which corner chip, when the chime
 // fires) with the art stubbed out: the art has its own tests, and the wall's
@@ -85,6 +85,29 @@ describe('BraceletTimeView', () => {
     expect(c.textContent).toMatch(/Add a black bead/i);
     expect(corner(c)).toMatch(/T&T craft time/i);
     expect(corner(c)).toMatch(/ENDS 6:30 PM/i);
+  });
+
+  it('keeps the card from step to step: the rail stays, the stage plays straight on, only what changes crossfades', async () => {
+    const props = { window: TNT, endsAt: ENDS_AT, tally: null };
+    stageClock.nowMs = at('18:06:45').getTime();
+    const { container, rerender } = render(<BraceletTimeView now={at('18:06:45')} {...props} />);
+    const rail = container.querySelector('.pj-bracelet__rail');
+    const stage = container.querySelector('[data-testid="stage"]');
+    expect(stage.getAttribute('data-step')).toBe('0');
+    // Step 2 (the slots are 9 s): the same rail, the same running stage.
+    stageClock.nowMs = at('18:06:52').getTime();
+    rerender(<BraceletTimeView now={at('18:06:52')} {...props} />);
+    expect(container.querySelector('.pj-bracelet__rail')).toBe(rail);
+    expect(container.querySelector('[data-testid="stage"]')).toBe(stage);
+    expect(stage.getAttribute('data-step')).toBe('1');
+    await waitFor(() => expect(container.querySelector('.pj-bracelet__caption').textContent).toMatch(/Add a red bead/i));
+    // Knot step 2 is a new picture (the close-up): its stage is a new one.
+    stageClock.nowMs = at('18:08:05').getTime();
+    rerender(<BraceletTimeView now={at('18:08:05')} {...props} />);
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="stage"]')).toHaveLength(1));
+    expect(container.querySelector('[data-testid="stage"]')).not.toBe(stage);
+    expect(container.querySelector('[data-testid="stage"]').getAttribute('data-step')).toBe('8');
+    expect(container.querySelector('.pj-bracelet__rail')).toBe(rail);
   });
 
   it('calls the knot steps KNOT 1-6, like the handout', () => {

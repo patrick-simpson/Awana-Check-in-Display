@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BEAD_ORDER, BEAD_TONES, BRACELET_ROW, EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, SAFE_BOX, STAGE_H, STAGE_W, STEP_COUNT,
-  actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepFrame, stepProgress, stillP,
+  actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepFrame, stepProgress, stillFrame, stillP,
 } from './braceletArt.js';
 import { BRACELET_STEPS, EPIC_SEC as CADENCE_EPIC_SEC, stepSlotSec } from './bracelets.js';
 // Tests may reach across the isolation rule to pin two copies of one thing.
@@ -389,7 +389,7 @@ describe('the safe area', () => {
   });
 
   it('holds every still (the low-power and overview picture) too, framed', () => {
-    const bad = STEPS.flatMap((i) => unsafe(sceneFor(i, stillP(i)), stepFrame(i, stillP(i))).map((u) => `step ${i + 1} still: ${u}`));
+    const bad = STEPS.flatMap((i) => unsafe(sceneFor(i, stillP(i)), stillFrame(i)).map((u) => `step ${i + 1} still: ${u}`));
     expect(bad).toEqual([]);
   });
 
@@ -406,6 +406,9 @@ describe('the safe area', () => {
     }
     // The bead steps come in on the row and the new bead; the knot steps on the knot.
     expect(stepFrame(0, 1).scale).toBeGreaterThanOrEqual(1.25);
+    // Step 7's still is as close as the bead steps' beside it in the overview.
+    expect(stillFrame(6).scale).toBeGreaterThanOrEqual(stillFrame(5).scale);
+    expect(stepFrame(6, 1).scale).toBe(1);
     for (const i of [8, 9, 10, 11]) expect(stepFrame(i, 1).scale).toBeGreaterThan(1.05);
   });
 

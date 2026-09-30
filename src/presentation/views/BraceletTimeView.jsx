@@ -19,7 +19,7 @@ import { DUR, EASE } from '../lib/motion-tokens.js';
 import { BRACELET_STEPS, EPIC_LEAD_SEC, braceletFrame, stepSlotSec, windowSpan } from '../lib/bracelets.js';
 import { getBraceletSettings, manualEpicStart, subscribeBraceletSettings } from '../lib/braceletSettings.js';
 import { chimeOnce } from '../lib/chime.js';
-import { BEAD_TONES, stepFrame, stillP } from '../lib/braceletArt.js';
+import { BEAD_TONES, stillFrame, stillP } from '../lib/braceletArt.js';
 import { StepArt } from '../components/bracelet/StepArt.jsx';
 import { BraceletStage, EpicStage, useEpicStep } from '../components/bracelet/BraceletStage.jsx';
 import handout1 from '../assets/bracelets/handout-1.jpg';
@@ -145,9 +145,12 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
     body = <StepCard index={frame.stepIndex} club={club} stepStartMs={frame.stepStartMs} still={still} />;
   }
 
+  // One step after another, the card itself stays: only the parts that
+  // change with the step crossfade (see StepCard), so the wall no longer
+  // blinks as a whole at every step.
   const bodyKey = settings.display !== 'auto' ? settings.display
     : settings.hold != null ? `hold:${settings.hold}${still ? '' : `:${holdStartMs}`}`
-      : frame.mode === 'epic' ? `epic:${frame.epicStartMs}` : `step:${frame.stepStartMs}`;
+      : frame.mode === 'epic' ? `epic:${frame.epicStartMs}` : frame.cycle;
 
   return (
     <ScreenFrame
@@ -243,23 +246,58 @@ const BeadTitle = ({ text, color: bead }) => {
   );
 };
 
+/**
+ * A part of the step card that changes with the step: it crossfades in its
+ * place (opacity only, so its own absolute place holds) while the rest of the
+ * card stays put. `wait` lets the old one go before the new one comes (text).
+ */
+const Changing = ({ k, still, wait = false, children }) => (
+  <AnimatePresence initial={false} mode={wait ? 'wait' : 'sync'}>
+    <motion.div
+      key={k}
+      initial={still ? false : { opacity: 0 }}
+      animate={{ opacity: 1, transition: still ? { duration: 0 } : { duration: DUR.settle, ease: EASE.settle } }}
+      exit={{ opacity: 0, transition: still ? { duration: 0 } : { duration: DUR.exit, ease: EASE.exit } }}
+    >
+      {children}
+    </motion.div>
+  </AnimatePresence>
+);
+
+/**
+ * Which steps share one continuous stage: each ends on the picture the next
+ * starts from (the row grows bead by bead, then step 7 and knot 1 carry on
+ * from it; the knot close-up runs from knot 2 to knot 6), so the stage plays
+ * straight on instead of crossfading.
+ */
+const stageRun = (i) => (i < 8 ? 'row' : 'knot');
+
 const StepCard = ({ index, club, stepStartMs, still }) => {
   const step = BRACELET_STEPS[index];
   const chip = chipFor(index);
+  const kicker = index < 7 ? 'Make your bracelet' : 'Tie the knot';
   return (
     <div className="pj-bracelet__card">
-      <Kicker size="calc(2.4 * var(--u))" className="pj-bracelet__kicker">{index < 7 ? 'Make your bracelet' : 'Tie the knot'}</Kicker>
+      <Changing k={kicker} still={still} wait>
+        <Kicker size="calc(2.4 * var(--u))" className="pj-bracelet__kicker">{kicker}</Kicker>
+      </Changing>
       <Rail index={index} />
-      <div className="pj-bracelet__chip">
-        <StepChip label={chip.label} value={chip.value} size="calc(4.2 * var(--u))" plate={club.deep} />
-      </div>
-      <div className="pj-bracelet__stage">
-        <BraceletStage step={index} startMs={stepStartMs} still={still} />
-      </div>
-      <div className="pj-bracelet__caption">
-        <BeadTitle text={step.title} color={step.color} />
-        <p className="pj-body pj-bracelet__words">{step.words}</p>
-      </div>
+      <Changing k={index} still={still} wait>
+        <div className="pj-bracelet__chip">
+          <StepChip label={chip.label} value={chip.value} size="calc(4.2 * var(--u))" plate={club.deep} />
+        </div>
+      </Changing>
+      <Changing k={stageRun(index)} still={still}>
+        <div className="pj-bracelet__stage">
+          <BraceletStage step={index} startMs={stepStartMs} still={still} />
+        </div>
+      </Changing>
+      <Changing k={index} still={still} wait>
+        <div className="pj-bracelet__caption">
+          <BeadTitle text={step.title} color={step.color} />
+          <p className="pj-body pj-bracelet__words">{step.words}</p>
+        </div>
+      </Changing>
     </div>
   );
 };
@@ -299,7 +337,7 @@ const Overview = ({ nowMs, club }) => {
         {steps.map(({ s, i }) => (
           <div key={s.n} className="pj-bracelet__cell">
             <StepChip label={chipFor(i).label} value={chipFor(i).value} size="calc(1.7 * var(--u))" plate={club.deep} />
-            <StepArt step={i} p={stillP(i)} camera={stepFrame(i, stillP(i))} className="pj-bracelet__thumb" />
+            <StepArt step={i} p={stillP(i)} camera={stillFrame(i)} className="pj-bracelet__thumb" />
             <p className="pj-body pj-bracelet__cell-words">{s.words}</p>
           </div>
         ))}

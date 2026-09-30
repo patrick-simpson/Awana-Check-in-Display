@@ -1800,17 +1800,37 @@ function lookAt(x, y, s) {
 /** @typedef {{ p: number, x: number, y: number, s: number }} FrameKey */
 
 const KNOT_FRAME = { x: 757, y: 276, s: 1.12 };
+/** Bead step k's resting frame: in on the row and the hand pointing at the new bead. @param {number} k */
+const beadRest = (k) => ({ x: 574 + 39 * k, y: 358, s: 1.45 });
+const BEAD_WIDE = { x: 910, y: 330, s: 1.15 };
 /** @type {readonly (readonly FrameKey[])[]} */
 const STEP_FRAMES = Object.freeze([
+  // Each bead step starts where the last one rested (the stage plays straight
+  // on from step to step), eases out to the whole row while the old hand goes
+  // and the new bead comes, then comes in on the new bead once it has landed.
   ...BEAD_ORDER.map((_, k) => Object.freeze([
-    { p: 0.84, x: 910, y: 330, s: 1.15 },
-    { p: 0.98, x: 574 + 39 * k, y: 358, s: 1.45 },
+    ...(k > 0 ? [{ p: 0, ...beadRest(k - 1) }, { p: 0.12, ...BEAD_WIDE }] : []),
+    { p: 0.84, ...BEAD_WIDE },
+    { p: 0.98, ...beadRest(k) },
   ])),
-  Object.freeze([{ p: 0, x: 730, y: 280, s: 1 }]),
+  Object.freeze([{ p: 0, ...beadRest(5) }, { p: 0.1, x: 730, y: 280, s: 1 }]),
   Object.freeze([{ p: 0, x: 730, y: 280, s: 1 }]),
   ...[8, 9, 10, 11].map(() => Object.freeze([{ p: 0, ...KNOT_FRAME }])),
   Object.freeze([{ p: 0.3, ...KNOT_FRAME }, { p: 0.72, x: 762, y: 322, s: 1.28 }]),
 ]);
+
+/**
+ * The framing of step i's still (low power, animations off, the overview):
+ * the loop's own, except step 7, whose finished row (clear beads, knots)
+ * the still shows close up, as big as the bead steps' beside it, with the
+ * open hands out of the frame (the loop itself keeps the whole stage).
+ * @param {number} stepIndex
+ */
+export function stillFrame(stepIndex) {
+  const i = stepOf(stepIndex);
+  if (i === 6) return lookAt(ROW_CX, ROW_Y + 4, 1.7);
+  return stepFrame(i, stillP(i));
+}
 
 /**
  * The step loop's camera for step i at action progress p.

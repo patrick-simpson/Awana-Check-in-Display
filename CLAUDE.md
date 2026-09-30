@@ -1498,8 +1498,17 @@ night are untouched.
   bead step a little closer on the whole row, then in on the new bead and
   its pointing hand once it has landed; the knot steps closer on the knot;
   knot 6 in on the cinch. The stills and the overview's thumbnails use the
-  same framing (the overview's chips are 1.7u, so its pictures lead), and
-  the safe-area tests measure the framed picture. The epic's caption (the step's title
+  same framing (`stillFrame`), except step 7's still, which comes in on its
+  finished row (clear beads and knots as big as the bead steps' beside it,
+  the open hands out of the frame); the overview's chips are 1.7u, so its
+  pictures lead; and
+  the safe-area tests measure the framed picture. From one step to the
+  next the card itself stays up (the kicker and the rail never blink; the
+  chip, the caption and, when it changes, the kicker crossfade), and the
+  stage plays straight on through the row's steps 1-8 and the close-up's
+  9-13, each step opening on the picture and the framing the last one
+  ended on (`useStageClock` reads a new start in the same render: read a
+  frame late, it drew the next step finished). The epic's caption (the step's title
   and its full words) stands on a line above the waves and grows upward;
   `e2e/bracelets.spec.js` measures its clearance at three sizes. It and the
   rail read the stage's own clock (`useEpicStep`), not the page's
