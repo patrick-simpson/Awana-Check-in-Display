@@ -2,14 +2,13 @@ import ContestPromo, { DETAILS as CONTEST_DETAILS } from './promos/ContestPromo.
 import FriendPromo, { DETAILS as FRIEND_DETAILS } from './promos/FriendPromo.jsx';
 import BarfEpicPromo, { DETAILS as BARF_EPIC_DETAILS } from './promos/BarfEpicPromo.jsx';
 import ParentsPromo, { DETAILS as PARENTS_DETAILS } from './promos/ParentsPromo.jsx';
-import BraceletsPromo, { DETAILS as BRACELETS_DETAILS } from './promos/BraceletsPromo.jsx';
 
 export { RotatingDetail, splatPath, landsAt, keyframes } from './promos/kit.jsx';
 
 // ─────────────────────────────────────────────────────────────
-// The fall 2026 event promos: five 15 second showreel pieces, one per
-// poster (the DEFEND poster contest, BARF Night, the BARF Night slime cut,
-// Parents' Night and the salvation bracelets for Uganda), each one a full motion-design sequence that lands
+// The fall 2026 event promos: four 15 second showreel pieces, one per
+// poster (the DEFEND poster contest, BARF Night, the BARF Night slime cut
+// and Parents' Night), each one a full motion-design sequence that lands
 // on its own finished printed poster. Which one shows, when, and what its
 // countdown says is decided in the pure src/lib/promos.js; each poster's
 // art lives in its own file under ./promos/, built from ./promos/kit.jsx.
@@ -24,7 +23,6 @@ export const PROMO_DETAILS = Object.freeze({
   friend: FRIEND_DETAILS,
   barfEpic: BARF_EPIC_DETAILS,
   parents: PARENTS_DETAILS,
-  bracelets: BRACELETS_DETAILS,
 });
 
 const NO_DETAILS = Object.freeze([]);
@@ -50,7 +48,6 @@ const SCENES = {
   friend: FriendPromo,
   barfEpic: BarfEpicPromo,
   parents: ParentsPromo,
-  bracelets: BraceletsPromo,
 };
 
 /**

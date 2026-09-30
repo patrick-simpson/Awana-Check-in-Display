@@ -215,10 +215,10 @@ export const COMING_UP_PORTRAIT = {
 /**
  * Where the coming-up list sits and how big its chips are: sized to the
  * room left under the headline, so five nights with long names (the
- * church's feed lists "Awana meeting (Making Bracelets)" most weeks, and a
- * long name takes a row of its own) still end inside the wall. Below
- * COMING_UP.minU it shows the soonest nights that fit rather than shrinking
- * further.
+ * church's feed lists long special titles most weeks, "Bring a Friend Night -
+ * Posters due" among them, and a long name takes a row of its own) still end
+ * inside the wall. Below COMING_UP.minU it shows the soonest nights that fit
+ * rather than shrinking further.
  * @param {string} title the slide's headline
  * @param {Array<{ label: string, value: string }>} chips
  * @param {typeof COMING_UP} [c] the frame's table (COMING_UP_PORTRAIT upright on touch)

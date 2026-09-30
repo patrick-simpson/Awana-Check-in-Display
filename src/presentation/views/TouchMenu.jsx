@@ -11,15 +11,14 @@ import { CLOCK_DRIFT_HELP, QuickNavItems } from './QuickNav.jsx';
  * (QuickNavItems, touch-sized), and App renders this INSTEAD of QuickNav, so
  * no invisible panel is left on the wall to catch a tap meant for it.
  *
- * A pick that changes the wall (a window, Resume Schedule, the Bracelet Time
- * controls) closes the sheet, so the phone shows what it picked; the settings
- * (Skip Weeks, the switches, Display Settings) leave it open. While it is open
- * the sheet owns the keyboard, like the Bracelet Time panel: a tablet's
- * keyboard never reaches the wall's own shortcuts underneath (Space skipped
- * the countdown, B opened the bracelet panel), typing into its fields still
+ * A pick that changes the wall (a window, Resume Schedule) closes the sheet,
+ * so the phone shows what it picked; the settings (Skip Weeks, the switches,
+ * Display Settings) leave it open. While it is open the sheet owns the
+ * keyboard: a tablet's keyboard never reaches the wall's own shortcuts
+ * underneath (Space skipped the countdown), typing into its fields still
  * works, and Escape closes it.
  */
-export const TouchMenu = ({ now, state, isOverride, onSelect, onResume, socketStatus, onBracelets, open, displayOpen, onOpen, onClose }) => {
+export const TouchMenu = ({ now, state, isOverride, onSelect, onResume, socketStatus, open, displayOpen, onOpen, onClose }) => {
   const skewMs = useClockDrift();
   // A screen still to be set up: the button carries a mark (on a phone on its
   // side the wall has no room for the setup note), and the sheet opens on
@@ -60,10 +59,6 @@ export const TouchMenu = ({ now, state, isOverride, onSelect, onResume, socketSt
             onResume();
             onClose();
           }}
-          onBracelets={onBracelets && (() => {
-            onClose();
-            onBracelets();
-          })}
         />
       )}
     </>

@@ -376,7 +376,7 @@ describe('buildCalendarSlides', () => {
 });
 
 // The lobby's frame (src/lib/lobbyFrame.js) sets a calendar slide as kicker,
-// headline and a stepped date chip (NEXT CLUB NIGHT / MAKING BRACELETS /
+// headline and a stepped date chip (NEXT CLUB NIGHT / MAKING BOOKMARKS /
 // WED SEP 30). The words are the same words; only the date moves onto the
 // chip, and `text`/`subtext` above stay the whole sentence.
 describe('dateChip', () => {
@@ -402,10 +402,10 @@ describe('calendar slides in the lobby frame', () => {
   const byId = (slides, id) => slides.find((s) => s.id === id);
 
   it('next club night: the title shouts, the date rides the chip', () => {
-    const info = deriveClubInfo([club('2026-09-30', 'Making Bracelets')], '2026-09-28');
+    const info = deriveClubInfo([club('2026-09-30', 'Making Bookmarks')], '2026-09-28');
     const s = byId(buildCalendarSlides(info, {}), 'cal_welcome');
-    expect(s.text).toBe('Making Bracelets — Wed, Sep 30');
-    expect(s.frame).toEqual({ headline: 'Making Bracelets', chip: { label: 'WED', value: 'SEP 30' } });
+    expect(s.text).toBe('Making Bookmarks — Wed, Sep 30');
+    expect(s.frame).toEqual({ headline: 'Making Bookmarks', chip: { label: 'WED', value: 'SEP 30' } });
   });
 
   it('a regular or store night: "See you!" with the date on the chip, never the title', () => {

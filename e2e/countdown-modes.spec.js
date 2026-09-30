@@ -86,8 +86,8 @@ test('the Upcoming Awana Nights slide keeps every night it shows inside the wall
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
   const titles = [
-    'Awana meeting (Making Bracelets)',
-    'Awana meeting (Making Bracelets)',
+    'Awana meeting (Making Bookmarks)',
+    'Awana meeting (Making Bookmarks)',
     'Bring a Friend Night - Posters due',
     'Awana meeting',
     'Awana meeting',

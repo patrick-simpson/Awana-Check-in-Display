@@ -110,7 +110,7 @@ describe('the promo holds', () => {
 
   // A promo still carries its OWN hold, which is what the slideshow reads.
   it('gives every descriptor in the table its own duration', () => {
-    expect(SEASON_PROMOS.map((p) => p.durationSec)).toEqual([15, 15, 15, 15, 15]);
+    expect(SEASON_PROMOS.map((p) => p.durationSec)).toEqual([15, 15, 15, 15]);
   });
 });
 
@@ -194,9 +194,9 @@ describe('buildPromoSlot', () => {
     expect(buildPromoSlot(season, 'tomorrow')).toBeNull();
   });
 
-  it('every descriptor in the table is one of the five known kinds', () => {
+  it('every descriptor in the table is one of the four known kinds', () => {
     expect(SEASON_PROMOS.map((p) => p.kind).sort())
-      .toEqual(['barfEpic', 'bracelets', 'contest', 'friend', 'parents']);
+      .toEqual(['barfEpic', 'contest', 'friend', 'parents']);
   });
 
   it('carries each promo\'s own hold onto the slot entry', () => {
@@ -215,52 +215,5 @@ describe('buildPromoSlot', () => {
     expect(live('2026-10-14')).toBe(true);
     expect(live('2026-10-15')).toBe(false);
     expect(live('2026-11-04')).toBe(false);
-  });
-
-  // Salvation bracelets for Uganda: one club night, so three days live and
-  // every other lap while it is up (owner's call, 2026-09-28).
-  describe('the bracelet promo', () => {
-    const live = (d) => (kinds(slot(d)) || []).includes('bracelets');
-
-    it('shows Monday through the night itself, and is gone Thursday', () => {
-      expect(live('2026-09-27')).toBe(false);
-      expect(live('2026-09-28')).toBe(true);
-      expect(live('2026-09-29')).toBe(true);
-      expect(live('2026-09-30')).toBe(true);
-      expect(live('2026-10-01')).toBe(false);
-    });
-
-    it('takes every other lap, and never two in a row', () => {
-      expect(kinds(slot('2026-09-28'))).toEqual([
-        'bracelets', 'contest', 'bracelets', 'friend', 'bracelets', 'parents', 'bracelets', 'barfEpic',
-      ]);
-      // Round the end of the list and back to the start is still alternate.
-      const k = kinds(slot('2026-09-29'));
-      expect(k[0]).toBe('bracelets');
-      expect(k[k.length - 1]).not.toBe('bracelets');
-    });
-
-    it('leaves the other promos in table order between its turns', () => {
-      const others = kinds(slot('2026-09-28')).filter((k) => k !== 'bracelets');
-      expect(others).toEqual(['contest', 'friend', 'parents', 'barfEpic']);
-    });
-
-    it('flags tonight and counts on its own date', () => {
-      const mon = slot('2026-09-28').promos.find((p) => p.kind === 'bracelets');
-      expect(mon.tonight).toBe(false);
-      expect(mon.countdown).toBe('Next club night');
-      expect(mon.durationSec).toBe(15);
-      const wed = slot('2026-09-30').promos.find((p) => p.kind === 'bracelets');
-      expect(wed.tonight).toBe(true);
-      expect(wed.countdown).toBe('Tonight!');
-    });
-
-    it('goes with the rest when the operator turns the promos off', () => {
-      expect(slot('2026-09-29', { enabled: false })).toBeNull();
-    });
-
-    it('is still gated on the feed like every promo', () => {
-      expect(buildPromoSlot([], '2026-09-29')).toBeNull();
-    });
   });
 });

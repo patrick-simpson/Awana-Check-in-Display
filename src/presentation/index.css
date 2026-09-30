@@ -673,130 +673,6 @@
   animation-play-state: paused !important;
 }
 
-/* ── Bracelet Time (views/BraceletTimeView.jsx) ───────────────────────────
-   The two bracelet nights' T&T and Sparks windows. Everything in --u on the
-   16:9 frame, on the pure black wall; content ends by 51.75u (the band
-   below belongs to the first-run note). */
-.pj-bracelet { color: #fff; }
-.pj-bracelet__body { position: absolute; inset: 0; }
-.pj-bracelet__card { position: absolute; inset: 0; }
-.pj-bracelet__kicker {
-  position: absolute; left: 0; right: 0; top: calc(2.6 * var(--u));
-  text-align: center; margin: 0;
-}
-.pj-bracelet__rail {
-  position: absolute; left: 50%; top: calc(6.6 * var(--u)); transform: translateX(-50%);
-  display: flex; align-items: center; gap: calc(0.55 * var(--u));
-  padding: 0 calc(0.4 * var(--u));
-  background: linear-gradient(#3a3a44, #3a3a44) center / 100% calc(0.25 * var(--u)) no-repeat;
-}
-.pj-bracelet__pip {
-  display: block; width: calc(1.3 * var(--u)); height: calc(1.3 * var(--u));
-  border-radius: 38%; border: calc(0.15 * var(--u)) solid transparent; opacity: 0.35;
-  box-sizing: border-box;
-}
-.pj-bracelet__pip.is-knot { background: transparent; border-color: #fff; border-radius: 50%; width: calc(1 * var(--u)); height: calc(1 * var(--u)); }
-.pj-bracelet__pip.is-done { opacity: 1; }
-.pj-bracelet__pip.is-current { opacity: 1; transform: scale(1.5); outline: calc(0.14 * var(--u)) solid #fff; outline-offset: calc(0.1 * var(--u)); }
-.pj-bracelet__chip {
-  position: absolute; left: calc(5 * var(--u)); top: calc(18 * var(--u));
-}
-.pj-bracelet__stage {
-  position: absolute; left: calc(22 * var(--u)); top: calc(9.2 * var(--u));
-  width: calc(73 * var(--u)); height: calc(28 * var(--u));
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent), linear-gradient(transparent, #000 8%, #000 92%, transparent);
-  -webkit-mask-composite: source-in; mask-composite: intersect;
-  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent), linear-gradient(transparent, #000 8%, #000 92%, transparent);
-}
-.pj-bracelet__stage > svg, .pj-bracelet__stage .pj-bracelet__svg { width: 100%; height: 100%; display: block; }
-.pj-bracelet__stage--epic { left: calc(7 * var(--u)); width: calc(86 * var(--u)); height: calc(30 * var(--u)); top: calc(8 * var(--u)); }
-.pj-bracelet__caption {
-  position: absolute; left: calc(8 * var(--u)); right: calc(8 * var(--u)); top: calc(38.4 * var(--u));
-  display: flex; flex-direction: column; align-items: center; text-align: center;
-  gap: calc(0.8 * var(--u));
-}
-/* The epic's caption stands on a line above the club waves (a far wave's
-   top is 51.2u on a 16:9 wall) and grows upward when its instruction takes
-   a second line, so the title and the words always clear the waves. */
-.pj-bracelet__card--epic .pj-bracelet__caption { top: auto; bottom: calc(6.4 * var(--u)); }
-.pj-bracelet__title { margin: 0; text-transform: uppercase; }
-.pj-bracelet__pill {
-  display: inline-block; padding: 0 0.22em; margin: 0 0.06em; border-radius: 0.3em;
-  line-height: 1.02;
-}
-.pj-bracelet__words {
-  margin: 0; font-size: calc(2.8 * var(--u)); line-height: 1.32; font-weight: 600;
-  max-width: calc(84 * var(--u)); text-wrap: balance; color: rgb(255 255 255 / 0.92);
-}
-.pj-bracelet__corner {
-  position: absolute; z-index: 20; top: calc(3.3 * var(--u)); right: calc(3.2 * var(--u));
-  display: flex; align-items: flex-start; gap: calc(1 * var(--u));
-}
-/* The full instructions fill the frame to its top corners, so there the
-   corner stack (the end time, the warnings) rides the bottom-right on the
-   waves instead, clear of the grid's top-right cell and the heading. */
-.pj-bracelet[data-bracelet-phase='overview'] > .pj-bracelet__corner {
-  top: auto; bottom: calc(1.2 * var(--u)); align-items: flex-end;
-}
-.pj-bracelet__overview {
-  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
-  padding-top: calc(2.6 * var(--u)); gap: calc(1.2 * var(--u));
-}
-.pj-bracelet__grid {
-  display: grid; grid-template-columns: repeat(4, calc(21 * var(--u)));
-  gap: calc(1.2 * var(--u)) calc(1.4 * var(--u)); justify-content: center;
-}
-.pj-bracelet__grid.is-knots { grid-template-columns: repeat(3, calc(26 * var(--u))); }
-.pj-bracelet__cell {
-  display: flex; flex-direction: column; align-items: center; gap: calc(0.4 * var(--u));
-}
-.pj-bracelet__thumb { width: 100%; height: auto; aspect-ratio: 1460 / 560; display: block; }
-.pj-bracelet__cell-words {
-  margin: 0; font-size: calc(1.3 * var(--u)); line-height: 1.25; text-align: center; font-weight: 600;
-  color: rgb(255 255 255 / 0.9);
-}
-.pj-bracelet__handout {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  /* The right padding keeps the corner's column free: the wide warning chip
-     (TWO MINUTES, LAST 30 SECONDS) landed on the sheet's top-right corner.
-     The sheet is sized by its height, so it only moves left. */
-  padding: calc(1.2 * var(--u)) calc(8 * var(--u)) calc(4.5 * var(--u)) 0;
-}
-.pj-bracelet__handout img {
-  max-height: 100%; max-width: 100%; height: 100%; width: auto; object-fit: contain;
-  border-radius: calc(0.6 * var(--u)); background: #fff;
-}
-
-/* ── The Bracelet Time controls (views/BraceletPanel.jsx) ─────────────── */
-.pj-bpanel__backdrop {
-  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
-  background: rgb(0 0 0 / 0.55); padding: 16px;
-}
-.pj-bpanel {
-  width: min(640px, 94vw); max-height: 92vh; overflow-y: auto; padding: 20px 22px;
-  display: flex; flex-direction: column; gap: 14px; color: #fff;
-}
-.pj-bpanel__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.pj-bpanel__title { margin: 0; font-family: var(--font-display); font-size: 1.5rem; text-transform: uppercase; letter-spacing: 0.02em; }
-.pj-bpanel__close { background: transparent; border: 0; color: rgb(255 255 255 / 0.7); font-size: 1.3rem; cursor: pointer; min-width: 44px; min-height: 44px; }
-.pj-bpanel__note, .pj-bpanel__hint { margin: 0; font-size: 0.85rem; color: rgb(255 255 255 / 0.65); line-height: 1.45; }
-.pj-bpanel__warn { margin: 6px 0 0; font-size: 0.85rem; color: var(--brand-sun); }
-.pj-bpanel__group h3 {
-  margin: 0 0 8px; font-family: var(--font-condensed); font-size: 0.85rem; font-weight: 800;
-  letter-spacing: 0.12em; text-transform: uppercase; color: rgb(255 255 255 / 0.55);
-}
-.pj-bpanel__row { display: flex; flex-wrap: wrap; gap: 8px; }
-.pj-bpanel__row--steps .pj-bpanel__choice { min-width: 44px; padding-left: 10px; padding-right: 10px; }
-.pj-bpanel__choice, .pj-bpanel__action {
-  min-height: 44px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
-  font-family: var(--font-condensed); font-weight: 800; font-size: 0.95rem; letter-spacing: 0.08em; text-transform: uppercase;
-  border: 2px solid rgb(255 255 255 / 0.35); background: transparent; color: #fff;
-}
-.pj-bpanel__choice.is-on { background: #fff; color: var(--brand-ink, #231F20); border-color: #fff; }
-.pj-bpanel__action { border-color: var(--brand-sun); color: var(--brand-sun); }
-.pj-bpanel__action:disabled { opacity: 0.4; cursor: not-allowed; }
-.pj-bpanel__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-
 /* ════════════════════════════════════════════════════════════════════
    Phones and tablets (lib/touch.js). Everything below is gated on the
    PRIMARY pointer, never on the window's size: the projector PC (a mouse
@@ -1013,7 +889,6 @@
   }
   .pj-sheet__action:active { background: rgb(255 255 255 / 0.08); }
   .pj-sheet__action--go { color: var(--brand-tnt); }
-  .pj-sheet__action--sun { color: var(--brand-sun); }
   .pj-sheet__hint {
     margin: 0 6px 4px;
     font-family: var(--font-body);
@@ -1260,39 +1135,6 @@
     background: var(--brand-orange);
     border: 2px solid #000;
   }
-
-  /* ── The Bracelet Time controls as a bottom sheet (views/BraceletPanel.jsx) ── */
-  .pj-bpanel__backdrop {
-    /* A sheet from the bottom, under a strip of the dimmed wall that is a
-       finger's target of its own (a tap there closes it): a phone snaps a tap
-       that lands a few pixels off the sheet onto the sheet. */
-    --pj-sheet-gap: max(56px, calc(env(safe-area-inset-top) + 44px));
-    align-items: flex-end;
-    padding: var(--pj-sheet-gap) 0 0;
-    overscroll-behavior: contain;
-  }
-  .pj-bpanel__backdrop > [role='dialog'] { width: 100%; max-width: 680px; }
-  .pj-bpanel {
-    width: 100%;
-    /* The screen's height less that strip: the small viewport where dvh is
-       unknown, the current one where it is known. */
-    max-height: calc(100vh - var(--pj-sheet-gap));
-    max-height: calc(100dvh - var(--pj-sheet-gap));
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-    padding: 16px max(18px, env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
-    border-bottom: 0;
-    border-radius: 20px 20px 0 0;
-    box-shadow: none;
-  }
-  .pj-bpanel__close { font-size: 1.5rem; background: rgb(255 255 255 / 0.08); border-radius: 50%; min-width: 48px; min-height: 48px; }
-  .pj-bpanel__note,
-  .pj-bpanel__hint,
-  .pj-bpanel__warn { font-size: 15px; }
-  .pj-bpanel__choice,
-  .pj-bpanel__action { font-size: 1rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-  .pj-bpanel__row--steps .pj-bpanel__choice { min-width: 48px; }
-  .pj-bpanel__held { margin-top: 8px; }
 }
 
 /* ── Upright on a phone or tablet (lib/touch.js PORTRAIT_QUERY) ──────────────
@@ -1330,12 +1172,6 @@
     --pj-event-gap: calc(5.4 * var(--u));
     --pj-game-chip-u: 5.5;
     --pj-game-tally: calc(4.4 * var(--u));
-    --pj-bracelet-kicker: calc(5 * var(--u));
-    --pj-bracelet-chip: calc(7.6 * var(--u));
-    --pj-bracelet-title: calc(8 * var(--u));
-    --pj-bracelet-corner-u: 4.2;
-    --pj-bracelet-overview-kicker: calc(5 * var(--u));
-    --pj-bracelet-cell-chip: calc(3.2 * var(--u));
   }
   @supports (height: 1svh) {
     :root { --u: min(1vw, 0.5625svh); }
@@ -1366,51 +1202,4 @@
 
   /* ── The shutdown screen ── */
   .pj-shutdown { padding-bottom: calc(36 * var(--u)); }
-
-  /* ── Bracelet Time (views/BraceletTimeView.jsx), on a tall frame: the art
-       the frame's full width, its words below it, the STEP chip and the corner
-       on one row above it ── */
-  .pj-bracelet__kicker { top: calc(24 * var(--u)); }
-  .pj-bracelet__rail {
-    top: calc(32 * var(--u));
-    gap: calc(1.1 * var(--u));
-    padding: 0 calc(0.8 * var(--u));
-    background-size: 100% calc(0.5 * var(--u));
-  }
-  .pj-bracelet__pip { width: calc(2.6 * var(--u)); height: calc(2.6 * var(--u)); border-width: calc(0.3 * var(--u)); }
-  .pj-bracelet__pip.is-knot { width: calc(2 * var(--u)); height: calc(2 * var(--u)); }
-  .pj-bracelet__pip.is-current { outline-width: calc(0.28 * var(--u)); outline-offset: calc(0.2 * var(--u)); }
-  .pj-bracelet__chip { left: calc(6 * var(--u)); top: calc(39 * var(--u)); }
-  .pj-bracelet__stage { left: calc(2 * var(--u)); width: calc(96 * var(--u)); height: calc(36.8 * var(--u)); top: calc(58 * var(--u)); }
-  .pj-bracelet__stage--epic { left: calc(2 * var(--u)); width: calc(96 * var(--u)); height: calc(36.8 * var(--u)); top: calc(50 * var(--u)); }
-  .pj-bracelet__caption { top: calc(102 * var(--u)); left: calc(6 * var(--u)); right: calc(6 * var(--u)); gap: calc(1.6 * var(--u)); }
-  .pj-bracelet__card--epic .pj-bracelet__caption { top: calc(96 * var(--u)); bottom: auto; }
-  .pj-bracelet__words { font-size: calc(5.2 * var(--u)); max-width: calc(88 * var(--u)); }
-  .pj-bracelet__corner { top: calc(39 * var(--u)); right: calc(6 * var(--u)); }
-  /* The full instructions and the handout fill the column: the corner waits
-     under them, above the waves. */
-  .pj-bracelet[data-bracelet-phase='overview'] > .pj-bracelet__corner,
-  .pj-bracelet[data-bracelet-phase^='handout'] > .pj-bracelet__corner { top: auto; bottom: calc(20 * var(--u)); }
-  /* On a screen not set up yet the first-run note sits where that corner
-     waits, and a phone has no room for both: the plain end-time chip steps
-     aside until the note is put away (a warning never does). */
-  :root:has(.pj-setup-note--touch) .pj-bracelet[data-bracelet-phase='overview'] > .pj-bracelet__corner:not([data-warning]),
-  :root:has(.pj-setup-note--touch) .pj-bracelet[data-bracelet-phase^='handout'] > .pj-bracelet__corner:not([data-warning]) { display: none; }
-  /* The full instructions as a list, a picture beside each step's words. */
-  .pj-bracelet__overview { padding-top: calc(16 * var(--u)); gap: calc(2 * var(--u)); }
-  .pj-bracelet__grid,
-  .pj-bracelet__grid.is-knots { grid-template-columns: calc(92 * var(--u)); gap: calc(1.4 * var(--u)); }
-  .pj-bracelet__cell {
-    display: grid;
-    grid-template-columns: calc(38 * var(--u)) minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-    column-gap: calc(3 * var(--u));
-    row-gap: calc(0.8 * var(--u));
-    align-items: start;
-  }
-  .pj-bracelet__cell > .pj-bracelet__thumb { grid-column: 1; grid-row: 1 / span 2; }
-  .pj-bracelet__cell > .pj-chip { grid-column: 2; grid-row: 1; justify-self: start; }
-  .pj-bracelet__cell-words { grid-column: 2; grid-row: 2; text-align: left; font-size: calc(3.2 * var(--u)); }
-  .pj-bracelet__handout { padding: calc(16 * var(--u)) calc(4 * var(--u)) calc(34 * var(--u)); }
-  .pj-bracelet__handout img { width: 100%; height: auto; }
 }
