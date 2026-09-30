@@ -22,9 +22,9 @@
 export const BRACELET_STEPS = Object.freeze(/** @type {BraceletStep[]} */ ([
   { n: 1, kind: 'bead', color: 'black', title: 'Add a black bead', words: 'Slide a black bead onto the string.' },
   { n: 2, kind: 'bead', color: 'red', title: 'Add a red bead', words: 'Slide a red bead on, next to the black one.' },
-  { n: 3, kind: 'bead', color: 'white', title: 'Add a white bead', words: 'Slide a white bead on, next to the red one.' },
-  { n: 4, kind: 'bead', color: 'blue', title: 'Add a blue bead', words: 'Slide a blue bead on, next to the white one.' },
-  { n: 5, kind: 'bead', color: 'green', title: 'Add a green bead', words: 'Slide a green bead on, next to the blue one.' },
+  { n: 3, kind: 'bead', color: 'blue', title: 'Add a blue bead', words: 'Slide a blue bead on, next to the red one.' },
+  { n: 4, kind: 'bead', color: 'white', title: 'Add a white bead', words: 'Slide a white bead on, next to the blue one.' },
+  { n: 5, kind: 'bead', color: 'green', title: 'Add a green bead', words: 'Slide a green bead on, next to the white one.' },
   { n: 6, kind: 'bead', color: 'yellow', title: 'Add a yellow bead', words: 'Slide a yellow bead on, next to the green one.' },
   { n: 7, kind: 'finish', title: 'Clear beads, then knots', words: 'Add a clear bead on each side of your colors. Tie a knot next to each one.' },
   { n: 8, kind: 'knot', title: 'Cross the ends', words: 'Cross the two ends. Left over right.' },

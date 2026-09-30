@@ -49,10 +49,13 @@ describe('the stage and the palette', () => {
   });
 
   it('paints the beads in the lobby poster\'s exact colours, in its order', () => {
-    const keys = ['black', 'red', 'white', 'blue', 'green', 'yellow'];
-    expect(BEADS.map((b) => b.key)).toEqual(['sin', 'blood', 'purity', 'baptism', 'growth', 'heaven']);
-    keys.forEach((k, i) => {
-      const { tone, light, dark } = BEADS[i];
+    const keys = ['black', 'red', 'blue', 'white', 'green', 'yellow'];
+    // The colours are the poster's; the projector's ORDER is the church's
+    // bracelet card (black, red, blue, white, green, yellow), which the
+    // poster's own order (purity before baptism) does not follow.
+    const meaning = { black: 'sin', red: 'blood', blue: 'baptism', white: 'purity', green: 'growth', yellow: 'heaven' };
+    keys.forEach((k) => {
+      const { tone, light, dark } = BEADS.find((b) => b.key === meaning[k]);
       expect(BEAD_TONES[k], k).toEqual({ tone, light, dark });
     });
     expect(BEAD_ORDER).toEqual(keys);
@@ -63,7 +66,7 @@ describe('the stage and the palette', () => {
     expect(BEAD_TONES.clear.tone).toBe('rgba(200, 232, 255, 0.5)');
     expect(alpha(BEAD_TONES.clear.tone)).toBeGreaterThanOrEqual(0.4);
     expect(alpha(BEAD_TONES.clear.dark)).toBeGreaterThanOrEqual(0.4);
-    expect(BRACELET_ROW).toEqual(['clear', 'black', 'red', 'white', 'blue', 'green', 'yellow', 'clear']);
+    expect(BRACELET_ROW).toEqual(['clear', 'black', 'red', 'blue', 'white', 'green', 'yellow', 'clear']);
   });
 
   it('draws one picture per handout step, on the cadence\'s clock', () => {
@@ -149,7 +152,7 @@ describe('sceneFor', () => {
     expect(sceneFor(40, 0.5)).toEqual(sceneFor(12, 0.5));
   });
 
-  it('stacks the beads black, red, white, blue, green, yellow, one per step', () => {
+  it('stacks the beads black, red, blue, white, green, yellow, one per step', () => {
     for (let k = 0; k < 6; k += 1) {
       const beads = leftToRight(beadsOf(sceneFor(k, 1)));
       expect(beads.map((b) => b.color), `step ${k + 1}`).toEqual(BEAD_ORDER.slice(0, k + 1));
@@ -160,9 +163,9 @@ describe('sceneFor', () => {
   });
 
   it('adds a bead that arrives from off the cord and slides along to its place', () => {
-    const start = beadsOf(sceneFor(2, 0.15)).find((b) => b.color === 'white');
-    const mid = beadsOf(sceneFor(2, 0.6)).find((b) => b.color === 'white');
-    const end = beadsOf(sceneFor(2, 1)).find((b) => b.color === 'white');
+    const start = beadsOf(sceneFor(2, 0.15)).find((b) => b.color === 'blue');
+    const mid = beadsOf(sceneFor(2, 0.6)).find((b) => b.color === 'blue');
+    const end = beadsOf(sceneFor(2, 1)).find((b) => b.color === 'blue');
     expect(start.x).toBeGreaterThan(mid.x);
     expect(mid.x).toBeGreaterThan(end.x);
   });

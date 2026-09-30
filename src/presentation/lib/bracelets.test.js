@@ -11,7 +11,7 @@ const SPARKS = [at('18:30:00'), at('19:00:00')];
 describe('the steps', () => {
   it('are the handout\'s 7 bead steps then its 6 knot steps, in order', () => {
     expect(BRACELET_STEPS.map((s) => s.n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
-    expect(BRACELET_STEPS.filter((s) => s.kind === 'bead').map((s) => s.color)).toEqual(['black', 'red', 'white', 'blue', 'green', 'yellow']);
+    expect(BRACELET_STEPS.filter((s) => s.kind === 'bead').map((s) => s.color)).toEqual(['black', 'red', 'blue', 'white', 'green', 'yellow']);
     expect(BRACELET_STEPS[6]).toMatchObject({ title: 'Clear beads, then knots', words: 'Add a clear bead on each side of your colors. Tie a knot next to each one.' });
     // The X is a check after the wraps, not a new move (a child could undo the wraps making one).
     expect(BRACELET_STEPS[9]).toMatchObject({ title: 'See the X?', words: 'Your two strings should cross in an X on your finger.' });
@@ -26,9 +26,9 @@ describe('the steps', () => {
     const words = BRACELET_STEPS.map((s) => s.words);
     expect(words.slice(1, 6)).toEqual([
       'Slide a red bead on, next to the black one.',
-      'Slide a white bead on, next to the red one.',
-      'Slide a blue bead on, next to the white one.',
-      'Slide a green bead on, next to the blue one.',
+      'Slide a blue bead on, next to the red one.',
+      'Slide a white bead on, next to the blue one.',
+      'Slide a green bead on, next to the white one.',
       'Slide a yellow bead on, next to the green one.',
     ]);
     expect(BRACELET_STEPS[7].words).toBe('Cross the two ends. Left over right.');

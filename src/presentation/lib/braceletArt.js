@@ -43,7 +43,7 @@ export const BEAD_TONES = /** @type {Readonly<Record<BeadColor, BeadTone>>} */ (
 }));
 
 /** The six coloured beads in the order they go on (the handout's steps 1 to 6). */
-export const BEAD_ORDER = /** @type {readonly BeadColor[]} */ (Object.freeze(['black', 'red', 'white', 'blue', 'green', 'yellow']));
+export const BEAD_ORDER = /** @type {readonly BeadColor[]} */ (Object.freeze(['black', 'red', 'blue', 'white', 'green', 'yellow']));
 
 /** The finished row, left to right (step 7). */
 export const BRACELET_ROW = /** @type {readonly BeadColor[]} */ (Object.freeze(['clear', ...BEAD_ORDER, 'clear']));
