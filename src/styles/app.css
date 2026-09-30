@@ -386,6 +386,9 @@ html, body, #root {
 }
 .lobby-kicker {
   margin: 0;
+  /* Its soft squish (SlideCopy.jsx) sits the line down onto its foot; the
+     text is centred in a full-width box, so scaleX stays about its middle. */
+  transform-origin: 50% 100%;
   font-family: var(--font-condensed);
   font-weight: 400;
   line-height: 1;
@@ -426,6 +429,10 @@ html, body, #root {
 .lobby-word,
 .lobby-punct {
   display: inline-block;
+  /* A shouted word squashes onto its baseline as it lands (the soft squish,
+     src/lib/squish.js), never about its middle, where it would look to
+     float: the headline sets --squish-baseline from its line height. */
+  transform-origin: 50% var(--squish-baseline, 50%);
 }
 /* A run keeps both edge boxes in every fit, so a refit never mounts one that
    would land again; where this fit leaves nothing outside the run, the box is

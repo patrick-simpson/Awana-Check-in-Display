@@ -319,6 +319,15 @@ const SHOUT_FALLBACK = '"Baloo 2 Variable", "Arial Rounded MT Bold", sans-serif'
 export const SHOUT_BOX = { ascent: 0.96, descent: 0.436 };
 
 /**
+ * Where a line of shouted text's baseline sits below the top of its box, in
+ * em, at line-height `lineHeight`: the pivot a soft squish (src/lib/squish.js)
+ * squashes type onto, as `--squish-baseline`. Squashed about its middle a
+ * letter looks like it floats; about its baseline it sits down.
+ * @param {number} lineHeight
+ */
+export const shoutBaseline = (lineHeight) => round3((SHOUT_BOX.ascent - SHOUT_BOX.descent + lineHeight) / 2);
+
+/**
  * How far a line of shouted text may reach above and below its box, in em,
  * at line-height `lineHeight`: 0 for plain caps, more for a mark that
  * stands above a capital (É, Ễ) or hangs below one (Ș, Ç, Ą). Paytone One
