@@ -55,11 +55,24 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   const club = CLUBS[w.clubs[0]];
   const nowMs = now.getTime();
 
-  // A QuickNav pick of this window before its start runs from when the page
-  // opened it, so the wall never sits on a title card for minutes.
-  const [mountedAt] = useState(nowMs);
+  // The cadence's anchor is fixed once, when the wall appears: the window's
+  // start, or the moment it was opened early (the opening deck's last press, a
+  // QuickNav pick), so an early wall never sits on a title card for minutes
+  // and is never re-based at the window's start (which cut a running epic off
+  // and chimed it again). The view remounts for every window, so this is per
+  // window.
   const span = windowSpan(w, now);
-  const startMs = nowMs < span.startMs ? Math.min(span.startMs, mountedAt) : span.startMs;
+  const [startMs] = useState(() => Math.min(nowMs, span.startMs));
+
+  // The handout pages are the one part of the wall that is not code: fetch
+  // them while the network is up, so the service worker has them if the
+  // operator picks one during a Wi-Fi drop.
+  useEffect(() => {
+    for (const src of [handout1, handout2]) {
+      const img = new Image();
+      img.src = src;
+    }
+  }, []);
 
   const still = settings.still || lowPower;
   const auto = settings.display === 'auto';
@@ -116,7 +129,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
     <ScreenFrame
       layers={
         <>
-          <ClubWave color={shade(club.deep, FAR_WAVE_KEEP)} position="bottom" height={9} flip drift={!lowPower} />
+          <ClubWave color={shade(club.deep, FAR_WAVE_KEEP)} position="bottom" height={9} flip drift={!still} />
           <ClubWave color={club.deep} position="bottom" height={6} delay={0.08} />
         </>
       }

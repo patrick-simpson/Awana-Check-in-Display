@@ -121,6 +121,22 @@ describe('BraceletTimeView', () => {
     expect(c.querySelector('img[alt*="page 2"]')).not.toBeNull();
   });
 
+  it('an early start keeps its own cadence through 6:05: the epic is not cut off or chimed again', () => {
+    // The leader ends the opening at 18:04:40: the epic starts at 18:04:50.
+    const view = (now) => <BraceletTimeView now={now} window={TNT} endsAt={ENDS_AT} tally={null} />;
+    const { container: c, rerender } = render(view(at('18:04:40')));
+    expect(phase(c)).toBe('intro');
+    expect(chimeOnce).toHaveBeenCalledTimes(1);
+    for (const t of ['18:04:55', '18:05:00', '18:05:05', '18:05:15', '18:06:15']) {
+      rerender(view(at(t)));
+      expect(phase(c)).toBe('epic');
+    }
+    rerender(view(at('18:06:25')));
+    expect(phase(c)).toBe('steps');
+    expect(step(c)).toBe('1');
+    expect(chimeOnce).toHaveBeenCalledTimes(1);
+  });
+
   it('plays the epic now when asked, from the steps', () => {
     const c = wall(at('18:08:00'));
     expect(phase(c)).toBe('steps');

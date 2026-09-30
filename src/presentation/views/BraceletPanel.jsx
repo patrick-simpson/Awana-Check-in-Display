@@ -1,4 +1,4 @@
-import React, { useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useSyncExternalStore } from 'react';
 import { GlassPanel } from '../components/GlassPanel.jsx';
 import { BRACELET_STEPS } from '../lib/bracelets.js';
 import {
@@ -32,15 +32,57 @@ const Choice = ({ on, onClick, children, title }) => (
   </button>
 );
 
+/** Keys that close the panel (B toggles it, as its hint says). */
+const CLOSE_KEYS = new Set(['Escape', 'KeyB']);
+
 export const BraceletPanel = ({ onClose, active }) => {
   const s = useSyncExternalStore(subscribeBraceletSettings, getBraceletSettings);
   const changed = braceletSettingsChanged(s);
   const sound = audioState();
   const auto = s.display === 'auto';
+  const dialog = useRef(null);
+  const close = useRef(onClose);
+  useEffect(() => {
+    close.current = onClose;
+  }, [onClose]);
+
+  // While it is open the panel owns the keyboard. Focus starts on its first
+  // control and Tab stays inside it; B and Escape close it; and NO key
+  // reaches the wall's own shortcuts underneath (Escape would arm the
+  // slideshow's exit, Space would skip the countdown or advance the pledge,
+  // the arrows would change slides). Stopping the event in the window's
+  // capture phase keeps it from every listener after this one, while a
+  // focused button still clicks on Space and Enter (that is the browser's
+  // default action, not a listener). Focus goes back where it was on close.
+  useEffect(() => {
+    const before = document.activeElement;
+    const controls = () => [...(dialog.current?.querySelectorAll('button:not([disabled])') ?? [])];
+    controls()[0]?.focus();
+    const onKey = (e) => {
+      e.stopPropagation();
+      if (CLOSE_KEYS.has(e.code) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        close.current();
+        return;
+      }
+      if (e.code !== 'Tab') return;
+      const list = controls();
+      if (!list.length) return;
+      const i = list.indexOf(document.activeElement);
+      const next = e.shiftKey ? (i <= 0 ? list.length - 1 : i - 1) : (i === -1 || i === list.length - 1 ? 0 : i + 1);
+      e.preventDefault();
+      list[next].focus();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      if (before && before instanceof HTMLElement && document.contains(before)) before.focus();
+    };
+  }, []);
 
   return (
     <div className="pj-bpanel__backdrop" onClick={onClose} role="presentation">
-      <div role="dialog" aria-label="Bracelet Time controls" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialog} role="dialog" aria-modal="true" aria-label="Bracelet Time controls" onClick={(e) => e.stopPropagation()}>
         <GlassPanel className="pj-bpanel">
           <div className="pj-bpanel__head">
             <h2 className="pj-bpanel__title">Bracelet Time controls</h2>
@@ -81,7 +123,8 @@ export const BraceletPanel = ({ onClose, active }) => {
               <button
                 type="button"
                 className="pj-bpanel__action"
-                disabled={s.still}
+                disabled={s.still || !active}
+                title={active ? undefined : 'Plays during Bracelet Time'}
                 onClick={() => {
                   setBraceletSettings({ display: 'auto', hold: null });
                   playEpicNow(currentTime().getTime());

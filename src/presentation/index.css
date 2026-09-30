@@ -733,6 +733,12 @@
   position: absolute; z-index: 20; top: calc(3.3 * var(--u)); right: calc(3.2 * var(--u));
   display: flex; align-items: flex-start; gap: calc(1 * var(--u));
 }
+/* The full instructions fill the frame to its top corners, so there the
+   corner stack (the end time, the warnings) rides the bottom-right on the
+   waves instead, clear of the grid's top-right cell and the heading. */
+.pj-bracelet[data-bracelet-phase='overview'] > .pj-bracelet__corner {
+  top: auto; bottom: calc(1.2 * var(--u)); align-items: flex-end;
+}
 .pj-bracelet__overview {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
   padding-top: calc(2.6 * var(--u)); gap: calc(1.2 * var(--u));

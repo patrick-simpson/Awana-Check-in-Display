@@ -49,6 +49,15 @@ function localKey(d) {
 }
 
 /**
+ * Is `now` (the device's local date) a bracelet night? The controls panel and
+ * its B shortcut exist only then, so no other night changes at all.
+ * @param {Date} now
+ */
+export function isBraceletNight(now) {
+  return BRACELET_NIGHTS.includes(localKey(now));
+}
+
+/**
  * Is this schedule window, on this date, Bracelet Time? Only a single-club
  * T&T or Sparks game window on a bracelet night (the device's local date, as
  * the rest of the projector keeps it).
@@ -120,12 +129,18 @@ export function epicStarts(startMs, endMs) {
  * @returns {BraceletFrame}
  */
 export function braceletFrame(nowMs, startMs, endMs, { stepOffset = 0, manualEpicAt = null, epics = true } = {}) {
-  const starts = epics ? epicStarts(startMs, endMs) : [];
-  if (manualEpicAt != null && manualEpicAt >= startMs && manualEpicAt < endMs) {
+  const epicMs = EPIC_SEC * 1000;
+  let starts = epics ? epicStarts(startMs, endMs) : [];
+  // "Play it now" wins over any scheduled showing it overlaps: that one is
+  // dropped, so a press shortly before a scheduled epic is never cut off and
+  // restarted from the top. It counts from the window's start on, and still
+  // plays on a wall kept up past its end (a QuickNav pick when a club runs
+  // late); a press made on an earlier window's wall never carries over.
+  if (manualEpicAt != null && manualEpicAt >= startMs) {
+    starts = starts.filter((s) => s + epicMs <= manualEpicAt || s >= manualEpicAt + epicMs);
     starts.push(manualEpicAt);
     starts.sort((a, b) => a - b);
   }
-  const epicMs = EPIC_SEC * 1000;
   const current = starts.filter((s) => s <= nowMs && nowMs < s + epicMs).pop() ?? null;
   const next = starts.find((s) => s > nowMs) ?? null;
   const chime = next != null && next - nowMs <= EPIC_LEAD_SEC * 1000 && current == null;

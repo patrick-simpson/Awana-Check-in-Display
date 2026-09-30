@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BRACELET_NIGHTS, BRACELET_STEPS, EPIC_EVERY_SEC, EPIC_LEAD_SEC, EPIC_SEC, STEP_SEC, braceletFrame, epicStarts, isBraceletWindow, windowSpan } from './bracelets.js';
+import { BRACELET_NIGHTS, BRACELET_STEPS, EPIC_EVERY_SEC, EPIC_LEAD_SEC, EPIC_SEC, STEP_SEC, braceletFrame, epicStarts, isBraceletNight, isBraceletWindow, windowSpan } from './bracelets.js';
 
 const at = (hhmmss) => Date.parse(`2026-09-30T${hhmmss}-04:00`);
 const TNT = [at('18:05:00'), at('18:30:00')];
@@ -103,5 +103,37 @@ describe('braceletFrame', () => {
     expect(braceletFrame(at('18:06:40'), ...TNT, { stepOffset: 1 }).stepIndex).toBe(1);
     expect(braceletFrame(at('18:06:40'), ...TNT, { stepOffset: -1 }).stepIndex).toBe(12);
     expect(braceletFrame(at('18:07:05'), ...TNT, { manualEpicAt: at('18:07:00') })).toMatchObject({ mode: 'epic', epicElapsedSec: 5 });
+  });
+
+  it('"play it now" shortly before a scheduled epic is never cut off and restarted by it', () => {
+    const manualEpicAt = at('18:14:30'); // the scheduled one is at 18:15:10
+    for (const t of ['18:14:31', '18:15:10', '18:15:30', '18:15:59']) {
+      expect(braceletFrame(at(t), ...TNT, { manualEpicAt })).toMatchObject({ mode: 'epic', epicStartMs: manualEpicAt });
+    }
+    // Then the steps from step 1, and the next scheduled showing is the one after.
+    const after = braceletFrame(at('18:16:00'), ...TNT, { manualEpicAt });
+    expect(after).toMatchObject({ mode: 'steps', stepIndex: 0 });
+    expect(new Date(after.nextEpicMs)).toEqual(new Date(at('18:20:10')));
+  });
+
+  it('"play it now" during a scheduled epic starts it over, once', () => {
+    const manualEpicAt = at('18:10:40');
+    expect(braceletFrame(at('18:11:00'), ...TNT, { manualEpicAt })).toMatchObject({ mode: 'epic', epicElapsedSec: 20 });
+    expect(braceletFrame(at('18:12:05'), ...TNT, { manualEpicAt })).toMatchObject({ mode: 'epic', epicStartMs: manualEpicAt });
+    expect(braceletFrame(at('18:12:15'), ...TNT, { manualEpicAt })).toMatchObject({ mode: 'steps', stepIndex: 0 });
+  });
+
+  it('"play it now" still plays on a wall kept up past its end, and never carries into a later window', () => {
+    expect(braceletFrame(at('19:02:05'), ...SPARKS, { manualEpicAt: at('19:02:00') }).mode).toBe('epic');
+    expect(braceletFrame(at('18:30:05'), ...SPARKS, { manualEpicAt: at('18:20:00') }).mode).not.toBe('epic');
+  });
+});
+
+describe('isBraceletNight', () => {
+  it('is the two bracelet nights only, by the local date', () => {
+    expect(isBraceletNight(new Date(2026, 8, 30, 12))).toBe(true);
+    expect(isBraceletNight(new Date(2026, 9, 7, 23, 59))).toBe(true);
+    expect(isBraceletNight(new Date(2026, 8, 23, 18, 10))).toBe(false);
+    expect(isBraceletNight(new Date(2026, 9, 14, 18, 10))).toBe(false);
   });
 });

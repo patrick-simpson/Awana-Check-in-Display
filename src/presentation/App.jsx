@@ -23,7 +23,7 @@ import { ShutdownView } from './views/ShutdownView.jsx';
 import { QuickNav } from './views/QuickNav.jsx';
 import { BraceletTimeView } from './views/BraceletTimeView.jsx';
 import { BraceletPanel } from './views/BraceletPanel.jsx';
-import { isBraceletWindow } from './lib/bracelets.js';
+import { isBraceletNight, isBraceletWindow } from './lib/bracelets.js';
 import { unlockAudio } from './lib/chime.js';
 import { useKeydown } from './hooks/useKeydown.js';
 
@@ -96,10 +96,19 @@ export const App = () => {
 
   // Bracelet Time (the two bracelet nights' T&T and Sparks windows). Its
   // controls panel opens with B (never while typing in a field) or from
-  // QuickNav. Every key press and click also arms the page's sound, which
-  // browsers only allow after a gesture: the chime before each epic needs it.
+  // QuickNav, on a bracelet night only: on any other night B does nothing and
+  // QuickNav has no such button, exactly as before (B is the black-screen key
+  // of every slide tool and many clickers). While it is open the panel owns
+  // the keyboard (see BraceletPanel), so B and Escape close it there. Every
+  // key press and click also arms the page's sound, which browsers only allow
+  // after a gesture: the chime before each epic needs it.
   const bracelets = state.mode === AppMode.GAME_TIME && isBraceletWindow(state.window, now);
+  const braceletNight = isBraceletNight(now);
   const [braceletPanel, setBraceletPanel] = useState(false);
+  // Past midnight the panel closes for good, so it can never reappear on the
+  // next bracelet night a week later on a page that was never reloaded.
+  if (braceletPanel && !braceletNight) setBraceletPanel(false);
+  const panelOpen = braceletPanel && braceletNight;
   useEffect(() => {
     const arm = () => unlockAudio();
     window.addEventListener('pointerdown', arm, { capture: true, passive: true });
@@ -110,11 +119,11 @@ export const App = () => {
     };
   }, []);
   useKeydown((e) => {
+    if (!braceletNight || panelOpen) return;
     const t = e.target;
     const typing = t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName));
     if (typing) return;
-    if (e.code === 'KeyB' && !e.ctrlKey && !e.metaKey && !e.altKey) setBraceletPanel((v) => !v);
-    else if (e.code === 'Escape' && braceletPanel) setBraceletPanel(false);
+    if (e.code === 'KeyB' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) setBraceletPanel(true);
   });
 
   return (
@@ -150,8 +159,8 @@ export const App = () => {
           slide change or view crossfade ever moves it. */}
       <AwanaMark placement={state.mode === AppMode.GAME_TIME ? 'game' : 'default'} hidden={bare} />
 
-      <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} socketStatus={socketStatus} onBracelets={() => setBraceletPanel(true)} />
-      {braceletPanel && <BraceletPanel active={bracelets} onClose={() => setBraceletPanel(false)} />}
+      <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} socketStatus={socketStatus} onBracelets={braceletNight ? () => setBraceletPanel(true) : undefined} />
+      {panelOpen && <BraceletPanel active={bracelets} onClose={() => setBraceletPanel(false)} />}
       {isOverride && <ResumePill now={now} resumeAt={resumeAt} onStay={stay} />}
       <SetupChecklist />
     </div>

@@ -101,3 +101,45 @@ test('QuickNav opens the controls too', async ({ page }) => {
   await page.getByRole('button', { name: /Bracelet Time controls/ }).click();
   await expect(page.getByRole('dialog', { name: 'Bracelet Time controls' })).toBeVisible();
 });
+
+test('on any other night B does nothing, and QuickNav has no Bracelet Time button', async ({ page }) => {
+  await page.goto(at('2026-10-14T18:07:00'));
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'game-time');
+  await page.keyboard.press('b');
+  await expect(page.getByRole('dialog', { name: 'Bracelet Time controls' })).toHaveCount(0);
+  await page.locator('body').hover({ position: { x: 1900, y: 20 } });
+  await expect(page.getByRole('button', { name: /Bracelet Time controls/ })).toHaveCount(0);
+});
+
+test('the open panel owns the keyboard: focus starts inside it, and Escape never reaches the opening deck', async ({ page }) => {
+  await page.goto(at('2026-09-30T18:02:00'));
+  const mode = page.locator('[data-mode]');
+  await expect(mode).toHaveAttribute('data-mode', 'slideshow');
+  await page.keyboard.press('b');
+  const panel = page.getByRole('dialog', { name: 'Bracelet Time controls' });
+  await expect(panel).toBeVisible();
+  expect(await panel.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  // Tab walks the panel's own controls, never the hidden QuickNav behind it.
+  for (let i = 0; i < 30; i += 1) await page.keyboard.press('Tab');
+  expect(await panel.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+  // Arrow keys and Space do not move the deck behind it.
+  const slide = page.locator('[data-slide]').first();
+  const before = await slide.getAttribute('data-slide');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(1200);
+  expect(await slide.getAttribute('data-slide')).toBe(before);
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  await expect(page.locator('[data-pj-bottom-overlay]')).toHaveCount(0);
+  await expect(mode).toHaveAttribute('data-mode', 'slideshow');
+});
+
+test('"Play it now" waits for Bracelet Time', async ({ page }) => {
+  await page.goto(at('2026-09-30T18:02:00'));
+  await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'slideshow');
+  await page.keyboard.press('b');
+  await expect(page.getByRole('dialog', { name: 'Bracelet Time controls' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play it now' })).toBeDisabled();
+});
+
