@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { renderHook, waitFor, act, cleanup } from '@testing-library/react';
 
 // The provision (display-login) channel, as wired into useSocket. Three things
 // matter and all three fail silently if they regress: the screen subscribes to
@@ -54,7 +54,16 @@ beforeEach(() => {
   vi.spyOn(console, 'error').mockImplementation(() => {});
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
-afterEach(async () => { await login._settleForTest(); vi.restoreAllMocks(); });
+// There are no vitest globals, so Testing Library registers no cleanup of its
+// own: unmount every hook here, once the decrypt chain has settled. A hook
+// left mounted let React's scheduler run after this file's jsdom was gone
+// ("window is not defined", an unhandled error that fails the whole run),
+// which a loaded machine's slow PBKDF2 made likely.
+afterEach(async () => {
+  await act(async () => { await login._settleForTest(); });
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('the provision channel', () => {
   it('subscribes to the contract channel AND the provision cache channel', () => {

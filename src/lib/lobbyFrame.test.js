@@ -595,6 +595,8 @@ describe('fitFrame: the invariants, over many texts', () => {
   const KICKERS = [{}, { kicker: 'This week' }, { kicker: 'Heads up', chip: { label: 'BACK WED', value: 'DEC 2' }, sub: 'Christmas Break' },
     { kicker: 'Important announcement for all parents and guardians tonight' }, { kicker: '通'.repeat(60) }];
 
+  // A sweep of about 525 fits: under coverage on a busy machine it has taken
+  // over 7 s, past vitest's 5 s default, so it gets its own limit.
   it('never breaks inside a word, never leaves the box, never collides with the chrome', () => {
     for (const text of texts) {
       for (const extra of KICKERS) {
@@ -623,7 +625,7 @@ describe('fitFrame: the invariants, over many texts', () => {
         }
       }
     }
-  });
+  }, 30_000);
 
   it('every calendar slide fits', () => {
     const club = (date, title = 'Awana', over = {}) => ({ date, kind: 'club', title, isCancelled: false, isSpecial: title !== 'Awana', ...over });
