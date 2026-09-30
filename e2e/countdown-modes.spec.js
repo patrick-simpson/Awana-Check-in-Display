@@ -106,8 +106,18 @@ test('the Upcoming Awana Nights slide keeps every night it shows inside the wall
   const view = page.locator('[data-mode="slideshow"][data-deck="closing"]');
   await expect(view).toBeVisible();
   await expect(view.locator('[data-slide="goodnight"]')).toBeVisible();
-  await page.keyboard.press('Space');
+  // The slideshow starts listening for keys a moment after its first slide is
+  // on screen (its effects run after the first paint: measured ~120 ms), so a
+  // press sent the instant the slide appears can land before anything listens,
+  // which failed this test about one run in three. Press until the next slide
+  // is up; the closing deck holds its last slide, so an extra press is harmless.
   const row = view.locator('.pj-chip-row');
+  await expect
+    .poll(async () => {
+      if ((await row.count()) === 0) await page.keyboard.press('Space');
+      return row.count();
+    }, { timeout: 10_000, intervals: [250] })
+    .toBeGreaterThan(0);
   await expect(row).toBeVisible();
   await expect(row.locator('.pj-chip')).toHaveCount(5);
   // The chips rise 0.5em as they land: wait for the list to come to rest.
