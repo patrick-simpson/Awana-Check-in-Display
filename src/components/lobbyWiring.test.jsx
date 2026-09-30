@@ -8,12 +8,13 @@
 // it does on the TV while it leaves.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
-import { EASE } from '../lib/brand.js';
+import { DUR, EASE } from '../lib/brand.js';
 import { READ } from '../lib/lobbyFrame.js';
 import {
   HANDOFF, STINGER_SEC, SWAP_AT, chromeMove, entranceHold, exitDelay, holdThenLeave, swellKeyframes, vanishAtSwap,
 } from '../lib/lobbyMotion.js';
 import { squishLand } from '../lib/squish.js';
+import { kickerFor, momentFor } from '../lib/checkInMoment.js';
 
 const fonts = vi.hoisted(() => {
   // A canvas whose metrics change when the "web font" lands: the fallback
@@ -86,10 +87,13 @@ vi.mock('../lib/motion.jsx', async () => {
 import ManualSlideshow from './ManualSlideshow.jsx';
 import SlideCopy from './SlideCopy.jsx';
 import CatalogScene from './CatalogScene.jsx';
+import CheckInMoment from './CheckInMoment.jsx';
 import { motionLog } from '../lib/motion.jsx';
 import { getVideo } from '../lib/videoStore.js';
 
 vi.mock('../lib/videoStore.js', () => ({ getVideo: vi.fn() }));
+vi.mock('../lib/confetti.js', () => ({ fireStandard: vi.fn(), fireBirthday: vi.fn(), fireFirstTimer: vi.fn() }));
+vi.mock('../lib/audio.js', () => ({ playChime: vi.fn(), playBirthdayChime: vi.fn(), playFirstTimerChime: vi.fn() }));
 
 const rec = (el) => motionLog.get(el);
 /** When a "hold, then land" keyframe list starts to move, in seconds. */
@@ -235,6 +239,87 @@ describe('the soft squish, as wired', () => {
     const p = container.querySelector('.lobby-headline');
     // (SHOUT_BOX.ascent - SHOUT_BOX.descent + the shout's .93 line height) / 2
     expect(p.style.getPropertyValue('--squish-baseline')).toBe('0.727em');
+  });
+});
+
+describe('the check-in moment\'s squish, as wired', () => {
+  let nextId = 1;
+  const kid = (extra = {}) => ({
+    id: nextId++, firstName: 'Maya', club: 'Sparks', isBirthday: false, isFirstTimer: false,
+    welcomeBack: false, milestone: null, presentation: 'live', ...extra,
+  });
+  /** The squish an element was handed. */
+  const squishOf = (el) => {
+    const { animate, transition } = rec(el);
+    return { scaleX: animate.scaleX, scaleY: animate.scaleY, transition: { scaleX: transition.scaleX, scaleY: transition.scaleY } };
+  };
+  /** A "hold, then land" beat's own run, after its hold. */
+  const runOf = (el) => rec(el).transition.duration - landsAt(el);
+  const live = (el) => el.closest('.checkin__name:not(.is-leaving)');
+
+  it('each letter squashes onto its baseline as it lands, rippling across the name at the letter stagger', () => {
+    const { container } = render(<CheckInMoment event={kid({ firstName: 'Maya' })} step={0} />);
+    const letters = [...container.querySelectorAll('.checkin__letter')];
+    expect(letters).toHaveLength(4);
+    letters.forEach((el, i) => {
+      // The entrance: the name at 0.5 s, 40 ms a letter, on the settle.
+      expect(landsAt(el)).toBeCloseTo(0.5 + 0.04 * i, 10);
+      expect(runOf(el)).toBeCloseTo(DUR.settle, 10);
+      expect(squishOf(el)).toEqual(squishLand(landsAt(el), 'name', runOf(el), 'settle'));
+      expect(rec(el).animate.opacity).toEqual([0, 0, 1]);
+      // Its exit is today's, untouched.
+      expect(rec(el).exit).toEqual({ opacity: 0, y: '-0.6em', scale: 1, transition: { duration: 0.22, delay: i * 0.014, ease: EASE.exit } });
+    });
+    expect(container.querySelector('.checkin__name').style.getPropertyValue('--squish-baseline')).toBe('0.737em');
+  });
+
+  it('a flip squishes the next name on the flip\'s own beat, and a kicker that reads the same never lands again', () => {
+    const a = kid({ firstName: 'Maya' });
+    const b = kid({ firstName: 'Owen' });
+    const { container, rerender } = render(<CheckInMoment event={a} step={0} />);
+    const kicker = container.querySelector('.checkin__kicker');
+    expect(kicker.textContent).toBe(kickerFor(a, momentFor(a)));
+    expect(kickerFor(b, momentFor(b))).toBe(kicker.textContent);
+    expect(squishOf(kicker)).toEqual(squishLand(0.4, 'kicker', 0.32, 'settle'));
+    rerender(<CheckInMoment event={b} step={1} />);
+    // Same words, so the same kicker element, still on the target it mounted with.
+    expect(container.querySelectorAll('.checkin__kicker')).toHaveLength(1);
+    expect(container.querySelector('.checkin__kicker')).toBe(kicker);
+    expect(rec(kicker).history).toHaveLength(1);
+    const owen = [...container.querySelectorAll('.checkin__letter')].filter(live);
+    expect(owen.map((el) => el.textContent)).toEqual(['O', 'W', 'E', 'N']);
+    owen.forEach((el, i) => {
+      expect(landsAt(el)).toBeCloseTo(0.26 + 0.028 * i, 10);
+      expect(squishOf(el)).toEqual(squishLand(landsAt(el), 'name', 0.36, 'settle'));
+    });
+  });
+
+  it('a font landing re-renders the name without re-targeting a letter', () => {
+    const { container } = render(<CheckInMoment event={kid({ firstName: 'Émile' })} step={0} />);
+    const letters = [...container.querySelectorAll('.checkin__letter')];
+    fonts.real = true;
+    act(() => {
+      fonts.loads += 1;
+      for (const cb of fonts.listeners) cb();
+    });
+    expect([...container.querySelectorAll('.checkin__letter')]).toEqual(letters);
+    for (const el of letters) expect(rec(el).history).toHaveLength(1);
+  });
+
+  it('the sticker squashes itself at its pop\'s peak; the slot it is aimed from, the cells and the mark never squish', () => {
+    const { container } = render(<CheckInMoment event={kid({ isFirstTimer: true })} step={0} />);
+    const sticker = container.querySelector('.checkin__sticker');
+    expect(landsAt(sticker)).toBeCloseTo(0.9, 10);
+    expect(squishOf(sticker)).toEqual(squishLand(0.9, 'sticker', DUR.pop, 'pop'));
+    expect(rec(sticker).animate.opacity).toEqual([0, 0, 1]);
+    for (const sel of ['.checkin__sticker-slot', '.checkin__cell--kicker', '.checkin__cell--name', '.checkin__mark-slot', '.checkin__mark', '.checkin__copy']) {
+      const r = rec(container.querySelector(sel));
+      expect(r.animate?.scaleX, sel).toBeUndefined();
+      expect(r.animate?.scaleY, sel).toBeUndefined();
+      expect(r.transition?.scaleY, sel).toBeUndefined();
+    }
+    // The cells' transition is their layout glide and nothing else.
+    expect(rec(container.querySelector('.checkin__cell--name')).transition).toEqual({ duration: DUR.settle, ease: EASE.settle });
   });
 });
 

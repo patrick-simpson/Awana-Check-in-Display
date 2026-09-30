@@ -936,6 +936,9 @@ html, body, #root {
   bottom: 0;
 }
 .checkin__kicker {
+  /* The column is left-aligned: the kicker's squish sits on its foot at its
+     start, so its first letter never moves sideways. */
+  transform-origin: 0% 100%;
   font-family: var(--font-condensed);
   font-size: calc(2.5 * var(--u));
   line-height: 1;
@@ -964,6 +967,9 @@ html, body, #root {
 }
 .checkin__letter {
   display: inline-block;
+  /* The soft squish sits each letter down onto its baseline (the name sets
+     --squish-baseline from its own line height, see CheckInMoment.jsx). */
+  transform-origin: 50% var(--squish-baseline, 50%);
 }
 .checkin__line {
   margin: calc(0.8 * var(--u)) 0 0;
