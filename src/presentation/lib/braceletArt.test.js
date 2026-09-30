@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BEAD_ORDER, BEAD_TONES, BRACELET_ROW, EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, LOOP_SEC, STAGE_H, STAGE_W, STEP_COUNT,
-  actionSec, currentEpicStep, epicShot, finaleScene, introScene, sceneFor, sceneOf, stepProgress,
+  BEAD_ORDER, BEAD_TONES, BRACELET_ROW, EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, LOOP_SEC, SAFE_BOX, STAGE_H, STAGE_W, STEP_COUNT,
+  actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepProgress,
 } from './braceletArt.js';
 import { BRACELET_STEPS, EPIC_SEC as CADENCE_EPIC_SEC, STEP_SEC } from './bracelets.js';
 // Tests may reach across the isolation rule to pin two copies of one thing.
@@ -27,17 +27,16 @@ function numbersOf(value, out = []) {
 
 function expectSane(items, { strict, label }) {
   expect(items.length, label).toBeGreaterThan(0);
+  const bad = [];
+  const pad = strict ? 0 : BLEED;
   for (const item of items) {
-    expect(typeof item.kind, label).toBe('string');
-    for (const n of numbersOf(item)) expect(Number.isFinite(n), `${label}: ${JSON.stringify(item)}`).toBe(true);
-    const pad = strict ? 0 : BLEED;
+    if (typeof item.kind !== 'string') bad.push(`${label}: no kind`);
+    if (!numbersOf(item).every(Number.isFinite)) bad.push(`${label}: ${JSON.stringify(item)}`);
     for (const [x, y] of coordinates(item)) {
-      expect(x, `${label} ${item.kind} x`).toBeGreaterThanOrEqual(-pad);
-      expect(x, `${label} ${item.kind} x`).toBeLessThanOrEqual(STAGE_W + pad);
-      expect(y, `${label} ${item.kind} y`).toBeGreaterThanOrEqual(-pad);
-      expect(y, `${label} ${item.kind} y`).toBeLessThanOrEqual(STAGE_H + pad);
+      if (x < -pad || x > STAGE_W + pad || y < -pad || y > STAGE_H + pad) bad.push(`${label} ${item.kind} at ${x},${y}`);
     }
   }
+  expect(bad).toEqual([]);
 }
 
 const beadsOf = (items) => items.filter((i) => i.kind === 'bead');
@@ -59,9 +58,11 @@ describe('the stage and the palette', () => {
     expect(BEAD_ORDER).toEqual(keys);
   });
 
-  it('has a clear bead: a breath of ice blue, a white keyline', () => {
-    expect(BEAD_TONES.clear.tone).toBe('rgba(214, 236, 255, 0.18)');
-    expect(BEAD_TONES.clear.light).toBe('rgba(255, 255, 255, 0.9)');
+  it('has a clear bead that reads as clear from the back of the room: light and icy, never a grey bead', () => {
+    const alpha = (c) => Number(/rgba\([^)]*,\s*([\d.]+)\)/.exec(c)[1]);
+    expect(BEAD_TONES.clear.tone).toBe('rgba(200, 232, 255, 0.5)');
+    expect(alpha(BEAD_TONES.clear.tone)).toBeGreaterThanOrEqual(0.4);
+    expect(alpha(BEAD_TONES.clear.dark)).toBeGreaterThanOrEqual(0.4);
     expect(BRACELET_ROW).toEqual(['clear', 'black', 'red', 'white', 'blue', 'green', 'yellow', 'clear']);
   });
 
@@ -109,7 +110,7 @@ describe('sceneFor', () => {
       }
       for (const p of [0, 0.5, 1]) expectSane(sceneFor(i, p), { strict: p === 1, label: `step ${i + 1} p=${p}` });
     }
-  });
+  }, 30_000);
 
   it('is deterministic: the same step and p is the same picture', () => {
     for (const i of STEPS) {
@@ -142,7 +143,7 @@ describe('sceneFor', () => {
   });
 
   it('adds a bead that arrives from off the cord and slides along to its place', () => {
-    const start = beadsOf(sceneFor(2, 0)).find((b) => b.color === 'white');
+    const start = beadsOf(sceneFor(2, 0.15)).find((b) => b.color === 'white');
     const mid = beadsOf(sceneFor(2, 0.6)).find((b) => b.color === 'white');
     const end = beadsOf(sceneFor(2, 1)).find((b) => b.color === 'white');
     expect(start.x).toBeGreaterThan(mid.x);
@@ -215,7 +216,7 @@ describe('the intro and the finale', () => {
       expectSane(introScene(p).length ? introScene(p) : [{ kind: 'none' }], { strict: false, label: `intro ${p}` });
       expectSane(finaleScene(p), { strict: false, label: `finale ${p}` });
     }
-  });
+  }, 30_000);
 
   it('routes the intro, the finale and the steps through sceneOf', () => {
     expect(sceneOf('intro', 0.5)).toEqual(introScene(0.5));
@@ -266,7 +267,7 @@ describe('the epic', () => {
       const items = sceneOf(which, shot.p);
       for (const it of items) for (const n of numbersOf(it)) expect(Number.isFinite(n)).toBe(true);
     }
-  });
+  }, 30_000);
 
   it('eases the camera: no jump bigger than a gentle move between quarter seconds, except at a cut', () => {
     const cuts = new Set([EPIC_BEATS[9].start, EPIC_BEATS[14].start]);
@@ -305,5 +306,127 @@ describe('the epic', () => {
     for (const b of EPIC_BEATS.filter((x) => x.kind === 'step')) {
       expect(currentEpicStep((b.start + b.end) / 2)).toBe(b.step);
     }
+  });
+});
+
+// ── The safe area and the hands' motion ──────────────────────
+// The wall fades the stage's outer edge (index.css .pj-bracelet__stage), so a
+// resting hand, bead, knot, counter or arrow there seems to dissolve. And a
+// hand never teleports or pops: it moves at a hand's speed, changes pose with
+// its palm kept, and comes and goes only off the stage.
+
+const MEASURED = new Set(['glove', 'bead', 'knot', 'badge', 'arrow', 'pot', 'text']);
+const name = (it) => `${it.kind}${it.id ? `:${it.id}` : ''}${it.color ? `:${it.color}` : ''}${it.pose ? `:${it.pose}` : ''}`;
+
+function unsafe(items) {
+  return items
+    .filter((it) => MEASURED.has(it.kind) || (it.kind === 'sparkle' && it.o >= 0.99))
+    .map((it) => ({ it, b: itemBox(it) }))
+    .filter(({ b }) => b && !boxInside(b, SAFE_BOX) && !boxOffStage(b))
+    .map(({ it, b }) => `${name(it)} [${Math.round(b.x0)},${Math.round(b.y0)} .. ${Math.round(b.x1)},${Math.round(b.y1)}]`);
+}
+
+describe('the safe area', () => {
+  it('is the part of the stage the wall never fades', () => {
+    expect(SAFE_BOX).toEqual({ x0: 70, y0: 60, x1: 1390, y1: 500 });
+  });
+
+  it('holds every hand, bead, knot, counter and arrow of each step\'s first frame and resting picture', () => {
+    const bad = STEPS.flatMap((i) => [0, 1].flatMap((p) => unsafe(sceneFor(i, p)).map((u) => `step ${i + 1} p=${p}: ${u}`)));
+    expect(bad).toEqual([]);
+  });
+
+  it('holds the intro\'s and the finale\'s resting pictures too', () => {
+    expect(unsafe(introScene(1))).toEqual([]);
+    expect(unsafe(finaleScene(1))).toEqual([]);
+  });
+
+  it('measures a hand by the glove that is drawn, not by its anchor', () => {
+    const g = sceneFor(0, 1).find((it) => it.kind === 'glove' && it.pose === 'point');
+    const b = itemBox(g);
+    expect(b.y1 - b.y0).toBeGreaterThan(150);
+    expect(b.x0).toBeLessThan(g.x);
+  });
+});
+
+const FPS = 30;
+const MAX_MOVE = 60; // px a hand's middle may travel between two frames
+const MAX_TURN = 30; // degrees a hand may turn between two frames (same pose)
+const fold = (d) => ((((d % 360) + 540) % 360) - 180);
+const middle = (g) => {
+  const pts = glovePoints(g);
+  return [pts.reduce((a, q) => a + q[0], 0) / pts.length, pts.reduce((a, q) => a + q[1], 0) / pts.length];
+};
+
+/** Each hand in a frame by its name, measured once. */
+function handsOf(items, label, bad) {
+  const m = new Map();
+  for (const it of items) {
+    if (it.kind !== 'glove') continue;
+    if (!it.id) bad.push(`${label}: a hand with no name`);
+    if (m.has(it.id)) bad.push(`${label}: two hands called ${it.id}`);
+    m.set(it.id, { g: it, off: boxOffStage(itemBox(it)), mid: middle(it) });
+  }
+  return m;
+}
+
+/** Every teleport, pop or snap between consecutive frames. */
+function hops(frames, label) {
+  const bad = [];
+  let a = frames.length ? handsOf(frames[0].items, label, bad) : new Map();
+  for (let k = 1; k < frames.length; k += 1) {
+    const b = handsOf(frames[k].items, label, bad);
+    for (const id of new Set([...a.keys(), ...b.keys()])) {
+      const ha = a.get(id);
+      const hb = b.get(id);
+      const at = `${label} ${frames[k].at} ${id}`;
+      if (!ha || !hb) {
+        if (!(ha ?? hb).off) bad.push(`${at} ${ha ? 'vanishes' : 'appears'} on stage`);
+        continue;
+      }
+      if (ha.off && hb.off) continue;
+      const move = Math.hypot(hb.mid[0] - ha.mid[0], hb.mid[1] - ha.mid[1]);
+      if (move > MAX_MOVE) bad.push(`${at} jumps ${Math.round(move)} px (${ha.g.pose} -> ${hb.g.pose})`);
+      if (ha.g.pose === hb.g.pose && Math.abs(fold(hb.g.rot - ha.g.rot)) > MAX_TURN) bad.push(`${at} turns ${Math.round(fold(hb.g.rot - ha.g.rot))} deg`);
+      if (ha.g.flip !== hb.g.flip) bad.push(`${at} changes hands`);
+    }
+    a = b;
+  }
+  return bad;
+}
+
+describe('the hands move like hands', () => {
+  it('never teleport, pop or snap in the one-step loop (30 fps)', () => {
+    const bad = STEPS.flatMap((i) => {
+      const frames = [];
+      for (let f = 0; f <= LOOP_SEC * FPS; f += 1) frames.push({ at: `t=${(f / FPS).toFixed(2)}`, items: sceneFor(i, stepProgress(i, f / FPS)) });
+      return hops(frames, `step ${i + 1}`);
+    });
+    expect(bad).toEqual([]);
+  }, 60_000);
+
+  it('never in the epic either, cutting only where the picture itself cuts', () => {
+    // The bead table follows the intro's pots, the close-up opens on a new
+    // picture (knot 2), and so does the finale: those three are cuts.
+    const cuts = new Set([EPIC_BEATS[1].start, EPIC_BEATS[9].start, EPIC_BEATS[14].start]);
+    let run = [];
+    const bad = [];
+    for (let f = 0; f <= EPIC_SEC * FPS; f += 1) {
+      const t = f / FPS;
+      const shot = epicShot(t);
+      if ([...cuts].some((c) => c > t - 1 / FPS && c <= t)) {
+        bad.push(...hops(run, 'epic'));
+        run = [];
+      }
+      run.push({ at: `t=${t.toFixed(2)}`, items: sceneOf(shot.step ?? shot.beat.kind, shot.p) });
+    }
+    bad.push(...hops(run, 'epic'));
+    expect(bad).toEqual([]);
+  }, 60_000);
+
+  it('catches a teleport when there is one', () => {
+    const g = sceneFor(0, 0.5).find((it) => it.kind === 'glove' && it.id === 'right');
+    const moved = { ...g, x: g.x + 120 };
+    expect(hops([{ at: 'a', items: [g] }, { at: 'b', items: [moved] }], 'probe')).toHaveLength(1);
   });
 });

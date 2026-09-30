@@ -9,7 +9,12 @@ describe('the steps', () => {
   it('are the handout\'s 7 bead steps then its 6 knot steps, in order', () => {
     expect(BRACELET_STEPS.map((s) => s.n)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
     expect(BRACELET_STEPS.filter((s) => s.kind === 'bead').map((s) => s.color)).toEqual(['black', 'red', 'white', 'blue', 'green', 'yellow']);
-    expect(BRACELET_STEPS[6].words).toMatch(/clear bead to each side/i);
+    expect(BRACELET_STEPS[6]).toMatchObject({ title: 'Clear beads, then knots', words: 'Add a clear bead on each side of your colors. Tie a knot next to each one.' });
+    // The X is a check after the wraps, not a new move (a child could undo the wraps making one).
+    expect(BRACELET_STEPS[9]).toMatchObject({ title: 'See the X?', words: 'Your two strings should cross in an X on your finger.' });
+    // The one way to fail: the bottom string must lie ALONG the finger, inside the wraps.
+    expect(BRACELET_STEPS[8].title).toBe('Wrap 3 times');
+    expect(BRACELET_STEPS[8].words).toMatch(/^Lay the bottom string along your pointer finger\./);
     expect(BRACELET_STEPS.filter((s) => s.kind === 'knot')).toHaveLength(6);
     expect(BRACELET_STEPS.at(-1).title).toMatch(/pull tight/i);
   });
