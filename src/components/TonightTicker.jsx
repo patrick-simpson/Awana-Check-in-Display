@@ -4,11 +4,57 @@ import { M } from '../lib/motion.jsx';
 import { DUR, EASE, beats } from '../lib/brand.js';
 import { isFresh } from '../lib/freshness.js';
 import { TONIGHT_STALE_MS } from '../lib/constants.js';
+import { holdThenLand } from '../lib/lobbyMotion.js';
+import { squishBump, squishLand, withSquish } from '../lib/squish.js';
 
 // How often the ticker re-checks its own freshness against the clock.
 // Coarse on purpose — this only has to notice a quiet print server within a
 // minute or two, not animate a face.
 const FRESHNESS_CHECK_MS = 30000;
+
+/**
+ * A count that changes pops in place (the corner chips' little pop) and
+ * squashes as it lands, up and down only: a figure keeps its width.
+ */
+const VALUE_POP = withSquish(
+  holdThenLand(0, DUR.pop, { scale: 1.3, opacity: 0.6 }, { scale: 1, opacity: 1 }, EASE.pop),
+  squishBump('figure'),
+);
+
+/**
+ * One stat pill: it pops in on its own beat (one per row, in order) and
+ * squashes at the pop's peak, sitting down onto the wave (the soft squish,
+ * src/lib/squish.js). Fixed when the pill first appears: a row that turns up
+ * later shifts the others' places, and as keyframes a new beat would be a new
+ * target, so a pill that had already landed would land again.
+ */
+function Stat({ index, value, label }) {
+  const [enter] = useState(() => withSquish(
+    holdThenLand(beats(index), DUR.pop, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1 }, EASE.pop),
+    squishLand(beats(index), 'chip', DUR.pop, 'pop'),
+  ));
+  return (
+    <M.span
+      className="tonight-ticker-stat"
+      initial={enter.initial}
+      animate={enter.animate}
+      transition={enter.transition}
+    >
+      {/* Remounting on every value change gives each count the
+          same little pop the corner chips land with. */}
+      <M.span
+        key={value}
+        className="tonight-ticker-value"
+        initial={VALUE_POP.initial}
+        animate={VALUE_POP.animate}
+        transition={VALUE_POP.transition}
+      >
+        {value}
+      </M.span>
+      <span className="tonight-ticker-label">{label}</span>
+    </M.span>
+  );
+}
 
 const ROW_SPECS = [
   { key: 'checkedIn', label: 'checked in' },
@@ -94,28 +140,7 @@ export default function TonightTicker({ tonight, active, now: clock }) {
           animate={{ opacity: 1, y: '0%', transition: { duration: DUR.settle, ease: EASE.settle } }}
           exit={{ opacity: 0, y: '120%', transition: { duration: DUR.exit, ease: EASE.exit } }}
         >
-          {rows.map((row, i) => (
-            <M.span
-              key={row.key}
-              className="tonight-ticker-stat"
-              initial={{ opacity: 0, scale: 0.6 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: DUR.pop, delay: beats(i), ease: EASE.pop }}
-            >
-              {/* Remounting on every value change gives each count the
-                  same little pop the corner chips land with. */}
-              <M.span
-                key={row.value}
-                className="tonight-ticker-value"
-                initial={{ scale: 1.3, opacity: 0.6 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: DUR.pop, ease: EASE.pop }}
-              >
-                {row.value}
-              </M.span>
-              <span className="tonight-ticker-label">{row.label}</span>
-            </M.span>
-          ))}
+          {rows.map((row, i) => <Stat key={row.key} index={i} value={row.value} label={row.label} />)}
         </M.div>
       )}
     </AnimatePresence>

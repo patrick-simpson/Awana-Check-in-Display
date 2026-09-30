@@ -8,12 +8,12 @@
 // it does on the TV while it leaves.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
-import { DUR, EASE } from '../lib/brand.js';
+import { DUR, EASE, beats } from '../lib/brand.js';
 import { READ } from '../lib/lobbyFrame.js';
 import {
   HANDOFF, STINGER_SEC, SWAP_AT, chromeMove, entranceHold, exitDelay, holdThenLeave, swellKeyframes, vanishAtSwap,
 } from '../lib/lobbyMotion.js';
-import { squishLand } from '../lib/squish.js';
+import { squishBump, squishLand } from '../lib/squish.js';
 import { kickerFor, momentFor } from '../lib/checkInMoment.js';
 
 const fonts = vi.hoisted(() => {
@@ -88,6 +88,13 @@ import ManualSlideshow from './ManualSlideshow.jsx';
 import SlideCopy from './SlideCopy.jsx';
 import CatalogScene from './CatalogScene.jsx';
 import CheckInMoment from './CheckInMoment.jsx';
+import CornerChip from './CornerChip.jsx';
+import UpNextChip, { WAVE_UP_SEC } from './UpNextChip.jsx';
+import TonightTicker from './TonightTicker.jsx';
+import NoticeBanner from './NoticeBanner.jsx';
+import MilestoneToast from './MilestoneToast.jsx';
+import StickerChip from './StickerChip.jsx';
+import { getClubPalette } from '../lib/clubs.js';
 import { motionLog } from '../lib/motion.jsx';
 import { getVideo } from '../lib/videoStore.js';
 
@@ -320,6 +327,88 @@ describe('the check-in moment\'s squish, as wired', () => {
     }
     // The cells' transition is their layout glide and nothing else.
     expect(rec(container.querySelector('.checkin__cell--name')).transition).toEqual({ duration: DUR.settle, ease: EASE.settle });
+  });
+});
+
+describe('the overlays\' squish, as wired', () => {
+  const squishOf = (el) => {
+    const { animate, transition } = rec(el);
+    return { scaleX: animate.scaleX, scaleY: animate.scaleY, transition: { scaleX: transition.scaleX, scaleY: transition.scaleY } };
+  };
+  /** The squish carried inside a target (a notice's, a toast's, a variant's). */
+  const nestedSquish = (target) => ({
+    scaleX: target.scaleX, scaleY: target.scaleY, transition: { scaleX: target.transition.scaleX, scaleY: target.transition.scaleY },
+  });
+
+  it('a corner chip pops a beat after the slide loads and squashes at the pop\'s peak', () => {
+    const item = { id: 'clock', corner: 'bottom', label: 'Right now', value: '7:56', spoken: 'It is 7:56' };
+    const { container } = render(<CornerChip item={item} corner="bottom" loads={1} />);
+    const chip = container.querySelector('.corner-chip');
+    expect(landsAt(chip)).toBeCloseTo(0.3, 10);
+    expect(rec(chip).animate.opacity).toEqual([0, 0, 1]);
+    expect(squishOf(chip)).toEqual(squishLand(0.3, 'chip', DUR.pop, 'pop'));
+  });
+
+  it('UP NEXT squashes once the wave is under it on a run\'s first child, at once later in the run', () => {
+    const { container, unmount } = render(<UpNextChip pending={3} rising />);
+    expect(squishOf(container.querySelector('.up-next'))).toEqual(squishLand(WAVE_UP_SEC, 'chip', DUR.pop, 'pop'));
+    unmount();
+    const later = render(<UpNextChip pending={3} />);
+    expect(squishOf(later.container.querySelector('.up-next'))).toEqual(squishLand(0, 'chip', DUR.pop, 'pop'));
+  });
+
+  it('a ticker pill keeps the beat it landed on when a row turns up before it, and each new count bumps up and down only', () => {
+    const tonight = (extra) => ({ checkedIn: 63, booksCompleted: 0, awardsEarned: 11, friendsBrought: 0, at: Date.now(), ...extra });
+    const { container, rerender } = render(<TonightTicker tonight={tonight()} active />);
+    const pills = () => [...container.querySelectorAll('.tonight-ticker-stat')];
+    const [checked, awards] = pills();
+    expect(squishOf(awards)).toEqual(squishLand(beats(1), 'chip', DUR.pop, 'pop'));
+    rerender(<TonightTicker tonight={tonight({ booksCompleted: 4, checkedIn: 64 })} active />);
+    expect(pills()).toHaveLength(3);
+    expect(pills()[0]).toBe(checked);
+    expect(pills()[2]).toBe(awards);
+    // Now third, but its keyframes are the ones it landed with: no replay.
+    expect(rec(awards).history).toHaveLength(1);
+    expect(squishOf(awards)).toEqual(squishLand(beats(1), 'chip', DUR.pop, 'pop'));
+    const value = checked.querySelector('.tonight-ticker-value');
+    expect(value.textContent).toBe('64');
+    expect(rec(value).animate.scaleX).toBeUndefined();
+    expect(rec(value).animate.scaleY).toEqual(squishBump('figure').scaleY);
+  });
+
+  it('an info notice squashes as it lands and as it comes back; a critical one keeps today\'s plain pop', () => {
+    const at = Date.now();
+    const { container, rerender } = render(<NoticeBanner notice={{ level: 'info', message: 'Hi', at }} now={at} />);
+    const info = () => container.querySelector('.notice-banner--info');
+    expect(nestedSquish(rec(info()).animate)).toEqual(squishLand(0, 'plate', DUR.pop, 'pop'));
+    rerender(<NoticeBanner notice={{ level: 'info', message: 'Hi', at }} now={at} yielding />);
+    expect(rec(info()).animate).toMatchObject({ opacity: 0, scaleX: 1, scaleY: 1 });
+    rerender(<NoticeBanner notice={{ level: 'info', message: 'Hi', at }} now={at} />);
+    expect(nestedSquish(rec(info()).animate)).toEqual(squishLand(DUR.exit, 'plate', DUR.pop, 'pop'));
+    cleanup();
+    const critical = render(<NoticeBanner notice={{ level: 'critical', message: 'Club is cancelled tonight', at }} now={at} />);
+    const target = rec(critical.container.querySelector('.notice-banner--critical')).animate;
+    expect(target).toEqual({ opacity: 1, y: '0%', scale: 1, transition: { duration: DUR.pop, ease: EASE.pop } });
+  });
+
+  it('a toast plate squashes, hanging from the band, unless it carries a club\'s wordmark', () => {
+    const { container, unmount } = render(<MilestoneToast celebration={{ kind: 'tally', count: 25 }} club={null} />);
+    const hot = container.querySelector('.milestone-toast');
+    expect(nestedSquish(rec(hot).animate)).toEqual(squishLand(0, 'plate', DUR.pop, 'pop'));
+    unmount();
+    const sparks = getClubPalette('Sparks');
+    const club = render(<MilestoneToast celebration={{ kind: 'club', club: 'Sparks', count: 20 }} club={sparks} />);
+    const plate = club.container.querySelector('.milestone-toast');
+    expect(plate.querySelector('.club-logo')).not.toBeNull();
+    expect(rec(plate).animate).not.toHaveProperty('scaleX');
+    expect(rec(plate).animate).not.toHaveProperty('scaleY');
+  });
+
+  it('the status sticker\'s pop squashes lightly at its peak', () => {
+    const { container } = render(<StickerChip label="Signal">Connected</StickerChip>);
+    const { variants } = rec(container.querySelector('.sticker-chip'));
+    expect(nestedSquish(variants.show)).toEqual(squishLand(0, 'plate', DUR.pop, 'pop'));
+    expect(variants.hidden).toEqual({ opacity: 0, scale: 0.6 });
   });
 });
 

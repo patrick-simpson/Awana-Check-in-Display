@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { M } from '../lib/motion.jsx';
 import { DUR, EASE } from '../lib/brand.js';
 import { holdThenLand } from '../lib/lobbyMotion.js';
+import { squishLand, withSquish } from '../lib/squish.js';
 import { FRONT_WAVE_DELAY } from '../lib/checkInMoment.js';
 import StepChip from './brand/StepChip.jsx';
 
@@ -14,16 +15,21 @@ export const WAVE_UP_SEC = FRONT_WAVE_DELAY + DUR.wipe;
  * is on screen. On the run's first child (`rising`) the wave is still coming
  * up when the chip mounts, so it holds out of sight until the wave is under it
  * and lands with the club's mark; later in a run the wave is already up and
- * it pops at once. Keyframes rather than a delay (see holdThenLand), fixed at
- * mount so a growing line never replays it, and the last one is the resting
- * chip, which is what ?lowPower=1 shows.
+ * it pops at once, squashing at the pop's peak (the soft squish). Keyframes
+ * rather than a delay (see holdThenLand), fixed at mount so a growing line
+ * never replays it, and the last one is the resting chip, which is what
+ * ?lowPower=1 shows.
  *
  * @param {{ pending: number, rising?: boolean }} props
  */
 export default function UpNextChip({ pending, rising = false }) {
-  const [enter] = useState(() => holdThenLand(
-    rising ? WAVE_UP_SEC : 0, DUR.pop, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1 }, EASE.pop,
-  ));
+  const [enter] = useState(() => {
+    const at = rising ? WAVE_UP_SEC : 0;
+    return withSquish(
+      holdThenLand(at, DUR.pop, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1 }, EASE.pop),
+      squishLand(at, 'chip', DUR.pop, 'pop'),
+    );
+  });
   return (
     <M.div
       className="up-next"

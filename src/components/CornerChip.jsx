@@ -1,6 +1,8 @@
 import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
 import { DUR, EASE } from '../lib/brand.js';
+import { holdThenLand } from '../lib/lobbyMotion.js';
+import { squishLand, withSquish } from '../lib/squish.js';
 import StepChip from './brand/StepChip.jsx';
 import WeatherGlyph from './WeatherGlyph.jsx';
 
@@ -27,6 +29,17 @@ import WeatherGlyph from './WeatherGlyph.jsx';
  *   size?: string,
  * }} props
  */
+/**
+ * A beat after the slide loads, the chip pops on the kit's curve and squashes
+ * at the pop's peak (the soft squish, src/lib/squish.js). One keyframe list,
+ * never `initial` plus a delay, and the same for every load, so nothing ever
+ * needs freezing: each load is a fresh key.
+ */
+const ENTER = withSquish(
+  holdThenLand(0.3, DUR.pop, { opacity: 0, scale: 0.6, rotate: -6 }, { opacity: 1, scale: 1, rotate: 0 }, EASE.pop),
+  squishLand(0.3, 'chip', DUR.pop, 'pop'),
+);
+
 export default function CornerChip({ item, corner, loads, hidden = false, showNote = true, size }) {
   const show = !hidden && item && item.corner === corner;
   return (
@@ -37,10 +50,10 @@ export default function CornerChip({ item, corner, loads, hidden = false, showNo
           className={`corner-chip corner-chip--${corner} corner-chip--${item.id}`}
           role="status"
           aria-label={item.spoken}
-          initial={{ opacity: 0, scale: 0.6, rotate: -6 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
+          initial={ENTER.initial}
+          animate={ENTER.animate}
           exit={{ opacity: 0, scale: 0.9, transition: { duration: DUR.exit, ease: EASE.exit } }}
-          transition={{ duration: DUR.pop, delay: 0.3, ease: EASE.pop }}
+          transition={ENTER.transition}
         >
           <StepChip
             label={item.label.toUpperCase()}

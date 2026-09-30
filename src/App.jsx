@@ -37,7 +37,8 @@ import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } fro
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
 import { BOARD_HIDDEN, decideBoard } from './lib/checkoutBoard.js';
 import { OVERLAY, lobbyRoom, setupUp } from './lib/overlayFit.js';
-import { STINGER_SEC } from './lib/lobbyMotion.js';
+import { STINGER_SEC, holdThenLand } from './lib/lobbyMotion.js';
+import { squishLand, withSquish } from './lib/squish.js';
 import { birthdayRibbon } from './lib/birthdayWeek.js';
 import { autoParticleEffect, weatherMood } from './lib/weather.js';
 import { useCelebrationQueue } from './hooks/useCelebrationQueue.js';
@@ -64,6 +65,14 @@ import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSC
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
+
+// The WAITING chip pops in on the kit's curve and squashes at the pop's peak
+// (the soft squish, src/lib/squish.js). A constant: the chip stays mounted
+// while its count changes, and a constant target never replays.
+const WAITING_ENTER = withSquish(
+  holdThenLand(0, DUR.pop, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1 }, EASE.pop),
+  squishLand(0, 'chip', DUR.pop, 'pop'),
+);
 
 export default function App() {
   // ?config=<url>: centrally-managed overrides fetched once at startup,
@@ -1040,10 +1049,10 @@ export default function App() {
           className="corner-chip corner-chip--waiting"
           role="status"
           aria-label={`${pending} ${pending === 1 ? 'child' : 'children'} waiting to be welcomed`}
-          initial={{ opacity: 0, scale: 0.6 }}
-          animate={{ opacity: 1, scale: 1 }}
+          initial={WAITING_ENTER.initial}
+          animate={WAITING_ENTER.animate}
           exit={{ opacity: 0, scale: 0.9, transition: { duration: DUR.exit, ease: EASE.exit } }}
-          transition={{ duration: DUR.pop, ease: EASE.pop }}
+          transition={WAITING_ENTER.transition}
         >
           <StepChip label="WAITING" value={pending} size="calc(2.5 * min(1vw, 1.7778vh))" />
         </M.div>

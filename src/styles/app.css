@@ -2847,6 +2847,8 @@ input:focus-visible {
   pointer-events: none;
 }
 .tonight-ticker-stat {
+  /* Its soft squish sits the pill down onto the wave it rides. */
+  transform-origin: 50% 100%;
   display: inline-flex;
   align-items: baseline;
   gap: calc(0.45 * var(--u));
