@@ -1100,6 +1100,116 @@ looping SVG groups starts from an `initial` holding its transform keys,
 because framer-motion measures an SVG element's box only at mount and drops
 every transform frame on a group that did not start with one.
 
+## Soft squish (the jelly motion)
+
+Owner request 2026-09-30: "jelly inspired animations on transitions and
+button pushes", a SOFT squish (squash and stretch, a small wobble, then rest)
+on the lobby's slide changes (the kicker, a shouted headline's words, the date
+chip; the flagship's letters too), check-in names, the chips, toasts and
+notices, and the operator's buttons and panels. The promo posters stay exactly
+as they are. The projector is a later, separate change.
+
+- **One physics, one module.** Jelly UI's own scale spring (stiffness 260,
+  damping 17, mass 1: `E(this.scale, this.scaleVelocity, 1, 260, 17, t)` in
+  `public/vendor/jelly-ui.js`, which `squish.test.js` greps for, so a vendor
+  refresh that retunes it is noticed): zeta ~0.527, extremes 229 ms apart, each
+  keeping 14.2% of the last. `src/lib/squish.js` derives both halves from it
+  and imports NOTHING, so the projector can take a verbatim copy pinned equal
+  by a test (it may not import the signage's modules). The code word is
+  `squish` and the CSS properties are `--squish-*`, never `--jelly-*` (Jelly
+  UI's own tokens under `<jelly-theme>`) and never `--dur-*` / `--ease-*`.
+- **The M half: `squishLand(at, kind, dur, curve)`** is a scaleX / scaleY
+  keyframe list: hold at 1 until `at` (a keyframe, never a `delay`), stretch
+  along the travel, squash where the curve arrives (`IMPACT`: settle 30%, wipe
+  76%, pop at its overshoot's peak, 57%), ring down on the spring's peaks, and
+  a LAST keyframe of exactly 1 on both axes (the frame `?lowPower=1` and the
+  visual baselines show: `transform: none`). A pop-curve piece never stretches:
+  its own `scale` already overshoots. `withSquish(beat, squish)` composes it
+  onto either shape framer-motion takes here (`{ initial, animate, transition }`
+  or a target with its own nested transition) through `transition.scaleX` /
+  `transition.scaleY` ONLY, so every existing keyframe list and the top-level
+  timing stay byte for byte (framer-motion reads `transition[key]` first); it
+  is the identity for null and refuses a target with no transition of its own
+  (the squish's would re-time every other value).
+- **Readability caps live in `DEPTH` / `BULGE`**: a name never squashes below
+  0.93, a headline word's bulge never passes 3%, the kicker is a whisper, a
+  figure (a count) and a wave move scaleY only. scaleX answers at half the
+  squash, less than volume-preserving on purpose, so letters never touch.
+- **Rules a new squish keeps** (each is a way it went wrong in review):
+  - Its keyframes come from the beat sheet alone (SlideCopy's frozen `landing`
+    mode and `beat.at`), never from the fit: a late web font refits the words,
+    and a changed array is a new target that framer-motion replays.
+  - Anything that survives a re-render with the same key is frozen at mount:
+    the check-in kicker is keyed on its WORDS, so it stays up through a flip
+    whose next child reads the same while its `delay` changes; the name's beat
+    sheet per child; each ticker pill (a row turning up later shifts the
+    others' places). `delay` alone never re-targeted; a keyframe hold does.
+  - Never on a `layout="position"` element (the check-in cells: framer-motion
+    resets and folds the dirty node's transform to measure) and never on
+    anything read with `getBoundingClientRect` while it could squash (the
+    sticker slot `stickerOrigin()` aims the confetti from; the club mark the
+    with-motion T&T e2e measures): squish the element inside instead.
+  - Transforms only (never width, padding or font size: StepPlate's
+    ResizeObserver would redraw every frame); exits are untouched.
+  - Not squished, on purpose: read text (a read headline, the supporting
+    line, the check-in line), a critical notice (its targets are exactly the
+    pre-squish ones), the pickup board, and anything carrying official art out
+    of proportion (the club mark, the Awana Clubs mark, a toast that carries a
+    club's wordmark). The waves stay as they were: squashing a check-in wave
+    would dip the colour from under the name.
+  - Type squashes onto its baseline, not its middle (where it seems to float):
+    the headline and the name set `--squish-baseline` inline from
+    `shoutBaseline(lineHeight)` (`SHOUT_BOX`), and the flagship letter's origin
+    is the same number at its 0.9 line height (`FlagshipSlide.test.jsx`).
+  - The flagship composes `withSquish` onto `landsAt()`'s output; the promo
+    kit (`kit.jsx`), which the five posters share, is never edited for it.
+- **Zero animation and reduced motion.** Under `?lowPower=1` M replaces the
+  transition prop and strips nested ones, so a squish lands on its last
+  keyframe at once; under the OS's reduced motion framer-motion makes scaleX /
+  scaleY instant (they are in its `positionalKeys`) while opacity still holds,
+  then lands. `zeroAnimation.test.jsx` renders squished pieces through the
+  real framer-motion.
+- **The CSS half: operator presses** (app.css, "The soft squish: operator
+  presses"). A control squashes onto its ledge on `:active` in
+  `--squish-press` (100 ms) and sinks 2px, then springs back over
+  `--squish-release` (750 ms) on `releaseEasing()`, the spring's step
+  response as a `linear()`. Transitions, never `@keyframes`: a transition
+  never fires on mount, so a panel opening on a checked or focused control
+  never wobbles it. The individual `scale` / `translate` only, never
+  `transform` (April Fools owns it, and turns the gear, the backdrop, the
+  debug panel and the first-run card about their origin, which stays put).
+  The `linear()` is written out LITERALLY, right after the same declaration
+  with a `cubic-bezier` (the kit's pop) in its place: behind `var()`, an
+  easing a browser cannot read leaves the property unset instead of falling
+  back. Softer or firmer amounts per control (the gear, a tab, a debug tile,
+  the checkbox) are `--squish-*` tokens on `:root`; `squishCss.test.js` pins
+  every token and every `linear()` string to `PRESS` / `releaseEasing()`. The
+  kit checkbox's check springs in and goes out on the exit curve: any
+  overshoot past 0 is a negative scale, a mirrored check.
+- **Panels enter, and never exit.** Settings, the slide editor, the debug
+  panel (`panel-enter`) and the first-run card (`setup-card-enter`) rise a
+  little stretched and spring home on the same easing. Closing stays an
+  instant unmount: the first-run card must leave in the commit that mounts a
+  name (`setup-card.events.spec.js`), the visual suite closes the debug panel
+  under a paused clock, the Settings / editor / debug hand-offs happen in one
+  commit (an exit would stack two scrims), and `settingsOpen` is the
+  self-updater's busy flag.
+- **Both kill switches keep today's flat, instant 2px sink.** The blanket rule
+  stops the spring but not the squash, so every press rule has a `scale: none`
+  twin prefixed `.zero-animation-mode` (one class deeper, so it always wins),
+  and another in the `prefers-reduced-motion` block written with the press's
+  own selector (the `:not(:disabled)` included, or it loses on specificity).
+  `zeroAnimationCss.test.js` fails a press without both, and any rule that
+  moves the turned surfaces' `transform-origin`; `e2e/panels.spec.js` holds a
+  real button in each mode.
+- **Jelly UI's Save button** gates its canvas physics on the OS's reduced
+  motion only, never on this app's zero animation, so under
+  `ZeroAnimationContext` Settings renders Save as the kit's plain
+  `button.primary`; the embedded panel spec's locator takes either.
+- Wiring is pinned in `lobbyWiring.test.jsx` ("the soft squish", "the
+  check-in moment's squish", "the overlays' squish", as wired), next to the
+  keyframes the squish composes onto.
+
 ## Tonight counter: the printer's tally is the source of truth
 
 The corner "Tonight" chip used to run ABOVE the check-in desk's number all
