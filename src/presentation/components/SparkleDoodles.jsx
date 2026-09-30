@@ -1,9 +1,13 @@
 import React, { useMemo } from 'react';
 import { mulberry32 } from '../lib/color.js';
 import { useLowPower } from '../hooks/useLowPower.js';
+import { usePortrait } from '../lib/touch.js';
 import { CELEBRATION, HOUSE } from '../lib/kit.js';
 
 const KINDS = ['sparkle', 'sparkle', 'star', 'dot', 'ring', 'squiggle', 'zigzag'];
+
+/** Upright, the band of the screen (in % of its height) the doodles keep clear: every view's words. */
+export const PORTRAIT_CLEAR = { top: 10, bottom: 76 };
 
 // The family kit's colours: every club, the sun, white and Awana orange.
 const BRAND = [...CELEBRATION, HOUSE.orange];
@@ -12,7 +16,10 @@ const BRAND = [...CELEBRATION, HOUSE.orange];
  * Hand-drawn catalog doodads — 4-point sparkles, stars, dots, rings,
  * squiggles, zigzag stairs — deterministically scattered around the
  * screen edges (the center is kept clear for content) with a gentle
- * twinkle. Same seed → same layout, render after render.
+ * twinkle. Same seed → same layout, render after render. Upright on a phone
+ * or tablet (lib/touch.js) the words run the frame's full width, so there the
+ * clear zone is a full-width band instead of a centred box, and the doodles
+ * keep to the top and the bottom of the screen.
  */
 export const SparkleDoodles = ({
   seed = 1,
@@ -21,6 +28,7 @@ export const SparkleDoodles = ({
   className = '',
 }) => {
   const lowPower = useLowPower();
+  const portrait = usePortrait();
   const doodles = useMemo(() => {
     const rand = mulberry32(seed * 7919 + 17);
     const items = [];
@@ -29,7 +37,7 @@ export const SparkleDoodles = ({
       const left = 2 + rand() * 94;
       const top = 3 + rand() * 90;
       // keep the middle clear for the main content
-      if (left > 22 && left < 78 && top > 22 && top < 78) continue;
+      if (portrait ? top > PORTRAIT_CLEAR.top && top < PORTRAIT_CLEAR.bottom : left > 22 && left < 78 && top > 22 && top < 78) continue;
       items.push({
         id: items.length,
         kind: KINDS[Math.floor(rand() * KINDS.length)],
@@ -45,7 +53,7 @@ export const SparkleDoodles = ({
       });
     }
     return items;
-  }, [seed, colors, count]);
+  }, [seed, colors, count, portrait]);
 
   if (lowPower) return null;
   return (

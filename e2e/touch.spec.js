@@ -129,6 +129,13 @@ for (const [name, use] of DEVICES) {
       expect(await page.evaluate(() => localStorage.getItem('awanaPresentationLowPower.v1'))).toBe('1');
       await low.tap();
       await expect(low).toHaveAttribute('aria-checked', 'false');
+      // Full screen, where the browser can (Chromium can on every device it emulates).
+      const full = sheet(page).getByRole('switch', { name: /Full screen/ });
+      await full.tap();
+      await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
+      await expect(full).toHaveAttribute('aria-checked', 'true');
+      await full.tap();
+      await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(false);
     });
 
     test('taps on the wall never reach a hidden menu', async ({ page }) => {

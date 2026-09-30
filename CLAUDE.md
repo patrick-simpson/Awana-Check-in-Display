@@ -1385,7 +1385,12 @@ rule for all of it is that **the desktop does not change at all**.
   the bracelet panel (a key typed in it stops at the sheet, any other key is
   stopped in the window's capture phase, Escape closes it), because a
   tablet's keyboard would otherwise skip the countdown from a passphrase
-  field. The clock-drift pill rides beside the button, and a tap reads out
+  field. Where the browser can put a page in full screen (Android, iPadOS;
+  iPhone Safari cannot, and there the row is not offered) the sheet has a
+  "Full screen" switch, the tap being the gesture it needs, and
+  `countdown.html`'s `theme-color` (black, for the browser's bars) carries
+  the same touch media query, so the PC never reads it. The clock-drift pill
+  rides beside the button, and a tap reads out
   the fix its tooltip gives on the PC. The wall's top-right pieces (the
   pledge clock, the CHECKED IN chips) stop short of the button
   (`--pj-menu-room`).
@@ -1461,7 +1466,10 @@ rule for all of it is that **the desktop does not change at all**.
   mark's and the menu's (the pledge clock stands centred between them); the
   bottom is the controls' and the setup note's, so a slide's words end by
   122u and every other view's by about 140u. Headlines take rows at one big
-  size instead of shrinking to one line. Bracelet Time stacks: the kicker,
+  size instead of shrinking to one line, and the doodles keep a full-width
+  band clear (`PORTRAIT_CLEAR` in `SparkleDoodles.jsx`, 10% to 76% of the
+  height) instead of the wall's centred box, since the words run the frame's
+  width (the box's side strips landed on the pledge). Bracelet Time stacks: the kicker,
   the rail, the STEP chip and the corner on one row, the art the frame's full
   width (one SVG, it scales with its box), the title and words below; the full
   instructions become a list (each step's picture beside its words) and the
@@ -1476,6 +1484,7 @@ rule for all of it is that **the desktop does not change at all**.
   `views/BraceletPanel.test.jsx`, `views/SlideshowView.touch.test.jsx`,
   `views/CountdownView.touch.test.jsx`, `views/ShutdownView.touch.test.jsx`,
   `components/SetupChecklist.touch.test.jsx`, `portrait.test.js`,
+  `components/SparkleDoodles.test.jsx`,
   `lib/stingers.test.js`, and
   `e2e/touch.spec.js`, which runs Chromium's own touch emulation of the
   iPhone 14, Pixel 7 and iPad Pro 11 descriptors (their viewports are the

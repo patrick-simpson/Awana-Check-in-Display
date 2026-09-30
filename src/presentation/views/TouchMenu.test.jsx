@@ -189,3 +189,40 @@ describe('the touch menu', () => {
     expect(screen.getByText(/Fix the system clock/)).toBeTruthy();
   });
 });
+
+describe('the touch menu\'s full-screen switch', () => {
+  const restore = [];
+  const stub = (obj, key, value) => {
+    const had = Object.getOwnPropertyDescriptor(obj, key);
+    Object.defineProperty(obj, key, { configurable: true, value, writable: true });
+    restore.push(() => (had ? Object.defineProperty(obj, key, had) : delete obj[key]));
+  };
+  afterEach(() => { while (restore.length) restore.pop()(); });
+
+  it('is offered only where the browser can put a page in full screen', () => {
+    stub(document, 'fullscreenEnabled', false);
+    render(<Harness onSelect={vi.fn()} onResume={vi.fn()} />);
+    openMenu();
+    expect(within(sheet()).queryByRole('switch', { name: /Full screen/ })).toBeNull();
+  });
+
+  it('asks for full screen inside the tap, and leaves it again', async () => {
+    const request = vi.fn(() => Promise.resolve());
+    const exit = vi.fn(() => Promise.resolve());
+    stub(document, 'fullscreenEnabled', true);
+    stub(document.documentElement, 'requestFullscreen', request);
+    stub(document, 'exitFullscreen', exit);
+    stub(document, 'fullscreenElement', null);
+    render(<Harness onSelect={vi.fn()} onResume={vi.fn()} />);
+    openMenu();
+    const full = within(sheet()).getByRole('switch', { name: /Full screen/ });
+    expect(full.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(full);
+    expect(request).toHaveBeenCalledTimes(1);
+    document.fullscreenElement = document.documentElement;
+    await act(async () => { document.dispatchEvent(new Event('fullscreenchange')); });
+    expect(full.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(full);
+    expect(exit).toHaveBeenCalledTimes(1);
+  });
+});

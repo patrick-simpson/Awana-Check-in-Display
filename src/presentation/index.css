@@ -1345,7 +1345,7 @@
   /* ── The countdown: centred above the bottom's controls and note ── */
   .pj-countdown { padding-bottom: calc(30 * var(--u)); }
   /* A special night's name may take two lines; its "· in 2 days" never splits. */
-  [data-live] > p { white-space: normal; line-height: 1.12; }
+  [data-live] > p { max-width: calc(90 * var(--u)); white-space: normal; line-height: 1.12; }
   [data-live] > p > span { white-space: nowrap; }
 
   /* ── The slides (Slide.jsx COMING_UP_PORTRAIT restates these) ── */

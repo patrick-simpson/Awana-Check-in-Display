@@ -383,6 +383,7 @@ const TogglesRow = ({ touch = false }) => {
             if (!stingers) unlockStingers();
           }}
         />
+        <FullscreenToggle />
       </section>
     );
   }
@@ -405,6 +406,33 @@ const TogglesRow = ({ touch = false }) => {
         onToggle={() => setStingersEnabled(!stingers)}
       />
     </div>
+  );
+};
+
+/**
+ * Full screen, on a touch device whose browser can do it for a page (Android,
+ * iPadOS; iPhone Safari cannot, so there the row is not offered): the browser's
+ * own bars leave the wall. The tap is the gesture the browser asks for.
+ */
+const fullscreenSubscribe = (fn) => {
+  document.addEventListener('fullscreenchange', fn);
+  return () => document.removeEventListener('fullscreenchange', fn);
+};
+const isFullscreen = () => Boolean(document.fullscreenElement);
+const FullscreenToggle = () => {
+  const on = useSyncExternalStore(fullscreenSubscribe, isFullscreen, () => false);
+  if (!document.fullscreenEnabled || typeof document.documentElement.requestFullscreen !== 'function') return null;
+  return (
+    <ToggleButton
+      touch
+      label="Full screen"
+      hint="Hides the browser's own bars, until you switch it off here"
+      on={on}
+      onToggle={() => {
+        const done = on ? document.exitFullscreen?.() : document.documentElement.requestFullscreen?.();
+        done?.catch?.(() => {});
+      }}
+    />
   );
 };
 
