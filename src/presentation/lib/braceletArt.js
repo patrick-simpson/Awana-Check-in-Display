@@ -1615,7 +1615,7 @@ const FINALE_CONFETTI = (() => {
     color: colors[i % colors.length],
   }));
 })();
-const FIN_KNOT_DEG = -48; // where the sliding knot sits on the loop
+const FIN_KNOT_DEG = -30; // where the sliding knot sits on the loop (clear of the hand, so its wraps and tails show)
 
 /**
  * The finale: the finished bracelet held up, sparkles, YOUR TURN!
