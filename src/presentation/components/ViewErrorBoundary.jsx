@@ -28,7 +28,7 @@ export const ErrorScreen = ({ message, detail, fullScreen = false }) => (
     <button
       onClick={() => window.location.reload()}
       className="pj-hot-button"
-      style={{ fontSize: 'calc(1.8 * var(--u))', padding: '0.7em 1.8em', marginTop: 'calc(1 * var(--u))' }}
+      style={{ fontSize: 'var(--pj-reload-size, calc(1.8 * var(--u)))', padding: '0.7em 1.8em', marginTop: 'calc(1 * var(--u))' }}
     >
       Reload
     </button>

@@ -13,6 +13,10 @@ export { URGENT_COLOR };
  *
  * `size` is the figures' font size (a CSS length); `daysSize` is used when
  * the count is still a day or more out, which reads "6d 23h 30m".
+ *
+ * `touch` (a phone or tablet, lib/touch.js) drops the mouse's affordances, the
+ * "Click to skip" tooltip and the hint that appears on hover: a finger can
+ * read neither, and the caller asks its own question instead (CountdownView).
  */
 export const BigTimer = ({
   seconds,
@@ -23,6 +27,7 @@ export const BigTimer = ({
   size = 'var(--text-timer)',
   daysSize = 'var(--text-timer-days)',
   onClick,
+  touch = false,
 }) => {
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
@@ -54,7 +59,7 @@ export const BigTimer = ({
     <div
       className="cursor-pointer group/timer relative flex items-center justify-center select-none"
       onClick={onClick}
-      title={onClick ? 'Click to skip' : undefined}
+      title={onClick && !touch ? 'Click to skip' : undefined}
       data-timer
     >
       {isUrgent && (
@@ -93,7 +98,7 @@ export const BigTimer = ({
         </div>
       )}
 
-      {onClick && (
+      {onClick && !touch && (
         <span
           className="pj-kicker absolute -bottom-8 right-0 text-white/0 group-hover/timer:text-white/40 transition-colors"
           style={{ fontSize: 'clamp(0.8rem, 1vw, 1.2rem)' }}

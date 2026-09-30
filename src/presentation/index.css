@@ -1159,6 +1159,40 @@
     :root { --pj-toast-bottom: calc(3 * var(--u)); }
   }
 
+  /* ── The wall's own buttons, a finger's size ── */
+  :root {
+    /* The watchdog's "Back to schedule in" pill (ResumePill.jsx) stands above
+       the slide controls, its chip readable and Stay a real target. */
+    --pj-resume-bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px);
+    --pj-resume-size: max(14px, calc(2 * var(--u)));
+    --pj-stay-size: max(17px, calc(1.5 * var(--u)));
+    /* The shutdown screen's Start Over, and the error screen's Reload. */
+    --pj-restart-size: max(16px, calc(1.5 * var(--u)));
+    --pj-reload-size: max(17px, calc(1.8 * var(--u)));
+  }
+  [data-resume-pill] .pj-hot-button,
+  .pj-shutdown .pj-line-button,
+  .pj-hot-button {
+    min-width: 64px;
+    min-height: 44px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* A tap leaves :hover stuck on the last button touched (iOS), so the PC's
+     hover lift is undone here; the press (:active) still shows. */
+  .pj-hot-button:hover:not(:active) {
+    transform: none;
+    box-shadow: 0.18em 0.18em 0 var(--brand-hot-deep);
+  }
+  .pj-line-button:hover:not(:active) {
+    color: rgb(255 255 255 / 0.55);
+    border-color: rgb(255 255 255 / 0.3);
+  }
+  .pj-line-button:active {
+    color: #fff;
+    border-color: rgb(255 255 255 / 0.8);
+  }
+
   /* ── The Bracelet Time controls as a bottom sheet (views/BraceletPanel.jsx) ── */
   .pj-bpanel__backdrop {
     /* A sheet from the bottom, under a strip of the dimmed wall that is a

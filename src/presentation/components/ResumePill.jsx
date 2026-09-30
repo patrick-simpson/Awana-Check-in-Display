@@ -26,7 +26,7 @@ export const ResumePill = ({ now, resumeAt, onStay }) => {
           // Stands on the bottom band: the first-run setup note gives way
           // while it is up (index.css).
           data-pj-bottom-overlay
-          style={{ bottom: 'calc(2.4 * var(--u))', gap: 'calc(1.2 * var(--u))', x: '-50%' }}
+          style={{ bottom: 'var(--pj-resume-bottom, calc(2.4 * var(--u)))', gap: 'calc(1.2 * var(--u))', x: '-50%' }}
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0, transition: { duration: DUR.pop, ease: EASE.pop } }}
           exit={{ opacity: 0, y: 16, transition: { duration: DUR.exit, ease: EASE.exit } }}
@@ -35,13 +35,15 @@ export const ResumePill = ({ now, resumeAt, onStay }) => {
             label="Back to schedule in"
             value={`${seconds}s`}
             fitValue={`${String(CHURCH.watchdog.warningSec).replace(/[0-9]/g, '0')}s`}
-            size="calc(2 * var(--u))"
+            size="var(--pj-resume-size, calc(2 * var(--u)))"
             plate={HOUSE.blueDeep}
           />
+          {/* On a phone or tablet, index.css's touch block makes Stay a
+              finger's size (the custom properties fall back to the PC's). */}
           <button
             onClick={onStay}
             className="pj-hot-button"
-            style={{ fontSize: 'calc(1.5 * var(--u))', padding: '0.6em 1.4em' }}
+            style={{ fontSize: 'var(--pj-stay-size, calc(1.5 * var(--u)))', padding: '0.6em 1.4em' }}
           >
             Stay
           </button>

@@ -12,6 +12,7 @@ import { HOUSE } from '../lib/kit.js';
 import { FLAGS } from '../lib/flags.js';
 import { shouldBlackout } from '../lib/idleBlackout.js';
 import { useKeydown } from '../hooks/useKeydown.js';
+import { useTouch } from '../lib/touch.js';
 
 const RESTART_KEYS = ['Space', 'Enter', 'ArrowRight', 'PageDown'];
 
@@ -73,6 +74,18 @@ export const ShutdownView = ({ now, onRestart, onBareChange }) => {
     return () => window.removeEventListener('mousemove', wake);
   }, [wake]);
 
+  // A phone or tablet has no mouse to move: a finger on the screen is the
+  // activity that keeps it lit. And there, only the Start Over button starts
+  // the evening again. On the PC the whole screen is a restart click (a
+  // projector's clicker, a mouse anywhere), but a finger taps a screen it is
+  // reading, and one tap on "Have a safe drive home!" restarted the countdown.
+  const touch = useTouch();
+  useEffect(() => {
+    if (!touch) return undefined;
+    window.addEventListener('pointerdown', wake, { passive: true });
+    return () => window.removeEventListener('pointerdown', wake);
+  }, [touch, wake]);
+
   useKeydown((e) => {
     const wasBlack = blackedRef.current;
     wake();
@@ -112,7 +125,7 @@ export const ShutdownView = ({ now, onRestart, onBareChange }) => {
     >
       <div
         className="pj-frame pj-shutdown cursor-pointer"
-        onClick={onRestart}
+        onClick={touch ? undefined : onRestart}
       >
         <motion.div className="flex flex-col items-center" initial="hidden" animate="shown">
           <Kicker size="var(--text-kicker)" part={{ index: 0, hold: 0.2 }}>Awana night</Kicker>
@@ -134,7 +147,7 @@ export const ShutdownView = ({ now, onRestart, onBareChange }) => {
 
         <button
           className="pj-line-button mt-14 flex items-center gap-2 px-8 py-3"
-          style={{ fontSize: 'calc(1.5 * var(--u))' }}
+          style={{ fontSize: 'var(--pj-restart-size, calc(1.5 * var(--u)))' }}
           onClick={(e) => {
             e.stopPropagation();
             onRestart();
@@ -143,12 +156,15 @@ export const ShutdownView = ({ now, onRestart, onBareChange }) => {
           <RotateCcw size={16} strokeWidth={2.5} />
           Start Over
         </button>
-        <p
-          className="pj-kicker text-white/30"
-          style={{ fontSize: 'calc(1.1 * var(--u))', marginTop: 'calc(0.9 * var(--u))' }}
-        >
-          or press Space
-        </p>
+        {/* A keyboard's hint: a phone has no Space bar to press. */}
+        {!touch && (
+          <p
+            className="pj-kicker text-white/30"
+            style={{ fontSize: 'calc(1.1 * var(--u))', marginTop: 'calc(0.9 * var(--u))' }}
+          >
+            or press Space
+          </p>
+        )}
       </div>
     </ScreenFrame>
   );

@@ -135,9 +135,9 @@ for (const [name, use] of DEVICES) {
       await page.goto(`/countdown.html?now=${TUESDAY}`);
       await expect(page.locator('[data-mode="countdown"]')).toBeVisible();
       const vp = page.viewportSize();
-      // The timer is a control of its own (a tap on it skips the countdown),
-      // and a finger is not a point: Chromium snaps a tap that lands near a
-      // control onto it, as a phone does. Everywhere else is only the wall.
+      // The timer is a control of its own (two taps on it skip the countdown,
+      // below), and a finger is not a point: Chromium snaps a tap that lands
+      // near a control onto it, as a phone does. Everywhere else is only the wall.
       const timer = await page.locator('[data-timer]').boundingBox();
       const pad = 64;
       const onTimer = (x, y) => x >= timer.x - pad && x <= timer.x + timer.width + pad
@@ -155,6 +155,67 @@ for (const [name, use] of DEVICES) {
         localStorage.getItem('awanaPresentationLowPower.v1'),
         localStorage.getItem('awanaScheduleOverlay.v1'),
       ])).toEqual([null, null, null]);
+    });
+  });
+}
+
+/* ── The countdown's skip, the shutdown's restart, the watchdog's Stay ── */
+
+for (const [name, use] of DEVICES) {
+  test.describe(`the wall's own buttons on ${name}`, () => {
+    test.use(use);
+
+    test('the countdown\'s skip asks first: one tap on the clock only asks, a second skips', async ({ page }) => {
+      await page.goto(`/countdown.html?now=${TUESDAY}`);
+      const timer = page.locator('[data-timer]');
+      await expect(timer).toBeVisible();
+      await expect(timer).not.toHaveAttribute('title', /.*/);
+      await timer.tap();
+      const toast = page.locator('[data-skip-toast]');
+      await expect(toast).toBeVisible();
+      await expect(toast.getByRole('img')).toHaveAttribute('aria-label', 'START THE OPENING Tap the clock again');
+      await expect(page.locator('[data-mode="countdown"]')).toBeVisible();
+      await timer.tap();
+      await expect(page.locator('[data-mode="slideshow"][data-deck="opening"]')).toBeVisible();
+    });
+
+    test('the shutdown screen restarts from Start Over only, a finger\'s size, and never from its words', async ({ page }) => {
+      await page.goto(at('2026-09-16T19:40:00'));
+      await expect(page.locator('[data-mode="shutdown"]')).toBeVisible();
+      await settle(page);
+      await expect(page.getByText('or press Space')).toHaveCount(0);
+      const words = page.locator('.pj-shutdown .pj-headline .w').first();
+      await words.tap();
+      await page.locator('.pj-shutdown .pj-body .w').first().tap();
+      await expect(page.locator('[data-mode="shutdown"]')).toBeVisible();
+      const restart = page.getByRole('button', { name: /Start Over/ });
+      await expectTarget(restart, 'Start Over');
+      expect(await restart.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+      await restart.tap();
+      await expect(page.locator('[data-mode="countdown"]')).toBeVisible();
+    });
+
+    test('the watchdog\'s Stay is a finger\'s size, and holds the pick', async ({ page }) => {
+      await page.clock.install();
+      await page.goto(`/countdown.html?now=${TUESDAY}`);
+      await menuButton(page).tap();
+      await sheet(page).getByRole('button', { name: 'Opening Ceremony' }).tap();
+      await expect(page.locator('[data-mode="slideshow"]')).toBeVisible();
+      await expect(page.locator('[data-resume-pill]')).toHaveCount(0);
+      // 14 min 10 s on: 50 s of the 15-minute watchdog left, inside its 60 s warning.
+      const now = await page.evaluate(() => Date.now());
+      await page.clock.setSystemTime(now + 14 * 60_000 + 10_000);
+      const pill = page.locator('[data-resume-pill]');
+      await expect(pill).toBeVisible({ timeout: 8000 });
+      await page.waitForTimeout(700);
+      const stay = pill.getByRole('button', { name: 'Stay' });
+      await expectTarget(stay, 'Stay');
+      // Clear of the slide controls it shares the bottom with.
+      const [p, n] = await Promise.all([pill.boundingBox(), page.locator('[data-slideshow-touch-nav]').boundingBox()]);
+      expect(p.y + p.height <= n.y || n.x >= p.x + p.width || n.y + n.height <= p.y).toBe(true);
+      await stay.tap();
+      await expect(pill).toHaveCount(0);
+      await expect(page.locator('[data-mode="slideshow"]')).toBeVisible();
     });
   });
 }
@@ -299,11 +360,12 @@ for (const [name, use] of [DEVICES[0], DEVICES[1], DEVICES[3]]) {
 test.describe('Bracelet Time on another night', () => {
   test.use(DEVICES[0][1]);
 
-  test('the touch menu has no Bracelet Time row', async ({ page }) => {
+  test('the touch menu has no Bracelet Time controls row, only the switch that shows it now', async ({ page }) => {
     await page.goto(at('2026-10-14T18:07:00'));
     await expect(page.locator('[data-mode="game-time"]')).toBeVisible();
     await menuButton(page).tap();
     await expect(sheet(page)).toBeVisible();
-    await expect(sheet(page).getByRole('button', { name: /Bracelet Time/ })).toHaveCount(0);
+    await expect(sheet(page).getByRole('button', { name: 'Bracelet Time controls' })).toHaveCount(0);
+    await expectTarget(sheet(page).getByRole('switch', { name: /Show Bracelet Time now/ }), 'Show Bracelet Time now');
   });
 });

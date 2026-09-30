@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { WeatherScene } from '../components/WeatherScene.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
@@ -15,6 +16,8 @@ import { playStinger } from '../lib/stingers.js';
 import { useKeydown } from '../hooks/useKeydown.js';
 import { useWeather } from '../hooks/useWeather.js';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.js';
+import { useTouch } from '../lib/touch.js';
+import { DUR, EASE } from '../lib/motion-tokens.js';
 
 // The five remaining-time marks that sound the optional chime. There is
 // deliberately NO on-screen badge any more — the operator asked for the
@@ -61,6 +64,22 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
     }
   });
 
+  // On a phone or tablet the clock is the biggest thing under a finger, and a
+  // skip is a fifteen-minute override of the evening: the first tap only asks
+  // (a toast, like the slideshow's Exit), a second within 3 s skips. On the
+  // PC one click on it skips, as it always has.
+  const touch = useTouch();
+  const [skipArmed, setSkipArmed] = useState(false);
+  useEffect(() => {
+    if (!skipArmed) return undefined;
+    const timer = setTimeout(() => setSkipArmed(false), 3000);
+    return () => clearTimeout(timer);
+  }, [skipArmed]);
+  const tapSkip = () => {
+    if (skipArmed) onSkip();
+    else setSkipArmed(true);
+  };
+
   const isShaking = seconds > 0 && seconds <= 10;
 
   const targetTimeStr = target.toLocaleTimeString([], {
@@ -86,7 +105,7 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
         </Kicker>
 
         <div style={{ marginTop: 'calc(0.6 * var(--u))' }}>
-          <BigTimer seconds={seconds} accent={HOUSE.orange} urgencyEnabled onClick={onSkip} />
+          <BigTimer seconds={seconds} accent={HOUSE.orange} urgencyEnabled onClick={touch ? tapSkip : onSkip} touch={touch} />
         </div>
 
         {seconds >= 24 * 3600 && (
@@ -103,6 +122,24 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
 
         <EventChips events={events} />
       </div>
+
+      {/* Touch: the skip's question. data-pj-bottom-overlay: it stands on the
+          bottom band, so the first-run setup note gives way while it is up. */}
+      <AnimatePresence>
+        {touch && skipArmed && (
+          <motion.div
+            className="absolute left-1/2 z-50"
+            data-pj-bottom-overlay
+            data-skip-toast
+            style={{ bottom: 'var(--pj-toast-bottom, calc(3 * var(--u)))', x: '-50%' }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0, transition: { duration: DUR.pop, ease: EASE.pop } }}
+            exit={{ opacity: 0, y: 12, transition: { duration: DUR.exit, ease: EASE.exit } }}
+          >
+            <StepChip label="Start the opening" value="Tap the clock again" size="var(--pj-toast-size, calc(2.2 * var(--u)))" plate={HOUSE.hot} />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </ScreenFrame>
   );
 };

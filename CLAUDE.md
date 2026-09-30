@@ -1389,8 +1389,10 @@ rule for all of it is that **the desktop does not change at all**.
   the fix its tooltip gives on the PC. The wall's top-right pieces (the
   pledge clock, the CHECKED IN chips) stop short of the button
   (`--pj-menu-room`).
-- **Bracelet Time by tap.** On a bracelet night the sheet has a "Bracelet
-  Time controls" row (no "(B)"), exactly where QuickNav has its button, and it
+- **Bracelet Time by tap.** The sheet's Bracelet Time section carries the
+  "Show Bracelet Time now" switch every night and, on a bracelet night (or
+  while that switch is on), a "Bracelet Time controls" row (no "(B)"),
+  exactly as QuickNav carries them, and the row
   opens the same `BraceletPanel`, which the touch block turns into a bottom
   sheet under a 56px strip of the dimmed wall (a tap there closes it: a phone
   snaps a tap a few pixels off the sheet onto the sheet, so a thinner strip
@@ -1416,20 +1418,39 @@ rule for all of it is that **the desktop does not change at all**.
   keyboard. The page itself is held in a hand: no pull-to-refresh, no
   double-tap zoom, no long-press callout or text selection on the wall;
   pinch-zoom stays.
+- **The wall's own buttons ask a finger for more.** The countdown's clock is
+  the biggest thing under a finger and a skip is a fifteen-minute override,
+  so on touch one tap only asks (a "Start the opening / Tap the clock again"
+  toast, a bottom overlay like Exit's) and a second within 3 s skips; the PC's
+  one click, tooltip and hover hint stay (`BigTimer`'s `touch` drops only
+  those two). The shutdown screen restarts from Start Over only (on the PC the
+  whole screen is a restart click, but one tap on "Have a safe drive home!"
+  restarted the countdown), "or press Space" is not offered, and a finger on
+  the screen keeps it lit as a mouse move does. Stay (the watchdog pill),
+  Start Over and the error screen's Reload are at least 44px with 16px type
+  or more, the pill stands above the slide controls, and the PC's hover lift
+  on the kit's two buttons is undone on touch (iOS leaves :hover stuck on
+  the last button tapped) while the press still shows. All of it is custom
+  properties whose fallbacks are the PC's inline values
+  (`--pj-stay-size`, `--pj-resume-size`, `--pj-resume-bottom`,
+  `--pj-restart-size`, `--pj-reload-size`).
 - **Sound needs a tap.** WebKit plays a page's audio only from a context made
   or resumed inside a gesture, so on touch App wakes the countdown chimes'
   context on every tap (`unlockStingers`, only once they are armed), and the
   sheet's switch wakes it in the tap that arms them.
 - Tests: `lib/touch.test.js`, `views/TouchMenu.test.jsx`,
   `views/BraceletPanel.test.jsx`, `views/SlideshowView.touch.test.jsx`,
+  `views/CountdownView.touch.test.jsx`, `views/ShutdownView.touch.test.jsx`,
   `lib/stingers.test.js`, and
   `e2e/touch.spec.js`, which runs Chromium's own touch emulation of the
   iPhone 14, Pixel 7 and iPad Pro 11 descriptors (their viewports are the
   area under the browser's toolbars, 390x664 on an iPhone 14, which is what a
   page really gets), both ways up: the menu by tap and every control in it at
   least 44px, its picks, the switches, taps on the wall that never reach a
-  hidden control, the opening deck by tap zones and real swipes to games,
-  Exit twice, and tonight's Bracelet Time controls by tap.
+  hidden control, the countdown's two-tap skip, the shutdown's Start Over
+  (and taps on its words that restart nothing), Stay at 44px, the opening
+  deck by tap zones and real swipes to games, Exit twice, and tonight's
+  Bracelet Time controls by tap.
 
 ### Bracelet Time (the bracelet nights, fall 2026)
 
