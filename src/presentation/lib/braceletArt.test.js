@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BEAD_ORDER, BEAD_TONES, BRACELET_ROW, EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, SAFE_BOX, STAGE_H, STAGE_W, STEP_COUNT,
-  actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepFrame, stepProgress, stillFrame, stillP,
+  KNOT1_X, actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepFrame, stepProgress, stillFrame, stillP,
 } from './braceletArt.js';
 import { BRACELET_STEPS, EPIC_SEC as CADENCE_EPIC_SEC, stepSlotSec } from './bracelets.js';
 // Tests may reach across the isolation rule to pin two copies of one thing.
@@ -320,7 +320,10 @@ describe('the epic', () => {
   }, 30_000);
 
   it('eases the camera: no jump bigger than a gentle move between quarter seconds, except at a cut', () => {
-    const cuts = new Set([EPIC_BEATS[9].start, EPIC_BEATS[14].start]);
+    // The cuts are where the picture itself cuts to a new composition (the
+    // bead table after the intro, the close-up after knot 1, the finale):
+    // there the camera cuts too, so the change reads as an edit, not a pop.
+    const cuts = new Set([EPIC_BEATS[1].start, EPIC_BEATS[9].start, EPIC_BEATS[14].start]);
     for (let t = 0.25; t <= EPIC_SEC; t += 0.25) {
       const a = epicShot(t - 0.25).camera;
       const b = epicShot(t).camera;
@@ -422,6 +425,111 @@ describe('the safe area', () => {
     const b = itemBox(g);
     expect(b.y1 - b.y0).toBeGreaterThan(150);
     expect(b.x0).toBeLessThan(g.x);
+  });
+});
+
+// ── The epic's camera ────────────────────────────────────────
+
+const epicAt = (t) => {
+  const shot = epicShot(t);
+  return { shot, items: sceneOf(shot.step ?? shot.beat.kind, shot.p) };
+};
+const onScreen = (c, [x, y]) => [x * c.scale + c.x, y * c.scale + c.y];
+/** The first time (1/120 s steps) beat b's action reaches progress p. */
+function whenBeatReaches(b, p) {
+  const beat = EPIC_BEATS[b];
+  for (let t = beat.start; t < beat.end; t += 1 / 120) if (epicShot(t).p >= p) return t;
+  return beat.end;
+}
+/** Where the strands of a picture's cords cross each other. */
+function crossings(items) {
+  const cords = items.filter((it) => it.kind === 'cord');
+  const out = [];
+  for (let i = 0; i < cords.length; i += 1) {
+    for (let j = i + 1; j < cords.length; j += 1) {
+      const A = cords[i].pts;
+      const B = cords[j].pts;
+      for (let a = 0; a < A.length - 1; a += 1) {
+        for (let b = 0; b < B.length - 1; b += 1) {
+          const [p1, p2, p3, p4] = [A[a], A[a + 1], B[b], B[b + 1]];
+          const d = (p2[0] - p1[0]) * (p4[1] - p3[1]) - (p2[1] - p1[1]) * (p4[0] - p3[0]);
+          if (Math.abs(d) < 1e-9) continue;
+          const t = ((p3[0] - p1[0]) * (p4[1] - p3[1]) - (p3[1] - p1[1]) * (p4[0] - p3[0])) / d;
+          const u = ((p3[0] - p1[0]) * (p2[1] - p1[1]) - (p3[1] - p1[1]) * (p2[0] - p1[0])) / d;
+          if (t > 0.001 && t < 0.999 && u > 0.001 && u < 0.999) out.push([p1[0] + t * (p2[0] - p1[0]), p1[1] + t * (p2[1] - p1[1])]);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+describe('the epic\'s camera', () => {
+  it('keeps every hand, bead, knot, counter and arrow inside the safe box whenever it rests (10 fps)', () => {
+    const key = (it) => `${it.kind}:${it.id ?? ''}:${it.color ?? ''}`;
+    const moved = (it, items) => Math.min(...items.filter((o) => key(o) === key(it)).map((o) => {
+      const a = itemBox(it);
+      const b = itemBox(o);
+      return a && b ? Math.hypot(a.x0 - b.x0, a.y0 - b.y0) + Math.hypot(a.x1 - b.x1, a.y1 - b.y1) : Infinity;
+    }), Infinity);
+    const bad = [];
+    for (let f = 0; f <= EPIC_SEC * 10; f += 1) {
+      const t = f / 10;
+      const { shot, items } = epicAt(t);
+      const before = epicAt(Math.max(0, t - 0.2)).items;
+      const after = epicAt(Math.min(EPIC_SEC, t + 0.2)).items;
+      const resting = items.filter((it) => (it.o ?? 1) >= 0.05 && moved(it, before) < 3 && moved(it, after) < 3);
+      bad.push(...unsafe(resting, shot.camera).map((u) => `t=${t.toFixed(1)}: ${u}`));
+    }
+    expect(bad).toEqual([]);
+  }, 60_000);
+
+  it('never cuts the bracelet hanging below the close-up', () => {
+    const bad = [];
+    for (let b = 9; b <= 13; b += 1) {
+      for (let t = EPIC_BEATS[b].start; t < EPIC_BEATS[b].end; t += 0.1) {
+        const { shot, items } = epicAt(t);
+        bad.push(...unsafe(items.filter((it) => it.kind === 'bead'), shot.camera).map((u) => `t=${t.toFixed(1)}: ${u}`));
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('match-cuts from knot 1 to knot 2 on the X: both X\'s on the same spot of the screen', () => {
+    const cut = EPIC_BEATS[9].start;
+    const x1 = crossings(sceneFor(7, 1));
+    const x2 = crossings(sceneFor(8, 0));
+    expect(x1).toHaveLength(1);
+    expect(Math.hypot(x1[0][0] - KNOT1_X[0], x1[0][1] - KNOT1_X[1])).toBeLessThan(1);
+    const before = epicShot(cut - 1 / 60).camera;
+    const after = epicShot(cut).camera;
+    const a = onScreen(before, x1[0]);
+    const near = x2.map((x) => onScreen(after, x)).sort((p, q) => Math.hypot(p[0] - a[0], p[1] - a[1]) - Math.hypot(q[0] - a[0], q[1] - a[1]))[0];
+    expect(Math.hypot(near[0] - a[0], near[1] - a[1])).toBeLessThan(1.5);
+    // It is a cut: the close-up comes in closer.
+    expect(after.scale - before.scale).toBeGreaterThan(0.05);
+  });
+
+  it('pushes in on each bead as it lands, and pulls back to the row as the next one flies in', () => {
+    for (let b = 1; b <= 6; b += 1) {
+      const beat = EPIC_BEATS[b];
+      expect(epicShot(whenBeatReaches(b, 0.84)).camera.scale, `bead ${b}`).toBeLessThan(1.16);
+      expect(epicShot(beat.end - 0.05).camera.scale, `bead ${b}`).toBeGreaterThan(1.35);
+      if (b > 1) expect(epicShot(beat.start + 1.8).camera.scale, `bead ${b}`).toBeLessThan(1.16);
+    }
+    // The intro cuts to the row: the table is a new picture.
+    expect(epicShot(EPIC_BEATS[1].start).camera.scale - epicShot(EPIC_BEATS[1].start - 1 / 60).camera.scale).toBeGreaterThan(0.08);
+  });
+
+  it('jolts once as knot 6 bites, and is still again for its finished picture', () => {
+    const bite = whenBeatReaches(13, 0.66);
+    const xs = [];
+    for (let t = bite - 0.1; t < bite + 0.7; t += 1 / 60) xs.push(epicShot(t).camera.x);
+    let turns = 0;
+    for (let i = 2; i < xs.length; i += 1) if (Math.sign(xs[i] - xs[i - 1]) * Math.sign(xs[i - 1] - xs[i - 2]) < 0) turns += 1;
+    expect(turns).toBeGreaterThanOrEqual(2);
+    const still = epicShot(bite + 0.8).camera;
+    for (let t = bite + 0.8; t < EPIC_BEATS[13].end; t += 0.1) expect(epicShot(t).camera).toEqual(still);
   });
 });
 

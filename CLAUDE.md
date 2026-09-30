@@ -1502,7 +1502,19 @@ night are untouched.
   finished row (clear beads and knots as big as the bead steps' beside it,
   the open hands out of the frame); the overview's chips are 1.7u, so its
   pictures lead; and
-  the safe-area tests measure the framed picture. From one step to the
+  the safe-area tests measure the framed picture. The epic has its own
+  camera (`CAMERA_KEYS`, look-at keys eased by smoothstep, cutting only where
+  the picture itself cuts: the bead table after the intro, the close-up after
+  knot 1, the finale): each bead flies in on the whole row, the camera pushes
+  in on it as it lands and pulls back for the next; knot 1 comes in on its X
+  and the close-up opens with its own X on the same spot of the screen (a
+  match cut, `KNOT1_X` / `MATCH_AT`: knot 1's U is shallow enough that both
+  frames hold every hand, bead and knot); the close-up never goes closer than
+  `KNOT_ZOOM`, so the bracelet hanging below it stays whole, and pans with
+  the work instead; knot 6 pushes in on the cinch and jolts once as the wraps
+  bite (`SHAKE`, still again before its finished picture). Its tests hold it
+  to a gentle move each quarter second and every resting hand, bead, knot,
+  counter and arrow inside the safe box through it. From one step to the
   next the card itself stays up (the kicker and the rail never blink; the
   chip, the caption and, when it changes, the kicker crossfade), and the
   stage plays straight on through the row's steps 1-8 and the close-up's

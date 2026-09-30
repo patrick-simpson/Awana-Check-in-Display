@@ -871,7 +871,9 @@ const CROSSED_LEFT = /** @type {Pt} */ ([1084, 196]);
 function crossStep(p) {
   const u = easeInOut(seg(p, 0.12, 0.46));
   const c = easeInOut(seg(p, 0.5, 0.86));
-  const row = arcRow({ cx: ROW_CX, yb: lerp(ROW_Y, 452, u), kappa: u / 430, s: lerp(1, 0.86, u) });
+  // The U is only as deep as the epic's match cut allows: knot 1's frame,
+  // in on this X, has to hold the U's lowest beads (see MATCH_AT).
+  const row = arcRow({ cx: ROW_CX, yb: lerp(ROW_Y, 436, u), kappa: u / 430, s: lerp(1, 0.86, u) });
 
   // The hands: from where step 7 left them open, in to take the tips, up
   // into a U; then only the left one moves, up and over the right one.
@@ -1688,6 +1690,9 @@ export const EPIC_SEC = 90;
 // the time goes where the hands have the most to do (the wraps and the
 // push), and the X, which is only a look, is quick.
 const BEAT_LENGTHS = [4, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 7, 7, 9.5, 4.5, 7.5, 10, 7.5, 6];
+/** A step beat's action starts this long after the beat does, and ends this long before it, so every step is seen finished. */
+const EPIC_LEAD = 0.25;
+const EPIC_HOLD = 1.1;
 
 /** The epic's beats, in order, covering 0..EPIC_SEC exactly. */
 export const EPIC_BEATS = /** @type {readonly EpicBeat[]} */ (Object.freeze((() => {
@@ -1707,71 +1712,6 @@ export const EPIC_BEATS = /** @type {readonly EpicBeat[]} */ (Object.freeze((() 
 /** @param {number} sec */
 function beatAt(sec) {
   return EPIC_BEATS.find((b) => sec >= b.start && sec < b.end) ?? EPIC_BEATS[EPIC_BEATS.length - 1];
-}
-
-// The camera, as look-at keys: (x, y) is the stage point in the middle of
-// the view, s the zoom. Between keys it eases; a key marked `cut` is a jump
-// (used where the picture itself cuts to a new composition).
-/** @typedef {{ t: number, x: number, y: number, s: number, cut?: boolean }} CameraKey */
-
-/** @type {CameraKey[]} */
-const CAMERA_KEYS = (() => {
-  /** @type {CameraKey[]} */
-  const keys = [
-    { t: 0, x: 730, y: 280, s: 1 },
-    { t: 3.6, x: 730, y: 290, s: 1.04 },
-  ];
-  // Beads: a slow pan along the cord, pushing in a touch as each one lands.
-  for (let i = 0; i < 6; i += 1) {
-    const b = EPIC_BEATS[i + 1];
-    const tx = slotX(i + 1);
-    keys.push({ t: b.start + 0.4, x: 800, y: 296, s: 1.1 });
-    keys.push({ t: b.start + 0.4 + 0.84 * (b.end - b.start - 1.4), x: Math.max(700, tx + 90), y: 296, s: 1.16 });
-  }
-  const s7 = EPIC_BEATS[7];
-  keys.push({ t: s7.start + 1, x: 730, y: 300, s: 1 }, { t: s7.end, x: 730, y: 300, s: 1.03 });
-  const s8 = EPIC_BEATS[8];
-  keys.push({ t: s8.start + 0.8, x: 730, y: 290, s: 1 }, { t: s8.end, x: 730, y: 250, s: 1.05 });
-  // The knot close-up: in on the knot, a little closer on the X.
-  const s9 = EPIC_BEATS[9];
-  keys.push({ t: s9.start, x: 700, y: 262, s: 1.08, cut: true }, { t: s9.end, x: 730, y: 262, s: 1.16 });
-  const s10 = EPIC_BEATS[10];
-  keys.push({ t: s10.start + 2, x: 770, y: 262, s: 1.3 }, { t: s10.end, x: 770, y: 262, s: 1.32 });
-  const s11 = EPIC_BEATS[11];
-  keys.push({ t: s11.start + 2.4, x: 700, y: 268, s: 1.14 }, { t: s11.end, x: 690, y: 268, s: 1.12 });
-  const s12 = EPIC_BEATS[12];
-  keys.push({ t: s12.start + 1, x: 700, y: 262, s: 1.16 }, { t: s12.end, x: 760, y: 262, s: 1.14 });
-  const s13 = EPIC_BEATS[13];
-  keys.push({ t: s13.start + 1, x: 760, y: 270, s: 1.08 });
-  keys.push({ t: s13.start + 0.25 + 0.68 * (s13.end - s13.start - 1.35), x: 770, y: 262, s: 1.2 });
-  keys.push({ t: s13.end, x: 760, y: 272, s: 1.06 });
-  const fin = EPIC_BEATS[14];
-  keys.push({ t: fin.start, x: 730, y: 280, s: 1.08, cut: true }, { t: fin.start + 1.6, x: 730, y: 280, s: 1 }, { t: EPIC_SEC, x: 730, y: 280, s: 1.03 });
-  return keys;
-})();
-
-/**
- * The camera at `sec`, as the translate-then-scale StepArt applies.
- * @param {number} sec
- */
-function cameraAt(sec) {
-  const keys = CAMERA_KEYS;
-  let i = 0;
-  while (i < keys.length - 1 && keys[i + 1].t <= sec) i += 1;
-  const a = keys[i];
-  const b = keys[Math.min(i + 1, keys.length - 1)];
-  let x = a.x;
-  let y = a.y;
-  let s = a.s;
-  if (b !== a && !b.cut && b.t > a.t) {
-    // Smoothstep: a camera eases more gently than the action does.
-    const u = seg(sec, a.t, b.t);
-    const t = u * u * (3 - 2 * u);
-    x = lerp(a.x, b.x, t);
-    y = lerp(a.y, b.y, t);
-    s = lerp(a.s, b.s, t);
-  }
-  return lookAt(x, y, s);
 }
 
 /**
@@ -1819,6 +1759,140 @@ const STEP_FRAMES = Object.freeze([
   Object.freeze([{ p: 0.3, ...KNOT_FRAME }, { p: 0.72, x: 762, y: 322, s: 1.28 }]),
 ]);
 
+// ── The epic's camera ────────────────────────────────────────
+// Look-at keys: (x, y) is the stage point in the middle of the view, s the
+// zoom. Between keys it eases (smoothstep); a key marked `cut` is a jump,
+// used only where the picture itself cuts to a new composition, so the cut
+// reads as an edit, not a pop (lens B N1): the bead table after the intro,
+// the close-up after knot 1, the finale.
+//
+// - Beads: the whole row while a bead flies in, a push in on it and the hand
+//   pointing at it as it lands, and a pull back to the row as the next one
+//   comes (lens C U5).
+// - Knot 1 comes in on its X, and the close-up opens with its own X on the
+//   same spot of the screen: a match cut. Both frames keep every hand, bead
+//   and knot inside the safe box (MATCH_AT, knot 1's shallower U).
+// - The close-up is never closer than KNOT_ZOOM, so the bracelet hanging
+//   below it stays whole (lens B N4); it pans with the work instead. Knot 6
+//   pushes in on the cinch and the camera jolts once as it bites (SHAKE).
+
+/** @typedef {{ t: number, x: number, y: number, s: number, cut?: boolean }} CameraKey */
+
+/** The epic time at which step beat b's action reaches progress p (epicShot's pacing, inverted). @param {number} b @param {number} p */
+function beatTime(b, p) {
+  const beat = EPIC_BEATS[b];
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 30; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (pace(mid) < p) lo = mid;
+    else hi = mid;
+  }
+  return beat.start + EPIC_LEAD + ((lo + hi) / 2) * (beat.end - beat.start - EPIC_LEAD - EPIC_HOLD);
+}
+
+/** Bead k's resting frame in the epic: the loop's, a touch wider, so the push in and the pull back fit a 4.5 s beat. @param {number} k */
+const epicBeadRest = (k) => ({ ...beadRest(k), s: 1.38 });
+/** Where knot 1's X crosses (its two strands at p = 1, as crossStep draws them). */
+export const KNOT1_X = /** @type {Readonly<Pt>} */ (Object.freeze([943.2, 254.1]));
+/**
+ * The screen point both X's sit on across the match cut, solved for the most
+ * room: from it, knot 1's frame at 1.07 and the close-up's at 1.147 both hold
+ * every hand, bead and knot inside the safe box (the close-up's finger
+ * included, which slides in just after the cut).
+ */
+const MATCH_AT = /** @type {Pt} */ ([907.9, 258.3]);
+/** The look-at that puts stage point X on screen point P at zoom s. @param {Readonly<Pt>} X @param {number} s */
+const matchFrame = (X, s) => ({ x: X[0] - (MATCH_AT[0] - STAGE_W / 2) / s, y: X[1] - (MATCH_AT[1] - STAGE_H / 2) / s, s });
+/** The close-up's closest zoom that keeps the hanging bracelet and the finger whole (its picture is 382 of the safe box's 440 high). */
+const KNOT_ZOOM = 1.14;
+
+/** @type {CameraKey[]} */
+const CAMERA_KEYS = (() => {
+  /** @type {CameraKey[]} */
+  const keys = [
+    { t: 0, x: 730, y: 280, s: 1 },
+    { t: 3.6, x: 730, y: 290, s: 1.04 },
+  ];
+  // Beads: cut to the whole row as the table appears; then each bead flies
+  // in on the row, the camera pushes in on it as it lands, and stays while
+  // the pointing hand goes before it pulls back for the next one.
+  for (let k = 0; k < 6; k += 1) {
+    const b = EPIC_BEATS[k + 1];
+    const land = beatTime(k + 1, 0.84);
+    if (k === 0) keys.push({ t: b.start, ...BEAD_WIDE, cut: true });
+    else keys.push({ t: b.start + 0.2, ...epicBeadRest(k - 1) }, { t: b.start + 1.7, ...BEAD_WIDE });
+    keys.push({ t: land, ...BEAD_WIDE }, { t: land + 1.65, ...epicBeadRest(k) }, { t: b.end, ...epicBeadRest(k) });
+  }
+  // Step 7: back out to the whole stage as the open hands come in.
+  const s7 = EPIC_BEATS[7];
+  keys.push({ t: s7.start + 2.6, x: 730, y: 280, s: 1 }, { t: s7.end, x: 730, y: 300, s: 1.03 });
+  // Knot 1: the whole stage while the ends cross, then in on the X once the
+  // arrow has gone.
+  const s8 = EPIC_BEATS[8];
+  const m1 = matchFrame(KNOT1_X, 1.07);
+  keys.push({ t: s8.start + 0.8, x: 730, y: 290, s: 1 }, { t: beatTime(8, 0.88), x: 730, y: 290, s: 1 });
+  keys.push({ t: s8.end - 0.3, ...m1 });
+  // Knot 2: the match cut, then over to the whole close-up before the
+  // wrapping hand first swings over the top.
+  const s9 = EPIC_BEATS[9];
+  keys.push({ t: s9.start, ...matchFrame(G0.cross, 1.147), cut: true });
+  keys.push({ t: beatTime(9, 0.25), ...KNOT_FRAME }, { t: s9.end, ...KNOT_FRAME, x: 745 });
+  // Knot 3: in on the X, as close as the bracelet allows.
+  const s10 = EPIC_BEATS[10];
+  keys.push({ t: s10.start + 0.6, x: 757, y: 278, s: 1.13 }, { t: beatTime(10, 0.6), x: 780, y: 280, s: KNOT_ZOOM }, { t: s10.end, x: 776, y: 280, s: KNOT_ZOOM });
+  // Knot 4: back over the pinching hand. Knot 5 opens a touch wider, which
+  // holds the right hand as it swings high to take the end, then drifts
+  // right with the end as it is pushed through and pulled out.
+  const s11 = EPIC_BEATS[11];
+  keys.push({ t: s11.start + 1.6, ...KNOT_FRAME, x: 752 }, { t: s11.end, ...KNOT_FRAME, x: 745 });
+  const s12 = EPIC_BEATS[12];
+  keys.push({ t: s12.start + 1, x: 750, y: 271, s: 1.1 }, { t: beatTime(12, 0.09), x: 750, y: 271, s: 1.1 });
+  keys.push({ t: beatTime(12, 0.3), ...KNOT_FRAME, x: 752 }, { t: s12.end, ...KNOT_FRAME, x: 770 });
+  // Knot 6: in on the cinch as it is pulled tight (the loop's framing), and
+  // held there to the cut.
+  keys.push({ t: beatTime(13, 0.3), ...KNOT_FRAME }, { t: beatTime(13, 0.72), x: 762, y: 322, s: 1.28 });
+  const fin = EPIC_BEATS[14];
+  keys.push({ t: fin.start, x: 730, y: 280, s: 1.08, cut: true }, { t: fin.start + 1.6, x: 730, y: 280, s: 1 }, { t: EPIC_SEC, x: 730, y: 280, s: 1.03 });
+  return keys;
+})();
+/**
+ * The jolt when knot 6's wraps bite (pullStep's jerk and rings): screen px
+ * each way, decaying to nothing over `len` seconds, so it is over long before
+ * the beat's finished picture.
+ */
+const SHAKE = Object.freeze({ at: beatTime(13, 0.66), len: 0.6, x: 6, y: 4, hz: 7, decay: 0.2 });
+
+/**
+ * The camera at `sec`, as the translate-then-scale StepArt applies.
+ * @param {number} sec
+ */
+function cameraAt(sec) {
+  const keys = CAMERA_KEYS;
+  let i = 0;
+  while (i < keys.length - 1 && keys[i + 1].t <= sec) i += 1;
+  const a = keys[i];
+  const b = keys[Math.min(i + 1, keys.length - 1)];
+  let x = a.x;
+  let y = a.y;
+  let s = a.s;
+  if (b !== a && !b.cut && b.t > a.t) {
+    // Smoothstep: a camera eases more gently than the action does.
+    const u = seg(sec, a.t, b.t);
+    const t = u * u * (3 - 2 * u);
+    x = lerp(a.x, b.x, t);
+    y = lerp(a.y, b.y, t);
+    s = lerp(a.s, b.s, t);
+  }
+  const since = sec - SHAKE.at;
+  if (since > 0 && since < SHAKE.len) {
+    const e = Math.exp(-since / SHAKE.decay) * (1 - since / SHAKE.len);
+    x += (SHAKE.x * e * Math.sin(TAU * SHAKE.hz * since)) / s;
+    y += (SHAKE.y * e * Math.sin(TAU * SHAKE.hz * since + 1.3)) / s;
+  }
+  return lookAt(x, y, s);
+}
+
 /**
  * The framing of step i's still (low power, animations off, the overview):
  * the loop's own, except step 7, whose finished row (clear beads, knots)
@@ -1865,8 +1939,8 @@ export function epicShot(sec) {
   }
   const beat = beatAt(t);
   const len = beat.end - beat.start;
-  const lead = beat.kind === 'step' ? 0.25 : 0;
-  const hold = beat.kind === 'step' ? 1.1 : 0.9;
+  const lead = beat.kind === 'step' ? EPIC_LEAD : 0;
+  const hold = beat.kind === 'step' ? EPIC_HOLD : 0.9;
   const local = (t - beat.start - lead) / (len - lead - hold);
   const p = beat.kind === 'step' ? pace(clamp01(local)) : clamp01(local);
   return { beat, step: beat.kind === 'step' ? /** @type {number} */ (beat.step) : null, p: Math.round(p * 10000) / 10000, camera: cameraAt(t) };
