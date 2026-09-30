@@ -79,6 +79,10 @@
   display: block;
   text-shadow: 0.05em 0.06em 0 var(--brand-blue);
   will-change: transform;
+  /* Its soft squish sits it down onto its baseline: (SHOUT_BOX's ascent less
+     its descent, plus the row's 0.9 line height) / 2, pinned by
+     FlagshipSlide.test.jsx. Well inside the mask's pads either way. */
+  transform-origin: 50% 0.712em;
 }
 .flagship-sheen {
   position: absolute;

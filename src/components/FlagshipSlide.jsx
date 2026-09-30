@@ -1,6 +1,7 @@
 import { M } from '../lib/motion.jsx';
 import DoodleCluster from './brand/DoodleCluster.jsx';
 import { landsAt, keyframes, EASE_SLAM, EASE_OUT, EASE_INOUT } from './promos/kit.jsx';
+import { squishLand, withSquish } from '../lib/squish.js';
 
 // ─────────────────────────────────────────────────────────────
 // The flagship slide: the catalog's welcome page as a 10 second title
@@ -11,8 +12,9 @@ import { landsAt, keyframes, EASE_SLAM, EASE_OUT, EASE_INOUT } from './promos/ki
 //        (The orange corner tab and the house waves along the foot are the
 //        scene's own chrome, the same on every slide: not drawn here.)
 //   1.3  WELCOME assembles letter by letter, each letter springing up from
-//        below its mask with a little tilt; 2.1 TO AWANA! does the same, a
-//        beat behind.
+//        below its mask with a little tilt, stretching as it rises and
+//        squashing onto its baseline as it drops back (the soft squish);
+//        2.1 TO AWANA! does the same, a beat behind.
 //   3.9  sparkles and dots land round the headline.
 //   6.4  a bright band sweeps once across both headline rows, and the frame
 //        holds.
@@ -27,6 +29,16 @@ import { landsAt, keyframes, EASE_SLAM, EASE_OUT, EASE_INOUT } from './promos/ki
 
 const ROWS = Object.freeze(['Welcome', 'to Awana!']);
 
+/** A letter's landing: it springs past its line at half its run and drops back. */
+const LETTER_SEC = 0.6;
+/**
+ * Where that drop lands, as a share of the run: the second half is the slam
+ * curve again, 88% home 30% of the way through it. The soft squish
+ * (src/lib/squish.js) is composed onto landsAt's own keyframes, which the
+ * promo posters share and which stay exactly as they are.
+ */
+export const LETTER_IMPACT = 0.65;
+
 /** One headline row: each letter its own beat. */
 function Row({ text, startAt, row }) {
   let n = 0;
@@ -37,15 +49,16 @@ function Row({ text, startAt, row }) {
           {[...word].map((ch) => {
             const i = n;
             n += 1;
+            const at = startAt + i * 0.055;
             return (
               <span className="flagship-mask" key={`${ch}-${i}`}>
                 <M.span
                   className="flagship-letter"
-                  {...landsAt(startAt + i * 0.055, 0.6, {
+                  {...withSquish(landsAt(at, LETTER_SEC, {
                     y: ['112%', '-9%', '0%'],
                     rotate: [i % 2 ? 9 : -9, i % 2 ? -3 : 3, 0],
                     opacity: [0, 1, 1],
-                  }, EASE_SLAM)}
+                  }, EASE_SLAM), squishLand(at, 'text', LETTER_SEC, LETTER_IMPACT))}
                 >
                   {ch}
                 </M.span>
