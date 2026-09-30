@@ -314,7 +314,7 @@ and `doodles/`. Read its README before changing it.
 
 ## Tech stack snapshot
 
-- React 18 + Vite (plain JavaScript)
+- React 19 + Vite (plain JavaScript); the `M` wrapper takes `ref` as a plain prop (no forwardRef)
 - framer-motion, canvas-confetti
 - pusher-js for realtime check-in events (no backend in this repo)
 - Vite `base: './'` so assets use relative paths and work under any URL
