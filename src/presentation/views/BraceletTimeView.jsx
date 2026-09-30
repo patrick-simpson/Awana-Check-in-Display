@@ -95,16 +95,21 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   }, []);
 
   const still = settings.still || lowPower;
+  // The wall is the full instructions by default (owner, 2026-09-30) with the
+  // how-to played once every 5 minutes; "Step by step" is the same cadence
+  // with one step at a time between showings. Both are "live": they chime and
+  // play the epic. The handout pages never do.
   const auto = settings.display === 'auto';
+  const live = auto || settings.display === 'overview';
   const frame = braceletFrame(nowMs, startMs, span.endMs, {
-    epics: auto && settings.epic && !settings.still && settings.hold == null,
-    manualEpicAt: auto && !settings.still && settings.hold == null ? manual : null,
+    epics: live && settings.epic && !settings.still && settings.hold == null,
+    manualEpicAt: live && !settings.still && settings.hold == null ? manual : null,
   });
 
   // The chime, once per showing, 10 s ahead. Silent unless a person has
   // pressed a key or clicked the page since it loaded (see lib/chime.js);
   // the wall's own countdown carries the moment either way.
-  const chiming = auto && settings.chime && frame.chime;
+  const chiming = live && settings.chime && frame.chime;
   useEffect(() => {
     if (chiming && frame.nextEpicMs != null) chimeOnce(String(frame.nextEpicMs));
   }, [chiming, frame.nextEpicMs]);
@@ -150,12 +155,12 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   let body;
   if (settings.display === 'handout1' || settings.display === 'handout2') {
     body = <Handout page={settings.display === 'handout1' ? 1 : 2} />;
-  } else if (settings.display === 'overview') {
-    body = <Overview nowMs={nowMs} club={club} still={still} />;
-  } else if (settings.hold != null) {
-    body = <StepCard index={settings.hold} club={club} stepStartMs={holdStartMs} still={still} run={still ? undefined : holdStartMs} />;
   } else if (frame.mode === 'epic') {
     body = <Epic startMs={frame.epicStartMs} nowMs={nowMs} club={club} still={still} />;
+  } else if (settings.hold != null) {
+    body = <StepCard index={settings.hold} club={club} stepStartMs={holdStartMs} still={still} run={still ? undefined : holdStartMs} />;
+  } else if (settings.display === 'overview') {
+    body = <Overview nowMs={nowMs} club={club} still={still} />;
   } else {
     body = <StepCard index={frame.stepIndex} club={club} stepStartMs={frame.stepStartMs} still={still} />;
   }
@@ -163,9 +168,14 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   // One step after another, the card itself stays: only the parts that
   // change with the step crossfade (see StepCard), so the wall no longer
   // blinks as a whole at every step.
-  const bodyKey = settings.display !== 'auto' ? settings.display
-    : settings.hold != null ? `hold:${settings.hold}`
-      : frame.mode === 'epic' ? `epic:${frame.epicStartMs}` : frame.cycle;
+  const bodyKey = settings.display.startsWith('handout') ? settings.display
+    : frame.mode === 'epic' ? `epic:${frame.epicStartMs}`
+      : settings.hold != null ? `hold:${settings.hold}`
+        : settings.display === 'overview' ? `overview:${frame.cycle}` : frame.cycle;
+  const phaseName = settings.display.startsWith('handout') ? settings.display
+    : frame.mode === 'epic' ? 'epic'
+      : settings.hold != null ? 'hold'
+        : settings.display === 'overview' ? 'overview' : frame.mode;
 
   return (
     <ScreenFrame
@@ -179,8 +189,8 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
       <div
         className="pj-frame pj-bracelet"
         data-activity="bracelets"
-        data-bracelet-phase={settings.display !== 'auto' ? settings.display : settings.hold != null ? 'hold' : frame.mode}
-        data-bracelet-step={frame.mode === 'steps' || settings.hold != null ? (settings.hold ?? frame.stepIndex) + 1 : undefined}
+        data-bracelet-phase={phaseName}
+        data-bracelet-step={phaseName === 'steps' || phaseName === 'hold' ? (settings.hold ?? frame.stepIndex) + 1 : undefined}
       >
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
@@ -208,7 +218,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
               size={CORNER_SIZE_LOUD}
               plate={WARNING_TONES[warning].plate}
             />
-          ) : leadSec != null && auto ? (
+          ) : leadSec != null && live ? (
             <StepChip label="Big how-to in" value={`0:${String(leadSec).padStart(2, '0')}`} size={CORNER_SIZE_LOUD} plate={HOUSE.blueDeep ?? HOUSE.blue} />
           ) : ending ? (
             <StepChip label={`${club.name} craft time`} value={`Ends ${endTimeStr}`} size={CORNER_SIZE} plate={club.deep} />

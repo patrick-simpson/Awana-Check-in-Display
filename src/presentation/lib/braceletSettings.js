@@ -20,7 +20,7 @@ const STORAGE_KEY = 'awanaBraceletSettings.v1';
 
 /** @type {BraceletSettings} */
 export const DEFAULT_BRACELET_SETTINGS = Object.freeze({
-  display: 'auto', // the step-by-step wall with its epic reel
+  display: 'overview', // the full instructions, with the epic how-to every 5 minutes
   hold: null, // or 0..12: keep this one step up
   epic: true, // the every-5-minutes epic how-to
   chime: true, // the chime 10 s before each showing
@@ -37,7 +37,7 @@ const DISPLAYS = ['auto', 'overview', 'handout1', 'handout2'];
 export function sanitizeBraceletSettings(raw) {
   const v = raw && typeof raw === 'object' ? raw : {};
   return {
-    display: DISPLAYS.includes(v.display) ? v.display : 'auto',
+    display: DISPLAYS.includes(v.display) ? v.display : DEFAULT_BRACELET_SETTINGS.display,
     hold: Number.isInteger(v.hold) && v.hold >= 0 && v.hold <= 12 ? v.hold : null,
     epic: v.epic !== false,
     chime: v.chime !== false,

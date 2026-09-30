@@ -13,13 +13,20 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('awanaPresentationSetupDismissed.v1', '1'));
 });
 
+// Step by step is the old wall, one click away in the controls: the tests of
+// its cadence start from it.
+const STEP_BY_STEP = () => {
+  if (!localStorage.getItem('awanaBraceletSettings.v1')) localStorage.setItem('awanaBraceletSettings.v1', JSON.stringify({ display: 'auto' }));
+};
+
 const CASES = [
   // [now, bracelets?, phase, label]
-  ['2026-09-30T18:05:04', true, 'steps', 'T&T opens on step 1, the chime lead in the corner only'],
+  ['2026-09-30T18:05:04', true, 'overview', 'T&T opens on the full instructions, the chime lead in the corner only'],
   ['2026-09-30T18:05:40', true, 'epic', 'the epic how-to 10 s in'],
-  ['2026-09-30T18:07:15', true, 'steps', 'one step at a time after it'],
-  ['2026-09-30T18:31:50', true, 'steps', 'Sparks too'],
-  ['2026-10-07T18:12:30', true, 'steps', 'and on Oct 7'],
+  ['2026-09-30T18:07:15', true, 'overview', 'the full instructions between showings'],
+  ['2026-09-30T18:31:50', true, 'overview', 'Sparks too'],
+  ['2026-10-07T18:12:30', true, 'overview', 'and on Oct 7'],
+  ['2026-09-30T18:10:40', true, 'epic', 'and the how-to again five minutes later'],
   ['2026-09-30T19:05:00', false, null, 'Puggles & Cubbies keep game time'],
   ['2026-09-23T18:07:00', false, null, 'an ordinary week keeps game time'],
   ['2026-10-14T18:35:00', false, null, 'and so does the week after'],
@@ -47,6 +54,7 @@ test('the opening ceremony on a bracelet night is untouched', async ({ page }) =
 });
 
 test('steps go in the handout\'s order, each for its own slot, from step 1 after the epic', async ({ page }) => {
+  await page.addInitScript(STEP_BY_STEP);
   // The 18:05:10 epic ends 18:06:40. Bead steps are 9 s, step 7 14 s, then the
   // knot steps 15, 16, 12, 15, 16, 15 s: 18:06:45 is step 1, 18:07:15 step 4,
   // 18:07:55 knot step 1 (step 8), 18:08:35 knot step 4 (step 11).
@@ -68,6 +76,7 @@ test('the window\'s two-minute warning still shows', async ({ page }) => {
 });
 
 test('the controls: B opens them, a held step stays up, the handout shows, Reset goes back', async ({ page }) => {
+  await page.addInitScript(STEP_BY_STEP);
   await page.goto(at('2026-09-30T18:07:15'));
   await expect(page.locator('[data-bracelet-step]')).toHaveAttribute('data-bracelet-step', '4');
   await page.keyboard.press('b');
@@ -85,8 +94,10 @@ test('the controls: B opens them, a held step stays up, the handout shows, Reset
   await expect(page.getByRole('img', { name: /page 2/ })).toBeVisible();
   await panel.getByRole('button', { name: 'Full instructions' }).click();
   await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'overview');
-  await panel.getByRole('button', { name: 'Reset' }).click();
+  await panel.getByRole('button', { name: 'Step by step' }).click();
   await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'steps');
+  await panel.getByRole('button', { name: 'Reset' }).click();
+  await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'overview');
   await page.keyboard.press('Escape');
   await expect(panel).toHaveCount(0);
 });
@@ -113,7 +124,7 @@ for (const [w, h] of [[1920, 1080], [1280, 720], [1024, 768]]) {
 test('animations off: still pictures and no epic', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('awanaBraceletSettings.v1', JSON.stringify({ still: true })));
   await page.goto(at('2026-09-30T18:05:40'));
-  await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'steps');
+  await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'overview');
 });
 
 test('QuickNav opens the controls too', async ({ page }) => {
@@ -215,8 +226,7 @@ test.describe('"Show Bracelet Time now"', () => {
     await page.locator('body').hover({ position: { x: 1900, y: 20 } });
     await page.getByRole('button', { name: /Show Bracelet Time now/ }).click();
     await expect(page.locator('[data-forced="bracelets"]')).toBeVisible();
-    await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'steps');
-    await expect(page.locator('[data-bracelet-step]')).toHaveAttribute('data-bracelet-step', '1');
+    await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'overview');
     // A reload keeps it: it is saved on this device until midnight.
     await page.reload();
     await expect(page.locator('[data-forced="bracelets"]')).toBeVisible();

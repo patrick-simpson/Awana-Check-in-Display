@@ -1522,7 +1522,19 @@ night are untouched.
   `data-activity="bracelets"`. `BraceletBoundary` degrades a crash to plain
   game time, never the Oops screen. After 2026-10-07 nothing matches and the
   code is inert; next season means editing the date list.
-- **The cadence is pure** (`braceletFrame`): step 1 from the window's start
+- **The default wall is the full instructions (owner, 2026-09-30: "primarily
+  show the full instructions ... every 5 minutes intersperse one play of the
+  video").** `braceletSettings.display` defaults to `'overview'`: between
+  showings the wall is the two-page instruction sheet (`Overview`), and the
+  epic how-to plays once every 5 minutes over it, chimed and counted down in
+  the corner exactly as before. "Step by step" (`display: 'auto'`) is the old
+  one-step-at-a-time loop with the same epics, one click in the controls; a
+  held step beats the overview, the handout pages never play the epic, and
+  picking a display clears a hold. On a phone that is not set up yet the
+  first-run note has the overview's plain end-time chip's place (warnings
+  stay), so the chip steps aside until the note is put away.
+- **The step cadence is pure** (`braceletFrame`; it still times the loop
+  under "Step by step"): step 1 from the window's start
   (never a full-screen title card: owner, 2026-09-30, "the countdown shouldn't
   take up the whole screen with the ten second warning"; the ten seconds
   before every showing, the first included, are the corner's BIG HOW-TO IN

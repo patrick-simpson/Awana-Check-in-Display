@@ -8,13 +8,13 @@ beforeEach(() => resetBraceletSettings());
 
 describe('the Bracelet Time controls', () => {
   it('default to the full show', () => {
-    expect(DEFAULT_BRACELET_SETTINGS).toEqual({ display: 'auto', hold: null, epic: true, chime: true, still: false, force: null });
+    expect(DEFAULT_BRACELET_SETTINGS).toEqual({ display: 'overview', hold: null, epic: true, chime: true, still: false, force: null });
     expect(getBraceletSettings()).toEqual(DEFAULT_BRACELET_SETTINGS);
   });
 
   it('sanitize anything stored', () => {
     expect(sanitizeBraceletSettings({ display: 'poster', hold: 13, epic: 0, chime: 'no', still: 1, force: 'yes' }))
-      .toEqual({ display: 'auto', hold: null, epic: true, chime: true, still: false, force: null });
+      .toEqual({ display: 'overview', hold: null, epic: true, chime: true, still: false, force: null });
     expect(sanitizeBraceletSettings({ display: 'handout2', hold: 0, epic: false, chime: false, still: true, force: 1_790_000_000_000 }))
       .toEqual({ display: 'handout2', hold: 0, epic: false, chime: false, still: true, force: 1_790_000_000_000 });
     for (const force of [0, -5, NaN, Infinity, null, true]) expect(sanitizeBraceletSettings({ force }).force).toBeNull();

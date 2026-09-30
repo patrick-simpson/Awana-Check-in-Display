@@ -540,6 +540,7 @@ for (const [name, use] of [DEVICES[0], DEVICES[1], DEVICES[3]]) {
     test.use(use);
 
     test('the controls open from the menu, a held step can be chosen, and Reset goes back, all by tap', async ({ page }) => {
+      await page.addInitScript(() => localStorage.setItem('awanaBraceletSettings.v1', JSON.stringify({ display: 'auto' })));
       await page.goto(at(BRACELETS));
       await expect(page.locator('[data-bracelet-step]')).toHaveAttribute('data-bracelet-step', '4');
       await menuButton(page).tap();
@@ -564,8 +565,10 @@ for (const [name, use] of [DEVICES[0], DEVICES[1], DEVICES[3]]) {
       await expect(panel.getByText(/Holding knot 2:/)).toBeVisible();
       await panel.getByRole('button', { name: 'Full instructions' }).tap();
       await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'overview');
-      await panel.getByRole('button', { name: 'Reset' }).tap();
+      await panel.getByRole('button', { name: 'Step by step' }).tap();
       await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'steps');
+      await panel.getByRole('button', { name: 'Reset' }).tap();
+      await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'overview');
       await panel.getByRole('button', { name: 'Close' }).tap();
       await expect(panel).toHaveCount(0);
     });

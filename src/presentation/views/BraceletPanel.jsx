@@ -15,8 +15,8 @@ import { currentTime } from '../hooks/useClock.js';
 // tool, and it must work the same under ?vr=1 and low power.
 
 const DISPLAY_CHOICES = [
-  ['auto', 'Step by step'],
   ['overview', 'Full instructions'],
+  ['auto', 'Step by step'],
   ['handout1', 'Handout page 1'],
   ['handout2', 'Handout page 2'],
 ];
@@ -103,7 +103,7 @@ export const BraceletPanel = ({ onClose, active }) => {
             <h3>On the wall</h3>
             <div className="pj-bpanel__row">
               {DISPLAY_CHOICES.map(([id, label]) => (
-                <Choice key={id} on={s.display === id} onClick={() => setBraceletSettings({ display: id })}>{label}</Choice>
+                <Choice key={id} on={s.display === id} onClick={() => setBraceletSettings({ display: id, hold: null })}>{label}</Choice>
               ))}
             </div>
           </section>
@@ -136,7 +136,7 @@ export const BraceletPanel = ({ onClose, active }) => {
                 disabled={s.still || !active}
                 title={active ? undefined : 'Plays during Bracelet Time'}
                 onClick={() => {
-                  setBraceletSettings({ display: 'auto', hold: null });
+                  setBraceletSettings({ display: s.display === 'overview' ? 'overview' : 'auto', hold: null });
                   playEpicNow(currentTime().getTime());
                   onClose();
                 }}

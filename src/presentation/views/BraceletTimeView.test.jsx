@@ -44,6 +44,9 @@ describe('BraceletTimeView', () => {
     vi.clearAllMocks();
     localStorage.clear();
     resetBraceletSettings();
+    // The step cards' tests run on "Step by step"; the default wall is the
+    // full instructions (see the "full instructions" tests below).
+    setBraceletSettings({ display: 'auto' });
   });
   afterEach(() => {
     cleanup();
@@ -198,7 +201,7 @@ describe('BraceletTimeView', () => {
   });
 
   it('turns the full instructions\' two pages over through black, never swapping them in one frame', async () => {
-    setBraceletSettings({ display: 'overview' });
+    setBraceletSettings({ display: 'overview', epic: false });
     const props = { window: TNT, endsAt: ENDS_AT, tally: null };
     const kicker = (c) => c.querySelector('.pj-bracelet__overview').textContent;
     // The pages take turns every 20 s: find the change after 18:10:00.
@@ -216,6 +219,44 @@ describe('BraceletTimeView', () => {
     expect(kicker(container)).toBe(was);
     await waitFor(() => expect(kicker(container)).not.toBe(was));
     expect(container.querySelectorAll('.pj-bracelet__overview')).toHaveLength(1);
+  });
+
+  it('is the full instructions by default, with the how-to once every 5 minutes (owner, 2026-09-30)', () => {
+    resetBraceletSettings();
+    // Opens on the instructions, the chime lead in the corner only.
+    let c = wall(at('18:05:02'));
+    expect(phase(c)).toBe('overview');
+    expect(c.querySelector('.pj-bracelet__overview')).not.toBeNull();
+    expect(step(c)).toBeNull();
+    expect(corner(c)).toMatch(/BIG HOW-TO IN/i);
+    expect(chimeOnce).toHaveBeenCalledTimes(1);
+    cleanup();
+    // The how-to plays once: 18:05:10 for 90 s, then 18:10:10.
+    c = wall(at('18:05:40'));
+    expect(phase(c)).toBe('epic');
+    expect(c.querySelector('[data-testid="epic"]')).not.toBeNull();
+    expect(c.querySelector('.pj-bracelet__overview')).toBeNull();
+    cleanup();
+    c = wall(at('18:07:15'));
+    expect(phase(c)).toBe('overview');
+    cleanup();
+    c = wall(at('18:10:40'));
+    expect(phase(c)).toBe('epic');
+    cleanup();
+    c = wall(at('18:12:30'));
+    expect(phase(c)).toBe('overview');
+    expect(corner(c)).toMatch(/ends 6:30 PM/i);
+  });
+
+  it('keeps the instructions up when the how-to is switched off, and a held step still wins', () => {
+    setBraceletSettings({ display: 'overview', epic: false });
+    let c = wall(at('18:05:40'));
+    expect(phase(c)).toBe('overview');
+    cleanup();
+    setBraceletSettings({ epic: true, hold: 4 });
+    c = wall(at('18:05:40'));
+    expect(phase(c)).toBe('hold');
+    expect(step(c)).toBe('5');
   });
 
   it('an early start keeps its own cadence through 6:05: the epic is not cut off or chimed again', () => {

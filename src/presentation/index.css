@@ -1391,6 +1391,11 @@
      under them, above the waves. */
   .pj-bracelet[data-bracelet-phase='overview'] > .pj-bracelet__corner,
   .pj-bracelet[data-bracelet-phase^='handout'] > .pj-bracelet__corner { top: auto; bottom: calc(20 * var(--u)); }
+  /* On a screen not set up yet the first-run note sits where that corner
+     waits, and a phone has no room for both: the plain end-time chip steps
+     aside until the note is put away (a warning never does). */
+  :root:has(.pj-setup-note--touch) .pj-bracelet[data-bracelet-phase='overview'] > .pj-bracelet__corner:not([data-warning]),
+  :root:has(.pj-setup-note--touch) .pj-bracelet[data-bracelet-phase^='handout'] > .pj-bracelet__corner:not([data-warning]) { display: none; }
   /* The full instructions as a list, a picture beside each step's words. */
   .pj-bracelet__overview { padding-top: calc(16 * var(--u)); gap: calc(2 * var(--u)); }
   .pj-bracelet__grid,
