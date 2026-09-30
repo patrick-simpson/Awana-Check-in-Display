@@ -1170,7 +1170,8 @@ function wrapCounters(g, uTip, o = 1) {
     const done = k + 0.3;
     if (uTip < done) continue;
     const pop = clamp01((uTip - done) / 0.2);
-    out.push(badge(XC + 20 + k * 48, FY - g.R - 64, String(k + 1), backOut(pop), o));
+    // (clear of the resting hand's cuff by more than a keyline)
+    out.push(badge(XC + 36 + k * 48, FY - g.R - 64, String(k + 1), backOut(pop), o));
   }
   return out;
 }
@@ -1296,7 +1297,9 @@ function wrapStep(p) {
   const hold = rightHand(at, lerp(lerp(START_ROT, h.rot, reach), REST.rot, settle));
   // The held end is always a front cord: the finger already hides whatever
   // part of it is behind (switching its tone flickered).
-  const held = heldEnd(h.tip, at);
+  // (the tip's gold rim fades as the hand settles: held at rest, the fingers
+  // cover the tip and leave only a stray gold crescent)
+  const held = heldEnd(h.tip, at, 1 - settle);
   const behind = reach >= 1 && h.behind;
 
   /** @type {Item[]} */
@@ -1319,8 +1322,9 @@ function wrapStep(p) {
 function xStep(p) {
   const g = G0;
   const gold = seg(p, 0.12, 0.42);
-  // The end's gold rim gives way to the X's gold, and comes back on step 11.
-  const k = wrappedKnot(g, { gold, glint: p < 0.1 ? 1 - p / 0.1 : 0 });
+  // The X's gold is the story here; the end's gold rim comes back as the end
+  // leaves the hand to be threaded (step 12).
+  const k = wrappedKnot(g, { gold, glint: 0 });
   /** @type {Item[]} */
   // Two pops over the X as it lights, behind everything; never a ring round
   // it, even a passing one: a ring round an X reads as "no", and the room
@@ -1349,7 +1353,7 @@ function pinchStep(p) {
   const grip = easeInOut(seg(p, 0.06, 0.32));
   const slide = easeInOut(seg(p, 0.38, 0.86));
   const hand = { dx: -DRAW_BACK * slide, ext: 1 - slide, grip };
-  const k = wrappedKnot(g, { left: leftHand(hand), gold: 1 - seg(p, 0, 0.1), glint: seg(p, 0, 0.1) });
+  const k = wrappedKnot(g, { left: leftHand(hand), gold: 1 - seg(p, 0, 0.1), glint: 0 });
   /** @type {Item[]} */
   const items = [...k.under, ...k.over, rightHand(REST.hand, REST.rot)];
   if (p > 0.34 && p < 0.94) {
@@ -1378,7 +1382,8 @@ function threadStep(p) {
   const pull = easeInOut(seg(p, 0.8, 1));
   const outAt = L.loop + L.inside + 30;
   const len = p < 0.16 ? lerp(L.rest, L.loop, round) : p < 0.8 ? lerp(L.loop, outAt, feed) : lerp(outAt, L.total, pull);
-  const k = wrappedKnot(g, { left: leftHand(PINCHED), threaded: len });
+  // The tip's gold rim comes back as it leaves the fingers for the tunnel.
+  const k = wrappedKnot(g, { left: leftHand(PINCHED), threaded: len, glint: seg(p, 0, 0.1) });
 
   // The right hand: behind the tip round the hook, feeding it in at the
   // mouth, then up and over the loops to the far side, where it takes the
@@ -1664,7 +1669,9 @@ export function finaleScene(p) {
     const ny = Math.sin(kd / DEG);
     items.push(cord([place([cx - nx * 20 - tx * 8, cy - ny * 20 - ty * 8]), place([cx + nx * 20 + tx * 8, cy + ny * 20 + ty * 8])]));
   }
-  // Held up at the top of the loop.
+  // Held up at the top of the loop. (The sparkles below are drawn under the
+  // hand and the words: on top, they landed on the glove and on YOUR's R.)
+  const handAt = items.length;
   items.push(glove(pivot[0], pivot[1], 'pinch', { id: 'right', gap: 30, s: 0.72, rot: -44 }));
 
   // The words, each landing with a pop at its outer end (behind the letters).
@@ -1681,13 +1688,15 @@ export function finaleScene(p) {
 
   // Sparkles: a burst round the bracelet as it arrives, a spray round the
   // words as they land, and four that stay.
+  /** @type {Item[]} */
+  const sparks = [];
   if (q > 0.24 && q < 0.7) {
     const e = seg(q, 0.24, 0.7);
     for (let i = 0; i < 10; i += 1) {
       const a = (i / 10) * TAU + 0.3;
       const d = lerp(FIN.r * 0.9, FIN.r * 1.7, easeOut(e));
       const colors = [SUN, WHITE, BEAD_TONES.red.tone, BEAD_TONES.blue.light, BEAD_TONES.green.light];
-      items.push(fx('sparkle', FIN.cx + Math.cos(a) * d, FIN.cy + Math.sin(a) * d * 0.8, lerp(22, 10, e), 1 - e, colors[i % colors.length], 200 * e));
+      sparks.push(fx('sparkle', FIN.cx + Math.cos(a) * d, FIN.cy + Math.sin(a) * d * 0.8, lerp(22, 10, e), 1 - e, colors[i % colors.length], 200 * e));
     }
   }
   // Confetti in the bead colours drifts down past the words, gone by the rest.
@@ -1696,14 +1705,15 @@ export function finaleScene(p) {
     if (t <= 0 || t >= 1) continue;
     const y = lerp(-30, c.to, easeOut(t));
     const x = c.x + Math.sin(t * TAU * c.wobble) * 22;
-    items.push(fx('sparkle', x, y, c.size, 1 - t * t, c.color, c.spin * t));
+    sparks.push(fx('sparkle', x, y, c.size, 1 - t * t, c.color, c.spin * t));
   }
   const stay = easeOut(seg(q, 0.6, 0.8));
   if (stay > 0) {
     for (const [x, y, sz, c] of /** @type {[number, number, number, string][]} */ ([[742, 150, 26, SUN], [1350, 250, 20, WHITE], [760, 454, 18, WHITE], [1336, 460, 28, SUN]])) {
-      items.push(fx('sparkle', x, y, sz * stay, 1, c, 0));
+      sparks.push(fx('sparkle', x, y, sz * stay, 1, c, 0));
     }
   }
+  items.splice(handAt, 0, ...sparks);
   return items;
 }
 

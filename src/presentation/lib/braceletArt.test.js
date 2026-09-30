@@ -211,6 +211,31 @@ describe('sceneFor', () => {
     }
   });
 
+  it('keeps knot 2\'s counters clear of the resting hand, and no stray gold at the pinch while the end is held', () => {
+    const k2 = sceneFor(8, 1);
+    const hand = itemBox(k2.find((it) => it.kind === 'glove' && it.id === 'right'));
+    for (const b of k2.filter((it) => it.kind === 'badge').map(itemBox)) {
+      expect(b.x1 < hand.x0 - 6 || b.x0 > hand.x1 + 6 || b.y1 < hand.y0 - 6 || b.y0 > hand.y1 + 6, JSON.stringify({ b, hand })).toBe(true);
+    }
+    // (the end's gold rim, a short gold cord; the X's gold is longer)
+    const rim = (items) => items.filter((i) => i.kind === 'cord' && i.tone === 'gold' && Math.hypot(i.pts.at(-1)[0] - i.pts[0][0], i.pts.at(-1)[1] - i.pts[0][1]) <= 30);
+    for (const [i, p] of [[8, 1], [9, 0], [9, 1], [10, 0], [10, stillP(10)], [10, 1], [11, 0]]) expect(rim(sceneFor(i, p)), `step ${i + 1} p=${p}`).toEqual([]);
+    // It comes back as the end leaves the fingers to be threaded.
+    expect(rim(sceneFor(11, 0.12))).toHaveLength(1);
+  });
+
+  it('never draws a finale sparkle on the hand or the words', () => {
+    const meets = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    for (let q = 0; q <= 1; q += 0.01) {
+      const items = finaleScene(q);
+      items.forEach((it, j) => {
+        if (it.kind !== 'sparkle') return;
+        const over = items.slice(0, j).filter((o) => (o.kind === 'glove' || o.kind === 'text') && meets(itemBox(o), itemBox(it)));
+        expect(over.map((o) => o.kind), `q=${q.toFixed(2)} sparkle at ${it.x},${it.y}`).toEqual([]);
+      });
+    }
+  });
+
   it('never rings the X on step 10, even in passing: a circled X reads as "no"', () => {
     for (let p = 0; p <= 1; p += 0.005) expect(sceneFor(9, p).filter((i) => i.kind === 'ring'), `p=${p.toFixed(3)}`).toEqual([]);
   });
