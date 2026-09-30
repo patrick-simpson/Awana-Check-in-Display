@@ -1260,6 +1260,8 @@ function wrappedKnot(g, { left = leftHand({}), gold = 0, threaded = null, route 
   return { under, over, tipAt };
 }
 
+/** How far knot 2's finger slides in under the X (its cuff starts just inside the safe box, framed). */
+const FINGER_SLIDE = 170;
 /** The right hand's first hold on the end, before it starts wrapping: up and toward the fingertip, the way the top string crossed. */
 const START_HOLD = /** @type {Pt} */ ([904, 202]);
 const START_ROT = -20 - PINCH_BODY_DEG;
@@ -1272,8 +1274,11 @@ const START_ROT = -20 - PINCH_BODY_DEG;
  */
 function wrapStep(p) {
   const g = G0;
+  // A short slide, from inside the stage: in the loop the step's chip sits
+  // over the stage's left edge, and a hand coming in from off the stage
+  // seemed to grow out of it. The tip still starts left of the X.
   const slide = easeOut(seg(p, 0, 0.22));
-  const dx = lerp(-TIP_X - 30, 0, slide);
+  const dx = lerp(-FINGER_SLIDE, 0, slide);
   // p is already at a child's pace (stepProgress); easing it again bunched
   // the wraps together, so they run evenly here.
   const w = seg(p, 0.3, 0.9);

@@ -626,6 +626,20 @@ describe('the hands move like hands', () => {
     expect(bad).toEqual([]);
   }, 60_000);
 
+  it('slides knot 2\'s hand in clear of the KNOT STEP chip (the loop, 30 fps)', () => {
+    // In the loop the step's chip covers the stage's left 55 units at its
+    // height, inside the edge fade; the safe box starts at 70. A hand that
+    // came in from off the stage seemed to grow out of the chip.
+    const bad = [];
+    for (let f = 0; f <= stepSlotSec(8) * FPS; f += 1) {
+      const p = stepProgress(8, f / FPS);
+      if (p > 0.3) break;
+      const gloves = sceneFor(8, p).filter((it) => it.kind === 'glove');
+      bad.push(...unsafe(gloves, stepFrame(8, p)).map((u) => `p=${p.toFixed(3)}: ${u}`));
+    }
+    expect(bad).toEqual([]);
+  });
+
   it('leaves at a step\'s start within the stage, never through its lower edge (the loop and the epic, 30 fps)', () => {
     // The stage's lower edge is mid-screen on the wall, just above the words:
     // a hand sinking through it was sliced flat there, or drawn on the epic's

@@ -1494,7 +1494,9 @@ night are untouched.
   never down: the stage's lower edge is mid-screen on the wall, just above
   the words, and a hand sinking through it was sliced flat there and drawn
   on the epic's caption. The jump detector lets a hand fade out where it is
-  and come back elsewhere, never pop or blink. Low power (`useLowPower`: `?vr=1`, OS
+  and come back elsewhere, never pop or blink. Nothing enters from behind
+  the step's chip, which covers the stage's left edge in the loop: knot 2's
+  finger slides in from inside the stage (`FINGER_SLIDE`, pinned by a test). Low power (`useLowPower`: `?vr=1`, OS
   reduced motion, the QuickNav toggle), "animations off" and the overview
   draw each step's still (`stillP`): its finished picture, except knot
   steps 1, 4 and 5, which stop mid-move with their arrow up (the left hand
