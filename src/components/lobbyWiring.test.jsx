@@ -13,6 +13,7 @@ import { READ } from '../lib/lobbyFrame.js';
 import {
   HANDOFF, STINGER_SEC, SWAP_AT, chromeMove, entranceHold, exitDelay, holdThenLeave, swellKeyframes, vanishAtSwap,
 } from '../lib/lobbyMotion.js';
+import { squishLand } from '../lib/squish.js';
 
 const fonts = vi.hoisted(() => {
   // A canvas whose metrics change when the "web font" lands: the fallback
@@ -177,6 +178,66 @@ describe('the hand-off, as wired', () => {
   });
 });
 
+describe('the soft squish, as wired', () => {
+  const chipped = { kicker: 'This week', headline: 'Bring your handbook', sub: 'Every club night', chip: { label: 'Wed', value: 'Oct 7' }, textSize: 'auto' };
+  /** The squish an element was handed: its two keyframe lists and their per-value timing. */
+  const squishOf = (el) => {
+    const { animate, transition } = rec(el);
+    return { scaleX: animate.scaleX, scaleY: animate.scaleY, transition: { scaleX: transition.scaleX, scaleY: transition.scaleY } };
+  };
+
+  it('a shouted word, the kicker and the chip squash as they land, timed by their beat alone', () => {
+    const { container } = render(<SlideCopy frame={chipped} via="boot" />);
+    expect(container.querySelector('.lobby-headline--shout')).not.toBeNull();
+    const kicker = container.querySelector('.lobby-kicker');
+    expect(squishOf(kicker)).toEqual(squishLand(entranceHold('boot'), 'kicker', HANDOFF.kicker, 'settle'));
+    for (const w of container.querySelectorAll('.lobby-word')) {
+      expect(squishOf(w)).toEqual(squishLand(landsAt(w), 'text', HANDOFF.word, 'settle'));
+      // What the word already did is untouched: it still lands from hidden to rest.
+      expect(rec(w).animate.opacity).toEqual([0, 0, 1]);
+      expect(rec(w).initial).toMatchObject({ scaleX: 1, scaleY: 1 });
+    }
+    const chip = container.querySelector('.lobby-chip');
+    expect(squishOf(chip)).toEqual(squishLand(landsAt(chip), 'chip', HANDOFF.chip, 'pop'));
+    // The supporting line is read text: it lands, and nothing more.
+    const sub = container.querySelector('.lobby-sub');
+    expect(rec(sub).animate).not.toHaveProperty('scaleY');
+    expect(rec(sub).transition).not.toHaveProperty('scaleY');
+  });
+
+  it('a headline that lands read does not squish, and its words keep their plain beat', () => {
+    fonts.real = true; // Paytone One already here: the long headline is read from the first fit
+    const frame = { kicker: 'This week', headline: 'Please bring your handbook and your Bible to club', sub: '', chip: null, textSize: 'auto' };
+    const { container } = render(<SlideCopy frame={frame} via="boot" />);
+    expect(container.querySelector('.lobby-headline--read')).not.toBeNull();
+    for (const w of container.querySelectorAll('.lobby-word')) {
+      expect(rec(w).animate).not.toHaveProperty('scaleX');
+      expect(rec(w).animate).not.toHaveProperty('scaleY');
+      expect(Object.keys(rec(w).transition)).toEqual(['duration', 'times', 'ease']);
+    }
+    // The kicker is Londrina caps whatever the headline does, so it still squishes.
+    expect(rec(container.querySelector('.lobby-kicker')).animate.scaleY).toBeDefined();
+  });
+
+  it('a run\'s edge punctuation squashes with its word, on the same keyframes', () => {
+    const frame = { kicker: 'This week', headline: 'Please say "שבת שלום" to your friends', sub: '', chip: null, textSize: 'auto' };
+    const { container } = render(<SlideCopy frame={frame} via="boot" />);
+    const inRun = [...container.querySelector('bdi.lobby-run').querySelectorAll('.lobby-word')];
+    const marks = [...container.querySelectorAll('.lobby-punct')];
+    expect(marks).toHaveLength(2);
+    expect(rec(marks[0]).animate).toEqual(rec(inRun[0]).animate);
+    expect(rec(marks[1]).animate).toEqual(rec(inRun[1]).animate);
+    expect(rec(marks[0]).animate.scaleY).toBeDefined();
+  });
+
+  it('the headline carries its baseline, the pivot its words squash onto', () => {
+    const { container } = render(<SlideCopy frame={chipped} via="boot" />);
+    const p = container.querySelector('.lobby-headline');
+    // (SHOUT_BOX.ascent - SHOUT_BOX.descent + the shout's .93 line height) / 2
+    expect(p.style.getPropertyValue('--squish-baseline')).toBe('0.727em');
+  });
+});
+
 describe('the chrome, as wired', () => {
   const tabOf = (c) => rec(c.querySelector('.lobby-tab'));
   const wavesOf = (c) => rec(c.querySelector('.lobby-waves'));
@@ -290,6 +351,9 @@ describe('a web font that lands late', () => {
       expect(JSON.stringify(rec(el).animate)).toBe(targets[i]);
       expect(rec(el).history).toHaveLength(1);
     });
+    // The words landed shouting, so they keep the squish they were dealt: it
+    // follows the beat sheet, never the layout the fit now draws.
+    for (const w of after.filter((el) => el.classList.contains('lobby-word'))) expect(rec(w).animate.scaleY).toBeDefined();
   });
 
   it('a run of words against the headline\'s direction keeps its <bdi>, its words and its edge punctuation through the refit', () => {
