@@ -79,7 +79,10 @@ export const IDENTITY_CAMERA = Object.freeze({ x: 0, y: 0, scale: 1 });
 /** @typedef {'open' | 'pinch' | 'point' | 'fist' | 'pull'} GlovePose */
 /** @typedef {{ kind: 'cord', pts: Pt[], tone: 'front' | 'back' | 'gold', w: number }} CordItem */
 /** @typedef {{ kind: 'bead', x: number, y: number, rot: number, s: number, sx: number, sy: number, color: BeadColor }} BeadItem */
-/** @typedef {{ kind: 'glove', id: string, x: number, y: number, rot: number, s: number, pose: GlovePose, flip: boolean, gap: number, reach: number }} GloveItem */
+/**
+ * @typedef {{ kind: 'glove', id: string, x: number, y: number, rot: number, s: number, pose: GlovePose, flip: boolean,
+ *   gap: number, reach: number, grip: number, gripAt: number, ext: number, o: number }} GloveItem
+ */
 /** @typedef {{ kind: 'knot', x: number, y: number, rot: number, s: number }} KnotItem */
 /** @typedef {{ kind: 'pot', x: number, y: number, s: number, color: BeadColor }} PotItem */
 /** @typedef {{ kind: 'text', x: number, y: number, s: number, rot: number, o: number, size: number, text: string }} TextItem */
@@ -97,8 +100,16 @@ export const IDENTITY_CAMERA = Object.freeze({ x: 0, y: 0, scale: 1 });
 // palm's centre (open), between the fingertips (pinch), the pointer's tip
 // (point), the grip (fist, pull).
 
-/** The glove's dark outline, each side, in glove units. */
+/** The glove's dark outline, each side, in glove units at a hand's usual size. */
 export const GLOVE_OUTLINE = 5;
+
+/**
+ * How much of GLOVE_OUTLINE (and of the stitch lines) a glove drawn at scale
+ * s carries, so a big hand's outline is no heavier on the wall than a small
+ * one's (the outline would otherwise grow with the glove).
+ * @param {number} s
+ */
+export const lineWeight = (s) => Math.min(1, 0.9 / Math.max(0.01, s));
 
 /**
  * @typedef {{ t: 'cap', pts: Pt[], w: number }
@@ -134,26 +145,49 @@ function stitches(cx, cy, len, spread, deg = 90) {
   ]));
 }
 
+/** @typedef {{ gap?: number, reach?: number, grip?: number, gripAt?: number, ext?: number }} PoseOptions */
+
 /**
- * A pose's parts. `gap` opens the pinch; `reach` is the pointer's length.
- * @param {GlovePose} pose @param {number} [gap] @param {number} [reach]
+ * A pose's parts. `gap` opens the pinch. For the pointing hand, `reach` is
+ * the pointer's length, `ext` how far it is out (1 all the way, 0 curled back
+ * into the fist: sliding out of the loops), and `grip` how far the thumb and
+ * the middle finger have reached forward along it, to `gripAt` (in the
+ * glove's own units, from the fingertip), to pinch what is on it.
+ * @param {GlovePose} pose @param {PoseOptions} [o]
  * @returns {GlovePart[]}
  */
-export function gloveParts(pose, gap = 60, reach = GLOVE.pointReach) {
+export function gloveParts(pose, { gap = 60, reach = GLOVE.pointReach, grip = 0, gripAt = 0, ext = 1 } = {}) {
   if (pose === 'point') {
     const L = reach;
-    return [
+    const e = clamp01(ext);
+    const gr = clamp01(grip);
+    // The pointer's round tip end; it slides back toward the fist as ext falls.
+    const from = 24 + (1 - e) * (L - 30);
+    /** @type {GlovePart[]} */
+    const parts = [
       blob(-22, L + 118, 144, 50, 22),
       crease([[-12, L + 136], [112, L + 136]]),
-      bump(42, L + 2, 20),
-      bump(76, L + 6, 19),
-      bump(104, L + 14, 17),
-      cap([[0, 24], [0, L + 40]], GLOVE.fingerW),
-      blob(-28, L - 10, 148, 134, 54),
-      // The thumb lies along the pointer, holding what rests on it.
-      cap([[-30, L + 92], [-34, L + 40], [-26, L + 6]], 38),
-      ...stitches(62, L + 62, 48, 26),
+      cap([[0, from], [0, L + 40]], GLOVE.fingerW),
     ];
+    if (e > 0.3) {
+      // A cartoon pointer: the nail at its tip and two joint creases.
+      parts.push(crease([[-11, from - 12], [-11, from + 4], [0, from + 10], [11, from + 4], [11, from - 12]]));
+      for (const k of [0.42, 0.74]) {
+        const y = from + (L - from) * k;
+        parts.push(crease([[-15, y], [15, y]]));
+      }
+    }
+    parts.push(blob(-28, L - 10, 148, 134, 60));
+    // The knuckles, in front of the palm so they read.
+    parts.push(bump(40, L - 6, 21), bump(74, L - 2, 20), bump(104, L + 6, 18));
+    // The thumb lies along the pointer; gripping, it reaches forward along
+    // its near side, and the middle finger along its far side.
+    /** @type {Pt} */
+    const thumbTip = [lerp(-26, -35, gr), lerp(L + 6, gripAt, gr)];
+    parts.push(cap([[-30, L + 92], [-34, L + 40], thumbTip], 38));
+    if (gr > 0) parts.push(cap([[40, L - 6], [lerp(40, 37, gr), lerp(L - 6, gripAt, gr)]], 34));
+    parts.push(...stitches(62, L + 70, 44, 24));
+    return parts;
   }
   if (pose === 'pinch') {
     const h = Math.max(8, gap / 2);
@@ -334,16 +368,44 @@ const fold = (deg) => {
 };
 
 /**
- * A glove: `gap` is the pinch's opening, `reach` the pointer finger's length
- * (both in the glove's own units). `id` names the hand, so a test can follow
- * it from frame to frame.
+ * A glove (see gloveParts for gap, reach, grip, gripAt and ext). `id` names
+ * the hand, so a test can follow it from frame to frame; `o` is its opacity
+ * (below 1 only while one pose cross-fades into another).
  * @param {number} x @param {number} y @param {GlovePose} pose
- * @param {{ id?: string, rot?: number, s?: number, flip?: boolean, gap?: number, reach?: number }} [o]
+ * @param {{ id?: string, rot?: number, s?: number, flip?: boolean, o?: number } & PoseOptions} [o]
  * @returns {GloveItem}
  */
-const glove = (x, y, pose, { id = '', rot = 0, s = 1, flip = false, gap = 60, reach = GLOVE.pointReach } = {}) => ({
-  kind: 'glove', id, x: r1(x), y: r1(y), rot: r1(fold(rot)), s: r1(s * 1000) / 1000, pose, flip, gap: r1(gap), reach: r1(reach),
+const glove = (x, y, pose, {
+  id = '', rot = 0, s = 1, flip = false, gap = 60, reach = GLOVE.pointReach, grip = 0, gripAt = 0, ext = 1, o = 1,
+} = {}) => ({
+  kind: 'glove', id, x: r1(x), y: r1(y), rot: r1(fold(rot)), s: r1(s * 1000) / 1000, pose, flip,
+  gap: r1(gap), reach: r1(reach), grip: r1(clamp01(grip) * 1000) / 1000, gripAt: r1(gripAt), ext: r1(clamp01(ext) * 1000) / 1000,
+  o: r1(clamp01(o) * 1000) / 1000,
 });
+
+/**
+ * A hand changing pose: the old pose fades out as the new one fades in
+ * (their palms in one place), over `k` from 0 to 1. Whichever is the more
+ * visible keeps the hand's name; the other is its fading ghost ("~").
+ * @param {GloveItem} from @param {GloveItem} to @param {number} k
+ * @returns {GloveItem[]}
+ */
+function crossfade(from, to, k) {
+  const t = clamp01(k);
+  if (t <= 0) return [from];
+  if (t >= 1) return [to];
+  const main = t >= 0.5;
+  return [
+    { ...from, o: r1((1 - t) * 1000) / 1000, id: main ? `${from.id}~` : from.id },
+    { ...to, o: r1(t * 1000) / 1000, id: main ? to.id : `${to.id}~` },
+  ];
+}
+/**
+ * How long a pose's cross-fade lasts, in step progress: about 5 frames at
+ * 30 fps in the loop and 3 to 5 in the epic's quicker beats, a quick change
+ * of fingers rather than a see-through double hand.
+ */
+const FADE = 0.018;
 
 /** @param {number} x @param {number} y @param {number} [s] @param {number} [rot] @returns {KnotItem} */
 const knot = (x, y, s = 1, rot = 0) => ({ kind: 'knot', x: r1(x), y: r1(y), rot: r1(rot), s: r1(s * 1000) / 1000 });
@@ -434,6 +496,7 @@ function palmOf(g) {
  * @returns {GloveItem}
  */
 function gloveByPalm(palm, pose, o) {
+  // (see palmLocal: the palm is where the pose's hand is, whatever it holds)
   const rot = o.rot ?? 0;
   const s = o.s ?? 1;
   const [lx, ly] = palmLocal(pose, o.reach);
@@ -485,17 +548,29 @@ const restingPointer = (tx, id) => glove(tx + POINT_REST.dx, ROW_Y + POINT_REST.
  * opens and drops, the fingers change while it is still moving (its palm
  * stays put), then it settles pointing at the bead.
  * @param {number} p @param {{ x: number, y: number, rot: number }} b @param {number} tx @param {string} id
- * @returns {GloveItem}
+ * @returns {GloveItem[]}
  */
 function carrierGlove(p, b, tx, id) {
-  if (p < RELEASE.open) return glove(b.x, b.y, 'pinch', { id, gap: BEAD_GAP, rot: b.rot, s: 0.92 });
+  if (p < RELEASE.open) return [glove(b.x, b.y, 'pinch', { id, gap: BEAD_GAP, rot: b.rot + edgeTilt(p, 1), s: 0.92 })];
   const opened = (/** @type {number} */ k) => glove(tx + 8 * k, ROW_Y + 56 * k, 'pinch', { id, gap: lerp(BEAD_GAP, 150, k), s: lerp(0.92, 0.82, k) });
-  if (p < RELEASE.swap) return opened(easeOut(seg(p, RELEASE.open, RELEASE.swap)));
+  const pointing = (/** @type {number} */ k) => {
+    const from = gloveByPalm(palmOf(opened(1)), 'point', { id, rot: -44, s: 0.82 });
+    const to = restingPointer(tx, id);
+    return glove(lerp(from.x, to.x, k), lerp(from.y, to.y, k), 'point', { id, rot: lerp(-44, POINT_REST.rot, k), s: lerp(0.82, POINT_REST.s, k) });
+  };
+  if (p < RELEASE.swap) return [opened(easeOut(seg(p, RELEASE.open, RELEASE.swap)))];
   const k = easeInOut(seg(p, RELEASE.swap, 1));
-  const from = gloveByPalm(palmOf(opened(1)), 'point', { id, rot: -44, s: 0.82 });
-  const to = restingPointer(tx, id);
-  return glove(lerp(from.x, to.x, k), lerp(from.y, to.y, k), 'point', { id, rot: lerp(-44, POINT_REST.rot, k), s: lerp(0.82, POINT_REST.s, k) });
+  // The fingers change as the hand moves on: the open pinch fades into the pointer.
+  return crossfade(opened(1), pointing(k), seg(p, RELEASE.swap, RELEASE.swap + FADE));
 }
+
+/**
+ * While a bead is lined up and threaded at the cord's tip, its hand tips its
+ * body down, so the whole glove stays on the stage instead of reaching off
+ * its edge; it straightens as the bead slides in.
+ * @param {number} p @param {number} side 1 for the right hand, -1 for the left
+ */
+const edgeTilt = (p, side) => side * 40 * (1 - seg(p, 0.42, 0.62));
 
 /**
  * The right hand leaving its resting point (steps 2 to 7 start with it still
@@ -529,13 +604,17 @@ function beadStep(k, p) {
   const items = [rowCord()];
   for (let i = 0; i < k; i += 1) items.push(bead(slotX(i + 1), ROW_Y, BEAD_ORDER[i]));
   items.push(holdingFist());
+  // The beads always sit in front of the fist that holds the cord (the thumb
+  // never jumps from under the black bead to over it between steps).
+  const beadsNow = items.splice(1, k);
+  items.push(...beadsNow);
   const tx = slotX(k + 1);
   // Its pop sits behind the bead it celebrates.
   items.push(...landingPop(p, 0.84, tx, ROW_Y, { seed: k + 1 }));
   const b = carriedBead(p, { from: FROM_RIGHT, entry: ROW_R + 58, thread: ROW_R - 46, to: tx, ...BEAD_TIMES });
   if (p >= BEAD_TIMES.t0) {
     items.push(bead(b.x, b.y, BEAD_ORDER[k], { rot: b.rot, sx: b.sx, sy: b.sy }));
-    items.push(carrierGlove(p, b, tx, 'right'));
+    items.push(...carrierGlove(p, b, tx, 'right'));
   }
   if (k > 0) items.push(...pointerLeaves(p, slotX(k), 'right'));
   return items;
@@ -586,19 +665,23 @@ function finishStep(p) {
   if (p < T.t0) {
     // (both hands are off stage fetching beads)
   } else if (p < 0.66) {
-    items.push(glove(L.x, L.y, 'pinch', { id: 'left', gap: BEAD_GAP, rot: L.rot, flip: true, s: 0.92 }));
-    items.push(glove(R.x, R.y, 'pinch', { id: 'right', gap: BEAD_GAP, rot: R.rot, s: 0.92 }));
-  } else if (p < FINISH_OPEN) {
+    items.push(glove(L.x, L.y, 'pinch', { id: 'left', gap: BEAD_GAP, rot: L.rot + edgeTilt(p, -1), flip: true, s: 0.92 }));
+    items.push(glove(R.x, R.y, 'pinch', { id: 'right', gap: BEAD_GAP, rot: R.rot + edgeTilt(p, 1), s: 0.92 }));
+  } else if (p < FINISH_OPEN - FADE / 2) {
     // Both hands take the tails and tug them outward: the knot pulls snug,
     // then the hands shrink back a little, ready to let go.
     const move = easeInOut(seg(p, 0.66, 0.72));
     const tug = Math.sin(Math.PI * tie) * 26;
-    const shrink = easeInOut(seg(p, 0.84, FINISH_OPEN));
+    const shrink = easeInOut(seg(p, 0.84, FINISH_OPEN - FADE / 2));
     items.push(glove(lerp(L.x, tugL[0], move) - tug, ROW_Y, 'pinch', { id: 'left', gap: lerp(BEAD_GAP, 30, move), flip: true, s: lerp(0.92, 0.6, shrink) }));
     items.push(glove(lerp(R.x, tugR[0], move) + tug, ROW_Y, 'pinch', { id: 'right', gap: lerp(BEAD_GAP, 30, move), s: lerp(0.92, 0.6, shrink) }));
   } else {
-    // Let go: both hands spring open under the finished row, a "ta-da".
-    items.push(...openHands(p));
+    // Let go: both hands spring open under the finished row, a "ta-da" (the
+    // pinch fades into the open hand as it pops).
+    const k = seg(p, FINISH_OPEN - FADE / 2, FINISH_OPEN + FADE / 2);
+    const [openL, openR] = openHands(p);
+    items.push(...crossfade(glove(tugL[0], ROW_Y, 'pinch', { id: 'left', gap: 30, flip: true, s: 0.6 }), openL, k));
+    items.push(...crossfade(glove(tugR[0], ROW_Y, 'pinch', { id: 'right', gap: 30, s: 0.6 }), openR, k));
   }
   return items;
 }
@@ -616,8 +699,8 @@ const OPEN_REST = /** @type {readonly [Pt, Pt]} */ ([[196, 392], [1264, 392]]);
 function openHands(p) {
   const tugL = /** @type {Pt} */ ([slotX(0) - KNOT_OFF - 92, ROW_Y]);
   const tugR = /** @type {Pt} */ ([slotX(7) + KNOT_OFF + 92, ROW_Y]);
-  const e = easeOut(seg(p, FINISH_OPEN, 1));
-  const pop = backOut(seg(p, FINISH_OPEN, 1));
+  const e = easeOut(seg(p, FINISH_OPEN - FADE / 2, 1));
+  const pop = backOut(seg(p, FINISH_OPEN - FADE / 2, 1));
   const lp = palmOf(glove(tugL[0], ROW_Y, 'pinch', { gap: 30, flip: true, s: 0.6 }));
   const rp = palmOf(glove(tugR[0], ROW_Y, 'pinch', { gap: 30, s: 0.6 }));
   return [
@@ -712,24 +795,31 @@ function crossStep(p) {
   // Hands holding the cord's ends, the arm (cuff) away from the bracelet.
   const lRot = lerp(lerp(0, 90, u), 225, c);
   const rRot = lerp(lerp(0, -90, u), -225, c);
+  // A guide for the crossing, inside the U and under the hands: which way
+  // the left end travels.
+  if (p > 0.46 && p < 0.96) {
+    const o = Math.min(seg(p, 0.46, 0.54), 1 - seg(p, 0.86, 0.96));
+    items.push(arrow(cubic([486, 214], [610, 172], [830, 172], [948, 206], 14), o));
+  }
   if (grab < 1) {
-    // Open hands close into fists on the tips, palms kept (see gloveByPalm).
+    // Open hands close into fists on the tips, palms kept (see gloveByPalm);
+    // the open hand fades into the fist.
     const lf = glove(ROW_L, ROW_Y, 'fist', { flip: true, s: 0.8 });
     const rf = glove(ROW_R, ROW_Y, 'fist', { s: 0.8 });
     const lp = mix(OPEN_REST[0], palmOf(lf), grab);
     const rp = mix(OPEN_REST[1], palmOf(rf), grab);
-    const pose = grab < 0.5 ? 'open' : 'fist';
-    const sz = pose === 'open' ? 0.8 : 0.8;
-    items.push(gloveByPalm(rp, pose, { id: 'right', s: sz, rot: lerp(16, 0, grab) }));
-    items.push(gloveByPalm(lp, pose, { id: 'left', s: sz, flip: true, rot: lerp(-16, 0, grab) }));
+    const k = seg(grab, 0.42, 0.58);
+    items.push(...crossfade(
+      gloveByPalm(rp, 'open', { id: 'right', s: 0.8, rot: lerp(16, 0, grab) }),
+      gloveByPalm(rp, 'fist', { id: 'right', s: 0.8, rot: lerp(16, 0, grab) }), k,
+    ));
+    items.push(...crossfade(
+      gloveByPalm(lp, 'open', { id: 'left', s: 0.8, flip: true, rot: lerp(-16, 0, grab) }),
+      gloveByPalm(lp, 'fist', { id: 'left', s: 0.8, flip: true, rot: lerp(-16, 0, grab) }), k,
+    ));
   } else {
     items.push(glove(rHand[0], rHand[1], 'fist', { id: 'right', rot: rRot, s: 0.8 }));
     items.push(glove(lHand[0], lHand[1], 'fist', { id: 'left', rot: lRot, s: 0.8, flip: true }));
-  }
-  // A guide for the crossing: which way the left end travels.
-  if (p > 0.46 && p < 0.96) {
-    const o = Math.min(seg(p, 0.46, 0.54), 1 - seg(p, 0.86, 0.96));
-    items.push(arrow(cubic([470, 96], [600, 58], [820, 58], [950, 90], 14), o));
   }
   return items;
 }
@@ -936,7 +1026,9 @@ function wrapStep(p) {
   const { front, back } = wraps(g, uTip);
   const h = holdAt(g, uTip);
   const hold = holdingGlove(h.hand, h.rot);
-  const tail = cord([h.tip, h.hand], h.behind ? 'back' : 'front');
+  // The held end is always a front cord: the finger already hides whatever
+  // part of it is behind (switching its tone flickered).
+  const tail = cord([h.tip, h.hand]);
 
   /** @type {Item[]} */
   const items = hangingBracelet(g);
@@ -972,11 +1064,11 @@ function wrapCounters(g, uTip, o = 1) {
  * The finished wraps with the end: held out (step 10), loose (11), or
  * threaded `threaded` of the way along its route (12).
  * @param {ReturnType<typeof knotGeom>} g
- * @param {{ fingerDX?: number | null, threaded?: number, held?: Pt | null }} o
+ * @param {{ fingerDX?: number | null, threaded?: number, held?: Pt | null, out?: Pt }} o
  */
-function wrappedKnot(g, { fingerDX = 0, threaded = 0, held = null }) {
+function wrappedKnot(g, { fingerDX = 0, threaded = 0, held = null, out = THREAD_OUT }) {
   const { front, back } = wraps(g, WRAPS);
-  const route = threadRoute(g, THREAD_OUT);
+  const route = threadRoute(g, out);
   const loopLen = polyLength(route.loop);
   const insideLen = polyLength(route.inside);
   const total = polyLength(route.all);
@@ -1092,11 +1184,16 @@ function threadStep(p) {
   // The finger's hand leaves off the edge while the other end of the job,
   // the catching hand, comes in to wait past the X for the end.
   const leave = smooth(seg(p, 0, 0.2));
-  const k = wrappedKnot(g, { fingerDX: leave < 1 ? FINGER_OUT + (1500 - TIP_X - FINGER_OUT) * leave : null, threaded: t });
+  /** @type {Pt} */
+  const out = [THREAD_OUT[0] + 32 * easeOut(seg(p, 0.84, 1)), lerp(THREAD_OUT[1], FY, easeOut(seg(p, 0.84, 1)))];
+  const k = wrappedKnot(g, { fingerDX: leave < 1 ? FINGER_OUT + (1500 - TIP_X - FINGER_OUT) * leave : null, threaded: t, out });
   const enter = smooth(seg(p, 0.06, 0.3));
   const catchAt = seg(p, 0.78, 0.88);
+  // Caught, the end comes along with the hand: it never leaves the pinch.
   const pull = easeOut(seg(p, 0.84, 1));
-  const catcher = glove(lerp(1560, THREAD_OUT[0] + 8, enter) + 20 * pull, THREAD_OUT[1], 'pinch', { id: 'catch', gap: lerp(70, 18, catchAt), s: 0.86 });
+  const catchX = lerp(1560, THREAD_OUT[0] - 4, enter) + (THREAD_OUT[0] + 28 - (THREAD_OUT[0] - 4)) * pull;
+  const catchY = lerp(THREAD_OUT[1], FY, pull);
+  const catcher = glove(catchX, catchY, 'pinch', { id: 'catch', gap: lerp(70, 18, catchAt), s: 0.86 });
   /** @type {Item[]} */
   const over = [wrapPinch(g), catcher];
   // A guide ahead of the end: the way it goes.
@@ -1121,10 +1218,20 @@ function pullStep(p) {
   const g0 = knotGeom(R0, PITCH0, GAP0);
   const jerk = Math.sin(Math.PI * seg(p, 0.66, 0.82)) * 16;
   const lx = lerp(300, 214, tight) - jerk;
-  const rx = lerp(THREAD_OUT[0] + 140, 1020, tight) + jerk;
+  // The end starts exactly where step 12 left it, in the catching hand's
+  // pinch. The hand turns its grip, then closes into a fist round it (its
+  // palm kept), which pulls the end into the fist; then it pulls.
+  const grab = easeInOut(seg(p, 0, 0.14));
+  const close = seg(p, 0.12, 0.12 + 2 * FADE);
+  /** @type {Pt} */
+  const e0 = [THREAD_OUT[0] + 32, FY];
+  const catchPalm = palmOf(glove(THREAD_OUT[0] + 28, FY, 'pinch', { gap: 12, s: 0.86, rot: -32 }));
+  /** @type {Pt} */
+  const end = close < 1 ? mix(e0, catchPalm, easeInOut(close))
+    : [lerp(catchPalm[0], 1060, tight) + jerk, lerp(catchPalm[1], FY, tight)];
   const { front, back } = wraps(g, WRAPS);
   // Pulled through, the end's loop outside the tunnel runs out.
-  const route = threadRoute(g, [rx, FY], lerp(1, 0.12, tight));
+  const route = threadRoute(g, end, lerp(1, 0.12, tight));
   /** @type {Pt} */
   const bTail = [lx, lerp(BOTTOM_TAIL[1], FY + 4, tight)];
   /** @type {Item[]} */
@@ -1145,22 +1252,19 @@ function pullStep(p) {
   for (const pts of front) items.push(cord(pts));
   items.push(cord(route.loop));
   items.push(cord(route.exit));
-  // The hands: one lets go of the wraps and takes the bottom string's tail,
-  // the other already has the end. Each turns while it grips, and closes
-  // into a fist with its palm kept, then both pull.
-  const grab = easeInOut(seg(p, 0, 0.14));
+  // The hands. The catching hand already has the end: it turns its grip and
+  // closes into a fist round it (the pinch fades into the fist), then pulls.
+  // The other lets go of the wraps, takes the bottom string's tail and pulls
+  // the other way.
+  const fist = seg(p, 0.12, 0.12 + FADE);
   const pinch = wrapPinch(g0);
-  const catcher = glove(THREAD_OUT[0] + 28, THREAD_OUT[1], 'pinch', { gap: 18, s: 0.86 });
   const lFist = glove(lx, bTail[1], 'pull', { id: 'wrap', rot: 90, s: 0.86, flip: true });
-  const rFist = glove(rx, FY, 'pull', { id: 'catch', rot: -90, s: 0.86 });
-  if (grab < 1) {
-    const lPalm = mix(palmOf(pinch), palmOf(glove(300, BOTTOM_TAIL[1], 'pull', { rot: 90, s: 0.86, flip: true })), grab);
-    items.push(gloveByPalm(lPalm, 'pinch', { id: 'wrap', gap: lerp(pinch.gap, 16, grab), flip: true, s: lerp(pinch.s, 0.86, grab), rot: lerp(PINCH_ROT, 32, grab) }));
-    const rPalm = mix(palmOf(catcher), palmOf(glove(THREAD_OUT[0] + 140, FY, 'pull', { rot: -90, s: 0.86 })), grab);
-    items.push(gloveByPalm(rPalm, 'pinch', { id: 'catch', gap: lerp(18, 12, grab), s: 0.86, rot: lerp(0, -32, grab) }));
-  } else {
-    items.push(lFist, rFist);
-  }
+  const lPalm = mix(palmOf(pinch), palmOf(lFist), grab);
+  const lPinch = gloveByPalm(lPalm, 'pinch', { id: 'wrap', gap: lerp(pinch.gap, 16, grab), flip: true, s: lerp(pinch.s, 0.86, grab), rot: lerp(PINCH_ROT, 32, grab) });
+  items.push(...crossfade(lPinch, lFist, fist));
+  const rPinch = glove(THREAD_OUT[0] + 28, FY, 'pinch', { id: 'catch', gap: lerp(18, 12, grab), s: 0.86, rot: lerp(0, -32, grab) });
+  const rFist = gloveByPalm(close < 1 ? catchPalm : end, 'pull', { id: 'catch', rot: -90, s: 0.86 });
+  items.push(...crossfade(rPinch, rFist, seg(close, 0.25, 0.75)));
   return mirror(items);
 }
 
@@ -1239,8 +1343,8 @@ export function introScene(p) {
   items.push(...landingPop(q, 0.24, ROW_CX + 380, 116, { seed: 22 }));
   const title = seg(q, 0.04, 0.26);
   if (title > 0) items.push(text(ROW_CX, 132, 'BRACELET TIME!', 104, { s: lerp(1.5, 1, backOut(title)), o: easeOut(Math.min(1, title * 2)) }));
-  const draw = easeInOut(seg(q, 0.2, 0.5));
-  if (draw > 0) items.push(cord([[ROW_L, ROW_Y], [lerp(ROW_L + 1, ROW_R, draw), ROW_Y]]));
+  // The empty cord lies on the table from the first frame.
+  items.push(cord([[ROW_L, ROW_Y], [ROW_R, ROW_Y]]));
   const colors = /** @type {BeadColor[]} */ ([...BEAD_ORDER, 'clear']);
   colors.forEach((color, i) => {
     const at = 0.34 + i * 0.07;
@@ -1461,9 +1565,10 @@ function cameraAt(sec) {
   }
   // Never let the view leave the stage (clamped after rounding, so the
   // rounding cannot open a sliver past the edge either).
-  const scale = Math.max(1, Math.round(s * 1000) / 1000);
-  const tx = clamp(r1(STAGE_W / 2 - scale * x), STAGE_W - STAGE_W * scale, 0);
-  const ty = clamp(r1(STAGE_H / 2 - scale * y), STAGE_H - STAGE_H * scale, 0);
+  // (Rounded finely: at 0.001 a slow push stalled for frames, then ticked.)
+  const scale = Math.max(1, Math.round(s * 1e5) / 1e5);
+  const tx = clamp(Math.round((STAGE_W / 2 - scale * x) * 100) / 100, STAGE_W - STAGE_W * scale, 0);
+  const ty = clamp(Math.round((STAGE_H / 2 - scale * y) * 100) / 100, STAGE_H - STAGE_H * scale, 0);
   return { x: Math.round(tx * 1000) / 1000, y: Math.round(ty * 1000) / 1000, scale };
 }
 
@@ -1555,9 +1660,8 @@ function placed(local, at, sx, sy) {
   });
 }
 
-/** The outline of a glove part, in the glove's own frame, as points. @param {GlovePart} part @returns {Pt[]} */
-function partHull(part) {
-  const o = GLOVE_OUTLINE;
+/** The outline of a glove part, in the glove's own frame, as points. @param {GlovePart} part @param {number} [o] @returns {Pt[]} */
+function partHull(part, o = GLOVE_OUTLINE) {
   if (part.t === 'cap') {
     const r = part.w / 2 + o;
     return part.pts.flatMap(([x, y]) => [[x - r, y - r], [x + r, y - r], [x + r, y + r], [x - r, y + r]].map((q) => /** @type {Pt} */ (q)));
@@ -1580,7 +1684,8 @@ function partHull(part) {
  * @param {GloveItem} g @returns {Pt[]}
  */
 export function glovePoints(g) {
-  const local = gloveParts(g.pose, g.gap, g.reach).flatMap(partHull);
+  const o = GLOVE_OUTLINE * lineWeight(g.s);
+  const local = gloveParts(g.pose, g).flatMap((part) => partHull(part, o));
   return placed(local, g, g.flip ? -g.s : g.s, g.s);
 }
 

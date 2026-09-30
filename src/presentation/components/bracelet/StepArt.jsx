@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 import {
-  BEAD_SIZE, BEAD_TONES, GLOVE_OUTLINE, IDENTITY_CAMERA, KNOT_SIZE, STAGE_H, STAGE_W, gloveParts, sceneOf,
+  BEAD_SIZE, BEAD_TONES, GLOVE_OUTLINE, IDENTITY_CAMERA, KNOT_SIZE, STAGE_H, STAGE_W, gloveParts, lineWeight, sceneOf,
 } from '../../lib/braceletArt.js';
 import { HOUSE } from '../../lib/kit.js';
 
@@ -131,13 +131,16 @@ function linePath(pts) {
   return pts.map((p, i) => `${i ? 'L' : 'M'}${n1(p[0])} ${n1(p[1])}`).join(' ');
 }
 
-function GlovePart({ part }) {
+function GlovePart({ part, lw }) {
+  // lw: the glove's line weight (lineWeight), so every hand's outline and
+  // stitches draw at one width on the wall, whatever the glove's size.
+  const o = OUTLINE * lw;
   switch (part.t) {
     case 'cap': {
       const d = linePath(part.pts);
       return (
         <g>
-          <path d={d} {...ROUND} stroke={INK} strokeWidth={part.w + OUTLINE * 2} />
+          <path d={d} {...ROUND} stroke={INK} strokeWidth={part.w + o * 2} />
           <path d={d} {...ROUND} stroke={GLOVE_FILL} strokeWidth={part.w} />
         </g>
       );
@@ -147,14 +150,14 @@ function GlovePart({ part }) {
       return (
         <rect
           x={part.x} y={part.y} width={part.w} height={part.h} rx={part.rx} transform={t}
-          fill={GLOVE_FILL} stroke={INK} strokeWidth={OUTLINE * 2} paintOrder="stroke"
+          fill={GLOVE_FILL} stroke={INK} strokeWidth={o * 2} paintOrder="stroke"
         />
       );
     }
     case 'bump':
-      return <circle cx={part.cx} cy={part.cy} r={part.r} fill={GLOVE_FILL} stroke={INK} strokeWidth={OUTLINE * 2} paintOrder="stroke" />;
+      return <circle cx={part.cx} cy={part.cy} r={part.r} fill={GLOVE_FILL} stroke={INK} strokeWidth={o * 2} paintOrder="stroke" />;
     case 'line':
-      return <path d={linePath(part.pts)} {...ROUND} stroke={INK} strokeWidth={4.5} />;
+      return <path d={linePath(part.pts)} {...ROUND} stroke={INK} strokeWidth={4.5 * lw} />;
     case 'zip':
       return <path d={linePath(part.pts)} {...ROUND} stroke={HOUSE.sun} strokeWidth={7} />;
     default:
@@ -163,11 +166,12 @@ function GlovePart({ part }) {
 }
 
 function Glove({ item }) {
-  const { x, y, rot, s, pose, flip, gap } = item;
-  const parts = gloveParts(pose, gap, item.reach);
+  const { x, y, rot, s, pose, flip } = item;
+  const parts = gloveParts(pose, item);
+  const lw = lineWeight(s);
   return (
-    <g transform={`translate(${x} ${y}) rotate(${rot}) scale(${flip ? -s : s} ${s})`}>
-      {parts.map((part, i) => <GlovePart key={i} part={part} />)}
+    <g transform={`translate(${x} ${y}) rotate(${rot}) scale(${flip ? -s : s} ${s})`} opacity={item.o != null && item.o < 1 ? item.o : undefined}>
+      {parts.map((part, i) => <GlovePart key={i} part={part} lw={lw} />)}
     </g>
   );
 }

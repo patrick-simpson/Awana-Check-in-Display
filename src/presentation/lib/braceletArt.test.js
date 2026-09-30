@@ -358,11 +358,11 @@ const middle = (g) => {
   return [pts.reduce((a, q) => a + q[0], 0) / pts.length, pts.reduce((a, q) => a + q[1], 0) / pts.length];
 };
 
-/** Each hand in a frame by its name, measured once. */
+/** Each hand in a frame by its name, measured once (a pose's fading ghost, "name~", is not the hand). */
 function handsOf(items, label, bad) {
   const m = new Map();
   for (const it of items) {
-    if (it.kind !== 'glove') continue;
+    if (it.kind !== 'glove' || it.id.endsWith('~')) continue;
     if (!it.id) bad.push(`${label}: a hand with no name`);
     if (m.has(it.id)) bad.push(`${label}: two hands called ${it.id}`);
     m.set(it.id, { g: it, off: boxOffStage(itemBox(it)), mid: middle(it) });
@@ -386,7 +386,11 @@ function hops(frames, label) {
       }
       if (ha.off && hb.off) continue;
       const move = Math.hypot(hb.mid[0] - ha.mid[0], hb.mid[1] - ha.mid[1]);
-      if (move > MAX_MOVE) bad.push(`${at} jumps ${Math.round(move)} px (${ha.g.pose} -> ${hb.g.pose})`);
+      // Where a pose is cross-fading into another, both are on screen and the
+      // eye sees a dissolve, so the hand's middle may move further then.
+      const dissolving = ha.g.pose !== hb.g.pose && (ha.g.o < 1 || hb.g.o < 1);
+      if (move > (dissolving ? 2 * MAX_MOVE : MAX_MOVE)) bad.push(`${at} jumps ${Math.round(move)} px (${ha.g.pose} -> ${hb.g.pose})`);
+      if (ha.g.pose !== hb.g.pose && !dissolving) bad.push(`${at} snaps from ${ha.g.pose} to ${hb.g.pose} in one frame`);
       if (ha.g.pose === hb.g.pose && Math.abs(fold(hb.g.rot - ha.g.rot)) > MAX_TURN) bad.push(`${at} turns ${Math.round(fold(hb.g.rot - ha.g.rot))} deg`);
       if (ha.g.flip !== hb.g.flip) bad.push(`${at} changes hands`);
     }

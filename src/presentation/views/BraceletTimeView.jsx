@@ -125,13 +125,17 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   const birthdayTurn = quiet && names != null && Math.floor(nowMs / 1000 / BIRTHDAY_TURN_SEC) % 2 === 1;
   const showCount = count != null && quiet && !birthdayTurn;
 
+  // A held step replays its action every slot; each replay gets its own body
+  // key, so the card crossfades into it instead of cutting (a still has
+  // nothing to replay, so it keeps one key).
+  const holdStartMs = nowMs - ((nowMs - startMs) % 10_000);
   let body;
   if (settings.display === 'handout1' || settings.display === 'handout2') {
     body = <Handout page={settings.display === 'handout1' ? 1 : 2} />;
   } else if (settings.display === 'overview') {
     body = <Overview nowMs={nowMs} club={club} />;
   } else if (settings.hold != null) {
-    body = <StepCard index={settings.hold} club={club} stepStartMs={nowMs - ((nowMs - startMs) % 10_000)} still={still} />;
+    body = <StepCard index={settings.hold} club={club} stepStartMs={holdStartMs} still={still} />;
   } else if (frame.mode === 'epic') {
     body = <Epic startMs={frame.epicStartMs} nowMs={nowMs} club={club} still={still} />;
   } else {
@@ -139,7 +143,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   }
 
   const bodyKey = settings.display !== 'auto' ? settings.display
-    : settings.hold != null ? `hold:${settings.hold}`
+    : settings.hold != null ? `hold:${settings.hold}${still ? '' : `:${holdStartMs}`}`
       : frame.mode === 'epic' ? `epic:${frame.epicStartMs}` : `step:${frame.stepStartMs}`;
 
   return (
