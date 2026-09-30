@@ -4,6 +4,7 @@ import { M } from '../lib/motion.jsx';
 import { DUR, EASE, PLATE, beats, inkOverflow } from '../lib/brand.js';
 import { measureInk, measureText } from '../lib/lobbyFrame.js';
 import { holdThenLand } from '../lib/lobbyMotion.js';
+import { squishLand, withSquish } from '../lib/squish.js';
 import { isBigMilestone, ordinalNight } from '../lib/milestones.js';
 import { OVERLAY, bandRoom, fitShout, plateChrome } from '../lib/overlayFit.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
@@ -217,18 +218,24 @@ export default function MilestoneToast({ celebration, club, compact = false, bel
 const FROM = { opacity: 0, y: '-35%', scale: 0.85 };
 const TO = { opacity: 1, y: '0%', scale: 1 };
 const AWAY = { opacity: 0, y: '-30%', scale: 0.96, transition: { duration: DUR.exit, ease: EASE.exit } };
+// Stepping aside for a band notice: AWAY, with the squish's two axes sent
+// home on AWAY's own timing, in case the notice takes the band mid-squish.
+const YIELD = { ...AWAY, scaleX: 1, scaleY: 1 };
 
 function Toast({ celebration, club, compact, below, yielding, afterNotice }) {
   const t = toastFor(celebration);
   const logo = t.tone === 'club' && club?.logo;
   const fit = toastFit(t.line, { compact: compact && !below, logo: Boolean(logo) });
   // The beat sheet is fixed when the toast appears: with a band notice up
-  // it waits out the notice's exit, so the two never share the band.
+  // it waits out the notice's exit, so the two never share the band. The
+  // plate squashes at its pop's peak, hanging from the band (the soft squish,
+  // src/lib/squish.js), unless it carries a club's wordmark: official art is
+  // never scaled out of proportion.
   const [beat] = useState(() => {
     const hold = afterNotice ? DUR.exit : 0;
     return {
       hold,
-      plate: holdThenLand(hold, DUR.pop, FROM, TO, EASE.pop),
+      plate: withSquish(holdThenLand(hold, DUR.pop, FROM, TO, EASE.pop), logo ? null : squishLand(hold, 'plate', DUR.pop, 'pop')),
       line: holdThenLand(hold + beats(1.5), DUR.settle, { opacity: 0, y: '0.35em' }, { opacity: 1, y: '0em' }, EASE.settle),
     };
   });
@@ -250,7 +257,7 @@ function Toast({ celebration, club, compact, below, yielding, afterNotice }) {
       className={`${t.className} milestone-toast--${t.tone}${t.big ? ' milestone-toast--big' : ''}${below ? ' milestone-toast--below' : ''}${compact && !below ? ' milestone-toast--compact' : ''}`}
       style={style}
       initial={beat.plate.initial}
-      animate={yielding ? AWAY : { ...beat.plate.animate, transition: beat.plate.transition }}
+      animate={yielding ? YIELD : { ...beat.plate.animate, transition: beat.plate.transition }}
       exit={AWAY}
     >
       <StepPlate

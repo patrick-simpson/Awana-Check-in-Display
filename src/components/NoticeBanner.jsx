@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { M } from '../lib/motion.jsx';
 import { DUR, EASE } from '../lib/brand.js';
 import { holdThenLand } from '../lib/lobbyMotion.js';
+import { squishLand, withSquish } from '../lib/squish.js';
 import { isFresh } from '../lib/freshness.js';
 import { NOTICE_MAX_AGE_MS } from '../lib/constants.js';
 import { OVERLAY, bandRoom, fitParagraph, plateChrome } from '../lib/overlayFit.js';
@@ -143,6 +144,16 @@ const BACK = (() => {
   const b = holdThenLand(DUR.exit, DUR.pop, { opacity: 0, y: '-60%', scale: 1 }, { opacity: 1, y: '0%', scale: 1 }, EASE.pop);
   return { ...b.animate, transition: b.transition };
 })();
+// An info or warn notice lands with a plate's soft squish (src/lib/squish.js),
+// hanging from the band, both on the way in and on the way back; stepping
+// aside sends the squish's two axes home on its own timing. A critical notice
+// keeps the three targets above exactly: a cancellation does not bounce.
+const SQUISHED = {
+  enter: withSquish(ENTER, squishLand(0, 'plate', DUR.pop, 'pop')),
+  leave: { ...LEAVE, scaleX: 1, scaleY: 1 },
+  back: withSquish(BACK, squishLand(DUR.exit, 'plate', DUR.pop, 'pop')),
+};
+const PLAIN = { enter: ENTER, leave: LEAVE, back: BACK };
 
 function Notice({ level, message, fit, away, inBand }) {
   const critical = level === 'critical';
@@ -150,7 +161,8 @@ function Notice({ level, message, fit, away, inBand }) {
   // the toast to clear (BACK) rather than popping in over it.
   const [hasYielded, setHasYielded] = useState(false);
   if (away && !hasYielded) setHasYielded(true);
-  const target = away ? LEAVE : hasYielded ? BACK : ENTER;
+  const targets = critical ? PLAIN : SQUISHED;
+  const target = away ? targets.leave : hasYielded ? targets.back : targets.enter;
   return (
     <M.div
       className={`notice-banner notice-banner--${level}${inBand ? ' is-band' : ''}`}
