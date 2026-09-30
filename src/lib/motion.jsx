@@ -1,4 +1,4 @@
-import { createContext, forwardRef, useContext } from 'react';
+import { createContext, useContext } from 'react';
 import { motion } from 'framer-motion';
 
 // Whether every animation should render instantly — no fades, no
@@ -54,7 +54,9 @@ export function stripVariants(variants) {
 }
 
 function makeZeroAnimationAware(Component, displayName) {
-  const Wrapped = forwardRef(function ZeroAnimationAware({ transition, initial, ...props }, ref) {
+  // React 19 passes `ref` as an ordinary prop, so the wrapper is a plain
+  // function component (it needed forwardRef under React 18).
+  function Wrapped({ transition, initial, ref, ...props }) {
     const zeroAnimation = useContext(ZeroAnimationContext);
     if (zeroAnimation) {
       for (const key of TARGET_PROPS) {
@@ -80,7 +82,7 @@ function makeZeroAnimationAware(Component, displayName) {
         transition={zeroAnimation ? INSTANT_TRANSITION : transition}
       />
     );
-  });
+  }
   Wrapped.displayName = displayName;
   return Wrapped;
 }
