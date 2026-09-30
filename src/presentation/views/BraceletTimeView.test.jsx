@@ -66,6 +66,8 @@ describe('BraceletTimeView', () => {
     expect(phase(c)).toBe('epic');
     expect(c.querySelector('[data-testid="epic"]')).not.toBeNull();
     expect(c.textContent).toMatch(/Watch how!/i);
+    // Under the step's title, what to do (not just "Step 2").
+    expect(c.querySelector('.pj-bracelet__caption').textContent).toMatch(/Slide a red bead on, next to the black one\./);
   });
 
   it('leaves the finale\'s shout to the art: the caption only says how', () => {
@@ -90,6 +92,8 @@ describe('BraceletTimeView', () => {
     expect(step(c)).toBe('8');
     expect(c.textContent).toMatch(/Cross the ends/i);
     expect(c.querySelector('[role="img"][aria-label^="KNOT"]')).not.toBeNull();
+    // "Knot step 1": never read as a count of knots, right after step 7 tied two.
+    expect(c.querySelector('[role="img"][aria-label^="KNOT"]').getAttribute('aria-label')).toMatch(/^KNOT STEP/i);
   });
 
   it('keeps the window\'s warnings, and plays the stinger once per warning', () => {

@@ -9,8 +9,9 @@
 //     as long as it can finish before the window ends.
 //   - A CHIME sounds EPIC_LEAD_SEC before each showing, so the room looks up,
 //     and the corner counts it down; the wall itself keeps showing its step.
-//   - The rest of the time the wall shows ONE step at a time, STEP_SEC each,
-//     looping; the loop starts from step 1 after every epic.
+//   - The rest of the time the wall shows ONE step at a time, each for its
+//     own slot (STEP_SLOTS: a bead step is quick, a knot step gets the time
+//     a child needs), looping; the loop starts from step 1 after every epic.
 //
 // A leader can nudge the loop (next / previous step) or play the epic now;
 // that state lives in the view, which hands `stepOffset` and `manualEpicAt`
@@ -22,17 +23,17 @@
 export const BRACELET_STEPS = Object.freeze(/** @type {BraceletStep[]} */ ([
   { n: 1, kind: 'bead', color: 'black', title: 'Add a black bead', words: 'Slide a black bead onto the string.' },
   { n: 2, kind: 'bead', color: 'red', title: 'Add a red bead', words: 'Slide a red bead on, next to the black one.' },
-  { n: 3, kind: 'bead', color: 'white', title: 'Add a white bead', words: 'Slide a white bead onto the string.' },
-  { n: 4, kind: 'bead', color: 'blue', title: 'Add a blue bead', words: 'Slide a blue bead onto the string.' },
-  { n: 5, kind: 'bead', color: 'green', title: 'Add a green bead', words: 'Slide a green bead onto the string.' },
-  { n: 6, kind: 'bead', color: 'yellow', title: 'Add a yellow bead', words: 'Slide a yellow bead onto the string.' },
+  { n: 3, kind: 'bead', color: 'white', title: 'Add a white bead', words: 'Slide a white bead on, next to the red one.' },
+  { n: 4, kind: 'bead', color: 'blue', title: 'Add a blue bead', words: 'Slide a blue bead on, next to the white one.' },
+  { n: 5, kind: 'bead', color: 'green', title: 'Add a green bead', words: 'Slide a green bead on, next to the blue one.' },
+  { n: 6, kind: 'bead', color: 'yellow', title: 'Add a yellow bead', words: 'Slide a yellow bead on, next to the green one.' },
   { n: 7, kind: 'finish', title: 'Clear beads, then knots', words: 'Add a clear bead on each side of your colors. Tie a knot next to each one.' },
-  { n: 8, kind: 'knot', title: 'Cross the ends', words: 'Cross the two sides over each other. Left over right.' },
+  { n: 8, kind: 'knot', title: 'Cross the ends', words: 'Cross the two ends. Left over right.' },
   { n: 9, kind: 'knot', title: 'Wrap 3 times', words: 'Lay the bottom string along your pointer finger. Wrap the top string under and around it 3 times.' },
   { n: 10, kind: 'knot', title: 'See the X?', words: 'Your two strings should cross in an X on your finger.' },
-  { n: 11, kind: 'knot', title: 'Pinch the loops', words: 'Pinch the loops. Take your finger out.' },
-  { n: 12, kind: 'knot', title: 'Thread the end through', words: 'Thread the end of the top string through the loops.' },
-  { n: 13, kind: 'knot', title: 'Pull tight', words: 'Pull tight. You made a bracelet!' },
+  { n: 11, kind: 'knot', title: 'Pinch the loops', words: 'Pinch the 3 loops. Slide your finger out.' },
+  { n: 12, kind: 'knot', title: 'Push the end through', words: 'Push the end of the top string through the 3 loops.' },
+  { n: 13, kind: 'knot', title: 'Pull tight', words: 'Pull both ends tight. You made a bracelet!' },
 ]));
 
 /**
@@ -83,7 +84,19 @@ export function windowSpan(window, now) {
   return { startMs: day.getTime() + window.startMin * 60_000, endMs: day.getTime() + window.endMin * 60_000 };
 }
 
-export const STEP_SEC = 10;
+/**
+ * How long each step stays up in the one-step loop, seconds: time for its
+ * action at a child's pace, then a few seconds on the finished picture. The
+ * bead steps are quick; step 7 and the knot steps get the time they need
+ * (knot 3 is only a look at the X).
+ */
+export const STEP_SLOTS = Object.freeze([9, 9, 9, 9, 9, 9, 14, 15, 16, 12, 15, 16, 15]);
+/** A step never starts less than this long before a showing. */
+const LAST_SLOT_MIN_SEC = 4;
+/** One pass through all the steps, seconds. */
+export const LOOP_SEC = STEP_SLOTS.reduce((a, b) => a + b, 0);
+/** Step i's slot, seconds. @param {number} i */
+export const stepSlotSec = (i) => STEP_SLOTS[((Math.round(i) % STEP_SLOTS.length) + STEP_SLOTS.length) % STEP_SLOTS.length];
 export const EPIC_SEC = 90;
 export const EPIC_EVERY_SEC = 5 * 60;
 export const EPIC_LEAD_SEC = 10;
@@ -161,12 +174,24 @@ export function braceletFrame(nowMs, startMs, endMs, { stepOffset = 0, manualEpi
 
   const loopFrom = lastEnd ?? startMs;
   const elapsed = Math.max(0, (nowMs - loopFrom) / 1000);
-  const raw = Math.floor(elapsed / STEP_SEC) + stepOffset;
+  // Whole passes, then slot by slot through this one (a nudge starts the
+  // pass that many steps along).
   const count = BRACELET_STEPS.length;
-  const stepIndex = ((raw % count) + count) % count;
-  const stepStartMs = loopFrom + Math.floor(elapsed / STEP_SEC) * STEP_SEC * 1000;
+  let stepIndex = ((Math.round(stepOffset) % count) + count) % count;
+  let slotStart = Math.floor(elapsed / LOOP_SEC) * LOOP_SEC;
+  while (slotStart + STEP_SLOTS[stepIndex] <= elapsed) {
+    slotStart += STEP_SLOTS[stepIndex];
+    stepIndex = (stepIndex + 1) % count;
+  }
+  // A step that would be up for only a moment before a showing never
+  // starts: the one before it stays up until the showing (the wall's first
+  // ten seconds are step 1 alone).
+  if (next != null && slotStart > 0 && next - (loopFrom + slotStart * 1000) < LAST_SLOT_MIN_SEC * 1000) {
+    stepIndex = (stepIndex - 1 + count) % count;
+    slotStart -= STEP_SLOTS[stepIndex];
+  }
   return {
-    mode: 'steps', stepIndex, stepElapsedSec: elapsed % STEP_SEC, stepStartMs, epicStartMs: null, epicElapsedSec: 0,
+    mode: 'steps', stepIndex, stepElapsedSec: elapsed - slotStart, stepStartMs: loopFrom + slotStart * 1000, epicStartMs: null, epicElapsedSec: 0,
     chime, nextEpicMs: next, cycle: `steps:${loopFrom}`,
   };
 }

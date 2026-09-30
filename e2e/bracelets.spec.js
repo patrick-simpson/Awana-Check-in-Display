@@ -46,9 +46,11 @@ test('the opening ceremony on a bracelet night is untouched', async ({ page }) =
   await expect(page.locator('[data-mode="slideshow"][data-deck="opening"]')).toBeVisible();
 });
 
-test('steps go in the handout\'s order, 10 s each, from step 1 after the epic', async ({ page }) => {
-  // The 18:05:10 epic ends 18:06:40: 18:06:45 is step 1, 18:07:15 step 4, 18:08:05 knot 1 (step 9 of 13 is knot 2).
-  for (const [now, step] of [['18:06:45', '1'], ['18:07:15', '4'], ['18:07:55', '8'], ['18:08:25', '11']]) {
+test('steps go in the handout\'s order, each for its own slot, from step 1 after the epic', async ({ page }) => {
+  // The 18:05:10 epic ends 18:06:40. Bead steps are 9 s, step 7 14 s, then the
+  // knot steps 15, 16, 12, 15, 16, 15 s: 18:06:45 is step 1, 18:07:15 step 4,
+  // 18:07:55 knot step 1 (step 8), 18:08:35 knot step 4 (step 11).
+  for (const [now, step] of [['18:06:45', '1'], ['18:07:15', '4'], ['18:07:55', '8'], ['18:08:35', '11']]) {
     await page.goto(at(`2026-09-30T${now}`));
     await expect(page.locator('[data-bracelet-step]')).toHaveAttribute('data-bracelet-step', step);
   }

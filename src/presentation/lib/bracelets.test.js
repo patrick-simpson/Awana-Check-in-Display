@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { BRACELET_NIGHTS, BRACELET_STEPS, EPIC_EVERY_SEC, EPIC_LEAD_SEC, EPIC_SEC, STEP_SEC, braceletFrame, epicStarts, isBraceletNight, isBraceletWindow, windowSpan } from './bracelets.js';
+import {
+  BRACELET_NIGHTS, BRACELET_STEPS, EPIC_EVERY_SEC, EPIC_LEAD_SEC, EPIC_SEC, LOOP_SEC, STEP_SLOTS,
+  braceletFrame, epicStarts, isBraceletNight, isBraceletWindow, stepSlotSec, windowSpan,
+} from './bracelets.js';
 
 const at = (hhmmss) => Date.parse(`2026-09-30T${hhmmss}-04:00`);
 const TNT = [at('18:05:00'), at('18:30:00')];
@@ -19,8 +22,34 @@ describe('the steps', () => {
     expect(BRACELET_STEPS.at(-1).title).toMatch(/pull tight/i);
   });
 
+  it('says what the art shows: the bead each one goes next to, the 3 loops, a push', () => {
+    const words = BRACELET_STEPS.map((s) => s.words);
+    expect(words.slice(1, 6)).toEqual([
+      'Slide a red bead on, next to the black one.',
+      'Slide a white bead on, next to the red one.',
+      'Slide a blue bead on, next to the white one.',
+      'Slide a green bead on, next to the blue one.',
+      'Slide a yellow bead on, next to the green one.',
+    ]);
+    expect(BRACELET_STEPS[7].words).toBe('Cross the two ends. Left over right.');
+    expect(BRACELET_STEPS[10].words).toBe('Pinch the 3 loops. Slide your finger out.');
+    expect(BRACELET_STEPS[11]).toMatchObject({ title: 'Push the end through', words: 'Push the end of the top string through the 3 loops.' });
+    expect(BRACELET_STEPS[12].words).toBe('Pull both ends tight. You made a bracelet!');
+  });
+
   it('pins the cadence the owner asked for', () => {
-    expect([STEP_SEC, EPIC_SEC, EPIC_EVERY_SEC, EPIC_LEAD_SEC]).toEqual([10, 90, 300, 10]);
+    expect([EPIC_SEC, EPIC_EVERY_SEC, EPIC_LEAD_SEC]).toEqual([90, 300, 10]);
+  });
+
+  it('gives each step the time it needs: quick bead steps, longer knot steps', () => {
+    expect(STEP_SLOTS).toHaveLength(BRACELET_STEPS.length);
+    BRACELET_STEPS.forEach((s, i) => {
+      if (s.kind === 'bead') expect(stepSlotSec(i), s.title).toBe(9);
+      else expect(stepSlotSec(i), s.title).toBeGreaterThanOrEqual(12);
+      expect(stepSlotSec(i), s.title).toBeLessThanOrEqual(16);
+    });
+    expect(stepSlotSec(6)).toBe(14);
+    expect(LOOP_SEC).toBe(157);
   });
 });
 
@@ -63,16 +92,23 @@ describe('epicStarts', () => {
 describe('braceletFrame', () => {
   it('opens on step 1 with the chime lead (never a full-screen title card), then the epic', () => {
     expect(braceletFrame(at('18:05:00'), ...TNT)).toMatchObject({ mode: 'steps', stepIndex: 0, chime: true });
+    // (step 1's slot is 9 s, but no step starts a moment before a showing)
     expect(braceletFrame(at('18:05:09'), ...TNT)).toMatchObject({ mode: 'steps', stepIndex: 0, chime: true });
     expect(braceletFrame(at('18:05:10'), ...TNT)).toMatchObject({ mode: 'epic', chime: false, epicElapsedSec: 0 });
     expect(braceletFrame(at('18:06:39'), ...TNT)).toMatchObject({ mode: 'epic', epicElapsedSec: 89 });
   });
 
-  it('after an epic, loops one step at a time from step 1', () => {
+  it('after an epic, loops one step at a time from step 1, each for its own slot', () => {
     expect(braceletFrame(at('18:06:40'), ...TNT)).toMatchObject({ mode: 'steps', stepIndex: 0 });
+    expect(braceletFrame(at('18:06:48'), ...TNT)).toMatchObject({ mode: 'steps', stepIndex: 0 });
     expect(braceletFrame(at('18:06:50'), ...TNT)).toMatchObject({ mode: 'steps', stepIndex: 1 });
-    // 13 steps x 10 s = 130 s later it is back at step 1.
-    expect(braceletFrame(at('18:08:50'), ...TNT)).toMatchObject({ mode: 'steps', stepIndex: 0 });
+    // Six 9 s bead steps, then step 7 (14 s), then the knot steps.
+    expect(braceletFrame(at('18:07:34'), ...TNT)).toMatchObject({ stepIndex: 6 });
+    expect(braceletFrame(at('18:07:48'), ...TNT)).toMatchObject({ stepIndex: 7 });
+    expect(braceletFrame(at('18:08:03'), ...TNT)).toMatchObject({ stepIndex: 8 });
+    // One pass is 157 s: then it is back at step 1, still from the epic's end.
+    expect(braceletFrame(at('18:09:16'), ...TNT)).toMatchObject({ stepIndex: 12 });
+    expect(braceletFrame(at('18:09:17'), ...TNT)).toMatchObject({ stepIndex: 0, cycle: `steps:${at('18:06:40')}` });
   });
 
   it('chimes in the 10 s before each showing, never during one', () => {
@@ -101,7 +137,11 @@ describe('braceletFrame', () => {
   it('reports when the current step began, for the art\'s own clock', () => {
     const f = braceletFrame(at('18:06:55'), ...TNT);
     expect(f.stepIndex).toBe(1);
-    expect(new Date(f.stepStartMs)).toEqual(new Date(at('18:06:50')));
+    expect(new Date(f.stepStartMs)).toEqual(new Date(at('18:06:49')));
+    expect(f.stepElapsedSec).toBe(6);
+    const knot2 = braceletFrame(at('18:08:10'), ...TNT);
+    expect(knot2.stepIndex).toBe(8);
+    expect(new Date(knot2.stepStartMs)).toEqual(new Date(at('18:08:03')));
   });
 
   it('a leader can step the loop and play the epic now', () => {

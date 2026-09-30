@@ -16,7 +16,7 @@ import { useBirthdays } from '../hooks/useBirthdays.js';
 import { chipGeometry, inkEm, measureEm } from '../lib/chip.js';
 import { FAR_WAVE_KEEP, HOUSE, WARNING_TONES, shade } from '../lib/kit.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
-import { BRACELET_STEPS, EPIC_LEAD_SEC, braceletFrame, windowSpan } from '../lib/bracelets.js';
+import { BRACELET_STEPS, EPIC_LEAD_SEC, braceletFrame, stepSlotSec, windowSpan } from '../lib/bracelets.js';
 import { getBraceletSettings, manualEpicStart, subscribeBraceletSettings } from '../lib/braceletSettings.js';
 import { chimeOnce } from '../lib/chime.js';
 import { BEAD_TONES } from '../lib/braceletArt.js';
@@ -28,7 +28,7 @@ import handout2 from '../assets/bracelets/handout-2.jpg';
 // ─────────────────────────────────────────────────────────────
 // Bracelet Time (owner, 2026-09-30): on the two bracelet nights the T&T and
 // Sparks game windows show how to make the salvation bracelet instead of a
-// game clock. One step at a time (STEP_SEC each), an epic how-to every five
+// game clock. One step at a time (each for its own slot), an epic how-to every five
 // minutes with a chime and a countdown on the wall 10 s before it, and a
 // small corner chip keeping the window's end time and its warnings. What it
 // shows can be overridden from the Bracelet Time controls (B, or QuickNav):
@@ -53,8 +53,11 @@ function useBraceletSettings() {
   return { settings, manual };
 }
 
-/** 1-7 are the bead steps, 8-13 the handout's knot steps 1-6. */
-const chipFor = (i) => (i < 7 ? { label: 'Step', value: i + 1 } : { label: 'Knot', value: i - 6 });
+/**
+ * 1-7 are the bead steps, 8-13 the handout's knot steps 1-6: "Knot step",
+ * so KNOT 3 never reads as a third knot (step 7 has just tied two).
+ */
+const chipFor = (i) => (i < 7 ? { label: 'Step', value: i + 1 } : { label: 'Knot step', value: i - 6 });
 
 export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   const { settings, manual } = useBraceletSettings();
@@ -128,7 +131,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   // A held step replays its action every slot; each replay gets its own body
   // key, so the card crossfades into it instead of cutting (a still has
   // nothing to replay, so it keeps one key).
-  const holdStartMs = nowMs - ((nowMs - startMs) % 10_000);
+  const holdStartMs = nowMs - ((nowMs - startMs) % (stepSlotSec(settings.hold ?? 0) * 1000));
   let body;
   if (settings.display === 'handout1' || settings.display === 'handout2') {
     body = <Handout page={settings.display === 'handout1' ? 1 : 2} />;
@@ -248,7 +251,7 @@ const StepCard = ({ index, club, stepStartMs, still }) => {
       <Kicker size="calc(2.4 * var(--u))" className="pj-bracelet__kicker">{index < 7 ? 'Make your bracelet' : 'Tie the knot'}</Kicker>
       <Rail index={index} />
       <div className="pj-bracelet__chip">
-        <StepChip label={chip.label} value={chip.value} size="calc(5.4 * var(--u))" plate={club.deep} />
+        <StepChip label={chip.label} value={chip.value} size="calc(4.2 * var(--u))" plate={club.deep} />
       </div>
       <div className="pj-bracelet__stage">
         <BraceletStage step={index} startMs={stepStartMs} still={still} />
@@ -277,7 +280,7 @@ const Epic = ({ startMs, nowMs, club, still }) => {
       </div>
       <div className="pj-bracelet__caption">
         {i != null && <BeadTitle text={BRACELET_STEPS[i].title} color={BRACELET_STEPS[i].color} />}
-        {i != null && <p className="pj-body pj-bracelet__words">{chipFor(i).label} {chipFor(i).value}</p>}
+        {i != null && <p className="pj-body pj-bracelet__words">{BRACELET_STEPS[i].words}</p>}
         {finale && <p className="pj-body pj-bracelet__words">Now make yours, one bead at a time.</p>}
       </div>
       <span className="sr-only">{club.name}</span>

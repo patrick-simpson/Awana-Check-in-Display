@@ -22,9 +22,6 @@ import { mulberry32 } from './color.js';
 export const STAGE_W = 1460;
 export const STAGE_H = 560;
 
-/** One step's loop on the wall (lib/bracelets.js STEP_SEC; a test pins them together). */
-export const LOOP_SEC = 10;
-
 // ── The palette ──────────────────────────────────────────────
 // The six bead colours are the lobby poster's (BraceletsPromo.jsx BEADS, in
 // gospel order; a test pins them), plus the clear slider bead.
@@ -253,8 +250,6 @@ const mix = (a, b, t) => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)];
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - ((-2 * t + 2) ** 3) / 2);
 /** @param {number} t */
 const easeOut = (t) => 1 - (1 - t) ** 3;
-/** @param {number} t */
-const easeIn = (t) => t * t * t;
 /** Overshoot and settle: a pop. @param {number} t */
 const backOut = (t) => {
   const c = 1.9;
@@ -518,7 +513,9 @@ function gloveByPalm(palm, pose, o) {
  */
 function carriedBead(p, { from, entry, thread, to, t0, t1, t2, t3 }) {
   const dir = Math.sign(to - entry) || 1;
-  const a = easeOut(seg(p, t0, t1));
+  // (in from off the stage, so it may start slowly there: no hand ever
+  // streaks across a frame, even in the epic's quick bead beats)
+  const a = easeInOut(seg(p, t0, t1));
   let x = lerp(from[0], entry, a);
   let y = lerp(from[1], ROW_Y, a) - 26 * Math.sin(Math.PI * a);
   let rot = -14 * dir * (1 - a);
@@ -528,7 +525,10 @@ function carriedBead(p, { from, entry, thread, to, t0, t1, t2, t3 }) {
     rot = 4 * dir * Math.sin(Math.PI * seg(p, t1, t2));
   }
   if (p > t2) {
-    x = lerp(thread, to, easeInOut(seg(p, t2, t3)));
+    // (a smoothstep: the first bead slides the whole cord, and a steeper
+    // ease streaked it across frames in the epic's quick beats)
+    const k = seg(p, t2, t3);
+    x = lerp(thread, to, k * k * (3 - 2 * k));
     rot = 0;
   }
   const q = Math.sin(Math.PI * seg(p, t3, t3 + 0.09));
@@ -582,7 +582,10 @@ const edgeTilt = (p, side) => side * 40 * (1 - seg(p, 0.42, 0.62));
  * @returns {GloveItem[]}
  */
 function pointerLeaves(p, tx, id) {
-  const k = easeIn(seg(p, 0, 0.1));
+  // Gone before the next bead's hand comes in (it is the same hand); a
+  // gentle ease-in, so it never streaks, even in the epic's quick beats.
+  const e = seg(p, 0, 0.1);
+  const k = e * (0.6 + 0.4 * e);
   if (k >= 1) return [];
   const r = restingPointer(tx, id);
   return [glove(r.x + 150 * k, r.y + 330 * k, 'point', { id, rot: lerp(POINT_REST.rot, -20, k), s: POINT_REST.s })];
@@ -1378,14 +1381,15 @@ const stepOf = (stepIndex) => clamp(Math.round(Number.isFinite(stepIndex) ? step
 const progressOf = (p) => (Number.isFinite(p) ? clamp01(p) : 1);
 
 /**
- * How long step i's action takes in the one-step loop, in seconds (it then
- * holds its finished picture until LOOP_SEC).
- * @param {number} stepIndex
+ * How long step i's action takes in the one-step loop, in seconds, at a
+ * child's pace; it then holds its finished picture for the rest of its slot
+ * (lib/bracelets.js STEP_SLOTS; a test keeps a hold of at least 3 s).
  */
+const ACTION_SEC = Object.freeze([6, 6, 6, 6, 6, 6, 9, 9, 11.5, 7, 9.5, 11.5, 9.5]);
+
+/** @param {number} stepIndex */
 export function actionSec(stepIndex) {
-  const i = stepOf(stepIndex);
-  if (i < 6) return 6.2;
-  return 7;
+  return ACTION_SEC[stepOf(stepIndex)];
 }
 
 /**
@@ -1562,7 +1566,10 @@ export const EPIC_SEC = 90;
 
 /** @typedef {{ kind: 'intro' | 'step' | 'finale', step?: number, start: number, end: number }} EpicBeat */
 
-const BEAT_LENGTHS = [4, 5.5, 5.5, 5.5, 5.5, 5.5, 5.5, 6.5, 6.75, 6.75, 6.75, 6.75, 6.75, 6.75, 6];
+// The intro, the six bead steps, step 7, the six knot steps, the finale:
+// the time goes where the hands have the most to do (the wraps and the
+// push), and the X, which is only a look, is quick.
+const BEAT_LENGTHS = [4, 4.5, 4.5, 4.5, 4.5, 4.5, 4.5, 7, 7, 9.5, 4.5, 7.5, 10, 7.5, 6];
 
 /** The epic's beats, in order, covering 0..EPIC_SEC exactly. */
 export const EPIC_BEATS = /** @type {readonly EpicBeat[]} */ (Object.freeze((() => {

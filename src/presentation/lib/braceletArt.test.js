@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BEAD_ORDER, BEAD_TONES, BRACELET_ROW, EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, LOOP_SEC, SAFE_BOX, STAGE_H, STAGE_W, STEP_COUNT,
+  BEAD_ORDER, BEAD_TONES, BRACELET_ROW, EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, SAFE_BOX, STAGE_H, STAGE_W, STEP_COUNT,
   actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepProgress,
 } from './braceletArt.js';
-import { BRACELET_STEPS, EPIC_SEC as CADENCE_EPIC_SEC, STEP_SEC } from './bracelets.js';
+import { BRACELET_STEPS, EPIC_SEC as CADENCE_EPIC_SEC, stepSlotSec } from './bracelets.js';
 // Tests may reach across the isolation rule to pin two copies of one thing.
 import { BEADS } from '../../components/promos/BraceletsPromo.jsx';
 
@@ -68,7 +68,6 @@ describe('the stage and the palette', () => {
 
   it('draws one picture per handout step, on the cadence\'s clock', () => {
     expect(STEP_COUNT).toBe(BRACELET_STEPS.length);
-    expect(LOOP_SEC).toBe(STEP_SEC);
     expect(EPIC_SEC).toBe(CADENCE_EPIC_SEC);
   });
 });
@@ -80,17 +79,17 @@ describe('stepProgress', () => {
       expect(stepProgress(i, -3)).toBe(0);
       expect(stepProgress(i, Number.NaN)).toBe(0);
       expect(stepProgress(i, actionSec(i))).toBe(1);
-      expect(stepProgress(i, LOOP_SEC - 0.01)).toBe(1);
+      expect(stepProgress(i, stepSlotSec(i) - 0.01)).toBe(1);
       expect(stepProgress(i, 999)).toBe(1);
     }
   });
 
-  it('plays over roughly the first 6 to 7 seconds of the 10, never backwards', () => {
+  it('plays at a child\'s pace, then holds the finished picture at least 3 s of its slot, never backwards', () => {
     for (const i of STEPS) {
       expect(actionSec(i)).toBeGreaterThanOrEqual(6);
-      expect(actionSec(i)).toBeLessThanOrEqual(7);
+      expect(actionSec(i)).toBeLessThanOrEqual(stepSlotSec(i) - 3);
       let last = 0;
-      for (let t = 0; t <= LOOP_SEC; t += 0.05) {
+      for (let t = 0; t <= stepSlotSec(i); t += 0.05) {
         const p = stepProgress(i, t);
         expect(p).toBeGreaterThanOrEqual(last);
         expect(p).toBeLessThanOrEqual(1);
@@ -269,16 +268,20 @@ describe('the epic', () => {
     expect(EPIC_BEATS).toHaveLength(15);
   });
 
-  it('gives each beat a child\'s pace: ~4 s intro, ~6 s steps (knots a little more), ~6 s finale', () => {
+  it('spends its time where the hands have the most to do: the wraps and the push', () => {
     const len = (b) => b.end - b.start;
     expect(len(EPIC_BEATS[0])).toBeCloseTo(4, 5);
     expect(len(EPIC_BEATS.at(-1))).toBeCloseTo(6, 5);
     const steps = EPIC_BEATS.filter((b) => b.kind === 'step');
     for (const b of steps) {
-      expect(len(b)).toBeGreaterThanOrEqual(5);
-      expect(len(b)).toBeLessThanOrEqual(7.5);
+      expect(len(b)).toBeGreaterThanOrEqual(4.5);
+      expect(len(b)).toBeLessThanOrEqual(10);
     }
-    expect(len(steps[9])).toBeGreaterThan(len(steps[0]));
+    // The wrap and the push get the most; the X, only a look, the least of the knots.
+    const knots = steps.slice(7).map(len);
+    expect(Math.max(...knots)).toBe(len(steps[11]));
+    expect(len(steps[8])).toBeGreaterThan(len(steps[7]));
+    expect(len(steps[9])).toBeLessThan(len(steps[8]));
   });
 
   it('is well defined every quarter second: finite, on the stage, the camera never shows past its edge', () => {
@@ -438,7 +441,7 @@ describe('the hands move like hands', () => {
   it('never teleport, pop or snap in the one-step loop (30 fps)', () => {
     const bad = STEPS.flatMap((i) => {
       const frames = [];
-      for (let f = 0; f <= LOOP_SEC * FPS; f += 1) frames.push({ at: `t=${(f / FPS).toFixed(2)}`, items: sceneFor(i, stepProgress(i, f / FPS)) });
+      for (let f = 0; f <= stepSlotSec(i) * FPS; f += 1) frames.push({ at: `t=${(f / FPS).toFixed(2)}`, items: sceneFor(i, stepProgress(i, f / FPS)) });
       return hops(frames, `step ${i + 1}`);
     });
     expect(bad).toEqual([]);
