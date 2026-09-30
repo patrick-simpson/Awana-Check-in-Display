@@ -220,7 +220,9 @@ const StepCard = ({ index, club, stepStartMs, still }) => {
 const Epic = ({ startMs, nowMs, club, still }) => {
   const sec = Math.max(0, (nowMs - startMs) / 1000);
   const i = currentEpicStep(sec);
-  const title = i == null ? (sec < 10 ? "Let's make a bracelet!" : 'Your turn!') : BRACELET_STEPS[i].title;
+  // The finale's art already shouts "YOUR TURN!", so its caption only says how.
+  const finale = i == null && sec >= 10;
+  const title = i == null ? "Let's make a bracelet!" : BRACELET_STEPS[i].title;
   return (
     <div className="pj-bracelet__card pj-bracelet__card--epic">
       <Kicker size="calc(2.4 * var(--u))" className="pj-bracelet__kicker">Watch how!</Kicker>
@@ -229,8 +231,9 @@ const Epic = ({ startMs, nowMs, club, still }) => {
         <EpicStage startMs={startMs} still={still} />
       </div>
       <div className="pj-bracelet__caption">
-        <BeadTitle text={title} color={i != null ? BRACELET_STEPS[i].color : undefined} />
+        {!finale && <BeadTitle text={title} color={i != null ? BRACELET_STEPS[i].color : undefined} />}
         {i != null && <p className="pj-body pj-bracelet__words">{chipFor(i).label} {chipFor(i).value}</p>}
+        {finale && <p className="pj-body pj-bracelet__words">Now make yours, one bead at a time.</p>}
       </div>
       <span className="sr-only">{club.name}</span>
     </div>

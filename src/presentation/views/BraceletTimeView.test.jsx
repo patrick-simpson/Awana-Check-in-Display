@@ -54,6 +54,14 @@ describe('BraceletTimeView', () => {
     expect(c.textContent).toMatch(/Watch how!/i);
   });
 
+  it('leaves the finale\'s shout to the art: the caption only says how', () => {
+    const c = wall(at('18:06:36')); // 86 s into the epic that started at 18:05:10
+    expect(phase(c)).toBe('epic');
+    const caption = c.querySelector('.pj-bracelet__caption');
+    expect(caption.querySelector('h1')).toBeNull();
+    expect(caption.textContent).toMatch(/Now make yours/);
+  });
+
   it('then goes one step at a time from step 1, with the end time in the corner', () => {
     const c = wall(at('18:06:45'));
     expect(phase(c)).toBe('steps');
