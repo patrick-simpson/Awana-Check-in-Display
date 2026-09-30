@@ -153,6 +153,23 @@ describe('BraceletTimeView', () => {
     expect(chimeOnce).not.toHaveBeenCalled();
   });
 
+  it('replays a held step without blanking the card: only the picture dips into each replay', async () => {
+    setBraceletSettings({ hold: 4 });
+    const props = { window: TNT, endsAt: ENDS_AT, tally: null };
+    stageClock.nowMs = at('18:05:25').getTime();
+    const { container, rerender } = render(<BraceletTimeView now={at('18:05:25')} {...props} />);
+    const rail = container.querySelector('.pj-bracelet__rail');
+    const caption = container.querySelector('.pj-bracelet__caption');
+    const stage = container.querySelector('[data-testid="stage"]');
+    // Step 5's slot is 9 s from 18:05:00: a new replay at 18:05:27.
+    stageClock.nowMs = at('18:05:28').getTime();
+    rerender(<BraceletTimeView now={at('18:05:28')} {...props} />);
+    await waitFor(() => expect(container.querySelector('[data-testid="stage"]')).not.toBe(stage));
+    expect(container.querySelector('.pj-bracelet__rail')).toBe(rail);
+    expect(container.querySelector('.pj-bracelet__caption')).toBe(caption);
+    expect(container.querySelectorAll('[data-testid="stage"]')).toHaveLength(1);
+  });
+
   it('shows stills and no epic with animations off', () => {
     setBraceletSettings({ still: true });
     const c = wall(at('18:05:25'));

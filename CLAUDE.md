@@ -1442,7 +1442,8 @@ night are untouched.
   `actionSec` plays each action at a child's pace, then holds the finished
   picture at least 3 s). A step never starts in the last 4 s before a
   showing, so the wall's first ten seconds are step 1 alone; a held step
-  replays on its own slot. The epic's beats (`EPIC_BEATS`, still 90 s) put
+  replays on its own slot, the card staying up and only the picture dipping
+  into each replay. The epic's beats (`EPIC_BEATS`, still 90 s) put
   the time where the hands work: 4.5 s a bead, 9.5 s the wraps, 10 s the
   push, 4.5 s the X, which is only a look. The handout's words are
   `BRACELET_STEPS` (7 bead steps, then the knot steps, whose chips read KNOT

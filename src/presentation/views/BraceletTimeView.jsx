@@ -132,9 +132,10 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   const birthdayTurn = quiet && names != null && Math.floor(nowMs / 1000 / BIRTHDAY_TURN_SEC) % 2 === 1;
   const showCount = count != null && quiet && !birthdayTurn;
 
-  // A held step replays its action every slot; each replay gets its own body
-  // key, so the card crossfades into it instead of cutting (a still has
-  // nothing to replay, so it keeps one key).
+  // A held step replays its action every slot. The card stays up, as it does
+  // from step to step, and only the picture dips into each replay (StepCard's
+  // `run`); keyed per replay, the whole card blanked every few seconds. A
+  // still has nothing to replay.
   const holdStartMs = nowMs - ((nowMs - startMs) % (stepSlotSec(settings.hold ?? 0) * 1000));
   let body;
   if (settings.display === 'handout1' || settings.display === 'handout2') {
@@ -142,7 +143,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   } else if (settings.display === 'overview') {
     body = <Overview nowMs={nowMs} club={club} />;
   } else if (settings.hold != null) {
-    body = <StepCard index={settings.hold} club={club} stepStartMs={holdStartMs} still={still} />;
+    body = <StepCard index={settings.hold} club={club} stepStartMs={holdStartMs} still={still} run={still ? undefined : holdStartMs} />;
   } else if (frame.mode === 'epic') {
     body = <Epic startMs={frame.epicStartMs} nowMs={nowMs} club={club} still={still} />;
   } else {
@@ -153,7 +154,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   // change with the step crossfade (see StepCard), so the wall no longer
   // blinks as a whole at every step.
   const bodyKey = settings.display !== 'auto' ? settings.display
-    : settings.hold != null ? `hold:${settings.hold}${still ? '' : `:${holdStartMs}`}`
+    : settings.hold != null ? `hold:${settings.hold}`
       : frame.mode === 'epic' ? `epic:${frame.epicStartMs}` : frame.cycle;
 
   return (
@@ -280,7 +281,7 @@ const Changing = ({ k, still, wait = false, children }) => (
  */
 const stageRun = (i) => (i < 8 ? 'row' : 'knot');
 
-const StepCard = ({ index, club, stepStartMs, still }) => {
+const StepCard = ({ index, club, stepStartMs, still, run }) => {
   const step = BRACELET_STEPS[index];
   const chip = chipFor(index);
   const kicker = index < 7 ? 'Make your bracelet' : 'Tie the knot';
@@ -295,7 +296,7 @@ const StepCard = ({ index, club, stepStartMs, still }) => {
           <StepChip label={chip.label} value={chip.value} size="calc(4.2 * var(--u))" plate={club.deep} />
         </div>
       </Changing>
-      <Changing k={stageRun(index)} still={still} wait>
+      <Changing k={run != null ? `${stageRun(index)}:${run}` : stageRun(index)} still={still} wait>
         <div className="pj-bracelet__stage">
           <BraceletStage step={index} startMs={stepStartMs} still={still} />
         </div>
