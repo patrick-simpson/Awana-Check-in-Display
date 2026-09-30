@@ -197,6 +197,27 @@ describe('BraceletTimeView', () => {
     expect(c.querySelector('img[alt*="page 2"]')).not.toBeNull();
   });
 
+  it('turns the full instructions\' two pages over through black, never swapping them in one frame', async () => {
+    setBraceletSettings({ display: 'overview' });
+    const props = { window: TNT, endsAt: ENDS_AT, tally: null };
+    const kicker = (c) => c.querySelector('.pj-bracelet__overview').textContent;
+    // The pages take turns every 20 s: find the change after 18:10:00.
+    const pageAt = (hms) => { const c = wall(at(hms)); const k = /adjustable knot/i.test(kicker(c)); cleanup(); return k; };
+    let t = 0;
+    while (pageAt(`18:10:${String(t).padStart(2, '0')}`) === pageAt('18:10:00')) t += 1;
+    const before = `18:10:${String(t - 1).padStart(2, '0')}`;
+    const after = `18:10:${String(t).padStart(2, '0')}`;
+    stageClock.nowMs = at(before).getTime();
+    const { container, rerender } = render(<BraceletTimeView now={at(before)} {...props} />);
+    const was = kicker(container);
+    rerender(<BraceletTimeView now={at(after)} {...props} />);
+    // The old page leaves first: one page on the wall, still the old one.
+    expect(container.querySelectorAll('.pj-bracelet__overview')).toHaveLength(1);
+    expect(kicker(container)).toBe(was);
+    await waitFor(() => expect(kicker(container)).not.toBe(was));
+    expect(container.querySelectorAll('.pj-bracelet__overview')).toHaveLength(1);
+  });
+
   it('an early start keeps its own cadence through 6:05: the epic is not cut off or chimed again', () => {
     // The leader ends the opening at 18:04:40: the epic starts at 18:04:50.
     const view = (now) => {

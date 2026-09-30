@@ -1549,7 +1549,7 @@ night are untouched.
   same framing (`stillFrame`), except step 7's still, which comes in on its
   finished row (clear beads and knots as big as the bead steps' beside it,
   the open hands out of the frame); the overview's chips are 1.7u, so its
-  pictures lead; and
+  pictures lead, and its two pages turn over through black every 20 s; and
   the safe-area tests measure the framed picture. The epic has its own
   camera (`CAMERA_KEYS`, look-at keys eased by smoothstep, cutting only where
   the picture itself cuts: the bead table after the intro, the close-up after

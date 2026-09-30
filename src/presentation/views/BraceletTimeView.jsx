@@ -141,7 +141,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   if (settings.display === 'handout1' || settings.display === 'handout2') {
     body = <Handout page={settings.display === 'handout1' ? 1 : 2} />;
   } else if (settings.display === 'overview') {
-    body = <Overview nowMs={nowMs} club={club} />;
+    body = <Overview nowMs={nowMs} club={club} still={still} />;
   } else if (settings.hold != null) {
     body = <StepCard index={settings.hold} club={club} stepStartMs={holdStartMs} still={still} run={still ? undefined : holdStartMs} />;
   } else if (frame.mode === 'epic') {
@@ -336,22 +336,26 @@ const Epic = ({ startMs, nowMs, club, still }) => {
 };
 
 /** The whole sheet at once, like the handout: the bead page, then the knot page. */
-const Overview = ({ nowMs, club }) => {
+const Overview = ({ nowMs, club, still }) => {
   const knots = Math.floor(nowMs / 1000 / OVERVIEW_PAGE_SEC) % 2 === 1;
   const steps = BRACELET_STEPS.map((s, i) => ({ s, i })).filter(({ i }) => (knots ? i >= 7 : i < 7));
+  // The two pages turn over through black, like the step card's parts (a
+  // one-frame swap of every thumbnail read as a glitch).
   return (
-    <div className="pj-bracelet__overview">
-      <Kicker size="calc(2.6 * var(--u))">{knots ? 'How to tie an adjustable knot' : 'Make your bracelet'}</Kicker>
-      <div className={`pj-bracelet__grid${knots ? ' is-knots' : ''}`}>
-        {steps.map(({ s, i }) => (
-          <div key={s.n} className="pj-bracelet__cell">
-            <StepChip label={chipFor(i).label} value={chipFor(i).value} size="calc(1.7 * var(--u))" plate={club.deep} />
-            <StepArt step={i} p={stillP(i)} camera={stillFrame(i)} className="pj-bracelet__thumb" />
-            <p className="pj-body pj-bracelet__cell-words">{s.words}</p>
-          </div>
-        ))}
+    <Changing k={knots ? 'knots' : 'beads'} still={still} wait>
+      <div className="pj-bracelet__overview">
+        <Kicker size="calc(2.6 * var(--u))">{knots ? 'How to tie an adjustable knot' : 'Make your bracelet'}</Kicker>
+        <div className={`pj-bracelet__grid${knots ? ' is-knots' : ''}`}>
+          {steps.map(({ s, i }) => (
+            <div key={s.n} className="pj-bracelet__cell">
+              <StepChip label={chipFor(i).label} value={chipFor(i).value} size="calc(1.7 * var(--u))" plate={club.deep} />
+              <StepArt step={i} p={stillP(i)} camera={stillFrame(i)} className="pj-bracelet__thumb" />
+              <p className="pj-body pj-bracelet__cell-words">{s.words}</p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </Changing>
   );
 };
 
