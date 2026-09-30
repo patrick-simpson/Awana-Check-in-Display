@@ -1193,6 +1193,69 @@
     border-color: rgb(255 255 255 / 0.8);
   }
 
+  /* ── The first-run setup note (SetupChecklist.jsx), touch form ── */
+  /* A card at the bottom-left, as wide as its words up to 560px, its two
+     buttons a finger's size; above the slide controls while a deck is up.
+     A phone on its side has no free band at all (the wall fills its height),
+     so there the note is not on the wall: the menu button carries a mark and
+     the sheet opens on Display Settings with the note's steps at its top. */
+  .pj-setup-note--touch {
+    left: max(10px, env(safe-area-inset-left));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    width: max-content;
+    max-width: min(560px, calc(100% - 20px));
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 8px 14px;
+    padding: 10px 12px 10px 14px;
+    font-size: 15px;
+    border-radius: 14px;
+  }
+  :root:has([data-slideshow-touch-nav]) .pj-setup-note--touch {
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px);
+  }
+  .pj-setup-note--touch .pj-setup-note__text,
+  .pj-sheet__setup .pj-setup-note__text { display: block; flex: 1 1 14rem; min-width: 0; }
+  .pj-setup-note--touch .pj-setup-note__kicker,
+  .pj-sheet__setup .pj-setup-note__kicker { font-size: 15px; white-space: normal; }
+  .pj-setup-note--touch .pj-setup-note__steps,
+  .pj-sheet__setup .pj-setup-note__steps { display: flex; flex-wrap: wrap; column-gap: 1.2em; margin-top: 4px; font-size: 14px; }
+  .pj-setup-note__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pj-setup-note--touch .pj-setup-note__go,
+  .pj-setup-note--touch .pj-setup-note__dismiss,
+  .pj-sheet__setup .pj-setup-note__dismiss {
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  @media (min-aspect-ratio: 43/20) {
+    .pj-setup-note--touch { display: none; }
+  }
+  .pj-sheet__setup {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 10px 0 2px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1.5px solid rgb(250 164 29 / 0.5);
+    background: rgb(250 164 29 / 0.08);
+  }
+  .pj-sheet__setup .pj-setup-note__where { margin: 6px 0 0; font-size: 14px; line-height: 1.4; color: rgb(255 255 255 / 0.65); }
+  .pj-touch-menu { position: relative; }
+  .pj-touch-menu[data-setup]::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--brand-orange);
+    border: 2px solid #000;
+  }
+
   /* ── The Bracelet Time controls as a bottom sheet (views/BraceletPanel.jsx) ── */
   .pj-bpanel__backdrop {
     /* A sheet from the bottom, under a strip of the dimmed wall that is a

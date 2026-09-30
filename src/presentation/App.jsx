@@ -227,7 +227,7 @@ export const App = () => {
       )}
       {panelOpen && <BraceletPanel active={bracelets} onClose={() => setBraceletPanel(false)} />}
       {isOverride && <ResumePill now={now} resumeAt={resumeAt} onStay={stay} />}
-      <SetupChecklist />
+      {touch ? <SetupChecklist touch onSetUp={() => setMenu('display')} /> : <SetupChecklist />}
     </div>
     </MotionConfig>
   );

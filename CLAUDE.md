@@ -1434,6 +1434,18 @@ rule for all of it is that **the desktop does not change at all**.
   properties whose fallbacks are the PC's inline values
   (`--pj-stay-size`, `--pj-resume-size`, `--pj-resume-bottom`,
   `--pj-restart-size`, `--pj-reload-size`).
+- **The first-run note on touch** (`SetupChecklist` with `touch`) is a card
+  at the bottom-left, as wide as its words up to 560px, standing above the
+  slide controls while a deck is up (`:has([data-slideshow-touch-nav])`),
+  with the same steps, no "hover" in its words, and two 44px buttons: "Set
+  up" opens the menu on Display Settings, "Don't show again" is for good. A
+  phone on its side has no free band at all (the wall fills its height), so
+  there it leaves the wall: the menu button carries an orange mark
+  (`data-setup`) and the sheet opens on Display Settings with the note's
+  steps at its top (`inSheet`), as it does on any touch device while the
+  screen is not set up. The dismissal is one store (`dismissSetup`,
+  `useSetupNeeded`) because three things read it; the PC's note renders as
+  it did. The `:has([data-pj-bottom-overlay])` rule hides the touch card too.
 - **Sound needs a tap.** WebKit plays a page's audio only from a context made
   or resumed inside a gesture, so on touch App wakes the countdown chimes'
   context on every tap (`unlockStingers`, only once they are armed), and the
@@ -1441,14 +1453,18 @@ rule for all of it is that **the desktop does not change at all**.
 - Tests: `lib/touch.test.js`, `views/TouchMenu.test.jsx`,
   `views/BraceletPanel.test.jsx`, `views/SlideshowView.touch.test.jsx`,
   `views/CountdownView.touch.test.jsx`, `views/ShutdownView.touch.test.jsx`,
-  `lib/stingers.test.js`, and
+  `components/SetupChecklist.touch.test.jsx`, `lib/stingers.test.js`, and
   `e2e/touch.spec.js`, which runs Chromium's own touch emulation of the
   iPhone 14, Pixel 7 and iPad Pro 11 descriptors (their viewports are the
   area under the browser's toolbars, 390x664 on an iPhone 14, which is what a
   page really gets), both ways up: the menu by tap and every control in it at
   least 44px, its picks, the switches, taps on the wall that never reach a
   hidden control, the countdown's two-tap skip, the shutdown's Start Over
-  (and taps on its words that restart nothing), Stay at 44px, the opening
+  (and taps on its words that restart nothing), Stay at 44px, the setup
+  note (inside the screen, never overflowing, 14px type or more, covering no
+  word or chip of the countdown, game time, Bracelet Time or the opening
+  deck, its Set up opening Display Settings; off the wall on a phone on its
+  side, the mark and the sheet's copy instead), the opening
   deck by tap zones and real swipes to games, Exit twice, and tonight's
   Bracelet Time controls by tap.
 

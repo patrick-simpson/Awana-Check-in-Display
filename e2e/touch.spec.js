@@ -304,6 +304,104 @@ for (const [name, use] of DEVICES) {
   });
 }
 
+/* ── The first-run setup note on touch ─────────────────────────────────── */
+
+/** A new screen: no live-data key and the note not dismissed (on the first load only, so a dismissal holds). */
+const NO_KEY = () => {
+  localStorage.setItem('awanaConfig.v1', JSON.stringify({ pusherAppKey: '' }));
+  if (!sessionStorage.getItem('pj-seeded')) {
+    sessionStorage.setItem('pj-seeded', '1');
+    localStorage.removeItem('awanaSetupChecklistDismissed.v1');
+  }
+};
+const overlaps = (a, b) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a.top < b.bottom - 0.5 && a.bottom > b.top + 0.5;
+
+/** Every visible piece of the wall's text and every chip, and the note, in px. */
+const noteAndWall = (page) => page.evaluate(() => {
+  const note = document.querySelector('[data-setup-checklist]');
+  const box = (r) => ({ left: r.left, top: r.top, right: r.right, bottom: r.bottom });
+  const content = [];
+  const walker = document.createTreeWalker(document.querySelector('[data-mode]'), NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (!n.data.trim()) continue;
+    let opacity = 1;
+    for (let e = n.parentElement; e; e = e.parentElement) opacity *= parseFloat(getComputedStyle(e).opacity);
+    if (opacity < 0.2 || n.parentElement.closest('.pj-reel')) continue;
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    for (const r of range.getClientRects()) if (r.width > 1 && r.height > 1) content.push({ name: n.data.trim().slice(0, 24), ...box(r) });
+  }
+  for (const el of document.querySelectorAll('[data-mode] .pj-chip, [data-timer], [data-slideshow-touch-nav]')) content.push({ name: el.getAttribute('aria-label') || el.className, ...box(el.getBoundingClientRect()) });
+  return {
+    note: note && { ...box(note.getBoundingClientRect()), overflow: note.scrollWidth - note.clientWidth, fonts: [...note.querySelectorAll('p, li, button')].map((e) => parseFloat(getComputedStyle(e).fontSize)) },
+    content,
+  };
+});
+
+// Where a phone on its side has no band at all, the note leaves the wall.
+const WALL_NOTE = DEVICES.filter(([name]) => !/iPhone 14 landscape/.test(name));
+
+for (const [name, use] of WALL_NOTE) {
+  test.describe(`the setup note on ${name}`, () => {
+    test.use(use);
+
+    for (const [wall, now] of [['the countdown', TUESDAY], ['game time', '2026-09-16T18:20:00'], ['Bracelet Time', BRACELETS], ['the opening deck', OPENING]]) {
+      test(`fits, covers nothing on ${wall}, and its buttons are a finger's size`, async ({ page }) => {
+        await page.addInitScript(NO_KEY);
+        await page.goto(at(now));
+        const note = page.locator('[data-setup-checklist]');
+        await expect(note).toBeVisible();
+        await expect(note).not.toContainText(/[Hh]over/);
+        await page.evaluate(() => document.fonts.ready);
+        await page.waitForTimeout(1800);
+        const m = await noteAndWall(page);
+        const vp = page.viewportSize();
+        expect(m.note.left).toBeGreaterThanOrEqual(0);
+        expect(m.note.right).toBeLessThanOrEqual(vp.width + 0.5);
+        expect(m.note.bottom).toBeLessThanOrEqual(vp.height + 0.5);
+        expect(m.note.overflow).toBeLessThanOrEqual(1);
+        for (const f of m.note.fonts) expect(f).toBeGreaterThanOrEqual(14);
+        expect(m.content.filter((c) => overlaps(m.note, c)).map((c) => c.name)).toEqual([]);
+        await expectTarget(note.getByRole('button', { name: 'Set up' }), 'Set up');
+        await expectTarget(note.getByRole('button', { name: /show again/ }), "Don't show again");
+      });
+    }
+
+    test('Set up opens the menu on Display Settings, and "Don\'t show again" puts it away', async ({ page }) => {
+      await page.addInitScript(NO_KEY);
+      await page.goto(at(TUESDAY));
+      await page.locator('[data-setup-checklist]').getByRole('button', { name: 'Set up' }).tap();
+      await expect(sheet(page)).toBeVisible();
+      await expect(sheet(page).getByLabel('Display passphrase')).toBeVisible();
+      await sheet(page).getByRole('button', { name: 'Close the menu' }).tap();
+      await page.locator('[data-setup-checklist]').getByRole('button', { name: /show again/ }).tap();
+      await expect(page.locator('[data-setup-checklist]')).toHaveCount(0);
+      await expect(menuButton(page)).not.toHaveAttribute('data-setup', /.*/);
+      expect(await page.evaluate(() => localStorage.getItem('awanaSetupChecklistDismissed.v1'))).toBe('1');
+    });
+  });
+}
+
+test.describe('the setup note on a phone on its side', () => {
+  test.use(DEVICES[1][1]);
+
+  test('leaves the wall: the menu button carries the mark, and the sheet opens on the steps', async ({ page }) => {
+    await page.addInitScript(NO_KEY);
+    await page.goto(at(TUESDAY));
+    await expect(page.locator('[data-mode="countdown"]')).toBeVisible();
+    await expect(page.locator('[data-setup-checklist]')).toBeHidden();
+    await expect(menuButton(page)).toHaveAttribute('data-setup', /^$/);
+    await menuButton(page).tap();
+    const notice = sheet(page).locator('[data-setup-in-sheet]');
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText(/Display Settings, below/);
+    await expect(sheet(page).getByLabel('Display passphrase')).toBeVisible();
+    await notice.getByRole('button', { name: /show again/ }).tap();
+    await expect(notice).toHaveCount(0);
+    await expect(menuButton(page)).not.toHaveAttribute('data-setup', /.*/);
+  });
+});
+
 /* ── Bracelet Time by tap (tonight, 2026-09-30, and Oct 7) ─────────────── */
 
 for (const [name, use] of [DEVICES[0], DEVICES[1], DEVICES[3]]) {

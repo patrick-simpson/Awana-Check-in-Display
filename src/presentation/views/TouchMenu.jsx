@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useClockDrift } from '../hooks/useClockDrift.js';
+import { SetupChecklist, useSetupNeeded } from '../components/SetupChecklist.jsx';
 import { CLOCK_DRIFT_HELP, QuickNavItems } from './QuickNav.jsx';
 
 /**
@@ -20,6 +21,10 @@ import { CLOCK_DRIFT_HELP, QuickNavItems } from './QuickNav.jsx';
  */
 export const TouchMenu = ({ now, state, isOverride, onSelect, onResume, socketStatus, onBracelets, open, displayOpen, onOpen, onClose }) => {
   const skewMs = useClockDrift();
+  // A screen still to be set up: the button carries a mark (on a phone on its
+  // side the wall has no room for the setup note), and the sheet opens on
+  // Display Settings with the note's steps at its top.
+  const setup = useSetupNeeded().show;
   return (
     <>
       <div className="pj-touch-bar">
@@ -30,8 +35,11 @@ export const TouchMenu = ({ now, state, isOverride, onSelect, onResume, socketSt
           aria-label="Open the menu"
           aria-haspopup="dialog"
           aria-expanded={open}
+          aria-describedby={setup ? 'pj-touch-menu-setup' : undefined}
           data-touch-menu
+          data-setup={setup ? '' : undefined}
         >
+          {setup && <span id="pj-touch-menu-setup" className="sr-only">This display still needs setting up</span>}
           <MenuIcon />
         </button>
         {skewMs !== null && <ClockDriftPill skewMs={skewMs} />}
@@ -43,7 +51,7 @@ export const TouchMenu = ({ now, state, isOverride, onSelect, onResume, socketSt
           state={state}
           isOverride={isOverride}
           socketStatus={socketStatus}
-          displayOpen={displayOpen}
+          displayOpen={displayOpen || setup}
           onSelect={(pick) => {
             onSelect(pick);
             onClose();
@@ -153,6 +161,7 @@ const MenuSheet = ({ onClose, ...items }) => {
       </div>
       <div className="pj-sheet__body">
         <div className="pj-sheet__column">
+          <SetupChecklist touch inSheet />
           <QuickNavItems touch {...items} />
         </div>
       </div>
