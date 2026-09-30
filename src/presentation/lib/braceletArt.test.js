@@ -200,6 +200,17 @@ describe('sceneFor', () => {
     expect(xGold(sceneFor(9, 1))).toHaveLength(2);
   });
 
+  it('lights each landing from behind the whole row: its pop is drawn before the cord, the fist and the beads', () => {
+    for (const i of [0, 1, 2, 3, 4, 5, 6]) {
+      for (let p = 0; p <= 1; p += 0.005) {
+        const items = sceneFor(i, p);
+        const firstSolid = items.findIndex((it) => ['cord', 'bead', 'glove', 'knot'].includes(it.kind));
+        const lastPop = items.findLastIndex((it) => it.kind === 'burst' || it.kind === 'sparkle');
+        if (lastPop >= 0) expect(lastPop, `step ${i + 1} p=${p.toFixed(3)}`).toBeLessThan(firstSolid);
+      }
+    }
+  });
+
   it('never rings the X on step 10, even in passing: a circled X reads as "no"', () => {
     for (let p = 0; p <= 1; p += 0.005) expect(sceneFor(9, p).filter((i) => i.kind === 'ring'), `p=${p.toFixed(3)}`).toEqual([]);
   });

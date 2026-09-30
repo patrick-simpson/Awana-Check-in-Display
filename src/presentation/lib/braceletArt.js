@@ -621,17 +621,16 @@ const BEAD_TIMES = { t0: 0.1, t1: 0.28, t2: 0.4, t3: 0.84 };
  * @param {number} k @param {number} p @returns {Item[]}
  */
 function beadStep(k, p) {
+  const tx = slotX(k + 1);
+  // The landing pop is a glow behind the whole row: pushed after the fist
+  // and the beads already on the cord, its rays read as gold stripes painted
+  // across them.
   /** @type {Item[]} */
-  const items = [rowCord()];
-  for (let i = 0; i < k; i += 1) items.push(bead(slotX(i + 1), ROW_Y, BEAD_ORDER[i]));
+  const items = [...landingPop(p, 0.84, tx, ROW_Y, { seed: k + 1 }), rowCord()];
   items.push(holdingFist());
   // The beads always sit in front of the fist that holds the cord (the thumb
   // never jumps from under the black bead to over it between steps).
-  const beadsNow = items.splice(1, k);
-  items.push(...beadsNow);
-  const tx = slotX(k + 1);
-  // Its pop sits behind the bead it celebrates.
-  items.push(...landingPop(p, 0.84, tx, ROW_Y, { seed: k + 1 }));
+  for (let i = 0; i < k; i += 1) items.push(bead(slotX(i + 1), ROW_Y, BEAD_ORDER[i]));
   const b = carriedBead(p, { from: FROM_RIGHT, entry: ROW_R + 58, thread: ROW_R - 46, to: tx, ...BEAD_TIMES });
   if (p >= BEAD_TIMES.t0) {
     items.push(bead(b.x, b.y, BEAD_ORDER[k], { rot: b.rot, sx: b.sx, sy: b.sy }));
@@ -719,17 +718,19 @@ const TIE = { loop: 0.53, tuck: 0.63, pull: 0.72, tied: 0.85 };
 function finishStep(p) {
   const tieL = tying(p, -1);
   const tieR = tying(p, 1);
+  // Pops first, a glow behind the whole row (see beadStep): the clear beads
+  // landing, then the knots.
   /** @type {Item[]} */
-  const items = [];
+  const items = [
+    ...landingPop(p, 0.42, slotX(0), ROW_Y, { seed: 7, size: 0.85 }),
+    ...landingPop(p, 0.42, slotX(7), ROW_Y, { seed: 8, size: 0.85 }),
+    ...landingPop(p, TIE.tied - 0.02, slotX(0) - KNOT_OFF, ROW_Y, { seed: 9, size: 0.7 }),
+    ...landingPop(p, TIE.tied - 0.02, slotX(7) + KNOT_OFF, ROW_Y, { seed: 10, size: 0.7 }),
+  ];
   // The cord: whole, until the ends are being tied.
   if (tieL.cords) items.push(cord([[tieL.kx + 58, ROW_Y], [tieR.kx - 58, ROW_Y]]));
   else items.push(rowCord());
   for (let i = 0; i < 6; i += 1) items.push(bead(slotX(i + 1), ROW_Y, BEAD_ORDER[i]));
-  // Pops first, so they sit behind the beads and knots they celebrate.
-  items.push(...landingPop(p, 0.42, slotX(0), ROW_Y, { seed: 7, size: 0.85 }));
-  items.push(...landingPop(p, 0.42, slotX(7), ROW_Y, { seed: 8, size: 0.85 }));
-  items.push(...landingPop(p, TIE.tied - 0.02, slotX(0) - KNOT_OFF, ROW_Y, { seed: 9, size: 0.7 }));
-  items.push(...landingPop(p, TIE.tied - 0.02, slotX(7) + KNOT_OFF, ROW_Y, { seed: 10, size: 0.7 }));
 
   // The holding hand lets go of the cord and draws back to the left for a
   // clear bead, fading as it goes (never down through the stage's lower
