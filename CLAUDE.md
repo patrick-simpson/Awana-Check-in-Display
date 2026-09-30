@@ -1425,9 +1425,17 @@ night are untouched.
   before every showing, the first included, are the corner's BIG HOW-TO IN
   chip and the chime), an EPIC how-to (`EPIC_SEC` 90) 10 s after the window opens and every
   5 minutes, only if it ends before the TWO MINUTES warning
-  (`EPIC_CLEAR_OF_END_SEC`), then one step at a time (`STEP_SEC` 10, from step
-  1 after each epic). The handout's words are `BRACELET_STEPS` (7 bead steps,
-  then the knot steps, shown as KNOT 1-6 like the handout's page 2). The
+  (`EPIC_CLEAR_OF_END_SEC`), then one step at a time, from step 1 after each
+  epic, each for its own slot (`STEP_SLOTS`: 9 s a bead step, 14 s step 7,
+  15 / 16 / 12 / 15 / 16 / 15 s the knot steps, 157 s a pass; the art's
+  `actionSec` plays each action at a child's pace, then holds the finished
+  picture at least 3 s). A step never starts in the last 4 s before a
+  showing, so the wall's first ten seconds are step 1 alone; a held step
+  replays on its own slot. The epic's beats (`EPIC_BEATS`, still 90 s) put
+  the time where the hands work: 4.5 s a bead, 9.5 s the wraps, 10 s the
+  push, 4.5 s the X, which is only a look. The handout's words are
+  `BRACELET_STEPS` (7 bead steps, then the knot steps, whose chips read KNOT
+  STEP 1-6: "KNOT 3" read as a third knot right after step 7 tied two). The
   cadence is anchored ONCE, when the wall appears (`useState` in
   `BraceletTimeView`): the window's start, or the moment it was opened early
   (the opening deck's last press, a QuickNav pick). Re-based at 6:05 instead,
@@ -1470,9 +1478,21 @@ night are untouched.
   reads `currentTime()`, so `?now=`/`&freeze=1` land on any frame, white
   cartoon glove hands, every cord and bead keylined in white so black reads on
   the black wall, the bead palette pinned to the lobby poster's `BEADS`.
-  Low power (`useLowPower`: `?vr=1`, OS reduced motion, the QuickNav toggle)
-  and "animations off" draw each step's finished picture. The epic's caption
-  and rail read the stage's own clock (`useEpicStep`), not the page's
+  The knot close-up is the child's own left hand from above, pointer to the
+  right, never a mirror image: mirrored, it put the yellow side on top at
+  the X, against knot 1's "left over right", and hid the bottom string,
+  which must lie ALONG the finger in view (wraps round the finger alone knot
+  only the top string, and the bracelet never closes). The hands keep the
+  handout's roles: the left thumb and middle finger pinch the loops, the
+  right hand pushes the end through. Low power (`useLowPower`: `?vr=1`, OS
+  reduced motion, the QuickNav toggle), "animations off" and the overview
+  draw each step's still (`stillP`): its finished picture, except knot
+  steps 1, 4 and 5, which stop mid-move with their arrow up (the left hand
+  over the right, the finger half out, the end in the tunnel), since their
+  finished pictures show no direction. The epic's caption (the step's title
+  and its full words) stands on a line above the waves and grows upward;
+  `e2e/bracelets.spec.js` measures its clearance at three sizes. It and the
+  rail read the stage's own clock (`useEpicStep`), not the page's
   one-second tick, so they turn over in the same frame as the art.
 - **Deploy timing:** the projector reloads itself only while idle (before
   5:30 pm on a club night), so a change to this must be live by about 5:15 pm
