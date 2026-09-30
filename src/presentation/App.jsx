@@ -21,6 +21,11 @@ import { GameTimeView } from './views/GameTimeView.jsx';
 import { SlideshowView } from './views/SlideshowView.jsx';
 import { ShutdownView } from './views/ShutdownView.jsx';
 import { QuickNav } from './views/QuickNav.jsx';
+import { BraceletTimeView } from './views/BraceletTimeView.jsx';
+import { BraceletPanel } from './views/BraceletPanel.jsx';
+import { isBraceletWindow } from './lib/bracelets.js';
+import { unlockAudio } from './lib/chime.js';
+import { useKeydown } from './hooks/useKeydown.js';
 
 const OPENING_WINDOW_INDEX = 0;
 
@@ -89,6 +94,29 @@ export const App = () => {
   // report it; a view that goes away reports false on its way out.
   const [bare, setBare] = useState(false);
 
+  // Bracelet Time (the two bracelet nights' T&T and Sparks windows). Its
+  // controls panel opens with B (never while typing in a field) or from
+  // QuickNav. Every key press and click also arms the page's sound, which
+  // browsers only allow after a gesture: the chime before each epic needs it.
+  const bracelets = state.mode === AppMode.GAME_TIME && isBraceletWindow(state.window, now);
+  const [braceletPanel, setBraceletPanel] = useState(false);
+  useEffect(() => {
+    const arm = () => unlockAudio();
+    window.addEventListener('pointerdown', arm, { capture: true, passive: true });
+    window.addEventListener('keydown', arm, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener('pointerdown', arm, { capture: true });
+      window.removeEventListener('keydown', arm, { capture: true });
+    };
+  }, []);
+  useKeydown((e) => {
+    const t = e.target;
+    const typing = t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName));
+    if (typing) return;
+    if (e.code === 'KeyB' && !e.ctrlKey && !e.metaKey && !e.altKey) setBraceletPanel((v) => !v);
+    else if (e.code === 'Escape' && braceletPanel) setBraceletPanel(false);
+  });
+
   return (
     <MotionConfig reducedMotion={FLAGS.vr ? 'always' : 'user'}>
     <div className="w-full h-full relative" style={{ background: '#000000' }}>
@@ -99,6 +127,7 @@ export const App = () => {
           className="absolute inset-0"
           data-mode={slugFor(state)}
           data-deck={state.mode === AppMode.SLIDESHOW ? state.deck : undefined}
+          data-activity={bracelets ? 'bracelets' : undefined}
           initial={{ opacity: 0, scale: 0.985 }}
           animate={{ opacity: 1, scale: 1, transition: { duration: DUR.mode, ease: EASE.settle } }}
           exit={{ opacity: 0, scale: 1.01, transition: { duration: DUR.mode / 2, ease: EASE.exit } }}
@@ -121,7 +150,8 @@ export const App = () => {
           slide change or view crossfade ever moves it. */}
       <AwanaMark placement={state.mode === AppMode.GAME_TIME ? 'game' : 'default'} hidden={bare} />
 
-      <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} socketStatus={socketStatus} />
+      <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} socketStatus={socketStatus} onBracelets={() => setBraceletPanel(true)} />
+      {braceletPanel && <BraceletPanel active={bracelets} onClose={() => setBraceletPanel(false)} />}
       {isOverride && <ResumePill now={now} resumeAt={resumeAt} onStay={stay} />}
       <SetupChecklist />
     </div>
@@ -159,6 +189,16 @@ const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex,
         />
       );
     case AppMode.GAME_TIME:
+      // Bracelet Time takes the T&T and Sparks windows on the bracelet
+      // nights; if it ever fails, the wall falls back to plain game time
+      // for that window rather than an error screen.
+      if (isBraceletWindow(state.window, now)) {
+        return (
+          <BraceletBoundary fallback={<GameTimeView now={now} window={state.window} endsAt={state.endsAt} tally={tally} />}>
+            <BraceletTimeView now={now} window={state.window} endsAt={state.endsAt} tally={tally} />
+          </BraceletBoundary>
+        );
+      }
       return <GameTimeView now={now} window={state.window} endsAt={state.endsAt} tally={tally} />;
     case AppMode.SLIDESHOW:
       return (
@@ -180,6 +220,23 @@ const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex,
       return <ShutdownView now={now} onRestart={() => onSelect({ type: 'countdown' })} onBareChange={onBareChange} />;
   }
 };
+
+/** Bracelet Time's own boundary: a crash degrades to plain game time, never "Oops". */
+class BraceletBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('Bracelet Time crashed; showing game time instead:', error, errorInfo);
+  }
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children;
+  }
+}
 
 /** Last-resort boundary (per-view boundaries catch view crashes first). */
 export class ErrorBoundary extends React.Component {

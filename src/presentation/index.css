@@ -672,3 +672,119 @@
 [data-anim-paused] *::after {
   animation-play-state: paused !important;
 }
+
+/* ── Bracelet Time (views/BraceletTimeView.jsx) ───────────────────────────
+   The two bracelet nights' T&T and Sparks windows. Everything in --u on the
+   16:9 frame, on the pure black wall; content ends by 51.75u (the band
+   below belongs to the first-run note). */
+.pj-bracelet { color: #fff; }
+.pj-bracelet__body { position: absolute; inset: 0; }
+.pj-bracelet__card { position: absolute; inset: 0; }
+.pj-bracelet__kicker {
+  position: absolute; left: 0; right: 0; top: calc(2.6 * var(--u));
+  text-align: center; margin: 0;
+}
+.pj-bracelet__rail {
+  position: absolute; left: 50%; top: calc(6.6 * var(--u)); transform: translateX(-50%);
+  display: flex; align-items: center; gap: calc(0.55 * var(--u));
+  padding: 0 calc(0.4 * var(--u));
+  background: linear-gradient(#3a3a44, #3a3a44) center / 100% calc(0.25 * var(--u)) no-repeat;
+}
+.pj-bracelet__pip {
+  display: block; width: calc(1.3 * var(--u)); height: calc(1.3 * var(--u));
+  border-radius: 38%; border: calc(0.15 * var(--u)) solid transparent; opacity: 0.35;
+  box-sizing: border-box;
+}
+.pj-bracelet__pip.is-knot { background: transparent; border-color: #fff; border-radius: 50%; width: calc(1 * var(--u)); height: calc(1 * var(--u)); }
+.pj-bracelet__pip.is-done { opacity: 1; }
+.pj-bracelet__pip.is-current { opacity: 1; transform: scale(1.5); outline: calc(0.14 * var(--u)) solid #fff; outline-offset: calc(0.1 * var(--u)); }
+.pj-bracelet__chip {
+  position: absolute; left: calc(5 * var(--u)); top: calc(18 * var(--u));
+}
+.pj-bracelet__stage {
+  position: absolute; left: calc(22 * var(--u)); top: calc(9.2 * var(--u));
+  width: calc(73 * var(--u)); height: calc(28 * var(--u));
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent), linear-gradient(transparent, #000 8%, #000 92%, transparent);
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+  mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent), linear-gradient(transparent, #000 8%, #000 92%, transparent);
+}
+.pj-bracelet__stage > svg, .pj-bracelet__stage .pj-bracelet__svg { width: 100%; height: 100%; display: block; }
+.pj-bracelet__stage--epic { left: calc(7 * var(--u)); width: calc(86 * var(--u)); height: calc(33 * var(--u)); top: calc(8.4 * var(--u)); }
+.pj-bracelet__caption {
+  position: absolute; left: calc(8 * var(--u)); right: calc(8 * var(--u)); top: calc(38.4 * var(--u));
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: calc(0.8 * var(--u));
+}
+.pj-bracelet__card--epic .pj-bracelet__caption { top: calc(42.2 * var(--u)); }
+.pj-bracelet__title { margin: 0; text-transform: uppercase; }
+.pj-bracelet__pill {
+  display: inline-block; padding: 0 0.22em; margin: 0 0.06em; border-radius: 0.3em;
+  line-height: 1.02;
+}
+.pj-bracelet__words {
+  margin: 0; font-size: calc(2.8 * var(--u)); line-height: 1.32; font-weight: 600;
+  max-width: calc(84 * var(--u)); text-wrap: balance; color: rgb(255 255 255 / 0.92);
+}
+.pj-bracelet__card--intro {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: calc(1.4 * var(--u)); padding-bottom: calc(6 * var(--u));
+}
+.pj-bracelet__corner {
+  position: absolute; z-index: 20; top: calc(3.3 * var(--u)); right: calc(3.2 * var(--u));
+  display: flex; align-items: flex-start; gap: calc(1 * var(--u));
+}
+.pj-bracelet__overview {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+  padding-top: calc(2.6 * var(--u)); gap: calc(1.2 * var(--u));
+}
+.pj-bracelet__grid {
+  display: grid; grid-template-columns: repeat(4, calc(21 * var(--u)));
+  gap: calc(1.2 * var(--u)) calc(1.4 * var(--u)); justify-content: center;
+}
+.pj-bracelet__grid.is-knots { grid-template-columns: repeat(3, calc(26 * var(--u))); }
+.pj-bracelet__cell {
+  display: flex; flex-direction: column; align-items: center; gap: calc(0.4 * var(--u));
+}
+.pj-bracelet__thumb { width: 100%; height: auto; aspect-ratio: 1460 / 560; display: block; }
+.pj-bracelet__cell-words {
+  margin: 0; font-size: calc(1.3 * var(--u)); line-height: 1.25; text-align: center; font-weight: 600;
+  color: rgb(255 255 255 / 0.9);
+}
+.pj-bracelet__handout {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: calc(1.2 * var(--u)) 0 calc(4.5 * var(--u));
+}
+.pj-bracelet__handout img {
+  max-height: 100%; max-width: 100%; height: 100%; width: auto; object-fit: contain;
+  border-radius: calc(0.6 * var(--u)); background: #fff;
+}
+
+/* ── The Bracelet Time controls (views/BraceletPanel.jsx) ─────────────── */
+.pj-bpanel__backdrop {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  background: rgb(0 0 0 / 0.55); padding: 16px;
+}
+.pj-bpanel {
+  width: min(640px, 94vw); max-height: 92vh; overflow-y: auto; padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 14px; color: #fff;
+}
+.pj-bpanel__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pj-bpanel__title { margin: 0; font-family: var(--font-display); font-size: 1.5rem; text-transform: uppercase; letter-spacing: 0.02em; }
+.pj-bpanel__close { background: transparent; border: 0; color: rgb(255 255 255 / 0.7); font-size: 1.3rem; cursor: pointer; min-width: 44px; min-height: 44px; }
+.pj-bpanel__note, .pj-bpanel__hint { margin: 0; font-size: 0.85rem; color: rgb(255 255 255 / 0.65); line-height: 1.45; }
+.pj-bpanel__warn { margin: 6px 0 0; font-size: 0.85rem; color: var(--brand-sun); }
+.pj-bpanel__group h3 {
+  margin: 0 0 8px; font-family: var(--font-condensed); font-size: 0.85rem; font-weight: 800;
+  letter-spacing: 0.12em; text-transform: uppercase; color: rgb(255 255 255 / 0.55);
+}
+.pj-bpanel__row { display: flex; flex-wrap: wrap; gap: 8px; }
+.pj-bpanel__row--steps .pj-bpanel__choice { min-width: 44px; padding-left: 10px; padding-right: 10px; }
+.pj-bpanel__choice, .pj-bpanel__action {
+  min-height: 44px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  font-family: var(--font-condensed); font-weight: 800; font-size: 0.95rem; letter-spacing: 0.08em; text-transform: uppercase;
+  border: 2px solid rgb(255 255 255 / 0.35); background: transparent; color: #fff;
+}
+.pj-bpanel__choice.is-on { background: #fff; color: var(--brand-ink, #231F20); border-color: #fff; }
+.pj-bpanel__action { border-color: var(--brand-sun); color: var(--brand-sun); }
+.pj-bpanel__action:disabled { opacity: 0.4; cursor: not-allowed; }
+.pj-bpanel__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

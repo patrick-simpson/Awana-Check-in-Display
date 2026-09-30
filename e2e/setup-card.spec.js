@@ -283,6 +283,8 @@ const WALLS = [
   ['the countdown', { now: '2026-09-15T18:30:00' }, [[1280, 720], [1920, 1080]]],
   // Game time: the club's waves and the game clock (the mascots are art, and are not content).
   ['game time', { now: '2026-09-16T18:20:00' }, [[1280, 720], [1920, 1080]]],
+  // Bracelet Time on a bracelet night: the step card, its rail, chip and caption.
+  ['bracelet time', { now: '2026-09-30T18:07:15' }, [[1280, 720], [1920, 1080]]],
   // The closing deck's Upcoming Awana Nights, packed to its 51.75u limit: the tightest fit on any wall.
   ['the upcoming-nights list, packed', { now: '2026-09-16T19:31:00', coming: true }, SIZES],
 ];

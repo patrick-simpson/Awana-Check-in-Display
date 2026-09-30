@@ -17,17 +17,6 @@
 
 /** @typedef {{ n: number, kind: 'bead' | 'finish' | 'knot', color?: string, title: string, words: string }} BraceletStep */
 
-// The bracelet kit's six colours, in the kit's order (and the handout's).
-export const BEAD_COLORS = Object.freeze({
-  black: '#1C1B1F',
-  red: '#D7263D',
-  white: '#F7F5F0',
-  blue: '#2F55C9',
-  green: '#1F9D55',
-  yellow: '#FFC93C',
-  clear: 'rgba(214, 236, 255, 0.55)',
-});
-
 /** The handout's steps, in its own words, split into a short title and the line under it. */
 export const BRACELET_STEPS = Object.freeze(/** @type {BraceletStep[]} */ ([
   { n: 1, kind: 'bead', color: 'black', title: 'Add a black bead', words: 'Slide a black bead onto the string.' },
@@ -45,16 +34,58 @@ export const BRACELET_STEPS = Object.freeze(/** @type {BraceletStep[]} */ ([
   { n: 13, kind: 'knot', title: 'Pull tight', words: 'Pull tight. You made a bracelet!' },
 ]));
 
+/**
+ * The bracelet club nights (the calendar's "Awana meeting (Making
+ * Bracelets)"), hardcoded like the season promos: the shared schedule file is
+ * untouched, so no other screen changes.
+ */
+export const BRACELET_NIGHTS = Object.freeze(['2026-09-30', '2026-10-07']);
+/** The game windows that become Bracelet Time; Puggles & Cubbies stays game time. */
+export const BRACELET_CLUBS = Object.freeze(['tnt', 'sparks']);
+
+/** @param {Date} d */
+function localKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Is this schedule window, on this date, Bracelet Time? Only a single-club
+ * T&T or Sparks game window on a bracelet night (the device's local date, as
+ * the rest of the projector keeps it).
+ *
+ * @param {{ kind?: string, clubs?: string[] } | null | undefined} window
+ * @param {Date} now
+ */
+export function isBraceletWindow(window, now) {
+  return Boolean(
+    window && window.kind === 'game' && Array.isArray(window.clubs) && window.clubs.length === 1
+    && BRACELET_CLUBS.includes(window.clubs[0]) && BRACELET_NIGHTS.includes(localKey(now)),
+  );
+}
+
+/**
+ * The window's start and end as instants on `now`'s day.
+ * @param {{ startMin: number, endMin: number }} window
+ * @param {Date} now
+ */
+export function windowSpan(window, now) {
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return { startMs: day.getTime() + window.startMin * 60_000, endMs: day.getTime() + window.endMin * 60_000 };
+}
+
 export const STEP_SEC = 10;
 export const EPIC_SEC = 90;
 export const EPIC_EVERY_SEC = 5 * 60;
 export const EPIC_LEAD_SEC = 10;
+/** An epic never runs into the window's TWO MINUTES warning. */
+export const EPIC_CLEAR_OF_END_SEC = 120;
 
 /**
  * @typedef {{
  *   mode: 'intro' | 'epic' | 'steps',
  *   stepIndex: number,
  *   stepElapsedSec: number,
+ *   stepStartMs: number,
  *   epicStartMs: number | null,
  *   epicElapsedSec: number,
  *   chime: boolean,
@@ -65,14 +96,15 @@ export const EPIC_LEAD_SEC = 10;
 
 /**
  * Every scheduled epic start inside [startMs, endMs), each one finishing
- * before the window closes.
+ * before the window's TWO MINUTES warning.
  * @param {number} startMs
  * @param {number} endMs
  * @returns {number[]}
  */
 export function epicStarts(startMs, endMs) {
   const out = [];
-  for (let t = startMs + EPIC_LEAD_SEC * 1000; t + EPIC_SEC * 1000 <= endMs; t += EPIC_EVERY_SEC * 1000) out.push(t);
+  const lastEnd = endMs - EPIC_CLEAR_OF_END_SEC * 1000;
+  for (let t = startMs + EPIC_LEAD_SEC * 1000; t + EPIC_SEC * 1000 <= lastEnd; t += EPIC_EVERY_SEC * 1000) out.push(t);
   return out;
 }
 
@@ -82,11 +114,13 @@ export function epicStarts(startMs, endMs) {
  * @param {number} nowMs
  * @param {number} startMs  the window's start
  * @param {number} endMs    the window's end
- * @param {{ stepOffset?: number, manualEpicAt?: number | null }} [nudges]
+ * @param {{ stepOffset?: number, manualEpicAt?: number | null, epics?: boolean }} [nudges]
+ *   epics: false turns the scheduled showings (and so their chimes) off; a
+ *   manual "play now" still plays.
  * @returns {BraceletFrame}
  */
-export function braceletFrame(nowMs, startMs, endMs, { stepOffset = 0, manualEpicAt = null } = {}) {
-  const starts = epicStarts(startMs, endMs);
+export function braceletFrame(nowMs, startMs, endMs, { stepOffset = 0, manualEpicAt = null, epics = true } = {}) {
+  const starts = epics ? epicStarts(startMs, endMs) : [];
   if (manualEpicAt != null && manualEpicAt >= startMs && manualEpicAt < endMs) {
     starts.push(manualEpicAt);
     starts.sort((a, b) => a - b);
@@ -98,16 +132,16 @@ export function braceletFrame(nowMs, startMs, endMs, { stepOffset = 0, manualEpi
 
   if (current != null) {
     return {
-      mode: 'epic', stepIndex: 0, stepElapsedSec: 0, epicStartMs: current,
+      mode: 'epic', stepIndex: 0, stepElapsedSec: 0, stepStartMs: current, epicStartMs: current,
       epicElapsedSec: (nowMs - current) / 1000, chime: false, nextEpicMs: next, cycle: `epic:${current}`,
     };
   }
 
   // Before the very first epic: the title card that the opening chime rides on.
   const lastEnd = starts.filter((s) => s + epicMs <= nowMs).map((s) => s + epicMs).pop();
-  if (lastEnd == null && nowMs < (starts[0] ?? Infinity)) {
+  if (lastEnd == null && starts.length > 0 && nowMs < starts[0] && starts[0] - nowMs <= EPIC_LEAD_SEC * 1000) {
     return {
-      mode: 'intro', stepIndex: 0, stepElapsedSec: 0, epicStartMs: null, epicElapsedSec: 0,
+      mode: 'intro', stepIndex: 0, stepElapsedSec: 0, stepStartMs: nowMs, epicStartMs: null, epicElapsedSec: 0,
       chime, nextEpicMs: next, cycle: 'intro',
     };
   }
@@ -117,8 +151,9 @@ export function braceletFrame(nowMs, startMs, endMs, { stepOffset = 0, manualEpi
   const raw = Math.floor(elapsed / STEP_SEC) + stepOffset;
   const count = BRACELET_STEPS.length;
   const stepIndex = ((raw % count) + count) % count;
+  const stepStartMs = loopFrom + Math.floor(elapsed / STEP_SEC) * STEP_SEC * 1000;
   return {
-    mode: 'steps', stepIndex, stepElapsedSec: elapsed % STEP_SEC, epicStartMs: null, epicElapsedSec: 0,
+    mode: 'steps', stepIndex, stepElapsedSec: elapsed % STEP_SEC, stepStartMs, epicStartMs: null, epicElapsedSec: 0,
     chime, nextEpicMs: next, cycle: `steps:${loopFrom}`,
   };
 }

@@ -22,7 +22,7 @@ import { GlassPanel } from '../components/GlassPanel.jsx';
  * `now`'s date (special dates can replace the normal table), and the
  * active probe uses the app clock so it is honest under `?now=` QA.
  */
-export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketStatus }) => {
+export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketStatus, onBracelets }) => {
   const activeKey = stateKey(state);
   const cfg = useEffectiveSchedule();
   const windows = windowsForDate(now, cfg) ?? cfg.windows;
@@ -64,6 +64,15 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketSta
               style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.12em' }}
             >
               Resume Schedule
+            </button>
+          )}
+          {onBracelets && (
+            <button
+              onClick={onBracelets}
+              className="mt-2 px-3 py-1.5 text-xs uppercase text-[var(--brand-sun)] hover:bg-[var(--brand-sun)]/15 rounded-lg transition-all border border-[var(--brand-sun)]/40 text-right"
+              style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.12em' }}
+            >
+              Bracelet Time controls (B)
             </button>
           )}
           <SkipWeeks now={now} cfg={cfg} />

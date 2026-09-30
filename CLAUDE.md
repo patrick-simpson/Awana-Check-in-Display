@@ -1337,6 +1337,58 @@ type, the club colours and marks, the stepped chip and the edge waves.
   to 0.593em), clipped top and bottom only so the roll never shaves a
   figure, in a 1.06em line (the mockup's 1.12em at Galindo's size).
 
+### Bracelet Time (the bracelet nights, fall 2026)
+
+Owner request 2026-09-30: on the two bracelet club nights the projector's
+T&T (18:05-18:30) and Sparks (18:30-19:00) game windows show how to make the
+salvation bracelet instead of a game clock; Puggles & Cubbies and every other
+night are untouched.
+
+- **Hardcoded, like the season promos.** `BRACELET_NIGHTS` and
+  `isBraceletWindow()` in `src/presentation/lib/bracelets.js` (a single-club
+  `tnt` or `sparks` game window on 2026-09-30 or 2026-10-07, the device's local
+  date). `shared/schedule.json` is NOT touched: a replacement window table
+  there would blank the evening on one typo, the lobby and the desktop app
+  read it too, and `parseWindow` silently drops unknown fields. The window
+  stays `kind: 'game'`, so `AppMode.GAME_TIME`, stateKey, QuickNav, the
+  watchdog, the opening deck's jump to T&T and `projectorIdle` all behave as
+  before; App.jsx picks `BraceletTimeView` inside GAME_TIME and stamps
+  `data-activity="bracelets"`. `BraceletBoundary` degrades a crash to plain
+  game time, never the Oops screen. After 2026-10-07 nothing matches and the
+  code is inert; next season means editing the date list.
+- **The cadence is pure** (`braceletFrame`): the title card with the chime
+  lead, an EPIC how-to (`EPIC_SEC` 90) 10 s after the window opens and every
+  5 minutes, only if it ends before the TWO MINUTES warning
+  (`EPIC_CLEAR_OF_END_SEC`), then one step at a time (`STEP_SEC` 10, from step
+  1 after each epic). The handout's words are `BRACELET_STEPS` (7 bead steps,
+  then the knot steps, shown as KNOT 1-6 like the handout's page 2).
+- **The chime** (`lib/chime.js`): a synthesized bell 10 s before each showing,
+  once per showing (`chimeOnce`). Browsers allow sound only after a gesture, so
+  App arms it on EVERY keydown and pointerdown; it never queues a sound on a
+  suspended context (that would blast later). The wall's own "BIG HOW-TO IN
+  0:09" corner chip carries the moment when the room cannot hear it.
+- **The controls** (`views/BraceletPanel.jsx`, B or QuickNav's "Bracelet Time
+  controls"): show step by step / the full instructions / the original handout
+  page 1 or 2 (`assets/bracelets/handout-*.jpg`, rendered from the church's
+  PDF); hold one step; the epic on/off and "play it now"; the chime on/off and
+  a test; animations off (still pictures, no epic). Saved on that PC in
+  `awanaBraceletSettings.v1` until Reset (`lib/braceletSettings.js`); "play it
+  now" is never saved. B is ignored while typing in a field.
+- **The art** is `components/bracelet/` + `lib/braceletArt.js`: pure scene
+  functions of (step, progress) drawn by one requestAnimationFrame clock that
+  reads `currentTime()`, so `?now=`/`&freeze=1` land on any frame, white
+  cartoon glove hands, every cord and bead keylined in white so black reads on
+  the black wall, the bead palette pinned to the lobby poster's `BEADS`.
+  Low power (`useLowPower`: `?vr=1`, OS reduced motion, the QuickNav toggle)
+  and "animations off" draw each step's finished picture.
+- **Deploy timing:** the projector reloads itself only while idle (before
+  5:30 pm on a club night), so a change to this must be live by about 5:15 pm
+  on the night, or someone presses F5 on the projector.
+- Tests: `lib/bracelets.test.js`, `lib/braceletSettings.test.js`, and
+  `e2e/bracelets.spec.js` (both nights, the untouched windows and weeks, the
+  step order, the countdown, the warning, the controls), plus a Bracelet Time
+  wall in `e2e/setup-card.spec.js`.
+
 ## Privacy invariant — DO NOT relax
 
 **One strict allowlist sanitizer per event type** — see
