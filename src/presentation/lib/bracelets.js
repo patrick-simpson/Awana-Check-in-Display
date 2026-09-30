@@ -74,6 +74,37 @@ export function isBraceletWindow(window, now) {
 }
 
 /**
+ * A single-club T&T or Sparks game window, on any date: what Bracelet Time
+ * takes over on a bracelet night, and the window whose own club and end time
+ * a forced wall ("Show Bracelet Time now") keeps.
+ * @param {{ kind?: string, clubs?: string[] } | null | undefined} window
+ */
+export function isBraceletClubWindow(window) {
+  return Boolean(
+    window && window.kind === 'game' && Array.isArray(window.clubs) && window.clubs.length === 1
+    && BRACELET_CLUBS.includes(window.clubs[0]),
+  );
+}
+
+/**
+ * The window a forced wall runs in outside the T&T and Sparks game windows:
+ * T&T's (owner, 2026-09-30), from the moment the switch went on until
+ * midnight, when the switch turns itself off. It has no end time to show.
+ * @param {number} forceMs when "Show Bracelet Time now" went on
+ * @param {Date} now
+ */
+export function forcedBraceletWindow(forceMs, now) {
+  const day = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return {
+    kind: 'game',
+    clubs: ['tnt'],
+    title: 'Bracelet Time',
+    startMin: Math.max(0, Math.min(24 * 60, (forceMs - day) / 60_000)),
+    endMin: 24 * 60,
+  };
+}
+
+/**
  * The window's start and end as instants on `now`'s day.
  * @param {{ startMin: number, endMin: number }} window
  * @param {Date} now

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ScreenFrame } from '../components/ScreenFrame.jsx';
 import { ParticleField } from '../components/ParticleField.jsx';
@@ -13,6 +13,7 @@ import { HOUSE } from '../lib/kit.js';
 import { chipGeometry, fitChipList, inkEm, measureEm } from '../lib/chip.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 import { ambientVariants, partVariants } from '../lib/landing.js';
+import { fitPledge } from '../lib/pledgeFit.js';
 
 /**
  * One slide, laid out by its explicit `layout` field, in the kit's three
@@ -39,9 +40,13 @@ export const Slide = ({ slide, now, events, hold = 0, onNext }) => {
       }
     >
       <div className="pj-frame">
-        <div className="pj-slide">
-          <SlideBody slide={slide} now={now} events={events} hold={hold} />
-        </div>
+        {slide.layout === 'pledge' ? (
+          <PledgeBlock slide={slide} hold={hold} />
+        ) : (
+          <div className="pj-slide">
+            <SlideBody slide={slide} now={now} events={events} hold={hold} />
+          </div>
+        )}
       </div>
 
       {slide.layout === 'celebration' && <ConfettiBurst />}
@@ -67,6 +72,33 @@ const HEADLINE_FIT = { maxU: 8, widthU: 82 };
 /** "Wednesday night": the welcome's kicker, from the evening it is. */
 export const nightOf = (now) => `${(now ?? new Date()).toLocaleDateString([], { weekday: 'long' })} night`;
 
+/**
+ * The pledges, as big as the wall allows (owner, 2026-09-30): the room says
+ * them together, so the words fill the frame between the Awana mark and the
+ * bottom margin band, at the largest size lib/pledgeFit.js measures to fit,
+ * and the title grows with them. Measured again when a web font lands.
+ */
+const PledgeBlock = ({ slide, hold }) => {
+  const fonts = useFontsReady();
+  const fit = useMemo(() => fitPledge(slide.body), [slide.body, fonts]); // eslint-disable-line react-hooks/exhaustive-deps
+  const side = (100 - fit.widthU) / 2;
+  return (
+    <div
+      className="pj-slide pj-slide--pledge"
+      data-pledge-rows={fit.rows}
+      style={{ top: `calc(${fit.topU} * var(--u))`, left: `calc(${side} * var(--u))`, right: `calc(${side} * var(--u))` }}
+    >
+      <Kicker size={`calc(${fit.kickerU} * var(--u))`} part={{ index: 0, hold }}>{slide.title}</Kicker>
+      <BodyText
+        text={slide.body}
+        size={`calc(${fit.bodyU} * var(--u))`}
+        parts={{ start: 1, hold }}
+        style={{ marginTop: `calc(${fit.gapU} * var(--u))`, lineHeight: fit.lineHeight }}
+      />
+    </div>
+  );
+};
+
 const SlideBody = ({ slide, now, events, hold }) => {
   switch (slide.layout) {
     case 'celebration':
@@ -88,19 +120,6 @@ const SlideBody = ({ slide, now, events, hold }) => {
               style={{ marginTop: 'calc(2 * var(--u))' }}
             />
           )}
-        </>
-      );
-
-    case 'pledge':
-      return (
-        <>
-          <Kicker size="var(--text-kicker)" part={{ index: 0, hold }}>{slide.title}</Kicker>
-          <BodyText
-            text={slide.body}
-            size="var(--text-body)"
-            parts={{ start: 1, hold }}
-            style={{ marginTop: 'calc(2 * var(--u))' }}
-          />
         </>
       );
 

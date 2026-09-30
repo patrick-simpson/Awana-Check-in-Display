@@ -14,6 +14,7 @@ const STORAGE_KEY = 'awanaBraceletSettings.v1';
  *   epic: boolean,
  *   chime: boolean,
  *   still: boolean,
+ *   force: number | null,
  * }} BraceletSettings
  */
 
@@ -24,6 +25,7 @@ export const DEFAULT_BRACELET_SETTINGS = Object.freeze({
   epic: true, // the every-5-minutes epic how-to
   chime: true, // the chime 10 s before each showing
   still: false, // animations off: still pictures, no epic
+  force: null, // "Show Bracelet Time now": when it was switched on (ms), or off
 });
 
 const DISPLAYS = ['auto', 'overview', 'handout1', 'handout2'];
@@ -40,7 +42,33 @@ export function sanitizeBraceletSettings(raw) {
     epic: v.epic !== false,
     chime: v.chime !== false,
     still: v.still === true,
+    force: Number.isFinite(v.force) && v.force > 0 ? v.force : null,
   };
+}
+
+/** The device's local date, "YYYY-MM-DD". @param {Date} d */
+const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/**
+ * "Show Bracelet Time now" (owner, 2026-09-30: the settings can put the
+ * bracelet screen up any time). It is on from the moment it was switched on
+ * until that day's midnight on this device, so a switch left on can never
+ * replace next week's opening ceremony, and it survives a reload in between.
+ * @param {BraceletSettings} s
+ * @param {Date} now
+ */
+export function braceletForced(s, now) {
+  return s.force != null && dayKey(new Date(s.force)) === dayKey(now);
+}
+
+/**
+ * Switch "Show Bracelet Time now" on (stamped with the page's own clock, so
+ * `?now=` time travel works) or off.
+ * @param {boolean} on
+ * @param {Date} now
+ */
+export function setBraceletForced(on, now) {
+  setBraceletSettings({ force: on ? now.getTime() : null });
 }
 
 function read() {

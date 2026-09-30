@@ -100,8 +100,12 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   }, [chiming, frame.nextEpicMs]);
 
   // The window's warnings, exactly as game time does them.
-  const seconds = secondsUntil(endsAt, now);
+  // A forced wall outside the game windows ("Show Bracelet Time now") has no
+  // end (`endsAt` null), and a wall kept up past its window's end has none
+  // left: neither warns, and the corner shows no end time for either.
+  const seconds = endsAt ? secondsUntil(endsAt, now) : Infinity;
   const warning = warningFor(seconds);
+  const ending = endsAt != null && seconds > 0;
   const announced = useRef('none');
   useEffect(() => {
     if (warning === announced.current) return;
@@ -110,7 +114,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
     if (intensity != null) playStinger(intensity);
   }, [warning]);
 
-  const endTimeStr = endsAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+  const endTimeStr = endsAt ? endsAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
   const tallyFresh = tally != null && nowMs - tally.at.getTime() < TALLY_STALE_MS;
   const count = tallyFresh ? countForClub(tally, club.id) : null;
   const leadSec = frame.chime && frame.nextEpicMs != null ? Math.max(1, Math.ceil((frame.nextEpicMs - nowMs) / 1000)) : null;
@@ -195,8 +199,10 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
             />
           ) : leadSec != null && auto ? (
             <StepChip label="Big how-to in" value={`0:${String(leadSec).padStart(2, '0')}`} size={`calc(${CORNER_U + 0.4} * var(--u))`} plate={HOUSE.blueDeep ?? HOUSE.blue} />
-          ) : (
+          ) : ending ? (
             <StepChip label={`${club.name} craft time`} value={`Ends ${endTimeStr}`} size={`calc(${CORNER_U} * var(--u))`} plate={club.deep} />
+          ) : (
+            <StepChip label={club.name} value="Craft time" size={`calc(${CORNER_U} * var(--u))`} plate={club.deep} />
           )}
         </div>
       </div>

@@ -1322,6 +1322,17 @@ type, the club colours and marks, the stepped chip and the edge waves.
   (`lib/sweep.js`; ← sweeps the other way) and rests OFF the wall, so
   `?vr=1` / reduced motion never show it; the next parts land after the
   last has left. The pledge clock belongs to the deck, so it holds still.
+- **The pledges are as big as fits** (owner, 2026-09-30: "a lot larger";
+  `lib/pledgeFit.js`, `PledgeBlock` in `views/Slide.jsx`): the room says them
+  together, so the title and the whole pledge fill the band from 11u (below
+  the Awana mark and the clock) to 51u (above the bottom margin band) in an
+  88u measure, at the largest read-voice size that fits, measured in Figtree
+  SemiBold (about 5u, five rows, against the old 3u and three), with a 1.2
+  line height and the title at 0.72 of the words' size. The fit counts rows
+  the way the browser wraps them (balance only evens rows out), centres a
+  short pledge in the band, and runs again when a web font lands;
+  `e2e/pledges.spec.js` measures both pledges at three sizes and checks every
+  drawn row is one the fit counted.
 - **Game time**: the club's deep-behind-colour waves on both edges (the
   far bottom one drifting), the white club mark sized by optical area, the
   headline in the club colour, white figures with club-colour colons, a
@@ -1465,14 +1476,34 @@ night are untouched.
   off (still pictures, no epic, no drifting wave). Saved on that PC in
   `awanaBraceletSettings.v1` until Reset (`lib/braceletSettings.js`); "play it
   now" is never saved. **B and the QuickNav button exist on the bracelet
-  nights only** (`isBraceletNight`): B is every slide tool's black-screen key,
-  and on any other night it does nothing, exactly as before. B is ignored while
+  nights only** (`isBraceletNight`), or while "Show Bracelet Time now" is on:
+  B is every slide tool's black-screen key, and on any other night it does
+  nothing, exactly as before. B is ignored while
   typing in a field. **While open, the panel owns the keyboard**: focus starts
   on its first control and Tab stays inside it, B and Escape close it, and a
   window capture-phase listener stops every key from reaching the wall's own
   shortcuts (an Escape used to arm the slideshow's exit, a Space skipped the
   countdown); a focused button still clicks, since that is the browser's
   default action and not a listener.
+- **"Show Bracelet Time now"** (owner, 2026-09-30: the settings can force
+  the bracelet screen up any time): a switch in both menus (QuickNav and the
+  touch sheet, `BraceletForceToggle`), on every night. It puts Bracelet Time
+  on the wall at once, over whatever the schedule has (the countdown, the
+  opening deck, any window, the shutdown), until it is switched off or
+  midnight comes: `force` in `awanaBraceletSettings.v1` is the instant it went
+  on (the page's own clock, so `?now=` works), and `braceletForced()` is true
+  only on that local date, so a switch left on never takes next week's
+  opening or pledges, and a reload keeps it all evening. In a T&T or Sparks
+  game window (`isBraceletClubWindow`, any date) it keeps that window's club,
+  end time and warnings; anywhere else it is T&T (the owner's call) in
+  `forcedBraceletWindow()`, from the switch to midnight, with no end time
+  (the corner reads T&T / CRAFT TIME, as it does on a wall kept up past its
+  window's end) and its epics every five minutes from the switch. App keys the
+  forced wall by its club, so it stays up through a schedule change and
+  crossfades only when the club changes, stamps `data-forced="bracelets"`
+  (`data-mode` reads game-time), puts the mark in its game-time place, and
+  counts the page busy for the self-updater while it is on. Reset in the
+  controls switches it off too.
 - **The art** is `components/bracelet/` + `lib/braceletArt.js`: pure scene
   functions of (step, progress) drawn by one requestAnimationFrame clock that
   reads `currentTime()`, so `?now=`/`&freeze=1` land on any frame, white

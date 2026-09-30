@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { AnimatePresence, MotionConfig, motion } from 'framer-motion';
 import { AppMode } from './types.js';
 import { FLAGS } from './lib/flags.js';
@@ -24,7 +24,8 @@ import { QuickNav } from './views/QuickNav.jsx';
 import { TouchMenu } from './views/TouchMenu.jsx';
 import { BraceletTimeView } from './views/BraceletTimeView.jsx';
 import { BraceletPanel } from './views/BraceletPanel.jsx';
-import { isBraceletNight, isBraceletWindow } from './lib/bracelets.js';
+import { forcedBraceletWindow, isBraceletClubWindow, isBraceletNight, isBraceletWindow } from './lib/bracelets.js';
+import { braceletForced, getBraceletSettings, subscribeBraceletSettings } from './lib/braceletSettings.js';
 import { unlockAudio } from './lib/chime.js';
 import { unlockStingers } from './lib/stingers.js';
 import { isTouch, usePortrait, useTouch } from './lib/touch.js';
@@ -105,7 +106,11 @@ export const App = () => {
   // hour out, before 5:30 on a club night, and any other day of the week.
   // The rule itself lives in the shared pure helper; here it is just "not
   // idle means busy".
-  const buildReloadBusy = useCallback(() => !projectorIdle(state), [state]);
+  // (A forced Bracelet Time wall, below, is busy all evening: it switches
+  // itself off at midnight, and the page may update again after that.)
+  const braceletSettings = useSyncExternalStore(subscribeBraceletSettings, getBraceletSettings, getBraceletSettings);
+  const forced = braceletForced(braceletSettings, now);
+  const buildReloadBusy = useCallback(() => forced || !projectorIdle(state), [forced, state]);
   useBuildReload(buildReloadBusy);
 
   // A deliberately bare wall (the opening's closing blackout, the shutdown
@@ -122,8 +127,20 @@ export const App = () => {
   // the keyboard (see BraceletPanel), so B and Escape close it there. Every
   // key press and click also arms the page's sound, which browsers only allow
   // after a gesture: the chime before each epic needs it.
-  const bracelets = state.mode === AppMode.GAME_TIME && isBraceletWindow(state.window, now);
-  const braceletNight = isBraceletNight(now);
+  //
+  // "Show Bracelet Time now" (the menus' switch, owner 2026-09-30) forces the
+  // wall to Bracelet Time on any night and at any time, over whatever the
+  // schedule is showing, until it is switched off or midnight comes. In a T&T
+  // or Sparks game window it keeps that window's club, end time and
+  // warnings; anywhere else it is T&T with no end time. While it is on, B and
+  // the controls work on any night.
+  const forcedWall = forced
+    ? state.mode === AppMode.GAME_TIME && isBraceletClubWindow(state.window)
+      ? { window: state.window, endsAt: state.endsAt }
+      : { window: forcedBraceletWindow(/** @type {number} */ (braceletSettings.force), now), endsAt: null }
+    : null;
+  const bracelets = forced || (state.mode === AppMode.GAME_TIME && isBraceletWindow(state.window, now));
+  const braceletNight = forced || isBraceletNight(now);
   const [braceletPanel, setBraceletPanel] = useState(false);
   // Past midnight the panel closes for good, so it can never reappear on the
   // next bracelet night a week later on a page that was never reloaded.
@@ -162,11 +179,12 @@ export const App = () => {
       {/* One view at a time; exits run faster than entrances (the kit's rule). */}
       <AnimatePresence mode="wait">
         <motion.div
-          key={stateKey(state)}
+          key={forcedWall ? `bracelets:${forcedWall.window.clubs[0]}` : stateKey(state)}
           className="absolute inset-0"
-          data-mode={slugFor(state)}
-          data-deck={state.mode === AppMode.SLIDESHOW ? state.deck : undefined}
+          data-mode={forcedWall ? 'game-time' : slugFor(state)}
+          data-deck={!forcedWall && state.mode === AppMode.SLIDESHOW ? state.deck : undefined}
           data-activity={bracelets ? 'bracelets' : undefined}
+          data-forced={forcedWall ? 'bracelets' : undefined}
           initial={{ opacity: 0, scale: 0.985 }}
           animate={{ opacity: 1, scale: 1, transition: { duration: DUR.mode, ease: EASE.settle } }}
           exit={{ opacity: 0, scale: 1.01, transition: { duration: DUR.mode / 2, ease: EASE.exit } }}
@@ -180,6 +198,7 @@ export const App = () => {
               onSelect={select}
               firstGameIndex={firstGameIndex}
               onBareChange={setBare}
+              forcedWall={forcedWall}
             />
           </ViewErrorBoundary>
         </motion.div>
@@ -187,7 +206,7 @@ export const App = () => {
 
       {/* The Awana Clubs mark, like a broadcast logo: above every view, so no
           slide change or view crossfade ever moves it. */}
-      <AwanaMark placement={state.mode === AppMode.GAME_TIME ? 'game' : 'default'} hidden={bare} />
+      <AwanaMark placement={forcedWall || state.mode === AppMode.GAME_TIME ? 'game' : 'default'} hidden={bare && !forcedWall} />
 
       {touch ? (
         <TouchMenu
@@ -232,7 +251,20 @@ const slugFor = (state) =>
     [AppMode.SHUTDOWN]: 'shutdown',
   })[state.mode];
 
-const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex, onBareChange }) => {
+const ActiveView = ({ state, now, tally, meetingTheme, onSelect, firstGameIndex, onBareChange, forcedWall = null }) => {
+  if (forcedWall) {
+    // "Show Bracelet Time now": Bracelet Time over whatever the schedule has
+    // (see App). A crash falls back to what the schedule would show.
+    return (
+      <BraceletBoundary
+        fallback={
+          <ActiveView state={state} now={now} tally={tally} meetingTheme={meetingTheme} onSelect={onSelect} firstGameIndex={firstGameIndex} onBareChange={onBareChange} />
+        }
+      >
+        <BraceletTimeView now={now} window={forcedWall.window} endsAt={forcedWall.endsAt} tally={tally} />
+      </BraceletBoundary>
+    );
+  }
   switch (state.mode) {
     case AppMode.COUNTDOWN:
       return (

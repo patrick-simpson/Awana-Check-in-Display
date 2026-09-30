@@ -181,3 +181,61 @@ for (const [w, h] of [[1280, 720], [1920, 1080], [1024, 768]]) {
     });
   }
 }
+
+// "Show Bracelet Time now" (owner, 2026-09-30): a switch in the menus puts
+// Bracelet Time on the wall on any night and at any time, T&T with no end
+// time outside the T&T and Sparks game windows, until it is switched off or
+// midnight comes.
+test.describe('"Show Bracelet Time now"', () => {
+  const FORCE_KEY = 'awanaBraceletSettings.v1';
+  const seedForce = (page, iso) => page.addInitScript(([key, ms]) => localStorage.setItem(key, JSON.stringify({ force: ms })), [FORCE_KEY, Date.parse(iso)]);
+
+  test('the switch puts it up over the countdown on an ordinary night, and takes it down again', async ({ page }) => {
+    await page.goto(at('2026-09-23T17:45:00'));
+    await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'countdown');
+    await page.locator('body').hover({ position: { x: 1900, y: 20 } });
+    await page.getByRole('button', { name: /Show Bracelet Time now/ }).click();
+    await expect(page.locator('[data-forced="bracelets"]')).toBeVisible();
+    await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'steps');
+    await expect(page.locator('[data-bracelet-step]')).toHaveAttribute('data-bracelet-step', '1');
+    // A reload keeps it: it is saved on this device until midnight.
+    await page.reload();
+    await expect(page.locator('[data-forced="bracelets"]')).toBeVisible();
+    await page.locator('body').hover({ position: { x: 1900, y: 20 } });
+    await page.getByRole('button', { name: /Show Bracelet Time now/ }).click();
+    await expect(page.locator('[data-forced]')).toHaveCount(0);
+    await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'countdown');
+  });
+
+  test('outside game time it is T&T with no end time, its epics run from the switch, and B opens the controls', async ({ page }) => {
+    await seedForce(page, '2026-09-23T17:30:00-04:00');
+    await page.goto(at('2026-09-23T17:47:00'));
+    await expect(page.locator('[data-forced="bracelets"]')).toBeVisible();
+    const corner = page.locator('.pj-bracelet__corner');
+    await expect(corner).toContainText(/Craft time/i);
+    await expect(corner).not.toContainText(/Ends/i);
+    await page.keyboard.press('b');
+    await expect(page.getByRole('dialog', { name: 'Bracelet Time controls' })).toBeVisible();
+    // Its epics run every five minutes from the moment it went on (17:30:10, ... 17:45:10).
+    await page.goto(at('2026-09-23T17:45:40'));
+    await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'epic');
+  });
+
+  test('in a T&T or Sparks game window it keeps that window\'s club and end time', async ({ page }) => {
+    await seedForce(page, '2026-09-23T17:30:00-04:00');
+    await page.goto(at('2026-09-23T18:12:00'));
+    await expect(page.locator('[data-forced="bracelets"]')).toBeVisible();
+    await expect(page.locator('.pj-bracelet__corner')).toContainText(/Ends 6:30/i);
+    await page.goto(at('2026-09-23T18:42:00'));
+    await expect(page.locator('.pj-bracelet__corner')).toContainText(/Sparks/i);
+  });
+
+  test('it switches itself off at midnight: a switch left on yesterday never takes tonight\'s wall', async ({ page }) => {
+    await seedForce(page, '2026-09-22T19:00:00-04:00');
+    await page.goto(at('2026-09-23T18:01:00'));
+    await expect(page.locator('[data-mode]')).toHaveAttribute('data-mode', 'slideshow');
+    await expect(page.locator('[data-forced]')).toHaveCount(0);
+    await page.keyboard.press('b');
+    await expect(page.getByRole('dialog', { name: 'Bracelet Time controls' })).toHaveCount(0);
+  });
+});

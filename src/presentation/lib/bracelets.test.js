@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   BRACELET_NIGHTS, BRACELET_STEPS, EPIC_EVERY_SEC, EPIC_LEAD_SEC, EPIC_SEC, LOOP_SEC, STEP_SLOTS,
-  braceletFrame, epicStarts, isBraceletNight, isBraceletWindow, stepSlotSec, windowSpan,
+  braceletFrame, epicStarts, forcedBraceletWindow, isBraceletClubWindow, isBraceletNight, isBraceletWindow, stepSlotSec, windowSpan,
 } from './bracelets.js';
 
 const at = (hhmmss) => Date.parse(`2026-09-30T${hhmmss}-04:00`);
@@ -68,6 +68,26 @@ describe('which windows are Bracelet Time', () => {
     expect(isBraceletWindow(tnt, new Date(2026, 9, 14, 18, 10))).toBe(false);
     expect(isBraceletWindow({ kind: 'slideshow', deck: 'opening' }, night)).toBe(false);
     expect(isBraceletWindow(null, night)).toBe(false);
+  });
+  it('a T&T or Sparks game window is a bracelet club window on any date (a forced wall keeps its club and end)', () => {
+    expect(isBraceletClubWindow(tnt)).toBe(true);
+    expect(isBraceletClubWindow(sparks)).toBe(true);
+    expect(isBraceletClubWindow(pc)).toBe(false);
+    expect(isBraceletClubWindow({ kind: 'slideshow', deck: 'opening' })).toBe(false);
+    expect(isBraceletClubWindow(null)).toBe(false);
+  });
+  it('a forced wall outside those windows is T&T, from the moment the switch went on to midnight', () => {
+    const on = new Date(2026, 8, 23, 17, 45, 30);
+    const w = forcedBraceletWindow(on.getTime(), new Date(2026, 8, 23, 17, 50));
+    expect(w).toMatchObject({ kind: 'game', clubs: ['tnt'] });
+    const { startMs, endMs } = windowSpan(w, new Date(2026, 8, 23, 17, 50));
+    expect(startMs).toBe(on.getTime());
+    expect(new Date(endMs)).toEqual(new Date(2026, 8, 24, 0, 0));
+    // The epics run from the switch on, every five minutes, never past midnight.
+    const starts = epicStarts(startMs, endMs);
+    expect(starts[0]).toBe(on.getTime() + EPIC_LEAD_SEC * 1000);
+    expect(starts[1] - starts[0]).toBe(EPIC_EVERY_SEC * 1000);
+    expect(starts.every((s) => s + EPIC_SEC * 1000 <= endMs)).toBe(true);
   });
   it('anchors a window to the night it is on', () => {
     const { startMs, endMs } = windowSpan(tnt, night);

@@ -87,6 +87,22 @@ describe('BraceletTimeView', () => {
     expect(corner(c)).toMatch(/ENDS 6:30 PM/i);
   });
 
+  it('a forced wall with no end ("Show Bracelet Time now" outside game time) shows no end time and never warns', () => {
+    const w = { kind: 'game', clubs: ['tnt'], title: 'Bracelet Time', startMin: 17 * 60 + 45, endMin: 24 * 60 };
+    const c = wall(at('17:47:00'), { window: w, endsAt: null });
+    expect(phase(c)).toBe('steps');
+    expect(corner(c)).not.toMatch(/Ends/i);
+    expect(corner(c)).toMatch(/Craft time/i);
+    expect(c.querySelector('.pj-bracelet__corner').dataset.warning).toBeUndefined();
+    expect(playStinger).not.toHaveBeenCalled();
+  });
+
+  it('a wall kept up past its window\'s end no longer says "Ends 6:30 PM"', () => {
+    const c = wall(at('18:31:00'));
+    expect(corner(c)).not.toMatch(/Ends 6:30/i);
+    expect(corner(c)).toMatch(/Craft time/i);
+  });
+
   it('keeps the card from step to step: the rail stays, the stage plays straight on, only what changes crossfades', async () => {
     const props = { window: TNT, endsAt: ENDS_AT, tally: null };
     stageClock.nowMs = at('18:06:45').getTime();
