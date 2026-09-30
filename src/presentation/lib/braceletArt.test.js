@@ -177,16 +177,50 @@ describe('sceneFor', () => {
   });
 
   it('lights the X in gold on step 10', () => {
-    expect(sceneFor(9, 0).some((i) => i.kind === 'cord' && i.tone === 'gold')).toBe(false);
-    expect(sceneFor(9, 1).filter((i) => i.kind === 'cord' && i.tone === 'gold')).toHaveLength(2);
+    // (the short gold rim on the top string's end is not the X)
+    const xGold = (items) => items.filter((i) => i.kind === 'cord' && i.tone === 'gold' && Math.hypot(i.pts.at(-1)[0] - i.pts[0][0], i.pts.at(-1)[1] - i.pts[0][1]) > 30);
+    expect(xGold(sceneFor(9, 0))).toHaveLength(0);
+    expect(xGold(sceneFor(9, 1))).toHaveLength(2);
   });
 
-  it('takes the finger out of the wraps on step 11', () => {
-    const finger = (items) => items.find((i) => i.kind === 'glove' && i.pose === 'point');
-    const a = finger(sceneFor(10, 0));
-    const b = finger(sceneFor(10, 1));
-    expect(Math.abs(b.x - a.x)).toBeGreaterThan(300);
-    expect(finger(sceneFor(11, 0.5))).toBeUndefined();
+  it('draws the knot for the child\'s own hands: the left pointer out to the right, the black side rising on the left', () => {
+    const items = sceneFor(8, 1);
+    const finger = items.find((i) => i.kind === 'glove' && i.id === 'finger');
+    const right = items.find((i) => i.kind === 'glove' && i.id === 'right');
+    expect(finger.flip).toBe(true); // a left glove
+    expect(right.flip).toBe(false);
+    expect(finger.pose).toBe('point');
+    // The finger points right, from its hand on the left: its box ends where the glove's anchor (the tip) is.
+    expect(itemBox(finger).x1).toBeLessThan(finger.x + 40);
+    expect(itemBox(finger).x0).toBeLessThan(finger.x - 300);
+    // The bracelet reads clear, black ... yellow, clear from left to right,
+    // so the black side is the one that rises on the left, to the X.
+    expect(leftToRight(beadsOf(items)).map((b) => b.color)).toEqual(BRACELET_ROW);
+  });
+
+  it('pinches the loops with the left thumb and middle finger, then slides the pointer out, on step 11', () => {
+    const finger = (items) => items.find((i) => i.kind === 'glove' && i.id === 'finger');
+    const grip = (items) => items.find((i) => i.kind === 'glove' && i.id === 'finger^');
+    expect(finger(sceneFor(10, 0))).toMatchObject({ ext: 1, grip: 0 });
+    expect(grip(sceneFor(10, 0))).toBeUndefined();
+    expect(finger(sceneFor(10, 1))).toMatchObject({ ext: 0, grip: 1, layer: 'hand' });
+    expect(grip(sceneFor(10, 1))).toMatchObject({ ext: 0, grip: 1, layer: 'grip' });
+    // The pinching fingers are drawn over the loops they pinch.
+    const items = sceneFor(10, 1);
+    const lastWrap = items.findLastIndex((i) => i.kind === 'cord' && i.tone === 'front');
+    expect(items.indexOf(grip(items))).toBeGreaterThan(items.indexOf(finger(items)));
+    expect(lastWrap).toBeGreaterThan(0);
+    // And the pointer stays out while the end goes through.
+    expect(finger(sceneFor(11, 0.5))).toMatchObject({ ext: 0, grip: 1 });
+  });
+
+  it('has the right hand push the end through, then take it at the far side', () => {
+    const right = (p) => sceneFor(11, p).find((i) => i.kind === 'glove' && i.id === 'right');
+    const finger = sceneFor(11, 0.5).find((i) => i.kind === 'glove' && i.id === 'finger');
+    // Pushing it in at the knuckle end of the loops, then out past the X.
+    expect(right(0.4).x).toBeLessThan(760);
+    expect(right(1).x).toBeGreaterThan(900);
+    expect(right(1).x).toBeGreaterThan(finger.x);
   });
 
   it('pulls tight on step 13: both hands pull apart, a pop', () => {
@@ -362,7 +396,8 @@ const middle = (g) => {
 function handsOf(items, label, bad) {
   const m = new Map();
   for (const it of items) {
-    if (it.kind !== 'glove' || it.id.endsWith('~')) continue;
+    // (a hand's second layer, "name^", is part of the same hand)
+    if (it.kind !== 'glove' || it.id.endsWith('~') || it.id.includes('^')) continue;
     if (!it.id) bad.push(`${label}: a hand with no name`);
     if (m.has(it.id)) bad.push(`${label}: two hands called ${it.id}`);
     m.set(it.id, { g: it, off: boxOffStage(itemBox(it)), mid: middle(it) });

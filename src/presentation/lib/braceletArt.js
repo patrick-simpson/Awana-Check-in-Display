@@ -66,9 +66,6 @@ export const GLOVE = Object.freeze({ fingerW: 48, pointReach: 128 });
  * StepArt draws it that way). A mirrored (left) glove's body is at 180 - this.
  */
 export const PINCH_BODY_DEG = 32;
-const PINCH_BODY_DEG_FLIPPED = 180 - PINCH_BODY_DEG;
-/** A left glove pinching the wraps with its hand trailing down and left. */
-const PINCH_COIL_ROT = 125 - PINCH_BODY_DEG_FLIPPED;
 
 /** `camera` is a plain translate-then-scale of the stage: {0, 0, 1} is no camera at all. */
 export const IDENTITY_CAMERA = Object.freeze({ x: 0, y: 0, scale: 1 });
@@ -81,8 +78,9 @@ export const IDENTITY_CAMERA = Object.freeze({ x: 0, y: 0, scale: 1 });
 /** @typedef {{ kind: 'bead', x: number, y: number, rot: number, s: number, sx: number, sy: number, color: BeadColor }} BeadItem */
 /**
  * @typedef {{ kind: 'glove', id: string, x: number, y: number, rot: number, s: number, pose: GlovePose, flip: boolean,
- *   gap: number, reach: number, grip: number, gripAt: number, ext: number, o: number }} GloveItem
+ *   gap: number, reach: number, grip: number, gripAt: number, ext: number, o: number, layer: GloveLayer }} GloveItem
  */
+/** @typedef {'all' | 'hand' | 'grip'} GloveLayer */
 /** @typedef {{ kind: 'knot', x: number, y: number, rot: number, s: number }} KnotItem */
 /** @typedef {{ kind: 'pot', x: number, y: number, s: number, color: BeadColor }} PotItem */
 /** @typedef {{ kind: 'text', x: number, y: number, s: number, rot: number, o: number, size: number, text: string }} TextItem */
@@ -145,18 +143,20 @@ function stitches(cx, cy, len, spread, deg = 90) {
   ]));
 }
 
-/** @typedef {{ gap?: number, reach?: number, grip?: number, gripAt?: number, ext?: number }} PoseOptions */
+/** @typedef {{ gap?: number, reach?: number, grip?: number, gripAt?: number, ext?: number, layer?: GloveLayer }} PoseOptions */
 
 /**
  * A pose's parts. `gap` opens the pinch. For the pointing hand, `reach` is
  * the pointer's length, `ext` how far it is out (1 all the way, 0 curled back
  * into the fist: sliding out of the loops), and `grip` how far the thumb and
  * the middle finger have reached forward along it, to `gripAt` (in the
- * glove's own units, from the fingertip), to pinch what is on it.
+ * glove's own units, from the fingertip), to pinch what is on it. `layer`
+ * splits a gripping hand in two: 'grip' is just the thumb and middle finger
+ * (drawn over what they pinch), 'hand' is the rest.
  * @param {GlovePose} pose @param {PoseOptions} [o]
  * @returns {GlovePart[]}
  */
-export function gloveParts(pose, { gap = 60, reach = GLOVE.pointReach, grip = 0, gripAt = 0, ext = 1 } = {}) {
+export function gloveParts(pose, { gap = 60, reach = GLOVE.pointReach, grip = 0, gripAt = 0, ext = 1, layer = 'all' } = {}) {
   if (pose === 'point') {
     const L = reach;
     const e = clamp01(ext);
@@ -184,8 +184,11 @@ export function gloveParts(pose, { gap = 60, reach = GLOVE.pointReach, grip = 0,
     // its near side, and the middle finger along its far side.
     /** @type {Pt} */
     const thumbTip = [lerp(-26, -35, gr), lerp(L + 6, gripAt, gr)];
-    parts.push(cap([[-30, L + 92], [-34, L + 40], thumbTip], 38));
-    if (gr > 0) parts.push(cap([[40, L - 6], [lerp(40, 37, gr), lerp(L - 6, gripAt, gr)]], 34));
+    const fingers = [cap([[-30, L + 92], [-34, L + 40], thumbTip], 38)];
+    if (gr > 0) fingers.push(cap([[40, L - 6], [lerp(40, 37, gr), lerp(L - 6, gripAt, gr)]], 34));
+    const split = gr > 0 && layer !== 'all';
+    if (layer === 'grip') return split ? fingers : [];
+    if (!split) parts.push(...fingers);
     parts.push(...stitches(62, L + 70, 44, 24));
     return parts;
   }
@@ -376,11 +379,11 @@ const fold = (deg) => {
  * @returns {GloveItem}
  */
 const glove = (x, y, pose, {
-  id = '', rot = 0, s = 1, flip = false, gap = 60, reach = GLOVE.pointReach, grip = 0, gripAt = 0, ext = 1, o = 1,
+  id = '', rot = 0, s = 1, flip = false, gap = 60, reach = GLOVE.pointReach, grip = 0, gripAt = 0, ext = 1, o = 1, layer = 'all',
 } = {}) => ({
   kind: 'glove', id, x: r1(x), y: r1(y), rot: r1(fold(rot)), s: r1(s * 1000) / 1000, pose, flip,
   gap: r1(gap), reach: r1(reach), grip: r1(clamp01(grip) * 1000) / 1000, gripAt: r1(gripAt), ext: r1(clamp01(ext) * 1000) / 1000,
-  o: r1(clamp01(o) * 1000) / 1000,
+  o: r1(clamp01(o) * 1000) / 1000, layer,
 });
 
 /**
@@ -825,48 +828,42 @@ function crossStep(p) {
 }
 
 // ── The knot close-up (steps 9 to 13) ────────────────────────
-// A top view of a pointer finger held out to the right (its hand on the
-// left), with the bracelet hanging below. The two sides cross on the finger
-// in an X near the knuckle; the top string then wraps under and around the
-// finger three times, toward the fingertip, and a counter pops for each wrap.
-// Take the finger out and the wraps are a tunnel; thread the end back
-// through it and pull, and the wraps cinch into a barrel knot around the
-// bottom string.
-//
-// The geometry below is written for the mirror image (finger pointing LEFT,
-// wraps running right to left); `mirror()` flips each finished picture, so
-// the wall shows the finger pointing right and the counters read 1, 2, 3.
+// The child's own left hand, seen from above: its pointer finger held out to
+// the right, the bracelet hanging below it. The two sides cross in an X on
+// the finger near its tip, the left (black) side on top, just as step 8
+// crossed them. The bottom string lies along the top of the finger toward
+// the knuckle, in plain view; the top string wraps under and around the
+// finger AND that string three times, working back toward the knuckle, and a
+// counter pops for each wrap. Then the left hand's thumb and middle finger
+// pinch the loops and the pointer slides out of them, which leaves a tunnel;
+// the right hand pushes the end in at the tunnel's knuckle end and pulls it
+// out past the X; both ends pulled, the wraps cinch into a knot round the
+// bottom string, which is what closes the bracelet. Nothing here is drawn
+// mirrored: the picture is the child's own view, left hand on the left.
 
 const FY = 252; // the finger's axis
-const TIP_X = 400; // the fingertip
-const HAND_S = 1.45;
-const HAND_REACH = 252; // the pointer finger, in glove units
+const XC = 800; // the X's centre, near the fingertip
+const TIP_X = XC + 44; // the fingertip
+const HAND_S = 1.3;
+const HAND_REACH = 214; // the pointer finger, in glove units
 const FR = (GLOVE.fingerW * HAND_S) / 2;
-const XC = 664; // the X's centre, on the finger near the knuckle
-const R0 = FR + 9; // the wraps' radius around the finger
-const PITCH0 = 56;
-const GAP0 = 34; // between the X and the first wrap
-const WRAPS = 3; // three overs and three unders; the end leaves at the near edge
-const HOLD = { reach: 70, top: 58, side: 64, back: 34, s: 0.62 }; // where the wrapping hand holds the end
-// Drawn in the mirror image too, so its row is reversed here and reads
-// clear, black ... yellow, clear on the wall, as in steps 1 to 7.
-const BRACELET_BELOW = { cx: XC, yb: 468, kappa: 1 / 250, s: 0.5, colors: [...BRACELET_ROW].reverse() };
-const THREAD_OUT = /** @type {Pt} */ ([XC + 150, FY - 4]);
-
-/**
- * Flip a finished picture left to right (see above).
- * @param {Item[]} items @returns {Item[]}
- */
-function mirror(items) {
-  return items.map((it) => {
-    if (it.kind === 'cord' || it.kind === 'arrow') {
-      return { ...it, pts: it.pts.map(([x, y]) => /** @type {Pt} */ ([r1(STAGE_W - x), y])) };
-    }
-    if (it.kind === 'glove') return { ...it, x: r1(STAGE_W - it.x), rot: r1(-it.rot || 0), flip: !it.flip };
-    if (it.kind === 'badge' || it.kind === 'pot') return { ...it, x: r1(STAGE_W - it.x) };
-    return { ...it, x: r1(STAGE_W - it.x), rot: r1(-it.rot || 0) };
-  });
+const R0 = FR + 9; // the wraps' radius round the finger (and the string on it)
+const PITCH0 = 38;
+const GAP0 = 14; // between the X and the first wrap
+const WRAPS = 2.5; // three unders and three overs; the end leaves at the far edge
+// The bracelet hangs below and to the right, clear of the right hand's reach.
+const BRACELET_BELOW = { cx: XC + 190, yb: 446, kappa: 1 / 250, s: 0.5 };
+/** Where the end is pulled out to, past the X on the fingertip's side. */
+const THREAD_OUT = /** @type {Pt} */ ([XC + 150, FY + 6]);
+/** The right hand holds the end this far behind its tip, so the tip can lead. */
+const TIP_LEAD = 34;
+/** The point `d` along a polyline, as a point. @param {Pt[]} pts @param {number} d @returns {Pt} */
+function alongPt(pts, d) {
+  const q = along(pts, d);
+  return [q.x, q.y];
 }
+/** The right hand's size in the close-up (small, so it never hides the wraps). */
+const RIGHT_S = 0.62;
 
 /**
  * The knot's geometry for wraps of radius R and pitch.
@@ -874,15 +871,26 @@ function mirror(items) {
  */
 function knotGeom(R, pitch, gap) {
   const w = 0.85 * R;
+  // The top string meets the finger's near edge and crosses over it, up and
+  // toward the fingertip; the bottom string crosses under it and flattens
+  // onto the finger, toward the knuckle.
   /** @type {Pt} */ const aTop = [XC - w, FY + R];
   /** @type {Pt} */ const bTop = [XC + w, FY - R];
   /** @type {Pt} */ const aBot = [XC + w, FY + R];
-  /** @type {Pt} */ const bBot = [XC - w, FY - R];
+  /** @type {Pt} */ const bBot = [XC - 1.25 * w, FY - 0.42 * R];
   const x1 = XC - w - gap;
   /** A point of the top string's wrap at turn u (u < 0 is the pass under from the X). @param {number} u @returns {Pt} */
   const at = (u) => [u < 0 ? lerp(XC + w, x1, (u + 0.5) / 0.5) : x1 - pitch * u, FY + R * Math.cos(TAU * u)];
-  return { R, pitch, aTop, bTop, aBot, bBot, x1, xe: x1 - WRAPS * pitch, at, inset: R * 0.22 };
+  // Where the two strands of the X cross.
+  const t = ((aBot[0] - aTop[0]) * (bBot[1] - aBot[1]) - (aBot[1] - aTop[1]) * (bBot[0] - aBot[0]))
+    / ((bTop[0] - aTop[0]) * (bBot[1] - aBot[1]) - (bTop[1] - aTop[1]) * (bBot[0] - aBot[0]));
+  /** @type {Pt} */
+  const cross = [lerp(aTop[0], bTop[0], t), lerp(aTop[1], bTop[1], t)];
+  return { R, pitch, aTop, bTop, aBot, bBot, x1, xe: x1 - WRAPS * pitch, at, along: FY - 0.42 * R, inside: FY + 0.22 * R, cross };
 }
+
+/** The finished wraps round the finger. */
+const G0 = knotGeom(R0, PITCH0, GAP0);
 
 /**
  * The wraps, split into the halves over the finger (front) and under it (back).
@@ -904,48 +912,79 @@ function wraps(g, uTip) {
   return { front, back };
 }
 
+/** Where the bottom string's tail lies, over the back of the hand. */
+const BOTTOM_TAIL = /** @type {Pt} */ ([452, FY - 4]);
+
 /**
- * The bottom string past the X: over the far edge, under the finger (or
- * through the tunnel), then out past the fingertip to its tail, which is in
- * plain view again.
+ * The bottom string past the X: along the top of the finger toward the
+ * knuckle, under the wraps (which close round it), then on over the back of
+ * the hand to its tail. It is always in plain view: this is the string a
+ * child must lay along the finger.
  * @param {ReturnType<typeof knotGeom>} g @param {Pt} tail
- * @param {number} fingerTip the fingertip's x (Infinity once it is out)
- * @returns {Item[]}
+ * @returns {CordItem}
  */
-function bottomString(g, tail, fingerTip) {
-  const y = FY + g.inset;
-  // Hidden while it runs under the finger or through the wraps.
-  const out = Math.min(g.xe - 12, fingerTip - 4);
-  return [
-    cord([g.bBot, [g.bBot[0] - 8, FY - g.R * 0.45], [g.bBot[0] - 26, y], [out, y]], 'back'),
-    cord([[out, y], [lerp(out, tail[0], 0.55), lerp(y, tail[1], 0.3)], tail]),
-  ];
+function bottomString(g, tail) {
+  const y = g.along;
+  /** @type {Pt} */
+  const off = [g.xe - 26, y + 1];
+  return cord([g.bBot, [g.bBot[0] - 14, y], off, [lerp(off[0], tail[0], 0.5), lerp(y, tail[1], 0.4)], tail]);
 }
 
 /**
- * The top string's end, from the last wrap (at the near edge): down, round
- * to the left, into the tunnel's mouth, through it, out past the X.
- * @param {ReturnType<typeof knotGeom>} g @param {Pt} out the far end
+ * Where the right hand holds the end when the wraps have reached turn u. It
+ * circles the finger on the knuckle's side of the wrap it is making, so the
+ * wraps already made and the X stay in view; its arm trails to the right, up
+ * and right above the finger, down and right below it, and it never reaches
+ * over the bracelet.
+ * @param {ReturnType<typeof knotGeom>} g @param {number} u
  */
-function threadRoute(g, out, loopScale = g.R / R0) {
-  const s = loopScale;
-  const e = g.at(WRAPS);
-  const y = FY - g.inset;
-  const mouthL = g.xe - 24 * s;
-  /** @type {Pt[]} */
-  const loop = [
-    e,
-    [e[0] - 2 * s, e[1] + 52 * s],
-    [e[0] - 44 * s, e[1] + 80 * s],
-    [e[0] - 92 * s, e[1] + 50 * s],
-    [e[0] - 100 * s, y + 14 * s],
-    [mouthL, y],
-  ];
-  /** @type {Pt[]} */
-  const inside = [[mouthL, y], [XC + g.R * 0.85 + 26 * s, y]];
-  /** @type {Pt[]} */
-  const exit = [inside[1], [lerp(inside[1][0], out[0], 0.5), lerp(y, out[1], 0.5)], out];
-  return { loop, inside, exit, all: [...loop, ...inside.slice(1), ...exit.slice(1)] };
+function holdAt(g, u) {
+  const tip = g.at(u);
+  const ph = TAU * u;
+  const c = Math.cos(ph);
+  /** @type {Pt} */
+  const hand = [tip[0] - 84 + 22 * Math.sin(ph), FY + (g.R + (c > 0 ? 40 : 50)) * c];
+  return { tip, hand, behind: Math.sin(ph) < -0.2, rot: 40 * c - PINCH_BODY_DEG };
+}
+
+/** The right hand, pinching the top string's end. @param {Pt} at @param {number} rot @param {number} [gap] @param {number} [s] */
+const rightHand = (at, rot, gap = 20, s = RIGHT_S) => glove(at[0], at[1], 'pinch', { id: 'right', gap, s, rot });
+
+/**
+ * The end the right hand holds: from where it leaves the knot, through the
+ * pinch, and out past the fingers by TIP_LEAD. `glint` (0..1) is the gold
+ * rim on its tip that lets the eye follow "the top string".
+ * @param {Pt} from @param {Pt} hand @param {number} [glint]
+ * @returns {{ items: Item[], tip: Pt }}
+ */
+function heldEnd(from, hand, glint = 1) {
+  const d = unit([hand[0] - from[0], hand[1] - from[1]]);
+  /** @type {Pt} */
+  const tip = [hand[0] + d[0] * TIP_LEAD, hand[1] + d[1] * TIP_LEAD];
+  /** @type {Item[]} */
+  const items = [];
+  if (glint > 0) items.push(cord([[tip[0] - d[0] * 16, tip[1] - d[1] * 16], tip], 'gold', lerp(0.6, 1, glint)));
+  items.push(cord([from, hand, tip]));
+  return { items, tip };
+}
+
+/** Where the left hand's thumb and middle finger pinch the loops (the wraps' knuckle end). */
+const GRIP_X = G0.xe + 8;
+
+/**
+ * The left hand, its pointer out along the finger's axis. `dx` moves the
+ * hand, `ext` slides the pointer back into the fist (0: out of the loops),
+ * `grip` brings the thumb and middle finger forward onto the loops. Gripping,
+ * those two are their own layer ('grip'), drawn over the loops they pinch.
+ * @param {{ dx?: number, ext?: number, grip?: number }} [o] @param {'all' | 'hand' | 'grip'} [layer]
+ * @returns {GloveItem}
+ */
+function fingerHand({ dx = 0, ext = 1, grip = 0 } = {}, layer = 'all') {
+  const x = TIP_X + dx;
+  return glove(x, FY, 'point', {
+    id: layer === 'grip' ? 'finger^' : 'finger', rot: 90, s: HAND_S, flip: true, reach: HAND_REACH,
+    ext, grip, gripAt: (x - GRIP_X) / HAND_S, layer,
+  });
 }
 
 /**
@@ -976,10 +1015,7 @@ function theX(g, gold) {
   const out = [];
   const q = easeOut(gold);
   /** @param {Pt} a @param {Pt} b @returns {Pt[]} */
-  const lighted = (a, b) => {
-    const m = mix(a, b, 0.5);
-    return [mix(m, a, q), mix(m, b, q)];
-  };
+  const lighted = (a, b) => [mix(g.cross, a, q), mix(g.cross, b, q)];
   if (gold > 0) out.push(cord(lighted(g.aBot, g.bBot), 'gold'));
   out.push(cord([g.aBot, g.bBot]));
   if (gold > 0) out.push(cord(lighted(g.aTop, g.bTop), 'gold'));
@@ -987,64 +1023,9 @@ function theX(g, gold) {
   return out;
 }
 
-const BOTTOM_TAIL = /** @type {Pt} */ ([278, 300]);
-
-/** The hand with its pointer finger out; dx slides it back out of the wraps. @param {number} [dx] */
-const pointerHand = (dx = 0) => glove(TIP_X + dx, FY, 'point', { id: 'finger', rot: -90, s: HAND_S, reach: HAND_REACH });
-
 /**
- * Where the wrapping hand holds the end when the wraps have reached turn u.
- * It circles beside the wraps, on the fingertip's side, below then over the
- * front, above, then round the back, its hand trailing away from the wraps
- * (never over them, never over the bracelet, never out of the frame).
- * @param {ReturnType<typeof knotGeom>} g @param {number} u
- */
-function holdAt(g, u) {
-  const tip = g.at(u);
-  const ph = TAU * u;
-  const c = Math.cos(ph);
-  /** @type {Pt} */
-  const hand = [tip[0] - HOLD.back + HOLD.side * Math.sin(ph), tip[1] + (c > 0 ? HOLD.reach : HOLD.top) * c];
-  const body = 180 + 12 * c;
-  return { tip, hand, behind: Math.sin(ph) < -0.2, rot: body - PINCH_BODY_DEG_FLIPPED };
-}
-
-/** The wrapping hand holding the end, flipped (it is the other hand). */
-const holdingGlove = (/** @type {Pt} */ at, /** @type {number} */ rot, gap = 20) => glove(at[0], at[1], 'pinch', { id: 'wrap', gap, flip: true, s: HOLD.s, rot });
-
-/**
- * Step 9: set the bottom string on the finger, wrap the top string under and
- * around it three times.
- * @param {number} p @returns {Item[]}
- */
-function wrapStep(p) {
-  const g = knotGeom(R0, PITCH0, GAP0);
-  // p is already at a child's pace (stepProgress); easing it again bunched
-  // wraps 2 and 3 together, so the wraps run evenly here.
-  const w = seg(p, 0.06, 0.92);
-  const uTip = lerp(-0.5, WRAPS, w);
-  const { front, back } = wraps(g, uTip);
-  const h = holdAt(g, uTip);
-  const hold = holdingGlove(h.hand, h.rot);
-  // The held end is always a front cord: the finger already hides whatever
-  // part of it is behind (switching its tone flickered).
-  const tail = cord([h.tip, h.hand]);
-
-  /** @type {Item[]} */
-  const items = hangingBracelet(g);
-  for (const pts of back) items.push(cord(pts, 'back'));
-  items.push(...bottomString(g, BOTTOM_TAIL, TIP_X));
-  if (h.behind) items.push(tail, hold);
-  items.push(pointerHand());
-  items.push(...theX(g, 0));
-  for (const pts of front) items.push(cord(pts));
-  if (!h.behind) items.push(tail, hold);
-  items.push(...wrapCounters(g, uTip));
-  return mirror(items);
-}
-
-/**
- * One, two, three: a counter under each wrap as its pass over the finger closes.
+ * One, two, three: a counter pops as each wrap's pass over the finger
+ * closes, in a row above the knot that reads left to right.
  * @param {ReturnType<typeof knotGeom>} g @param {number} uTip @param {number} [o]
  * @returns {Item[]}
  */
@@ -1052,188 +1033,307 @@ function wrapCounters(g, uTip, o = 1) {
   /** @type {Item[]} */
   const out = [];
   for (let k = 0; k < 3; k += 1) {
-    const done = k + 0.5;
+    // Each pops as its pass over the finger closes (the last one by the end).
+    const done = k + 0.3;
     if (uTip < done) continue;
-    const pop = clamp01((uTip - done) / 0.22);
-    out.push(badge(g.x1 - g.pitch * (k + 0.25), FY - g.R - 50, String(k + 1), backOut(pop), o));
+    const pop = clamp01((uTip - done) / 0.2);
+    out.push(badge(XC + 20 + k * 48, FY - g.R - 64, String(k + 1), backOut(pop), o));
   }
   return out;
 }
 
 /**
- * The finished wraps with the end: held out (step 10), loose (11), or
- * threaded `threaded` of the way along its route (12).
- * @param {ReturnType<typeof knotGeom>} g
- * @param {{ fingerDX?: number | null, threaded?: number, held?: Pt | null, out?: Pt }} o
+ * The right hand's resting hold on the end once the wraps are made: straight
+ * up from the last wrap, clear of the left hand, its arm trailing right.
  */
-function wrappedKnot(g, { fingerDX = 0, threaded = 0, held = null, out = THREAD_OUT }) {
-  const { front, back } = wraps(g, WRAPS);
-  const route = threadRoute(g, out);
-  const loopLen = polyLength(route.loop);
-  const insideLen = polyLength(route.inside);
-  const total = polyLength(route.all);
-  const len = lerp(64, total, threaded);
-  /** @type {Item[]} */
-  const backItems = [];
-  /** @type {Item[]} */
-  const frontItems = [];
-  if (held) {
-    frontItems.push(cord([g.at(WRAPS), held]));
-  } else {
-    // The end's loop outside the tunnel is in front; its run through the
-    // tunnel sits between the wraps' two halves; out past the X it is in
-    // front again.
-    frontItems.push(cord(slice(route.all, 0, Math.min(len, loopLen))));
-    if (len > loopLen) backItems.push(cord(slice(route.all, loopLen, Math.min(len, loopLen + insideLen)), 'back'));
-    if (len > loopLen + insideLen) frontItems.push(cord(slice(route.all, loopLen + insideLen, len)));
-  }
-  const tipAt = along(route.all, len);
-  return { g, front, back, backItems, frontItems, tipAt, fingerDX, route, len, total };
-}
+const REST = { hand: /** @type {Pt} */ ([G0.xe - 16, FY - R0 - 64]), rot: -PINCH_BODY_DEG };
 
 /**
- * Draws a wrappedKnot, back to front, with extra layers.
- * @param {ReturnType<typeof wrappedKnot>} k
- * @param {{ gold?: number, over?: Item[] }} [o]
- * @returns {Item[]}
+ * The top string's end after the wraps: from where it leaves the last wrap
+ * (at the far edge, the knuckle end) up to the right hand, then round the
+ * hook, in at the tunnel's knuckle end, through it and out past the X.
+ * `loopScale` shrinks the hook as the knot is pulled tight.
+ * @param {ReturnType<typeof knotGeom>} g @param {Pt} out the far end @param {number} [loopScale]
  */
-function drawKnot(k, { gold = 0, over = [] } = {}) {
+function threadRoute(g, out, loopScale = 1) {
+  const s = loopScale;
+  const e = g.at(WRAPS);
+  const y = g.inside;
+  /** @param {number} dx @param {number} dy @returns {Pt} */
+  const off = (dx, dy) => [e[0] + dx * s, e[1] + dy * s];
+  const d = unit([REST.hand[0] - e[0], REST.hand[1] - e[1]]);
+  const hand = off(REST.hand[0] - e[0], REST.hand[1] - e[1]);
+  const lead = off(REST.hand[0] - e[0] + d[0] * TIP_LEAD, REST.hand[1] - e[1] + d[1] * TIP_LEAD);
+  /** @type {Pt} */
+  const mouth = [g.xe - 24 * s, y];
+  /** @type {Pt[]} */
+  const loop = [e, hand, lead, off(-57, -118), off(-109, -94), off(-133, -38), off(-117, 20), [mouth[0] - 40 * s, y], mouth];
+  /** @type {Pt[]} */
+  const inside = [mouth, [g.x1 + 20, y]];
+  /** @type {Pt[]} */
+  const exit = [inside[1], [lerp(inside[1][0], out[0], 0.5), lerp(y, out[1], 0.5)], out];
+  return { loop, inside, exit, all: [...loop, ...inside.slice(1), ...exit.slice(1)] };
+}
+
+const ROUTE = threadRoute(G0, THREAD_OUT);
+const ROUTE_LEN = {
+  rest: polyLength(ROUTE.loop.slice(0, 3)),
+  loop: polyLength(ROUTE.loop),
+  inside: polyLength(ROUTE.inside),
+  total: polyLength(ROUTE.all),
+};
+
+/**
+ * The wrapped knot, back to front: the bracelet, the wraps' far halves, the
+ * left hand, the bottom string, the X, the wraps' near halves, then what is
+ * over them (the left hand's pinching fingers, the end). `left` is the left
+ * hand's layers (see leftHand); `threaded` is how far along its route the
+ * end has gone (null: still held out in the right hand's rest).
+ * @param {ReturnType<typeof knotGeom>} g
+ * @param {{ left?: { under: GloveItem[], over: GloveItem[] }, gold?: number, threaded?: number | null, route?: ReturnType<typeof threadRoute>, glint?: number, tail?: Pt }} o
+ * @returns {{ under: Item[], over: Item[], tipAt: Pt }}
+ */
+function wrappedKnot(g, { left = leftHand({}), gold = 0, threaded = null, route = ROUTE, glint = 1, tail = BOTTOM_TAIL }) {
+  const { front, back } = wraps(g, WRAPS);
   /** @type {Item[]} */
-  const items = hangingBracelet(k.g);
-  for (const pts of k.back) items.push(cord(pts, 'back'));
-  items.push(...bottomString(k.g, BOTTOM_TAIL, k.fingerDX == null ? Infinity : TIP_X + k.fingerDX));
-  items.push(...k.backItems);
-  if (k.fingerDX != null) items.push(pointerHand(k.fingerDX));
-  items.push(...theX(k.g, gold));
-  for (const pts of k.front) items.push(cord(pts));
-  items.push(...k.frontItems);
-  items.push(...over);
+  const under = hangingBracelet(g);
+  for (const pts of back) under.push(cord(pts, 'back'));
+  /** @type {Item[]} */
+  const end = [];
+  /** @type {Item[]} */
+  const endInside = [];
+  /** @type {Pt} */
+  let tipAt;
+  if (threaded == null) {
+    const held = heldEnd(g.at(WRAPS), REST.hand, glint);
+    end.push(...held.items);
+    tipAt = held.tip;
+  } else {
+    // The end's hook outside the tunnel is in front; its run through the
+    // tunnel sits between the wraps' two halves; out past the X it is in
+    // front again. Its tip glints gold.
+    const len = clamp(threaded, 1, polyLength(route.all));
+    const loopLen = polyLength(route.loop);
+    const insideLen = polyLength(route.inside);
+    tipAt = alongPt(route.all, len);
+    const back16 = alongPt(route.all, Math.max(0, len - 16));
+    if (glint > 0 && (len <= loopLen || len > loopLen + insideLen)) end.push(cord([back16, tipAt], 'gold', lerp(0.6, 1, glint)));
+    end.push(cord(slice(route.all, 0, Math.min(len, loopLen))));
+    if (len > loopLen) endInside.push(cord(slice(route.all, loopLen, Math.min(len, loopLen + insideLen)), 'back'));
+    if (len > loopLen + insideLen) end.push(cord(slice(route.all, loopLen + insideLen, len)));
+  }
+  under.push(...endInside);
+  under.push(...left.under);
+  under.push(bottomString(g, tail));
+  under.push(...theX(g, gold));
+  for (const pts of front) under.push(cord(pts));
+  /** @type {Item[]} */
+  const over = [...left.over, ...end];
+  return { under, over, tipAt };
+}
+
+/** The right hand's first hold on the end, before it starts wrapping: up and toward the fingertip, the way the top string crossed. */
+const START_HOLD = /** @type {Pt} */ ([904, 192]);
+const START_ROT = -30 - PINCH_BODY_DEG;
+
+/**
+ * Step 9: the finger slides in under the X with the bottom string lying
+ * along it, then the right hand wraps the top string under and around the
+ * finger and that string three times.
+ * @param {number} p @returns {Item[]}
+ */
+function wrapStep(p) {
+  const g = G0;
+  const slide = easeOut(seg(p, 0, 0.22));
+  const dx = lerp(-TIP_X - 30, 0, slide);
+  // p is already at a child's pace (stepProgress); easing it again bunched
+  // the wraps together, so they run evenly here.
+  const w = seg(p, 0.3, 0.9);
+  const uTip = lerp(-0.5, WRAPS, w);
+  const { front, back } = wraps(g, uTip);
+  const h = holdAt(g, uTip);
+  const reach = easeInOut(seg(p, 0.18, 0.3));
+  const settle = easeInOut(seg(p, 0.9, 1));
+  const at = mix(mix(START_HOLD, h.hand, reach), REST.hand, settle);
+  const hold = rightHand(at, lerp(lerp(START_ROT, h.rot, reach), REST.rot, settle));
+  // The held end is always a front cord: the finger already hides whatever
+  // part of it is behind (switching its tone flickered).
+  const held = heldEnd(h.tip, at);
+  const behind = reach >= 1 && h.behind;
+
+  /** @type {Item[]} */
+  const items = hangingBracelet(g);
+  for (const pts of back) items.push(cord(pts, 'back'));
+  if (behind) items.push(...held.items, hold);
+  items.push(fingerHand({ dx }));
+  items.push(bottomString(g, BOTTOM_TAIL));
+  items.push(...theX(g, 0));
+  for (const pts of front) items.push(cord(pts));
+  if (!behind) items.push(...held.items, hold);
+  items.push(...wrapCounters(g, uTip));
   return items;
 }
 
 /**
- * Step 10: it should make an X. The X lights up and a ring pulses round it.
+ * Step 10: see the X? It lights up and a ring pulses out of it twice.
  * @param {number} p @returns {Item[]}
  */
 function xStep(p) {
-  const g = knotGeom(R0, PITCH0, GAP0);
-  const h = holdAt(g, WRAPS);
-  const k = wrappedKnot(g, { held: h.hand });
+  const g = G0;
   const gold = seg(p, 0.12, 0.42);
+  // The end's gold rim gives way to the X's gold, and comes back on step 11.
+  const k = wrappedKnot(g, { gold, glint: p < 0.1 ? 1 - p / 0.1 : 0 });
   /** @type {Item[]} */
-  const over = [holdingGlove(h.hand, h.rot)];
+  const items = [...landingPop(p, 0.26, g.cross[0], g.cross[1] - R0 - 34, { seed: 10, size: 1.1, len: 0.26 }), ...k.under, ...k.over];
+  items.push(rightHand(REST.hand, REST.rot));
   // Two rings pulse out of the X and are gone; the resting picture is the
   // gold X alone (a ring round an X reads as "no"). The counters fade.
   for (const [a, len] of [[0.2, 0.28], [0.48, 0.28]]) {
     if (p >= a && p < a + len) {
       const t = seg(p, a, a + len);
-      over.push(fx('ring', XC, FY, lerp(R0 * 1.1, R0 * 2.6, easeOut(t)), 1 - t, SUN));
+      items.push(fx('ring', g.cross[0], g.cross[1], lerp(R0 * 1.1, R0 * 2.6, easeOut(t)), 1 - t, SUN));
     }
   }
-  if (p < 0.3) over.push(...wrapCounters(g, WRAPS, 1 - seg(p, 0, 0.3)));
-  const under = landingPop(p, 0.26, XC, FY - R0 - 30, { seed: 10, size: 1.1, len: 0.26 });
-  return mirror([...under, ...drawKnot(k, { gold, over })]);
+  if (p < 0.3) items.push(...wrapCounters(g, WRAPS, 1 - seg(p, 0, 0.3)));
+  return items;
 }
 
-/** Pinching the wraps from above, fingertips pressed on the loops. */
-const PINCH_ROT = 62;
-function wrapPinch(/** @type {ReturnType<typeof knotGeom>} */ g) {
-  const cx = (g.x1 + g.xe) / 2;
-  return glove(cx, FY - g.R - 6, 'pinch', { id: 'wrap', gap: (g.x1 - g.xe) * 0.62, flip: true, s: 0.66, rot: PINCH_ROT });
-}
-
-/** How far the finger slides back to be out of the loops. */
-const FINGER_OUT = (XC + 0.85 * R0 + 70) - TIP_X;
-/** @param {number} t */
-const smooth = (t) => t * t * (3 - 2 * t);
+/** How far the left hand draws back as the pointer slides out. */
+const DRAW_BACK = 30;
 
 /**
- * Step 11: pinch the loops, take the finger out.
+ * Step 11: the left thumb and middle finger pinch the loops; the pointer
+ * slides out of them.
  * @param {number} p @returns {Item[]}
  */
 function pinchStep(p) {
-  const g = knotGeom(R0, PITCH0, GAP0);
-  const out = FINGER_OUT;
-  const slide = easeInOut(seg(p, 0.36, 0.88));
-  const reach = easeInOut(seg(p, 0, 0.3));
-  const k = wrappedKnot(g, { fingerDX: out * slide, held: reach < 0.5 ? holdAt(g, WRAPS).hand : null });
-  const h = holdAt(g, WRAPS);
-  const target = wrapPinch(g);
-  const hand = reach < 1
-    ? glove(lerp(h.hand[0], target.x, reach), lerp(h.hand[1], target.y, reach), 'pinch', {
-      id: 'wrap', gap: lerp(20, target.gap + 50, reach), flip: true, s: lerp(HOLD.s, target.s, reach), rot: lerp(h.rot, target.rot, reach),
-    })
-    : glove(target.x, target.y, 'pinch', { id: 'wrap', gap: lerp(target.gap + 50, target.gap, seg(p, 0.3, 0.36)), flip: true, s: target.s, rot: target.rot });
+  const g = G0;
+  const grip = easeInOut(seg(p, 0.06, 0.32));
+  const slide = easeInOut(seg(p, 0.38, 0.86));
+  const hand = { dx: -DRAW_BACK * slide, ext: 1 - slide, grip };
+  const k = wrappedKnot(g, { left: leftHand(hand), gold: 1 - seg(p, 0, 0.1), glint: seg(p, 0, 0.1) });
   /** @type {Item[]} */
-  const over = [hand];
+  const items = [...k.under, ...k.over, rightHand(REST.hand, REST.rot)];
   if (p > 0.34 && p < 0.94) {
-    const o = Math.min(seg(p, 0.34, 0.42), 1 - seg(p, 0.84, 0.94));
-    const x0 = XC + 120 + out * slide * 0.5;
-    over.push(arrow([[x0 - 70, FY + 104], [x0 + 90, FY + 104]], o));
+    // Which way the finger goes: out, back toward the hand.
+    const o = Math.min(seg(p, 0.34, 0.42), 1 - seg(p, 0.86, 0.94));
+    items.push(arrow([[g.x1 + 6, FY + 104], [g.xe - 120, FY + 104]], o));
   }
-  return mirror(drawKnot(k, { over }));
+  return items;
 }
 
+/** The left hand once the pointer is out: the loops pinched. */
+const PINCHED = { dx: -DRAW_BACK, ext: 0, grip: 1 };
+
 /**
- * Step 12: thread the end of the top string through the loops.
+ * Step 12: the right hand pushes the end in at the tunnel's knuckle end and,
+ * once it is through, takes it at the far side and pulls it out past the X.
  * @param {number} p @returns {Item[]}
  */
 function threadStep(p) {
-  const g = knotGeom(R0, PITCH0, GAP0);
-  const t = easeInOut(seg(p, 0.12, 0.8));
-  // The finger's hand leaves off the edge while the other end of the job,
-  // the catching hand, comes in to wait past the X for the end.
-  const leave = smooth(seg(p, 0, 0.2));
+  const g = G0;
+  const L = ROUTE_LEN;
+  // The tip's way along its route: round the hook to the tunnel's mouth, fed
+  // through the tunnel, then pulled out.
+  const round = easeInOut(seg(p, 0, 0.16));
+  const feed = easeInOut(seg(p, 0.16, 0.56));
+  const pull = easeInOut(seg(p, 0.8, 1));
+  const outAt = L.loop + L.inside + 30;
+  const len = p < 0.16 ? lerp(L.rest, L.loop, round) : p < 0.8 ? lerp(L.loop, outAt, feed) : lerp(outAt, L.total, pull);
+  const k = wrappedKnot(g, { left: leftHand(PINCHED), threaded: len });
+
+  // The right hand: behind the tip round the hook, feeding it in at the
+  // mouth, then up and over the loops to the far side, where it takes the
+  // tip and pulls.
+  const feedAt = alongPt(ROUTE.all, lerp(L.loop - TIP_LEAD, L.loop - 14, feed));
+  const takeAt = alongPt(ROUTE.all, outAt - 10);
   /** @type {Pt} */
-  const out = [THREAD_OUT[0] + 32 * easeOut(seg(p, 0.84, 1)), lerp(THREAD_OUT[1], FY, easeOut(seg(p, 0.84, 1)))];
-  const k = wrappedKnot(g, { fingerDX: leave < 1 ? FINGER_OUT + (1500 - TIP_X - FINGER_OUT) * leave : null, threaded: t, out });
-  const enter = smooth(seg(p, 0.06, 0.3));
-  const catchAt = seg(p, 0.78, 0.88);
-  // Caught, the end comes along with the hand: it never leaves the pinch.
-  const pull = easeOut(seg(p, 0.84, 1));
-  const catchX = lerp(1560, THREAD_OUT[0] - 4, enter) + (THREAD_OUT[0] + 28 - (THREAD_OUT[0] - 4)) * pull;
-  const catchY = lerp(THREAD_OUT[1], FY, pull);
-  const catcher = glove(catchX, catchY, 'pinch', { id: 'catch', gap: lerp(70, 18, catchAt), s: 0.86 });
+  let at;
+  let rot;
+  let gap = 20;
+  if (p < 0.56) {
+    at = p < 0.16 ? alongPt(ROUTE.all, len - TIP_LEAD) : feedAt;
+    rot = lerp(REST.rot, 40 - PINCH_BODY_DEG, easeInOut(seg(p, 0, 0.2)));
+  } else if (p < 0.8) {
+    const hop = easeInOut(seg(p, 0.56, 0.74));
+    const lift = Math.sin(Math.PI * hop) * 110;
+    at = [lerp(feedAt[0], takeAt[0], hop), lerp(feedAt[1], takeAt[1], hop) - lift];
+    rot = lerp(40, 0, hop) - PINCH_BODY_DEG;
+    gap = lerp(20, 44, Math.sin(Math.PI * seg(p, 0.56, 0.8)));
+  } else {
+    at = alongPt(ROUTE.all, len - 10);
+    rot = -PINCH_BODY_DEG;
+  }
   /** @type {Item[]} */
-  const over = [wrapPinch(g), catcher];
+  const items = [...k.under, ...k.over, rightHand(at, rot, gap)];
   // A guide ahead of the end: the way it goes.
-  if (p < 0.84 && k.total - k.len > 40) {
-    const o = Math.min(seg(p, 0, 0.1), 1 - seg(p, 0.7, 0.84));
-    over.push(arrow(slice(k.route.all, k.len + 18, k.total - 6), o));
+  if (p < 0.8 && L.total - len > 40) {
+    const o = Math.min(seg(p, 0, 0.08), 1 - seg(p, 0.64, 0.78));
+    items.push(arrow(slice(ROUTE.all, len + 18, L.total - 6), o));
   }
-  // A glint rides the end while it travels, so the eye follows it.
-  if (p > 0.08 && p < 0.84) {
-    over.push(fx('sparkle', k.tipAt.x, k.tipAt.y, 22, Math.min(seg(p, 0.08, 0.16), 1 - seg(p, 0.76, 0.84)), SUN, 360 * p));
-  }
-  return mirror(drawKnot(k, { over }));
+  return items;
 }
 
 /**
- * Step 13: pull tight. Both ends pulled, the wraps cinch, a pop.
+ * The left hand's layers for a pose: gripping, its thumb and middle finger
+ * are drawn over the loops they pinch.
+ * @param {{ dx?: number, ext?: number, grip?: number }} h
+ * @returns {{ under: GloveItem[], over: GloveItem[] }}
+ */
+function leftHand(h) {
+  if (h.grip && h.grip > 0) return { under: [fingerHand(h, 'hand')], over: [fingerHand(h, 'grip')] };
+  return { under: [fingerHand(h)], over: [] };
+}
+
+/**
+ * Step 13: pull tight. The left hand lets go of the loops and takes the
+ * bottom string; the right hand closes round the end; both pull, the wraps
+ * cinch, a pop.
  * @param {number} p @returns {Item[]}
  */
 function pullStep(p) {
   const tight = easeInOut(seg(p, 0.16, 0.7));
   const g = knotGeom(lerp(R0, 22, tight), lerp(PITCH0, 25, tight), lerp(GAP0, 8, tight));
-  const g0 = knotGeom(R0, PITCH0, GAP0);
   const jerk = Math.sin(Math.PI * seg(p, 0.66, 0.82)) * 16;
-  const lx = lerp(300, 214, tight) - jerk;
-  // The end starts exactly where step 12 left it, in the catching hand's
-  // pinch. The hand turns its grip, then closes into a fist round it (its
-  // palm kept), which pulls the end into the fist; then it pulls.
+
+  // The right hand already has the end: it turns its grip and closes into a
+  // fist round it (the pinch fades into the fist, its palm kept, which draws
+  // the end into the fist), then pulls.
   const grab = easeInOut(seg(p, 0, 0.14));
   const close = seg(p, 0.12, 0.12 + 2 * FADE);
+  const pinchAt = alongPt(ROUTE.all, ROUTE_LEN.total - 10);
+  const catchPalm = palmOf(glove(pinchAt[0], pinchAt[1], 'pinch', { gap: 12, s: 0.86, rot: -32 }));
   /** @type {Pt} */
-  const e0 = [THREAD_OUT[0] + 32, FY];
-  const catchPalm = palmOf(glove(THREAD_OUT[0] + 28, FY, 'pinch', { gap: 12, s: 0.86, rot: -32 }));
-  /** @type {Pt} */
-  const end = close < 1 ? mix(e0, catchPalm, easeInOut(close))
-    : [lerp(catchPalm[0], 1060, tight) + jerk, lerp(catchPalm[1], FY, tight)];
-  const { front, back } = wraps(g, WRAPS);
-  // Pulled through, the end's loop outside the tunnel runs out.
+  const end = close < 1 ? mix(THREAD_OUT, catchPalm, easeInOut(close))
+    : [lerp(catchPalm[0], 1080, tight) + jerk, lerp(catchPalm[1], FY, tight)];
+  // Pulled through, the end's hook outside the tunnel runs out.
   const route = threadRoute(g, end, lerp(1, 0.12, tight));
+
+  // The left hand lets go of the loops, draws back to the bottom string and
+  // closes round it (the open hand fades into the fist), then pulls the
+  // other way. The string's tail runs on out of the fist.
+  const letGo = easeInOut(seg(p, 0, 0.06));
+  const move = easeInOut(seg(p, 0.05, 0.13));
+  const lx = lerp(BOTTOM_TAIL[0] + 70, 450, tight) - jerk;
   /** @type {Pt} */
-  const bTail = [lx, lerp(BOTTOM_TAIL[1], FY + 4, tight)];
+  const tail = [lx - 70, lerp(BOTTOM_TAIL[1], FY, tight)];
+  const lFist = glove(lx, lerp(G0.along + 6, FY, tight), 'pull', { id: 'finger', rot: 90, s: 0.92, flip: true });
+  const released = fingerHand({ ...PINCHED, grip: 0 });
+  const lPoint = gloveByPalm(mix(palmOf(released), palmOf(lFist), move), 'point', {
+    id: 'finger', rot: 90, s: lerp(HAND_S, 0.92, move), flip: true, reach: HAND_REACH,
+  });
+  const fistIn = seg(p, 0.12, 0.12 + FADE);
+  /** @type {{ under: GloveItem[], over: GloveItem[] }} */
+  let left;
+  if (p < 0.05) left = leftHand({ ...PINCHED, grip: 1 - letGo });
+  else if (fistIn <= 0) left = { under: [{ ...lPoint, ext: 0 }], over: [] };
+  else {
+    // The fading open hand stays under the strings; the fist, round the
+    // bottom string, is over them.
+    const [a, b] = crossfade({ ...lPoint, ext: 0 }, lFist, fistIn);
+    left = b ? { under: [a], over: [b] } : { under: [], over: [a] };
+  }
+
   /** @type {Item[]} */
   const items = [];
   // The pop, when the wraps bite: behind the knot it celebrates.
@@ -1244,28 +1344,12 @@ function pullStep(p) {
     items.push(fx('ring', knotX, FY, lerp(20, 124, easeOut(e)), (1 - e) * 0.9, SUN));
   }
   items.push(...landingPop(p, 0.68, knotX, FY, { seed: 13, size: 1.3, len: 0.2 }));
-  items.push(...hangingBracelet(g));
-  for (const pts of back) items.push(cord(pts, 'back'));
-  items.push(...bottomString(g, bTail, Infinity));
-  items.push(cord(route.inside, 'back'));
-  items.push(...theX(g, 0));
-  for (const pts of front) items.push(cord(pts));
-  items.push(cord(route.loop));
-  items.push(cord(route.exit));
-  // The hands. The catching hand already has the end: it turns its grip and
-  // closes into a fist round it (the pinch fades into the fist), then pulls.
-  // The other lets go of the wraps, takes the bottom string's tail and pulls
-  // the other way.
-  const fist = seg(p, 0.12, 0.12 + FADE);
-  const pinch = wrapPinch(g0);
-  const lFist = glove(lx, bTail[1], 'pull', { id: 'wrap', rot: 90, s: 0.86, flip: true });
-  const lPalm = mix(palmOf(pinch), palmOf(lFist), grab);
-  const lPinch = gloveByPalm(lPalm, 'pinch', { id: 'wrap', gap: lerp(pinch.gap, 16, grab), flip: true, s: lerp(pinch.s, 0.86, grab), rot: lerp(PINCH_ROT, 32, grab) });
-  items.push(...crossfade(lPinch, lFist, fist));
-  const rPinch = glove(THREAD_OUT[0] + 28, FY, 'pinch', { id: 'catch', gap: lerp(18, 12, grab), s: 0.86, rot: lerp(0, -32, grab) });
-  const rFist = gloveByPalm(close < 1 ? catchPalm : end, 'pull', { id: 'catch', rot: -90, s: 0.86 });
+  const k = wrappedKnot(g, { left, threaded: polyLength(route.all), route, tail });
+  items.push(...k.under, ...k.over);
+  const rPinch = glove(pinchAt[0], pinchAt[1], 'pinch', { id: 'right', gap: lerp(20, 12, grab), s: lerp(RIGHT_S, 0.86, grab), rot: lerp(-PINCH_BODY_DEG, -32, grab) });
+  const rFist = gloveByPalm(close < 1 ? catchPalm : end, 'pull', { id: 'right', rot: -90, s: 0.86 });
   items.push(...crossfade(rPinch, rFist, seg(close, 0.25, 0.75)));
-  return mirror(items);
+  return items;
 }
 
 // ── The steps, by index ──────────────────────────────────────
@@ -1523,20 +1607,19 @@ const CAMERA_KEYS = (() => {
   keys.push({ t: s7.start + 1, x: 730, y: 300, s: 1 }, { t: s7.end, x: 730, y: 300, s: 1.03 });
   const s8 = EPIC_BEATS[8];
   keys.push({ t: s8.start + 0.8, x: 730, y: 290, s: 1 }, { t: s8.end, x: 730, y: 250, s: 1.05 });
-  // The knot close-up is drawn mirrored (see mirror()), so its keys are too.
-  const mx = (/** @type {number} */ x) => STAGE_W - x;
+  // The knot close-up: in on the knot, a little closer on the X.
   const s9 = EPIC_BEATS[9];
-  keys.push({ t: s9.start, x: mx(XC) + 80, y: 262, s: 1.12, cut: true }, { t: s9.end, x: mx(XC) + 120, y: 262, s: 1.22 });
+  keys.push({ t: s9.start, x: 700, y: 262, s: 1.08, cut: true }, { t: s9.end, x: 730, y: 262, s: 1.16 });
   const s10 = EPIC_BEATS[10];
-  keys.push({ t: s10.start + 2, x: mx(XC) + 10, y: 250, s: 1.4 }, { t: s10.end, x: mx(XC) + 10, y: 250, s: 1.44 });
+  keys.push({ t: s10.start + 2, x: 770, y: 262, s: 1.3 }, { t: s10.end, x: 770, y: 262, s: 1.32 });
   const s11 = EPIC_BEATS[11];
-  keys.push({ t: s11.start + 2.4, x: mx(XC) + 50, y: 262, s: 1.16 }, { t: s11.end, x: mx(XC) - 10, y: 262, s: 1.1 });
+  keys.push({ t: s11.start + 2.4, x: 700, y: 268, s: 1.14 }, { t: s11.end, x: 690, y: 268, s: 1.12 });
   const s12 = EPIC_BEATS[12];
-  keys.push({ t: s12.start + 1, x: mx(XC) + 90, y: 252, s: 1.2 }, { t: s12.end, x: mx(XC) + 20, y: 252, s: 1.2 });
+  keys.push({ t: s12.start + 1, x: 700, y: 262, s: 1.16 }, { t: s12.end, x: 760, y: 262, s: 1.14 });
   const s13 = EPIC_BEATS[13];
-  keys.push({ t: s13.start + 1, x: mx(XC) + 30, y: 262, s: 1.1 });
-  keys.push({ t: s13.start + 0.25 + 0.68 * (s13.end - s13.start - 1.35), x: mx(XC) + 40, y: 252, s: 1.26 });
-  keys.push({ t: s13.end, x: mx(XC) + 20, y: 270, s: 1.08 });
+  keys.push({ t: s13.start + 1, x: 760, y: 270, s: 1.08 });
+  keys.push({ t: s13.start + 0.25 + 0.68 * (s13.end - s13.start - 1.35), x: 770, y: 262, s: 1.2 });
+  keys.push({ t: s13.end, x: 760, y: 272, s: 1.06 });
   const fin = EPIC_BEATS[14];
   keys.push({ t: fin.start, x: 730, y: 280, s: 1.08, cut: true }, { t: fin.start + 1.6, x: 730, y: 280, s: 1 }, { t: EPIC_SEC, x: 730, y: 280, s: 1.03 });
   return keys;
