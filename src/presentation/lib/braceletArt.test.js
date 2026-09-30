@@ -195,6 +195,10 @@ describe('sceneFor', () => {
     expect(xGold(sceneFor(9, 1))).toHaveLength(2);
   });
 
+  it('never rings the X on step 10, even in passing: a circled X reads as "no"', () => {
+    for (let p = 0; p <= 1; p += 0.005) expect(sceneFor(9, p).filter((i) => i.kind === 'ring'), `p=${p.toFixed(3)}`).toEqual([]);
+  });
+
   it('draws the knot for the child\'s own hands: the left pointer out to the right, the black side rising on the left', () => {
     const items = sceneFor(8, 1);
     const finger = items.find((i) => i.kind === 'glove' && i.id === 'finger');

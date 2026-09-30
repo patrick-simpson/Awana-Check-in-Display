@@ -1317,16 +1317,16 @@ function xStep(p) {
   // The end's gold rim gives way to the X's gold, and comes back on step 11.
   const k = wrappedKnot(g, { gold, glint: p < 0.1 ? 1 - p / 0.1 : 0 });
   /** @type {Item[]} */
-  const items = [...landingPop(p, 0.26, g.cross[0], g.cross[1] - R0 - 34, { seed: 10, size: 1.1, len: 0.26 }), ...k.under, ...k.over];
+  // Two pops over the X as it lights, behind everything; never a ring round
+  // it, even a passing one: a ring round an X reads as "no", and the room
+  // read it as "your X is wrong". The resting picture is the gold X alone.
+  const items = [
+    ...landingPop(p, 0.26, g.cross[0], g.cross[1] - R0 - 34, { seed: 10, size: 1.1, len: 0.26 }),
+    ...landingPop(p, 0.5, g.cross[0], g.cross[1] - R0 - 34, { seed: 11, size: 1.1, len: 0.26 }),
+    ...k.under, ...k.over,
+  ];
   items.push(rightHand(REST.hand, REST.rot));
-  // Two rings pulse out of the X and are gone; the resting picture is the
-  // gold X alone (a ring round an X reads as "no"). The counters fade.
-  for (const [a, len] of [[0.2, 0.28], [0.48, 0.28]]) {
-    if (p >= a && p < a + len) {
-      const t = seg(p, a, a + len);
-      items.push(fx('ring', g.cross[0], g.cross[1], lerp(R0 * 1.1, R0 * 2.6, easeOut(t)), 1 - t, SUN));
-    }
-  }
+  // The counters fade.
   if (p < 0.3) items.push(...wrapCounters(g, WRAPS, 1 - seg(p, 0, 0.3)));
   return items;
 }

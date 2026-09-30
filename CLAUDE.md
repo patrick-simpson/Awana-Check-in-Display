@@ -1488,7 +1488,8 @@ night are untouched.
   room can see it (a loop, the end down through it, a pull; the loop cinches
   and slides snug against its clear bead), and a knot is a bead-sized lump
   of cord with its turns showing, never a ring with a strand through it,
-  which reads as a "no" sign. A hand that goes at a step's start (the
+  which reads as a "no" sign; for the same reason nothing rings knot step
+  3's gold X, even in passing (two pops light it; a test pins it). A hand that goes at a step's start (the
   pointer, step 7's holding fist) draws back sideways toward where it will
   come from and fades out inside the stage (`pointerLeaves`, `leaving`),
   never down: the stage's lower edge is mid-screen on the wall, just above
