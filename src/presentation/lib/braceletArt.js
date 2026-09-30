@@ -383,9 +383,13 @@ const glove = (x, y, pose, {
 });
 
 /**
- * A hand changing pose: the old pose fades out as the new one fades in
- * (their palms in one place), over `k` from 0 to 1. Whichever is the more
- * visible keeps the hand's name; the other is its fading ghost ("~").
+ * A hand changing pose (their palms in one place), over `k` from 0 to 1:
+ * the new pose fades in OVER the old one, which stays whole, then the old
+ * one fades out under it. One of the two is always at full strength, so
+ * the hand never turns into a see-through grey double (both at half over
+ * the black wall showed the cord and the beads through it); only the
+ * fingers that change fade. Whichever is the more visible keeps the hand's
+ * name; the other is its fading ghost ("~").
  * @param {GloveItem} from @param {GloveItem} to @param {number} k
  * @returns {GloveItem[]}
  */
@@ -395,8 +399,8 @@ function crossfade(from, to, k) {
   if (t >= 1) return [to];
   const main = t >= 0.5;
   return [
-    { ...from, o: r1((1 - t) * 1000) / 1000, id: main ? `${from.id}~` : from.id },
-    { ...to, o: r1(t * 1000) / 1000, id: main ? to.id : `${to.id}~` },
+    { ...from, o: r1(Math.min(1, 2 * (1 - t)) * 1000) / 1000, id: main ? `${from.id}~` : from.id },
+    { ...to, o: r1(Math.min(1, 2 * t) * 1000) / 1000, id: main ? to.id : `${to.id}~` },
   ];
 }
 /**

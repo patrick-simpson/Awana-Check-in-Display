@@ -1529,8 +1529,11 @@ night are untouched.
   come from and fades out inside the stage (`pointerLeaves`, `leaving`),
   never down: the stage's lower edge is mid-screen on the wall, just above
   the words, and a hand sinking through it was sliced flat there and drawn
-  on the epic's caption. The jump detector lets a hand fade out where it is
-  and come back elsewhere, never pop or blink. Nothing enters from behind
+  on the epic's caption. A hand that changes pose keeps its palm in place
+  and dissolves over, never through (`crossfade`: the new pose fades in
+  over the old one, which stays whole, then the old fades out under it), so
+  it never turns see-through grey. The jump detector lets a hand fade out
+  where it is and come back elsewhere, never pop or blink. Nothing enters from behind
   the step's chip, which covers the stage's left edge in the loop: knot 2's
   finger slides in from inside the stage (`FINGER_SLIDE`, pinned by a test). Low power (`useLowPower`: `?vr=1`, OS
   reduced motion, the QuickNav toggle), "animations off" and the overview

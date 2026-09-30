@@ -568,6 +568,8 @@ const middle = (g) => {
 /** Each hand in a frame by its name, measured once (a pose's fading ghost, "name~", is not the hand). */
 function handsOf(items, label, bad) {
   const m = new Map();
+  /** The hands whose old pose still shows as a ghost ("name~"): mid-dissolve. */
+  m.ghosts = new Set(items.filter((it) => it.kind === 'glove' && it.id.endsWith('~') && it.o > GONE).map((it) => it.id.slice(0, -1)));
   for (const it of items) {
     // (a hand's second layer, "name^", is part of the same hand)
     if (it.kind !== 'glove' || it.id.endsWith('~') || it.id.includes('^')) continue;
@@ -605,8 +607,11 @@ function hops(frames, label) {
       if (Math.abs(hb.g.o - ha.g.o) > MAX_FADE) bad.push(`${at} blinks from o ${ha.g.o} to ${hb.g.o}`);
       const move = Math.hypot(hb.mid[0] - ha.mid[0], hb.mid[1] - ha.mid[1]);
       // Where a pose is cross-fading into another, both are on screen and the
-      // eye sees a dissolve, so the hand's middle may move further then.
-      const dissolving = ha.g.pose !== hb.g.pose && (ha.g.o < 1 || hb.g.o < 1);
+      // eye sees a dissolve, so the hand's middle may move further then. (The
+      // new pose lands whole over the old one, which fades out under it as its
+      // ghost, so the hand's name can pass from one at full strength to the
+      // other at full strength while the ghost still shows.)
+      const dissolving = ha.g.pose !== hb.g.pose && (ha.g.o < 1 || hb.g.o < 1 || a.ghosts.has(id) || b.ghosts.has(id));
       if (move > (dissolving ? 2 * MAX_MOVE : MAX_MOVE)) bad.push(`${at} jumps ${Math.round(move)} px (${ha.g.pose} -> ${hb.g.pose})`);
       if (ha.g.pose !== hb.g.pose && !dissolving) bad.push(`${at} snaps from ${ha.g.pose} to ${hb.g.pose} in one frame`);
       if (ha.g.pose === hb.g.pose && Math.abs(fold(hb.g.rot - ha.g.rot)) > MAX_TURN) bad.push(`${at} turns ${Math.round(fold(hb.g.rot - ha.g.rot))} deg`);
