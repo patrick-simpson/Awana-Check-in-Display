@@ -91,6 +91,25 @@ test('the controls: B opens them, a held step stays up, the handout shows, Reset
   await expect(panel).toHaveCount(0);
 });
 
+// The handout pages fill the frame; the corner's warning chip (its widest,
+// LAST 30 SECONDS) must never land on the printed sheet.
+for (const [w, h] of [[1920, 1080], [1280, 720], [1024, 768]]) {
+  for (const page2 of [1, 2]) {
+    test(`the last-30-seconds chip stays off handout page ${page2} at ${w}x${h}`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await page.addInitScript((d) => localStorage.setItem('awanaBraceletSettings.v1', JSON.stringify({ display: d })), `handout${page2}`);
+      await page.goto(at('2026-09-30T18:29:35'));
+      await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', `handout${page2}`);
+      const sheet = page.getByRole('img', { name: new RegExp(`page ${page2}`) });
+      await expect(sheet).toBeVisible();
+      await expect(page.locator('.pj-bracelet__corner')).toContainText(/LAST 30 SECONDS/i);
+      const [img, chip] = await Promise.all([sheet.boundingBox(), page.locator('.pj-bracelet__corner').boundingBox()]);
+      const overlaps = img.x < chip.x + chip.width && chip.x < img.x + img.width && img.y < chip.y + chip.height && chip.y < img.y + img.height;
+      expect(overlaps, `sheet ${JSON.stringify(img)} chip ${JSON.stringify(chip)}`).toBe(false);
+    });
+  }
+}
+
 test('animations off: still pictures and no epic', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('awanaBraceletSettings.v1', JSON.stringify({ still: true })));
   await page.goto(at('2026-09-30T18:05:40'));

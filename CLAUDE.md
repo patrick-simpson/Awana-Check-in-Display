@@ -1462,7 +1462,10 @@ night are untouched.
   birthday and the CHECKED IN count only show while the corner is quiet (no
   warning, no countdown, step-by-step display): wider than that, the flex row
   pushed them over the kicker and the rail. In the full instructions the corner
-  rides the bottom-right on the waves, clear of the grid.
+  rides the bottom-right on the waves, clear of the grid; on the handout
+  pages the sheet stands left of the corner's column (its padding-right), so
+  even LAST 30 SECONDS never lands on the printed page (`e2e/bracelets.spec.js`
+  measures both pages at three sizes).
 - **The chime** (`lib/chime.js`): a synthesized bell 10 s before each showing,
   once per showing (`chimeOnce`). Browsers allow sound only after a gesture, so
   App arms it on EVERY keydown and pointerdown; it never queues a sound on a
