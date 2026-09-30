@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BEAD_ORDER, BEAD_TONES, BRACELET_ROW, EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, SAFE_BOX, STAGE_H, STAGE_W, STEP_COUNT,
-  actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepProgress, stillP,
+  actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepFrame, stepProgress, stillP,
 } from './braceletArt.js';
 import { BRACELET_STEPS, EPIC_SEC as CADENCE_EPIC_SEC, stepSlotSec } from './bracelets.js';
 // Tests may reach across the isolation rule to pin two copies of one thing.
@@ -368,10 +368,12 @@ describe('the epic', () => {
 const MEASURED = new Set(['glove', 'bead', 'knot', 'badge', 'arrow', 'pot', 'text']);
 const name = (it) => `${it.kind}${it.id ? `:${it.id}` : ''}${it.color ? `:${it.color}` : ''}${it.pose ? `:${it.pose}` : ''}`;
 
-function unsafe(items) {
+/** What leaves the safe box, as the wall shows it: through `camera` (the loop's framing). */
+function unsafe(items, camera = IDENTITY_CAMERA) {
+  const seen = (b) => b && ({ x0: b.x0 * camera.scale + camera.x, y0: b.y0 * camera.scale + camera.y, x1: b.x1 * camera.scale + camera.x, y1: b.y1 * camera.scale + camera.y });
   return items
     .filter((it) => MEASURED.has(it.kind) || (it.kind === 'sparkle' && it.o >= 0.99))
-    .map((it) => ({ it, b: itemBox(it) }))
+    .map((it) => ({ it, b: seen(itemBox(it)) }))
     .filter(({ b }) => b && !boxInside(b, SAFE_BOX) && !boxOffStage(b))
     .map(({ it, b }) => `${name(it)} [${Math.round(b.x0)},${Math.round(b.y0)} .. ${Math.round(b.x1)},${Math.round(b.y1)}]`);
 }
@@ -381,14 +383,30 @@ describe('the safe area', () => {
     expect(SAFE_BOX).toEqual({ x0: 70, y0: 60, x1: 1390, y1: 500 });
   });
 
-  it('holds every hand, bead, knot, counter and arrow of each step\'s first frame and resting picture', () => {
-    const bad = STEPS.flatMap((i) => [0, 1].flatMap((p) => unsafe(sceneFor(i, p)).map((u) => `step ${i + 1} p=${p}: ${u}`)));
+  it('holds every hand, bead, knot, counter and arrow of each step\'s first frame and resting picture, framed as the loop frames it', () => {
+    const bad = STEPS.flatMap((i) => [0, 1].flatMap((p) => unsafe(sceneFor(i, p), stepFrame(i, p)).map((u) => `step ${i + 1} p=${p}: ${u}`)));
     expect(bad).toEqual([]);
   });
 
-  it('holds every still (the low-power and overview picture) too', () => {
-    const bad = STEPS.flatMap((i) => unsafe(sceneFor(i, stillP(i))).map((u) => `step ${i + 1} still: ${u}`));
+  it('holds every still (the low-power and overview picture) too, framed', () => {
+    const bad = STEPS.flatMap((i) => unsafe(sceneFor(i, stillP(i)), stepFrame(i, stillP(i))).map((u) => `step ${i + 1} still: ${u}`));
     expect(bad).toEqual([]);
+  });
+
+  it('frames the loop closer than the whole stage where the action allows, never past the stage\'s edge', () => {
+    for (const i of STEPS) {
+      for (const p of [0, 0.5, 1]) {
+        const c = stepFrame(i, p);
+        expect(c.scale, `step ${i + 1}`).toBeGreaterThanOrEqual(1);
+        expect(c.x).toBeLessThanOrEqual(0);
+        expect(c.y).toBeLessThanOrEqual(0);
+        expect(c.x + STAGE_W * c.scale).toBeGreaterThanOrEqual(STAGE_W - 1e-6);
+        expect(c.y + STAGE_H * c.scale).toBeGreaterThanOrEqual(STAGE_H - 1e-6);
+      }
+    }
+    // The bead steps come in on the row and the new bead; the knot steps on the knot.
+    expect(stepFrame(0, 1).scale).toBeGreaterThanOrEqual(1.25);
+    for (const i of [8, 9, 10, 11]) expect(stepFrame(i, 1).scale).toBeGreaterThan(1.05);
   });
 
   it('holds the intro\'s and the finale\'s resting pictures too', () => {

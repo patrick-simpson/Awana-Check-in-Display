@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { currentTime } from '../../hooks/useClock.js';
 import { useLowPower } from '../../hooks/useLowPower.js';
 import {
-  EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, currentEpicStep, epicShot, stepProgress, stillP,
+  EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, currentEpicStep, epicShot, stepFrame, stepProgress, stillP,
 } from '../../lib/braceletArt.js';
 import { StepArt } from './StepArt.jsx';
 
@@ -11,9 +11,9 @@ import { StepArt } from './StepArt.jsx';
 // requestAnimationFrame loop capped near 30 fps, and hand StepArt nothing but
 // numbers. `still` (or the projector's low-power switch, which also covers
 // ?vr=1 and the OS's reduced motion) shows each step's still (its finished
-// picture, or the key frame of a move, arrow and all: stillP) with no
-// camera: the loop then only wakes a few times a second, to notice the epic
-// moving on to its next beat.
+// picture, or the key frame of a move, arrow and all: stillP), framed as the
+// loop frames it (stepFrame): the loop then only wakes a few times a second,
+// to notice the epic moving on to its next beat.
 
 export { currentEpicStep };
 
@@ -70,7 +70,7 @@ const beatIndexAt = (sec) => {
 
 /**
  * One step, looping: the action at a child's pace, then its finished
- * picture held until the view moves on.
+ * picture held until the view moves on, framed so the action fills the stage.
  *
  * @param {{ step: number, startMs: number, still?: boolean, className?: string }} props
  */
@@ -79,7 +79,7 @@ export function BraceletStage({ step, startMs, still = false, className }) {
   const frozen = still || lowPower;
   const sec = useStageClock(startMs, exact, MOVING_FPS, !frozen);
   const p = frozen ? stillP(step) : stepProgress(step, sec);
-  return <StepArt step={step} p={p} className={className} />;
+  return <StepArt step={step} p={p} camera={stepFrame(step, p)} className={className} />;
 }
 
 /**
@@ -94,7 +94,8 @@ export function EpicStage({ startMs, still = false, className }) {
   const beatIndex = useStageClock(startMs, beatIndexAt, STILL_FPS, frozen);
   if (frozen) {
     const beat = EPIC_BEATS[beatIndex];
-    return <StepArt step={beat.kind === 'step' ? beat.step : beat.kind} p={beat.kind === 'step' ? stillP(beat.step) : 1} camera={IDENTITY_CAMERA} className={className} />;
+    if (beat.kind === 'step') return <StepArt step={beat.step} p={stillP(beat.step)} camera={stepFrame(beat.step, stillP(beat.step))} className={className} />;
+    return <StepArt step={beat.kind} p={1} camera={IDENTITY_CAMERA} className={className} />;
   }
   const shot = epicShot(moving);
   return <StepArt step={shot.step ?? shot.beat.kind} p={shot.p} camera={shot.camera} className={className} />;

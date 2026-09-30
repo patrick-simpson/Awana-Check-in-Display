@@ -573,9 +573,9 @@ function carrierGlove(p, b, tx, id) {
  * body down, so the whole glove stays on the stage instead of reaching off
  * its edge; it straightens as the bead slides in.
  * @param {number} p @param {number} side 1 for the right hand, -1 for the left
- * @param {number} [from] @param {number} [to] when it straightens
+ * @param {number} [from] @param {number} [to] when it straightens @param {number} [deg] how far it tips
  */
-const edgeTilt = (p, side, from = 0.42, to = 0.62) => side * 40 * (1 - seg(p, from, to));
+const edgeTilt = (p, side, from = 0.42, to = 0.62, deg = 40) => side * deg * (1 - seg(p, from, to));
 
 /**
  * The right hand leaving its resting point (steps 2 to 7 start with it still
@@ -647,7 +647,7 @@ function tying(p, out) {
   const tuck = easeInOut(seg(p, TIE.tuck, TIE.pull));
   const tight = easeInOut(seg(p, TIE.pull, TIE.tied));
   const snug = easeInOut(seg(p, TIE.pull + 0.03, TIE.tied));
-  const r = lerp(lerp(6, 38, loop), 12, tight);
+  const r = lerp(38, 12, tight);
   /** @type {Pt} */
   const k = [kx + out * 36 * (1 - snug), ROW_Y];
   /** @type {Pt} */
@@ -669,12 +669,14 @@ function tying(p, out) {
     hand = mix(down, end, tight);
   }
   if (p < TIE.loop || p >= TIE.tied) return { cords: null, hand, kx, lump: null };
-  // The loop: a ring of the tail, sitting on the cord, going round from
-  // where it leaves the row (clockwise on the left, the mirror on the right).
+  // The loop: the tail curling round from where it leaves the row
+  // (clockwise on the left, the mirror on the right). It closes only as the
+  // tail comes back over the standing part, never grows out of a dot.
+  const sweep = ((Math.PI * 11) / 6) * Math.max(0.04, loop);
   /** @type {Pt[]} */
   const ring = [];
   for (let i = 0; i <= 22; i += 1) {
-    const a = Math.PI / 2 - out * (i / 22) * (Math.PI * 11) / 6;
+    const a = Math.PI / 2 - out * (i / 22) * sweep;
     ring.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]);
   }
   const ringEnd = ring[ring.length - 1];
@@ -743,8 +745,9 @@ function finishStep(p) {
   if (p < T.t0) {
     // (both hands are off stage fetching beads)
   } else if (p < T.t3) {
-    items.push(glove(L.x, L.y, 'pinch', { id: 'left', gap: BEAD_GAP, rot: L.rot + edgeTilt(p, -1, T.t2, T.t3), flip: true, s: 0.92 }));
-    items.push(glove(R.x, R.y, 'pinch', { id: 'right', gap: BEAD_GAP, rot: R.rot + edgeTilt(p, 1, T.t2, T.t3), s: 0.92 }));
+    // (tipped further than a bead step's: the tips are nearer the edges)
+    items.push(glove(L.x, L.y, 'pinch', { id: 'left', gap: BEAD_GAP, rot: L.rot + edgeTilt(p, -1, T.t2, T.t3, 58), flip: true, s: 0.92 }));
+    items.push(glove(R.x, R.y, 'pinch', { id: 'right', gap: BEAD_GAP, rot: R.rot + edgeTilt(p, 1, T.t2, T.t3, 58), s: 0.92 }));
   } else if (p < FINISH_OPEN - FADE / 2) {
     // Each hand goes to its tail's tip and ties the knot with it, then
     // shrinks back a little, ready to let go.
@@ -1051,8 +1054,8 @@ function holdAt(g, u) {
   const ph = TAU * u;
   const c = Math.cos(ph);
   /** @type {Pt} */
-  const hand = [tip[0] - 84 + 22 * Math.sin(ph), FY + (g.R + (c > 0 ? 40 : 50)) * c];
-  return { tip, hand, behind: Math.sin(ph) < -0.2, rot: 40 * c - PINCH_BODY_DEG };
+  const hand = [tip[0] - 84 + 22 * Math.sin(ph), FY + (g.R + (c > 0 ? 40 : 36)) * c];
+  return { tip, hand, behind: Math.sin(ph) < -0.2, rot: (c > 0 ? 40 : 20) * c - PINCH_BODY_DEG };
 }
 
 /** The right hand, pinching the top string's end. @param {Pt} at @param {number} rot @param {number} [gap] @param {number} [s] */
@@ -1154,7 +1157,7 @@ function wrapCounters(g, uTip, o = 1) {
  * The right hand's resting hold on the end once the wraps are made: straight
  * up from the last wrap, clear of the left hand, its arm trailing right.
  */
-const REST = { hand: /** @type {Pt} */ ([G0.xe - 16, FY - R0 - 64]), rot: -PINCH_BODY_DEG };
+const REST = { hand: /** @type {Pt} */ ([G0.xe - 16, FY - R0 - 44]), rot: -PINCH_BODY_DEG };
 
 /**
  * The top string's end after the wraps: from where it leaves the last wrap
@@ -1175,7 +1178,7 @@ function threadRoute(g, out, loopScale = 1) {
   /** @type {Pt} */
   const mouth = [g.xe - 24 * s, y];
   /** @type {Pt[]} */
-  const loop = [e, hand, lead, off(-57, -118), off(-109, -94), off(-133, -38), off(-117, 20), [mouth[0] - 40 * s, y], mouth];
+  const loop = [e, hand, lead, off(-58, -80), off(-100, -62), off(-120, -24), off(-108, 22), [mouth[0] - 40 * s, y], mouth];
   /** @type {Pt[]} */
   const inside = [mouth, [g.x1 + 20, y]];
   /** @type {Pt[]} */
@@ -1241,8 +1244,8 @@ function wrappedKnot(g, { left = leftHand({}), gold = 0, threaded = null, route 
 }
 
 /** The right hand's first hold on the end, before it starts wrapping: up and toward the fingertip, the way the top string crossed. */
-const START_HOLD = /** @type {Pt} */ ([904, 192]);
-const START_ROT = -30 - PINCH_BODY_DEG;
+const START_HOLD = /** @type {Pt} */ ([904, 202]);
+const START_ROT = -20 - PINCH_BODY_DEG;
 
 /**
  * Step 9: the finger slides in under the X with the bottom string lying
@@ -1768,13 +1771,64 @@ function cameraAt(sec) {
     y = lerp(a.y, b.y, t);
     s = lerp(a.s, b.s, t);
   }
-  // Never let the view leave the stage (clamped after rounding, so the
-  // rounding cannot open a sliver past the edge either).
-  // (Rounded finely: at 0.001 a slow push stalled for frames, then ticked.)
+  return lookAt(x, y, s);
+}
+
+/**
+ * The camera that puts stage point (x, y) in the middle of the view at zoom
+ * s, as the translate-then-scale StepArt applies. It never lets the view
+ * leave the stage (clamped after rounding, so the rounding cannot open a
+ * sliver past the edge either), and is rounded finely: at 0.001 a slow push
+ * stalled for frames, then ticked.
+ * @param {number} x @param {number} y @param {number} s
+ */
+function lookAt(x, y, s) {
   const scale = Math.max(1, Math.round(s * 1e5) / 1e5);
   const tx = clamp(Math.round((STAGE_W / 2 - scale * x) * 100) / 100, STAGE_W - STAGE_W * scale, 0);
   const ty = clamp(Math.round((STAGE_H / 2 - scale * y) * 100) / 100, STAGE_H - STAGE_H * scale, 0);
   return { x: Math.round(tx * 1000) / 1000, y: Math.round(ty * 1000) / 1000, scale };
+}
+
+// ── The step loop's framing ──────────────────────────────────
+// One step at a time, the camera frames each step's action so it fills the
+// stage (lens C U1): the bead steps a little closer on the whole row, then,
+// once the bead has landed, in on the row and the pointing hand; the knot
+// close-up closer on the knot, and in on the cinch as it is pulled tight.
+// Keys are (p, x, y, s), eased between. The stills and the overview use the
+// same framing, so every picture is the one the loop rests on.
+
+/** @typedef {{ p: number, x: number, y: number, s: number }} FrameKey */
+
+const KNOT_FRAME = { x: 757, y: 276, s: 1.12 };
+/** @type {readonly (readonly FrameKey[])[]} */
+const STEP_FRAMES = Object.freeze([
+  ...BEAD_ORDER.map((_, k) => Object.freeze([
+    { p: 0.84, x: 910, y: 330, s: 1.15 },
+    { p: 0.98, x: 574 + 39 * k, y: 358, s: 1.45 },
+  ])),
+  Object.freeze([{ p: 0, x: 730, y: 280, s: 1 }]),
+  Object.freeze([{ p: 0, x: 730, y: 280, s: 1 }]),
+  ...[8, 9, 10, 11].map(() => Object.freeze([{ p: 0, ...KNOT_FRAME }])),
+  Object.freeze([{ p: 0.3, ...KNOT_FRAME }, { p: 0.72, x: 762, y: 322, s: 1.28 }]),
+]);
+
+/**
+ * The step loop's camera for step i at action progress p.
+ * @param {number} stepIndex @param {number} [p]
+ */
+export function stepFrame(stepIndex, p = 1) {
+  const keys = STEP_FRAMES[stepOf(stepIndex)];
+  const q = progressOf(p);
+  let a = keys[0];
+  let b = keys[0];
+  for (const k of keys) {
+    if (k.p <= q) a = k;
+    if (k.p >= q) { b = k; break; }
+    b = k;
+  }
+  const u = b.p > a.p ? seg(q, a.p, b.p) : 0;
+  const t = u * u * (3 - 2 * u);
+  return lookAt(lerp(a.x, b.x, t), lerp(a.y, b.y, t), lerp(a.s, b.s, t));
 }
 
 /**

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { BraceletStage, EpicStage, currentEpicStep } from './BraceletStage.jsx';
 import { StepArt } from './StepArt.jsx';
-import { EPIC_BEATS, currentEpicStep as fromLib, stillP } from '../../lib/braceletArt.js';
+import { EPIC_BEATS, currentEpicStep as fromLib, stepFrame, stillP } from '../../lib/braceletArt.js';
 
 afterEach(cleanup);
 
@@ -15,14 +15,17 @@ const markup = (el) => {
 };
 
 describe('BraceletStage', () => {
-  it('shows the finished step when still, whatever the time', () => {
-    expect(markup(<BraceletStage step={4} startMs={Date.now()} still />)).toBe(markup(<StepArt step={4} p={1} />));
-    expect(markup(<BraceletStage step={4} startMs={Date.now() - 2000} still />)).toBe(markup(<StepArt step={4} p={1} />));
+  it('shows the finished step when still, whatever the time, framed as the loop frames it', () => {
+    const still = markup(<StepArt step={4} p={1} camera={stepFrame(4, 1)} />);
+    expect(markup(<BraceletStage step={4} startMs={Date.now()} still />)).toBe(still);
+    expect(markup(<BraceletStage step={4} startMs={Date.now() - 2000} still />)).toBe(still);
+    // (and the framing is a real close-up, not the whole stage)
+    expect(stepFrame(4, 1).scale).toBeGreaterThan(1);
   });
 
   it('shows a move\'s key frame when still, its guide arrow up (knot 1: the left hand going over)', () => {
     expect(stillP(7)).toBeLessThan(1);
-    expect(markup(<BraceletStage step={7} startMs={Date.now()} still />)).toBe(markup(<StepArt step={7} p={stillP(7)} />));
+    expect(markup(<BraceletStage step={7} startMs={Date.now()} still />)).toBe(markup(<StepArt step={7} p={stillP(7)} camera={stepFrame(7, stillP(7))} />));
   });
 
   it('starts a step from its first frame and plays it on the clock', async () => {
@@ -35,7 +38,7 @@ describe('BraceletStage', () => {
 
   it('holds the finished picture once the action is over', () => {
     const html = markup(<BraceletStage step={7} startMs={Date.now() - 9000} />);
-    expect(html).toBe(markup(<StepArt step={7} p={1} />));
+    expect(html).toBe(markup(<StepArt step={7} p={1} camera={stepFrame(7, 1)} />));
   });
 });
 
@@ -44,7 +47,7 @@ describe('EpicStage', () => {
     const beat = EPIC_BEATS[3];
     const at = (beat.start + beat.end) / 2;
     const html = markup(<EpicStage startMs={Date.now() - at * 1000} still />);
-    expect(html).toBe(markup(<StepArt step={beat.step} p={1} />));
+    expect(html).toBe(markup(<StepArt step={beat.step} p={stillP(beat.step)} camera={stepFrame(beat.step, stillP(beat.step))} />));
   });
 
   it('shows the finale\'s rest once the 90 s are up', () => {

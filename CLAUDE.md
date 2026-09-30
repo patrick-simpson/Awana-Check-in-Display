@@ -1493,7 +1493,13 @@ night are untouched.
   draw each step's still (`stillP`): its finished picture, except knot
   steps 1, 4 and 5, which stop mid-move with their arrow up (the left hand
   over the right, the finger half out, the end in the tunnel), since their
-  finished pictures show no direction. The epic's caption (the step's title
+  finished pictures show no direction. The loop frames each step with its
+  own camera (`stepFrame(i, p)`, look-at keys through the epic's clamp): a
+  bead step a little closer on the whole row, then in on the new bead and
+  its pointing hand once it has landed; the knot steps closer on the knot;
+  knot 6 in on the cinch. The stills and the overview's thumbnails use the
+  same framing (the overview's chips are 1.7u, so its pictures lead), and
+  the safe-area tests measure the framed picture. The epic's caption (the step's title
   and its full words) stands on a line above the waves and grows upward;
   `e2e/bracelets.spec.js` measures its clearance at three sizes. It and the
   rail read the stage's own clock (`useEpicStep`), not the page's
