@@ -105,3 +105,73 @@ test('under ?lowPower=1 no panel pseudo-element animates, and a checkbox ticks w
     .map((a) => `${/** @type {KeyframeEffect} */ (a.effect).pseudoElement} ${a.constructor.name}`));
   expect(running).toEqual([]);
 });
+
+// The soft squish (app.css, "The soft squish: operator presses"): a press
+// squashes a control on the individual `scale` and springs it back on release.
+// Held with the mouse and released OFF the button, on the panel's own header
+// (the click then lands on the dialog, which keeps it from the backdrop, so
+// nothing closes), then read from the computed style.
+/** Press and hold Settings' Cancel; returns what it reads while held, and a way to let go. */
+async function holdCancel(page) {
+  const dialog = await openSettingsTab(page, 'Connection');
+  // Let the panel's own entrance finish first, so the button holds still.
+  await expect.poll(() => dialog.evaluate((el) => el.getAnimations().filter((a) => a.playState === 'running').length), { timeout: 3000 }).toBe(0);
+  const cancel = dialog.locator('.actions button', { hasText: /^cancel$/i });
+  const box = await cancel.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(250);
+  const held = await cancel.evaluate((el) => ({ scale: getComputedStyle(el).scale, translate: getComputedStyle(el).translate }));
+  const panel = await dialog.boundingBox();
+  return {
+    cancel,
+    held,
+    release: async () => {
+      await page.mouse.move(panel.x + 12, panel.y + 12);
+      await page.mouse.up();
+    },
+  };
+}
+
+test('a panel button squishes onto its ledge while pressed and springs back to rest', async ({ page }) => {
+  await boot(page);
+  const { cancel, held, release } = await holdCancel(page);
+  const [x, y] = held.scale.split(' ').map(Number);
+  expect(x).toBeCloseTo(1.04, 2);
+  expect(y).toBeCloseTo(0.92, 2);
+  expect(held.translate).toBe('0px 2px');
+  await release();
+  // The release rides a CSS transition on `scale` (the spring), then rests.
+  const springing = await cancel.evaluate((el) => el.getAnimations().map((a) => a.transitionProperty));
+  expect(springing).toContain('scale');
+  await expect.poll(() => cancel.evaluate((el) => getComputedStyle(el).scale), { timeout: 2000 }).toBe('none');
+  await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
+});
+
+test('under ?lowPower=1 a press is the flat, instant 2px sink, and nothing on the panels animates', async ({ page }) => {
+  await boot(page, '?lowPower=1');
+  const { held, release } = await holdCancel(page);
+  expect(held).toEqual({ scale: 'none', translate: '0px 2px' });
+  expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+  await release();
+  // Save is the kit's plain primary button here, not Jelly UI's canvas one.
+  const dialog = page.getByRole('dialog', { name: 'Settings' });
+  await expect(dialog.locator('jelly-button')).toHaveCount(0);
+  await expect(dialog.locator('.actions button.primary', { hasText: /^save$/i })).toBeVisible();
+  expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+});
+
+test.describe('with the OS set to reduce motion', () => {
+  test.use({ contextOptions: { reducedMotion: 'reduce' } });
+
+  test('a press is the flat 2px sink, with no squash and no spring', async ({ page }) => {
+    await boot(page);
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
+    const { held, release } = await holdCancel(page);
+    expect(held).toEqual({ scale: 'none', translate: '0px 2px' });
+    await release();
+    const panelMoving = await page.getByRole('dialog', { name: 'Settings' }).evaluate((root) => [root, ...root.querySelectorAll('*')]
+      .flatMap((el) => el.getAnimations()).length);
+    expect(panelMoving).toBe(0);
+  });
+});

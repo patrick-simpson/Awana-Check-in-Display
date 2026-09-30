@@ -6,6 +6,8 @@ import Wave from './Wave.jsx';
 import CornerTab from './CornerTab.jsx';
 import Sticker from './Sticker.jsx';
 import DoodleCluster from './DoodleCluster.jsx';
+import { holdThenLand } from '../../lib/lobbyMotion.js';
+import { squishLand, withSquish } from '../../lib/squish.js';
 
 // Under ?lowPower=1 (the Pi Zero embed) nothing may move, and whatever a
 // primitive is animating toward is the frame that screen shows for good.
@@ -103,5 +105,39 @@ describe('brand primitives under zero-animation mode', () => {
     expect(container.querySelector('.leaving')).not.toBeNull();
     rerender(tree(false));
     await waitFor(() => expect(container.querySelector('.leaving')).toBeNull(), INSTANT);
+  });
+});
+
+// The soft squish (src/lib/squish.js) rides per-value transitions inside the
+// transition prop and inside targets. Under zero animation M replaces the
+// prop and strips the nested ones, so a squished piece must land at once on
+// its last keyframe, 1 on both axes: no scale left in its transform at all.
+describe('the soft squish under zero-animation mode', () => {
+  const beat = withSquish(
+    holdThenLand(1.4, 0.52, { opacity: 0, y: '0.45em', scale: 0.85 }, { opacity: 1, y: '0em', scale: 1 }, [0.16, 1, 0.3, 1]),
+    squishLand(1.4, 'text', 0.52, 'settle'),
+  );
+
+  it('a squished landing (the beat shape) has already landed', async () => {
+    const { container } = zero(<M.span className="word" initial={beat.initial} animate={beat.animate} transition={beat.transition}>HI</M.span>);
+    const el = container.querySelector('.word');
+    await waitFor(() => expect(atRest(el)).toBe(true), INSTANT);
+  });
+
+  it('a squished target with its own nested transition has already landed', async () => {
+    const target = withSquish({ opacity: 1, y: '0%', scale: 1, transition: { duration: 0.46, ease: [0.34, 1.56, 0.64, 1] } }, squishLand(0.28, 'plate', 0.46, 'pop'));
+    const { container } = zero(<M.div className="plate" initial={{ opacity: 0, y: '-40%' }} animate={target}>NOTICE</M.div>);
+    const el = container.querySelector('.plate');
+    await waitFor(() => expect(atRest(el)).toBe(true), INSTANT);
+  });
+
+  it('a check-in sticker popping in with its squish is already stuck on', async () => {
+    const pop = withSquish(
+      holdThenLand(0.9, 0.46, { opacity: 0, scale: 0.2, rotate: -40 }, { opacity: 1, scale: 1, rotate: 0 }, [0.34, 1.56, 0.64, 1]),
+      squishLand(0.9, 'sticker', 0.46, 'pop'),
+    );
+    const { container } = zero(<Sticker initial={pop.initial} animate={pop.animate} transition={pop.transition}>NEW!</Sticker>);
+    const el = container.querySelector('.brand-sticker');
+    await waitFor(() => expect(atRest(el)).toBe(true), INSTANT);
   });
 });

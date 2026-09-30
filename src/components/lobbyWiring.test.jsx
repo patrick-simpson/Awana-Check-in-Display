@@ -8,11 +8,13 @@
 // it does on the TV while it leaves.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
-import { EASE } from '../lib/brand.js';
+import { DUR, EASE, beats } from '../lib/brand.js';
 import { READ } from '../lib/lobbyFrame.js';
 import {
   HANDOFF, STINGER_SEC, SWAP_AT, chromeMove, entranceHold, exitDelay, holdThenLeave, swellKeyframes, vanishAtSwap,
 } from '../lib/lobbyMotion.js';
+import { squishBump, squishLand } from '../lib/squish.js';
+import { kickerFor, momentFor } from '../lib/checkInMoment.js';
 
 const fonts = vi.hoisted(() => {
   // A canvas whose metrics change when the "web font" lands: the fallback
@@ -85,10 +87,20 @@ vi.mock('../lib/motion.jsx', async () => {
 import ManualSlideshow from './ManualSlideshow.jsx';
 import SlideCopy from './SlideCopy.jsx';
 import CatalogScene from './CatalogScene.jsx';
+import CheckInMoment from './CheckInMoment.jsx';
+import CornerChip from './CornerChip.jsx';
+import UpNextChip, { WAVE_UP_SEC } from './UpNextChip.jsx';
+import TonightTicker from './TonightTicker.jsx';
+import NoticeBanner from './NoticeBanner.jsx';
+import MilestoneToast from './MilestoneToast.jsx';
+import StickerChip from './StickerChip.jsx';
+import { getClubPalette } from '../lib/clubs.js';
 import { motionLog } from '../lib/motion.jsx';
 import { getVideo } from '../lib/videoStore.js';
 
 vi.mock('../lib/videoStore.js', () => ({ getVideo: vi.fn() }));
+vi.mock('../lib/confetti.js', () => ({ fireStandard: vi.fn(), fireBirthday: vi.fn(), fireFirstTimer: vi.fn() }));
+vi.mock('../lib/audio.js', () => ({ playChime: vi.fn(), playBirthdayChime: vi.fn(), playFirstTimerChime: vi.fn() }));
 
 const rec = (el) => motionLog.get(el);
 /** When a "hold, then land" keyframe list starts to move, in seconds. */
@@ -174,6 +186,229 @@ describe('the hand-off, as wired', () => {
     }
     const incoming = all.find(present);
     expect(landsAt(incoming.querySelector('.lobby-kicker'))).toBeCloseTo(STINGER_SEC);
+  });
+});
+
+describe('the soft squish, as wired', () => {
+  const chipped = { kicker: 'This week', headline: 'Bring your handbook', sub: 'Every club night', chip: { label: 'Wed', value: 'Oct 7' }, textSize: 'auto' };
+  /** The squish an element was handed: its two keyframe lists and their per-value timing. */
+  const squishOf = (el) => {
+    const { animate, transition } = rec(el);
+    return { scaleX: animate.scaleX, scaleY: animate.scaleY, transition: { scaleX: transition.scaleX, scaleY: transition.scaleY } };
+  };
+
+  it('a shouted word, the kicker and the chip squash as they land, timed by their beat alone', () => {
+    const { container } = render(<SlideCopy frame={chipped} via="boot" />);
+    expect(container.querySelector('.lobby-headline--shout')).not.toBeNull();
+    const kicker = container.querySelector('.lobby-kicker');
+    expect(squishOf(kicker)).toEqual(squishLand(entranceHold('boot'), 'kicker', HANDOFF.kicker, 'settle'));
+    for (const w of container.querySelectorAll('.lobby-word')) {
+      expect(squishOf(w)).toEqual(squishLand(landsAt(w), 'text', HANDOFF.word, 'settle'));
+      // What the word already did is untouched: it still lands from hidden to rest.
+      expect(rec(w).animate.opacity).toEqual([0, 0, 1]);
+      expect(rec(w).initial).toMatchObject({ scaleX: 1, scaleY: 1 });
+    }
+    const chip = container.querySelector('.lobby-chip');
+    expect(squishOf(chip)).toEqual(squishLand(landsAt(chip), 'chip', HANDOFF.chip, 'pop'));
+    // The supporting line is read text: it lands, and nothing more.
+    const sub = container.querySelector('.lobby-sub');
+    expect(rec(sub).animate).not.toHaveProperty('scaleY');
+    expect(rec(sub).transition).not.toHaveProperty('scaleY');
+  });
+
+  it('a headline that lands read does not squish, and its words keep their plain beat', () => {
+    fonts.real = true; // Paytone One already here: the long headline is read from the first fit
+    const frame = { kicker: 'This week', headline: 'Please bring your handbook and your Bible to club', sub: '', chip: null, textSize: 'auto' };
+    const { container } = render(<SlideCopy frame={frame} via="boot" />);
+    expect(container.querySelector('.lobby-headline--read')).not.toBeNull();
+    for (const w of container.querySelectorAll('.lobby-word')) {
+      expect(rec(w).animate).not.toHaveProperty('scaleX');
+      expect(rec(w).animate).not.toHaveProperty('scaleY');
+      expect(Object.keys(rec(w).transition)).toEqual(['duration', 'times', 'ease']);
+    }
+    // The kicker is Londrina caps whatever the headline does, so it still squishes.
+    expect(rec(container.querySelector('.lobby-kicker')).animate.scaleY).toBeDefined();
+  });
+
+  it('a run\'s edge punctuation squashes with its word, on the same keyframes', () => {
+    const frame = { kicker: 'This week', headline: 'Please say "שבת שלום" to your friends', sub: '', chip: null, textSize: 'auto' };
+    const { container } = render(<SlideCopy frame={frame} via="boot" />);
+    const inRun = [...container.querySelector('bdi.lobby-run').querySelectorAll('.lobby-word')];
+    const marks = [...container.querySelectorAll('.lobby-punct')];
+    expect(marks).toHaveLength(2);
+    expect(rec(marks[0]).animate).toEqual(rec(inRun[0]).animate);
+    expect(rec(marks[1]).animate).toEqual(rec(inRun[1]).animate);
+    expect(rec(marks[0]).animate.scaleY).toBeDefined();
+  });
+
+  it('the headline carries its baseline, the pivot its words squash onto', () => {
+    const { container } = render(<SlideCopy frame={chipped} via="boot" />);
+    const p = container.querySelector('.lobby-headline');
+    // (SHOUT_BOX.ascent - SHOUT_BOX.descent + the shout's .93 line height) / 2
+    expect(p.style.getPropertyValue('--squish-baseline')).toBe('0.727em');
+  });
+});
+
+describe('the check-in moment\'s squish, as wired', () => {
+  let nextId = 1;
+  const kid = (extra = {}) => ({
+    id: nextId++, firstName: 'Maya', club: 'Sparks', isBirthday: false, isFirstTimer: false,
+    welcomeBack: false, milestone: null, presentation: 'live', ...extra,
+  });
+  /** The squish an element was handed. */
+  const squishOf = (el) => {
+    const { animate, transition } = rec(el);
+    return { scaleX: animate.scaleX, scaleY: animate.scaleY, transition: { scaleX: transition.scaleX, scaleY: transition.scaleY } };
+  };
+  /** A "hold, then land" beat's own run, after its hold. */
+  const runOf = (el) => rec(el).transition.duration - landsAt(el);
+  const live = (el) => el.closest('.checkin__name:not(.is-leaving)');
+
+  it('each letter squashes onto its baseline as it lands, rippling across the name at the letter stagger', () => {
+    const { container } = render(<CheckInMoment event={kid({ firstName: 'Maya' })} step={0} />);
+    const letters = [...container.querySelectorAll('.checkin__letter')];
+    expect(letters).toHaveLength(4);
+    letters.forEach((el, i) => {
+      // The entrance: the name at 0.5 s, 40 ms a letter, on the settle.
+      expect(landsAt(el)).toBeCloseTo(0.5 + 0.04 * i, 10);
+      expect(runOf(el)).toBeCloseTo(DUR.settle, 10);
+      expect(squishOf(el)).toEqual(squishLand(landsAt(el), 'name', runOf(el), 'settle'));
+      expect(rec(el).animate.opacity).toEqual([0, 0, 1]);
+      // Its exit is today's, untouched.
+      expect(rec(el).exit).toEqual({ opacity: 0, y: '-0.6em', scale: 1, transition: { duration: 0.22, delay: i * 0.014, ease: EASE.exit } });
+    });
+    expect(container.querySelector('.checkin__name').style.getPropertyValue('--squish-baseline')).toBe('0.737em');
+  });
+
+  it('a flip squishes the next name on the flip\'s own beat, and a kicker that reads the same never lands again', () => {
+    const a = kid({ firstName: 'Maya' });
+    const b = kid({ firstName: 'Owen' });
+    const { container, rerender } = render(<CheckInMoment event={a} step={0} />);
+    const kicker = container.querySelector('.checkin__kicker');
+    expect(kicker.textContent).toBe(kickerFor(a, momentFor(a)));
+    expect(kickerFor(b, momentFor(b))).toBe(kicker.textContent);
+    expect(squishOf(kicker)).toEqual(squishLand(0.4, 'kicker', 0.32, 'settle'));
+    rerender(<CheckInMoment event={b} step={1} />);
+    // Same words, so the same kicker element, still on the target it mounted with.
+    expect(container.querySelectorAll('.checkin__kicker')).toHaveLength(1);
+    expect(container.querySelector('.checkin__kicker')).toBe(kicker);
+    expect(rec(kicker).history).toHaveLength(1);
+    const owen = [...container.querySelectorAll('.checkin__letter')].filter(live);
+    expect(owen.map((el) => el.textContent)).toEqual(['O', 'W', 'E', 'N']);
+    owen.forEach((el, i) => {
+      expect(landsAt(el)).toBeCloseTo(0.26 + 0.028 * i, 10);
+      expect(squishOf(el)).toEqual(squishLand(landsAt(el), 'name', 0.36, 'settle'));
+    });
+  });
+
+  it('a font landing re-renders the name without re-targeting a letter', () => {
+    const { container } = render(<CheckInMoment event={kid({ firstName: 'Émile' })} step={0} />);
+    const letters = [...container.querySelectorAll('.checkin__letter')];
+    fonts.real = true;
+    act(() => {
+      fonts.loads += 1;
+      for (const cb of fonts.listeners) cb();
+    });
+    expect([...container.querySelectorAll('.checkin__letter')]).toEqual(letters);
+    for (const el of letters) expect(rec(el).history).toHaveLength(1);
+  });
+
+  it('the sticker squashes itself at its pop\'s peak; the slot it is aimed from, the cells and the mark never squish', () => {
+    const { container } = render(<CheckInMoment event={kid({ isFirstTimer: true })} step={0} />);
+    const sticker = container.querySelector('.checkin__sticker');
+    expect(landsAt(sticker)).toBeCloseTo(0.9, 10);
+    expect(squishOf(sticker)).toEqual(squishLand(0.9, 'sticker', DUR.pop, 'pop'));
+    expect(rec(sticker).animate.opacity).toEqual([0, 0, 1]);
+    for (const sel of ['.checkin__sticker-slot', '.checkin__cell--kicker', '.checkin__cell--name', '.checkin__mark-slot', '.checkin__mark', '.checkin__copy']) {
+      const r = rec(container.querySelector(sel));
+      expect(r.animate?.scaleX, sel).toBeUndefined();
+      expect(r.animate?.scaleY, sel).toBeUndefined();
+      expect(r.transition?.scaleY, sel).toBeUndefined();
+    }
+    // The cells' transition is their layout glide and nothing else.
+    expect(rec(container.querySelector('.checkin__cell--name')).transition).toEqual({ duration: DUR.settle, ease: EASE.settle });
+  });
+});
+
+describe('the overlays\' squish, as wired', () => {
+  const squishOf = (el) => {
+    const { animate, transition } = rec(el);
+    return { scaleX: animate.scaleX, scaleY: animate.scaleY, transition: { scaleX: transition.scaleX, scaleY: transition.scaleY } };
+  };
+  /** The squish carried inside a target (a notice's, a toast's, a variant's). */
+  const nestedSquish = (target) => ({
+    scaleX: target.scaleX, scaleY: target.scaleY, transition: { scaleX: target.transition.scaleX, scaleY: target.transition.scaleY },
+  });
+
+  it('a corner chip pops a beat after the slide loads and squashes at the pop\'s peak', () => {
+    const item = { id: 'clock', corner: 'bottom', label: 'Right now', value: '7:56', spoken: 'It is 7:56' };
+    const { container } = render(<CornerChip item={item} corner="bottom" loads={1} />);
+    const chip = container.querySelector('.corner-chip');
+    expect(landsAt(chip)).toBeCloseTo(0.3, 10);
+    expect(rec(chip).animate.opacity).toEqual([0, 0, 1]);
+    expect(squishOf(chip)).toEqual(squishLand(0.3, 'chip', DUR.pop, 'pop'));
+  });
+
+  it('UP NEXT squashes once the wave is under it on a run\'s first child, at once later in the run', () => {
+    const { container, unmount } = render(<UpNextChip pending={3} rising />);
+    expect(squishOf(container.querySelector('.up-next'))).toEqual(squishLand(WAVE_UP_SEC, 'chip', DUR.pop, 'pop'));
+    unmount();
+    const later = render(<UpNextChip pending={3} />);
+    expect(squishOf(later.container.querySelector('.up-next'))).toEqual(squishLand(0, 'chip', DUR.pop, 'pop'));
+  });
+
+  it('a ticker pill keeps the beat it landed on when a row turns up before it, and each new count bumps up and down only', () => {
+    const tonight = (extra) => ({ checkedIn: 63, booksCompleted: 0, awardsEarned: 11, friendsBrought: 0, at: Date.now(), ...extra });
+    const { container, rerender } = render(<TonightTicker tonight={tonight()} active />);
+    const pills = () => [...container.querySelectorAll('.tonight-ticker-stat')];
+    const [checked, awards] = pills();
+    expect(squishOf(awards)).toEqual(squishLand(beats(1), 'chip', DUR.pop, 'pop'));
+    rerender(<TonightTicker tonight={tonight({ booksCompleted: 4, checkedIn: 64 })} active />);
+    expect(pills()).toHaveLength(3);
+    expect(pills()[0]).toBe(checked);
+    expect(pills()[2]).toBe(awards);
+    // Now third, but its keyframes are the ones it landed with: no replay.
+    expect(rec(awards).history).toHaveLength(1);
+    expect(squishOf(awards)).toEqual(squishLand(beats(1), 'chip', DUR.pop, 'pop'));
+    const value = checked.querySelector('.tonight-ticker-value');
+    expect(value.textContent).toBe('64');
+    expect(rec(value).animate.scaleX).toBeUndefined();
+    expect(rec(value).animate.scaleY).toEqual(squishBump('figure').scaleY);
+  });
+
+  it('an info notice squashes as it lands and as it comes back; a critical one keeps today\'s plain pop', () => {
+    const at = Date.now();
+    const { container, rerender } = render(<NoticeBanner notice={{ level: 'info', message: 'Hi', at }} now={at} />);
+    const info = () => container.querySelector('.notice-banner--info');
+    expect(nestedSquish(rec(info()).animate)).toEqual(squishLand(0, 'plate', DUR.pop, 'pop'));
+    rerender(<NoticeBanner notice={{ level: 'info', message: 'Hi', at }} now={at} yielding />);
+    expect(rec(info()).animate).toMatchObject({ opacity: 0, scaleX: 1, scaleY: 1 });
+    rerender(<NoticeBanner notice={{ level: 'info', message: 'Hi', at }} now={at} />);
+    expect(nestedSquish(rec(info()).animate)).toEqual(squishLand(DUR.exit, 'plate', DUR.pop, 'pop'));
+    cleanup();
+    const critical = render(<NoticeBanner notice={{ level: 'critical', message: 'Club is cancelled tonight', at }} now={at} />);
+    const target = rec(critical.container.querySelector('.notice-banner--critical')).animate;
+    expect(target).toEqual({ opacity: 1, y: '0%', scale: 1, transition: { duration: DUR.pop, ease: EASE.pop } });
+  });
+
+  it('a toast plate squashes, hanging from the band, unless it carries a club\'s wordmark', () => {
+    const { container, unmount } = render(<MilestoneToast celebration={{ kind: 'tally', count: 25 }} club={null} />);
+    const hot = container.querySelector('.milestone-toast');
+    expect(nestedSquish(rec(hot).animate)).toEqual(squishLand(0, 'plate', DUR.pop, 'pop'));
+    unmount();
+    const sparks = getClubPalette('Sparks');
+    const club = render(<MilestoneToast celebration={{ kind: 'club', club: 'Sparks', count: 20 }} club={sparks} />);
+    const plate = club.container.querySelector('.milestone-toast');
+    expect(plate.querySelector('.club-logo')).not.toBeNull();
+    expect(rec(plate).animate).not.toHaveProperty('scaleX');
+    expect(rec(plate).animate).not.toHaveProperty('scaleY');
+  });
+
+  it('the status sticker\'s pop squashes lightly at its peak', () => {
+    const { container } = render(<StickerChip label="Signal">Connected</StickerChip>);
+    const { variants } = rec(container.querySelector('.sticker-chip'));
+    expect(nestedSquish(variants.show)).toEqual(squishLand(0, 'plate', DUR.pop, 'pop'));
+    expect(variants.hidden).toEqual({ opacity: 0, scale: 0.6 });
   });
 });
 
@@ -290,6 +525,9 @@ describe('a web font that lands late', () => {
       expect(JSON.stringify(rec(el).animate)).toBe(targets[i]);
       expect(rec(el).history).toHaveLength(1);
     });
+    // The words landed shouting, so they keep the squish they were dealt: it
+    // follows the beat sheet, never the layout the fit now draws.
+    for (const w of after.filter((el) => el.classList.contains('lobby-word'))) expect(rec(w).animate.scaleY).toBeDefined();
   });
 
   it('a run of words against the headline\'s direction keeps its <bdi>, its words and its edge punctuation through the refit', () => {

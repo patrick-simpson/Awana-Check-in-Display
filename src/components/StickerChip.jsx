@@ -1,5 +1,6 @@
 import { M } from '../lib/motion.jsx';
 import { DUR, EASE, DOODLES } from '../lib/brand.js';
+import { squishLand, withSquish } from '../lib/squish.js';
 import StepPlate from './brand/StepPlate.jsx';
 
 /**
@@ -16,10 +17,18 @@ import StepPlate from './brand/StepPlate.jsx';
  * status sticker's height with it). `sparkle` perches one kit sparkle on the plate's
  * shoulder, winking now and then; its loop ends at full size, which is
  * where ?lowPower=1 freezes it.
+ *
+ * The pop squashes lightly at its peak (the soft squish, src/lib/squish.js):
+ * it is a problem indicator, so a plate's squish, not a sticker's. Scale only:
+ * the plate's outline and App's height check read offset boxes and a
+ * ResizeObserver, which a transform never moves.
  */
 const pop = {
   hidden: { opacity: 0, scale: 0.6 },
-  show: { opacity: 1, scale: 1, transition: { duration: DUR.pop, ease: EASE.pop } },
+  show: withSquish(
+    { opacity: 1, scale: 1, transition: { duration: DUR.pop, ease: EASE.pop } },
+    squishLand(0, 'plate', DUR.pop, 'pop'),
+  ),
 };
 
 const SPARK = DOODLES.sparkle;

@@ -20,10 +20,11 @@ const css = readFileSync(resolve(__dirname, '../styles/app.css'), 'utf8');
  */
 function rules(text) {
   const src = text.replace(/\/\*[\s\S]*?\*\//g, '');
-  /** @type {Array<{ selector: string, body: string }>} */
+  /** @type {Array<{ selector: string, body: string, media: string }>} */
   const out = [];
   let i = 0;
-  const walk = (end) => {
+  /** @param {number} end @param {string} [media] the @media block a rule sits in, if any */
+  const walk = (end, media = '') => {
     while (i < end) {
       const open = src.indexOf('{', i);
       if (open < 0 || open >= end) return;
@@ -38,9 +39,9 @@ function rules(text) {
       const close = j - 1;
       if (head.startsWith('@media') || head.startsWith('@supports') || head.startsWith('@container')) {
         i = open + 1;
-        walk(close);
+        walk(close, head.startsWith('@media') ? head.replace(/\s+/g, ' ') : media);
       } else if (!head.startsWith('@')) {
-        out.push({ selector: head, body: src.slice(open + 1, close) });
+        out.push({ selector: head, body: src.slice(open + 1, close), media });
       }
       i = close + 1;
     }
@@ -127,5 +128,68 @@ describe('zero-animation mode reaches pseudo-elements (app.css)', () => {
       '.zero-animation-mode *, .zero-animation-mode *::before, .zero-animation-mode *::marker {',
     );
     expect(uncoveredPseudoAnimations(covered)).toEqual([]);
+  });
+});
+
+// The soft squish's presses (app.css, "The soft squish: operator presses")
+// squash a control on :active through the individual `scale`. The blanket rule
+// above stops their spring, but not the squash itself: a press on the Pi, or
+// under the OS's reduced motion, must be the flat 2px sink it always was. So
+// every press rule needs a `scale: none` twin in both kill switches, written
+// with the press's own selector (or it loses on specificity).
+describe('the soft squish\'s presses stop in both kill switches (app.css)', () => {
+  const all = rules(css);
+  const REDUCED = '@media (prefers-reduced-motion: reduce)';
+  /** A declaration's value in a rule body, or undefined. */
+  const valueOf = (body, prop) => body.match(new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`))?.[1].trim();
+  const presses = all
+    .filter((r) => !r.media && (valueOf(r.body, 'scale') !== undefined || valueOf(r.body, 'translate') !== undefined))
+    .flatMap(selectorsOf)
+    .filter((sel) => /:active$/.test(sel) && !sel.startsWith('.zero-animation-mode'));
+  /** Does some rule (in `media`, or in none) give `sel` the declaration `scale: none`? */
+  const stills = (sel, media) => all.some((r) => r.media === media && selectorsOf(r).includes(sel) && valueOf(r.body, 'scale') === 'none');
+
+  it('finds the presses: the pills, the debug tiles, the tabs\' own rail, the gear and the checkbox', () => {
+    expect(presses).toEqual(expect.arrayContaining([
+      '.panel button:not(:disabled):active',
+      '.debug button:not(:disabled):active',
+      '.settings-gear:active',
+      ".panel input[type='checkbox']:not(:disabled):active",
+    ]));
+  });
+
+  it('every press has scale: none under the OS\'s reduced motion', () => {
+    expect(presses.filter((sel) => !stills(sel, REDUCED))).toEqual([]);
+  });
+
+  it('every press has scale: none under zero animation', () => {
+    expect(presses.filter((sel) => !stills(`.zero-animation-mode ${sel}`, ''))).toEqual([]);
+  });
+
+  it('neither kill switch takes away the sink: the press is still the flat 2px it always was', () => {
+    for (const r of all.filter((x) => valueOf(x.body, 'scale') === 'none')) expect(valueOf(r.body, 'translate')).toBeUndefined();
+    const pill = all.find((r) => !r.media && selectorsOf(r).includes('.panel button') && valueOf(r.body, '--squish-sink'));
+    expect(valueOf(pill.body, '--squish-sink')).toBe('0 2px');
+  });
+
+  it('no press moves `transform`, which April Fools owns', () => {
+    for (const r of all.filter((x) => selectorsOf(x).some((sel) => /:active$/.test(sel)))) expect(valueOf(r.body, 'transform')).toBeUndefined();
+  });
+
+  // April Fools turns the gear, the backdrop, the debug panel and the first-run
+  // card 180deg with `transform`, about their origin: a squish that moved the
+  // origin would swing them off their place, and one on `transform` would
+  // undo the joke's escape hatch.
+  it('the surfaces April Fools turns keep their origin, and their entrances animate only translate, scale and opacity', () => {
+    const turned = /\.(settings-gear|panel-backdrop|debug|setup-card)(?![\w-])/;
+    const subject = (sel) => sel.split(/\s+|>|\+|~/).filter(Boolean).at(-1) ?? '';
+    const moved = all.filter((r) => valueOf(r.body, 'transform-origin') && selectorsOf(r).some((sel) => turned.test(subject(sel))));
+    expect(moved.map((r) => r.selector)).toEqual([]);
+    const src = css.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const name of ['panel-enter']) {
+      const block = src.match(new RegExp(`@keyframes ${name}\\s*\\{([\\s\\S]*?\\})\\s*\\}`))?.[1];
+      expect(block, name).toBeDefined();
+      expect(block).not.toMatch(/(^|[;{\s])transform\s*:/);
+    }
   });
 });

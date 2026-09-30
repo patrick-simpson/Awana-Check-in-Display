@@ -5,7 +5,9 @@ import { getClubPalette } from '../lib/clubs.js';
 import { fireBirthday, fireFirstTimer, fireStandard } from '../lib/confetti.js';
 import { playBirthdayChime, playChime, playFirstTimerChime } from '../lib/audio.js';
 import { nameAccent } from '../lib/nameAccent.js';
-import { DUR, EASE, inkEm, measureEm } from '../lib/brand.js';
+import { DUR, EASE, inkEm, measureEm, shoutBaseline } from '../lib/brand.js';
+import { holdThenLand } from '../lib/lobbyMotion.js';
+import { squishLand, withSquish } from '../lib/squish.js';
 import {
   FRONT_WAVE_DELAY, KICKER_TRACKING, KICKER_U, kickerFor, momentFor, NAME_ROOM_U, nameBox, nameRoomU, nameSizeU,
   nameUnderKicker, PER_LETTER_MAX, stickerFor, sublineFor, WAVE_EXIT,
@@ -41,6 +43,12 @@ import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
  *   flip      old letters out (exit 220), new club's wave sweeps (560),
  *             new letters from 260 ms, or 560 ms after a club change
  *   leaving   everything lifts out (exit 280), waves drop at 120 / 190 ms
+ *
+ * The soft squish (src/lib/squish.js): each letter squashes onto its baseline
+ * as it lands, the squash rippling across the name at the letter stagger, the
+ * kicker whispers one, and the sticker squashes at its pop's peak. Each is a
+ * keyframe list fixed when that child's copy first appears; the layout cells,
+ * the mark and the measured sticker slot never squish.
  *
  * Layers that persist for the whole run are wrappers whose own `exit` plays
  * when the run ends; everything that changes per child sits inside a small
@@ -82,6 +90,7 @@ const LETTER_FROM = {
   wave: (i) => ({ opacity: 0, y: `${(0.5 * Math.sin(i * 0.9 + 0.4)).toFixed(3)}em`, scale: 0.85 }),
   drop: () => ({ opacity: 0, y: '-0.6em', scale: 1 }),
 };
+const LETTER_TO = { opacity: 1, y: '0em', scale: 1 };
 
 const DOODLES = [
   { kind: 'sparkle', x: u(74), y: u(10.6), size: u(2.6) },
@@ -117,14 +126,22 @@ function useLeaving(base) {
 const clubInk = (club) => ({ '--club-deep': club.deep, '--club-tint': club.accent });
 
 function Kicker({ text, delay, club }) {
+  // Fixed at mount. The kicker is keyed on its words, so it stays mounted
+  // through a flip whose next child reads the same (WELCOME, WELCOME) while
+  // `delay` moves from the entrance's timing to the flip's; as keyframes, a
+  // new `delay` would be a new target, and the kicker would land again.
+  const [enter] = useState(() => withSquish(
+    holdThenLand(delay, 0.32, { opacity: 0, y: '0.5em' }, { opacity: 1, y: '0em' }, EASE.settle),
+    squishLand(delay, 'kicker', 0.32, 'settle'),
+  ));
   return (
     <M.div
       className={useLeaving('checkin__kicker')}
       style={clubInk(club)}
-      initial={{ opacity: 0, y: '0.5em' }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={enter.initial}
+      animate={enter.animate}
       exit={{ opacity: 0, transition: { duration: 0.18, ease: EASE.exit } }}
-      transition={{ duration: 0.32, delay, ease: EASE.settle }}
+      transition={enter.transition}
     >
       {text}
     </M.div>
@@ -142,6 +159,33 @@ function Line({ text, delay }) {
     >
       {text}
     </M.p>
+  );
+}
+
+/**
+ * The birthday / first-timer sticker, slapped on at its beat: it pops on the
+ * kit's curve and squashes at the pop's peak, the loudest squish on the
+ * lobby. Fixed at mount (keyed on the child). The squish rides the Sticker
+ * itself, never `.checkin__sticker-slot`, which stickerOrigin() measures with
+ * getBoundingClientRect (transforms included) just as the sticker lands.
+ */
+function MomentSticker({ moment, at, children }) {
+  const [enter] = useState(() => withSquish(
+    holdThenLand(at, DUR.pop, { opacity: 0, scale: 0.2, rotate: -40 }, { opacity: 1, scale: 1, rotate: 0 }, EASE.pop),
+    squishLand(at, 'sticker', DUR.pop, 'pop'),
+  ));
+  return (
+    <Sticker
+      className={`checkin__sticker checkin__sticker--${moment}`}
+      kind="starburst"
+      tilt={-8}
+      initial={enter.initial}
+      animate={enter.animate}
+      exit={{ opacity: 0, scale: 0.6, transition: { duration: 0.2, ease: EASE.exit } }}
+      transition={enter.transition}
+    >
+      {children}
+    </Sticker>
   );
 }
 
@@ -163,30 +207,50 @@ function stickerOrigin(root) {
 // snapping (framer-motion layout animation, instant under ?lowPower=1).
 const GLIDE = { duration: DUR.settle, ease: EASE.settle };
 
+/**
+ * One piece of a name (a letter, or a word of a long name) landing on its
+ * beat: one "hold, then land" keyframe list with the squish composed on, so
+ * the squash ripples across the name at the letter stagger.
+ * @param {{ at: number, dur: number, from: Record<string, number | string> }} beat
+ */
+const letterEnter = ({ at, dur, from }) => withSquish(
+  holdThenLand(at, dur, from, LETTER_TO, EASE.settle),
+  squishLand(at, 'name', dur, 'settle'),
+);
+
 function Name({ text, entrance, timing, size, wraps, box, club }) {
   const className = useLeaving(`checkin__name${wraps ? ' checkin__name--wraps' : ''}`);
-  const from = LETTER_FROM[entrance] ?? LETTER_FROM.pop;
+  // The beat sheet is fixed when this child's name first appears (the name is
+  // keyed on the child, and a font landing re-renders it): only sizes follow
+  // a re-render, never a keyframe.
+  const [sheet] = useState(() => ({
+    from: LETTER_FROM[entrance] ?? LETTER_FROM.pop, name: timing.name, letter: timing.letter, dur: timing.nameDur,
+  }));
   const perLetter = [...text].length <= PER_LETTER_MAX;
   const words = text.split(' ').filter(Boolean);
   let at = 0;
-  const piece = (content, key, index) => (
-    <M.span
-      key={key}
-      className="checkin__letter"
-      initial={from(index)}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: '-0.6em', scale: 1, transition: { duration: 0.22, delay: index * 0.014, ease: EASE.exit } }}
-      transition={{ duration: timing.nameDur, delay: timing.name + index * timing.letter, ease: EASE.settle }}
-    >
-      {content}
-    </M.span>
-  );
+  const piece = (content, key, index) => {
+    const enter = letterEnter({ at: sheet.name + index * sheet.letter, dur: sheet.dur, from: sheet.from(index) });
+    return (
+      <M.span
+        key={key}
+        className="checkin__letter"
+        initial={enter.initial}
+        animate={enter.animate}
+        exit={{ opacity: 0, y: '-0.6em', scale: 1, transition: { duration: 0.22, delay: index * 0.014, ease: EASE.exit } }}
+        transition={enter.transition}
+      >
+        {content}
+      </M.span>
+    );
+  };
   return (
     <h1
       className={className}
       style={{
         fontSize: u(size),
         lineHeight: box.lineHeight,
+        '--squish-baseline': `${shoutBaseline(box.lineHeight)}em`,
         paddingTop: `${box.padTop}em`,
         paddingBottom: `${box.padBottom}em`,
         ...clubInk(club),
@@ -365,18 +429,9 @@ export default function CheckInMoment({ event, step = 0, audioEnabled, clubPhras
       <M.div className="checkin__sticker-slot" exit={{ opacity: 0, scale: 0.8, transition: LEAVE }}>
         <AnimatePresence>
           {sticker && (
-            <Sticker
-              key={event.id}
-              className={`checkin__sticker checkin__sticker--${moment}`}
-              kind="starburst"
-              tilt={-8}
-              initial={{ opacity: 0, scale: 0.2, rotate: -40 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: 0.6, transition: { duration: 0.2, ease: EASE.exit } }}
-              transition={{ duration: DUR.pop, delay: t.sticker, ease: EASE.pop }}
-            >
+            <MomentSticker key={event.id} moment={moment} at={t.sticker}>
               {sticker.map((l) => <span key={l}>{l}</span>)}
-            </Sticker>
+            </MomentSticker>
           )}
         </AnimatePresence>
       </M.div>

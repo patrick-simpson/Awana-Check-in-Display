@@ -1,12 +1,13 @@
 import { createElement, Fragment, useMemo, useState } from 'react';
 import { M } from '../lib/motion.jsx';
-import { EASE } from '../lib/brand.js';
+import { EASE, shoutBaseline } from '../lib/brand.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 import StepChip from './brand/StepChip.jsx';
 import { CHIP, KICKER, READ, SUB, bidiIsolates, fitFrame, LOBBY_THEMES, lobbyTheme } from '../lib/lobbyFrame.js';
 import {
   HANDOFF, copyBeats, entranceHold, exitDelay, holdThenLand, holdThenLeave, vanishAtSwap,
 } from '../lib/lobbyMotion.js';
+import { squishLand, withSquish } from '../lib/squish.js';
 
 /** A length in the lobby's unit (see src/lib/lobbyFrame.js). */
 const u = (n) => `calc(${n} * var(--u))`;
@@ -182,7 +183,16 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
     if (run.lead && !wide.has(run.from)) own[run.from] = own[run.from].slice(run.lead.length);
     if (run.trail && !wide.has(run.to - 1)) own[run.to - 1] = own[run.to - 1].slice(0, -run.trail.length);
   }
-  const land = (i) => holdThenLand(tokenBeat(i).at, HANDOFF.word, WORD_FROM[landing], WORD_TO, EASE.settle);
+  // A shouted word squashes onto its baseline as it lands (src/lib/squish.js);
+  // a read word only lands. Decided by the beat sheet's `landing` and timed by
+  // its beat alone, never by the fit, so a refit never re-targets (and so
+  // never replays) a word.
+  const land = (i) => withSquish(
+    holdThenLand(tokenBeat(i).at, HANDOFF.word, WORD_FROM[landing], WORD_TO, EASE.settle),
+    landing === 'shout' ? squishLand(tokenBeat(i).at, 'text', HANDOFF.word, 'settle') : null,
+  );
+  const kickerAt = beats.kicker?.at ?? hold;
+  const chipAt = beats.chip?.at ?? hold;
 
   /** Token `i`'s own element: always the last child of its fragment, so a refit never remounts it. */
   const word = (i) => (
@@ -269,7 +279,10 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
           dir="auto"
           className={`lobby-kicker${slide ? ' manual-slide-eyebrow' : ''}`}
           style={{ fontSize: u(fit.kicker.size), lineHeight: fit.kicker.lineHeight, marginBottom: h.lines.length ? u(KICKER.gap) : 0 }}
-          enter={holdThenLand(beats.kicker?.at ?? hold, HANDOFF.kicker, { opacity: 0, y: '0.52em' }, { opacity: 1, y: '0em' }, EASE.settle)}
+          enter={withSquish(
+            holdThenLand(kickerAt, HANDOFF.kicker, { opacity: 0, y: '0.52em' }, { opacity: 1, y: '0em' }, EASE.settle),
+            squishLand(kickerAt, 'kicker', HANDOFF.kicker, 'settle'),
+          )}
           leave={leave(beats.kicker ?? { index: 0 })}
         >
           {fit.kicker.lines.map((line, i) => <Fragment key={i}>{i > 0 && <br />}{line}</Fragment>)}
@@ -280,7 +293,7 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
         <p
           dir="auto"
           className={`lobby-headline lobby-headline--${h.mode}${slide ? ` manual-slide-text ${sizeClass}` : ''}`.trim()}
-          style={{ fontSize: u(h.size), lineHeight: h.lineHeight, paddingBottom: `${h.padBottom}em` }}
+          style={{ fontSize: u(h.size), lineHeight: h.lineHeight, paddingBottom: `${h.padBottom}em`, '--squish-baseline': `${shoutBaseline(h.lineHeight)}em` }}
           data-rows={h.lines.length}
         >
           {/* One element per token in both layouts, keyed by its place in
@@ -312,7 +325,10 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
             still={still}
             className="lobby-chip"
             style={{ fontSize: u(fit.chip.size) }}
-            enter={holdThenLand(beats.chip?.at ?? hold, HANDOFF.chip, { opacity: 0, scale: 0.4, rotate: -8 }, { opacity: 1, scale: 1, rotate: 0 }, EASE.pop)}
+            enter={withSquish(
+              holdThenLand(chipAt, HANDOFF.chip, { opacity: 0, scale: 0.4, rotate: -8 }, { opacity: 1, scale: 1, rotate: 0 }, EASE.pop),
+              squishLand(chipAt, 'chip', HANDOFF.chip, 'pop'),
+            )}
             leave={leave(beats.chip ?? { index: 0 })}
           >
             <StepChip label={fit.chip.label} value={fit.chip.value} size="1em" />
