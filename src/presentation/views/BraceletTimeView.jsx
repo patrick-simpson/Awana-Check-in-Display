@@ -274,7 +274,9 @@ const Changing = ({ k, still, wait = false, children }) => (
  * Which steps share one continuous stage: each ends on the picture the next
  * starts from (the row grows bead by bead, then step 7 and knot 1 carry on
  * from it; the knot close-up runs from knot 2 to knot 6), so the stage plays
- * straight on instead of crossfading.
+ * straight on instead of crossfading. Where the picture itself changes (into
+ * the close-up, and back to step 1) the old one goes before the new one comes:
+ * crossfaded, two bracelets and four hands were on the wall at once.
  */
 const stageRun = (i) => (i < 8 ? 'row' : 'knot');
 
@@ -293,7 +295,7 @@ const StepCard = ({ index, club, stepStartMs, still }) => {
           <StepChip label={chip.label} value={chip.value} size="calc(4.2 * var(--u))" plate={club.deep} />
         </div>
       </Changing>
-      <Changing k={stageRun(index)} still={still}>
+      <Changing k={stageRun(index)} still={still} wait>
         <div className="pj-bracelet__stage">
           <BraceletStage step={index} startMs={stepStartMs} still={still} />
         </div>

@@ -120,9 +120,11 @@ describe('BraceletTimeView', () => {
     // Knot step 2 is a new picture (the close-up): its stage is a new one.
     stageClock.nowMs = at('18:08:05').getTime();
     rerender(<BraceletTimeView now={at('18:08:05')} {...props} />);
-    await waitFor(() => expect(container.querySelectorAll('[data-testid="stage"]')).toHaveLength(1));
+    // (the old picture goes before the new one comes, never both at once)
+    expect(container.querySelectorAll('[data-testid="stage"]')).toHaveLength(1);
+    await waitFor(() => expect(container.querySelector('[data-testid="stage"]').getAttribute('data-step')).toBe('8'));
+    expect(container.querySelectorAll('[data-testid="stage"]')).toHaveLength(1);
     expect(container.querySelector('[data-testid="stage"]')).not.toBe(stage);
-    expect(container.querySelector('[data-testid="stage"]').getAttribute('data-step')).toBe('8');
     expect(container.querySelector('.pj-bracelet__rail')).toBe(rail);
   });
 
