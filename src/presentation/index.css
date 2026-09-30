@@ -1092,6 +1092,73 @@
   .pj-sheet__mono { font-family: monospace; font-size: 15px; color: rgb(255 255 255 / 0.85); }
   .pj-sheet__fine { margin: 22px 6px 0; font-size: 12px; line-height: 1.5; color: rgb(255 255 255 / 0.45); }
 
+  /* ── The page as a thing held in the hand ── */
+  /* No pull-to-refresh reloading the wall, no double-tap zoom, and a long
+     press on the wall's art or words is not a save-image sheet or a text
+     selection. Pinch-zoom stays. */
+  html,
+  body {
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+  [data-mode] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── A slide deck by finger (views/SlideshowView.jsx) ── */
+  /* The browser keeps vertical pans and pinches; a sideways swipe is ours. */
+  [data-slide] { touch-action: pan-y pinch-zoom; }
+  .pj-touch-slides {
+    position: fixed;
+    z-index: 50;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgb(35 31 32 / 0.72);
+    border: 1.5px solid rgb(255 255 255 / 0.28);
+    box-shadow: 3px 3px 0 rgb(3 4 4 / 0.9);
+  }
+  .pj-touch-slides > button {
+    display: grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    border: 0;
+    border-radius: 999px;
+    color: #fff;
+    background: transparent;
+    opacity: 0.85;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .pj-touch-slides > button:active { background: rgb(255 255 255 / 0.14); }
+  .pj-touch-slides > button:disabled { opacity: 0.25; }
+  .pj-touch-slides__exit {
+    padding: 0 14px;
+    font-family: var(--font-condensed);
+    font-size: 16px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .pj-touch-slides > .pj-touch-slides__exit.is-armed { opacity: 1; background: var(--brand-hot); }
+  :root {
+    /* The Exit toast stands above the controls, at a size a phone can read. */
+    --pj-toast-bottom: calc(max(10px, env(safe-area-inset-bottom)) + 62px);
+    --pj-toast-size: max(15px, calc(2.2 * var(--u)));
+  }
+  /* A phone on its side: the wall fills the height and leaves a band at each
+     side, so the controls stand up in the right-hand band, clear of it. */
+  @media (min-aspect-ratio: 43/20) {
+    .pj-touch-slides { flex-direction: column; }
+    :root { --pj-toast-bottom: calc(3 * var(--u)); }
+  }
+
   /* ── The Bracelet Time controls as a bottom sheet (views/BraceletPanel.jsx) ── */
   .pj-bpanel__backdrop {
     /* A sheet from the bottom, under a strip of the dimmed wall that is a

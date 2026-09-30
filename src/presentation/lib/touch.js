@@ -72,3 +72,38 @@ export function useTouch() {
 export function usePortrait() {
   return useSyncExternalStore(subscribePortrait, isPortrait, desktop);
 }
+
+/**
+ * How a finger moves a slide deck, as the arrow keys do: a swipe to the left
+ * is Next and to the right is Prev (a page turned under the finger); a tap in
+ * the left 30% of the wall is Prev and anywhere else Next (a tap is how a
+ * presenter moves on, and the right is where a finger rests). Anything else
+ * (a slow press, a drag up the screen, a finger that wandered) is nothing.
+ */
+export const SLIDE_GESTURE = Object.freeze({
+  /** A swipe travels at least this far sideways, in px, or this share of the wall's width. */
+  swipePx: 40,
+  swipeShare: 0.06,
+  /** ... and mostly sideways. */
+  swipeSlope: 1.5,
+  /** A tap moves less than this, in px, and lifts within tapMs. */
+  tapSlopPx: 12,
+  tapMs: 600,
+  /** The left edge's share of the wall that a tap steps back from. */
+  prevShare: 0.3,
+});
+
+/**
+ * @param {{ dx: number, dy: number, dt: number, x: number, width: number }} g
+ *   the finger's travel (px), its time down (ms), where it went down (px from
+ *   the wall's left edge) and the wall's width (px)
+ * @returns {'next' | 'prev' | null}
+ */
+export function slideGesture({ dx, dy, dt, x, width }) {
+  const g = SLIDE_GESTURE;
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  if (ax >= Math.max(g.swipePx, g.swipeShare * width) && ax >= g.swipeSlope * ay) return dx < 0 ? 'next' : 'prev';
+  if (ax < g.tapSlopPx && ay < g.tapSlopPx && dt <= g.tapMs) return x < g.prevShare * width ? 'prev' : 'next';
+  return null;
+}

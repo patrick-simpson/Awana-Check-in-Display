@@ -35,13 +35,16 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('awanaSetupChecklistDismissed.v1', '1'));
 });
 
-/** A box {x, y, width, height} entirely on the screen, and at least 44x44. */
+/** The view's own crossfade scales it from 0.985 as it lands: measure after it. */
+const settle = (page) => page.waitForTimeout(900);
+
+/** A box {x, y, width, height} entirely on the screen, and at least 44x44 (to the device pixel). */
 async function expectTarget(locator, name) {
   const box = await locator.boundingBox();
   expect(box, name).not.toBeNull();
   const vp = locator.page().viewportSize();
-  expect(box.width, `${name} width`).toBeGreaterThanOrEqual(44);
-  expect(box.height, `${name} height`).toBeGreaterThanOrEqual(44);
+  expect(box.width, `${name} width`).toBeGreaterThanOrEqual(44 - 0.1);
+  expect(box.height, `${name} height`).toBeGreaterThanOrEqual(44 - 0.1);
   expect(box.x, `${name} left`).toBeGreaterThanOrEqual(0);
   expect(box.y, `${name} top`).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width, `${name} right`).toBeLessThanOrEqual(vp.width + 0.5);
@@ -72,6 +75,7 @@ for (const [name, use] of DEVICES) {
       await page.goto(at(TUESDAY));
       await expect(page.locator('[data-mode="countdown"]')).toBeVisible();
       await expect(page.locator('html')).toHaveAttribute('data-touch', '1');
+      await settle(page);
       await expectTarget(menuButton(page), 'menu button');
       // The hover menu is not on the page at all: nothing of it can catch a tap.
       await expect(page.getByRole('button', { name: 'Main Countdown' })).toHaveCount(0);
@@ -151,6 +155,90 @@ for (const [name, use] of DEVICES) {
         localStorage.getItem('awanaPresentationLowPower.v1'),
         localStorage.getItem('awanaScheduleOverlay.v1'),
       ])).toEqual([null, null, null]);
+    });
+  });
+}
+
+/* ── A slide deck by finger ───────────────────────────────────────────── */
+
+const OPENING = '2026-09-16T18:00:30';
+
+/** A real one-finger swipe (Chromium's touch events, so the page sees pointer events). */
+async function swipe(page, fromX, toX, y) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: fromX, y }] });
+  for (let i = 1; i <= 6; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: fromX + ((toX - fromX) * i) / 6, y }] });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
+
+const slideIs = (page, id) => expect(page.locator('[data-slide]')).toHaveAttribute('data-slide', id);
+
+for (const [name, use] of DEVICES) {
+  test.describe(`the opening deck on ${name}`, () => {
+    test.use(use);
+
+    test('moves by tap zones and swipes, the blackout included, and its last tap starts games', async ({ page }) => {
+      await page.goto(at(OPENING));
+      await slideIs(page, 'welcome');
+      const vp = page.viewportSize();
+      const y = Math.round(vp.height * 0.45);
+      await page.touchscreen.tap(Math.round(vp.width * 0.8), y);
+      await slideIs(page, 'us-pledge');
+      await page.touchscreen.tap(Math.round(vp.width * 0.1), y);
+      await slideIs(page, 'welcome');
+      await swipe(page, Math.round(vp.width * 0.7), Math.round(vp.width * 0.2), y);
+      await slideIs(page, 'us-pledge');
+      await swipe(page, Math.round(vp.width * 0.3), Math.round(vp.width * 0.8), y);
+      await slideIs(page, 'welcome');
+      await page.touchscreen.tap(Math.round(vp.width * 0.6), y);
+      await page.touchscreen.tap(Math.round(vp.width * 0.6), y);
+      await page.touchscreen.tap(Math.round(vp.width * 0.6), y);
+      await slideIs(page, 'black-slide');
+      // The blackout is a bare wall with no button on it: the wall itself answers.
+      await page.touchscreen.tap(Math.round(vp.width * 0.6), y);
+      await expect(page.locator('[data-mode="game-time"]')).toBeVisible();
+    });
+
+    test('has visible controls, each a finger\'s size, and none of them over the slide\'s words', async ({ page }) => {
+      await page.goto(at(OPENING));
+      const nav = page.locator('[data-slideshow-touch-nav]');
+      await expect(nav).toBeVisible();
+      await settle(page);
+      await expect(page.locator('[data-slideshow-nav]')).toHaveCount(0);
+      for (const label of ['Exit the slides', 'Previous slide', 'Next slide']) {
+        await expectTarget(nav.getByRole('button', { name: label }), label);
+      }
+      await nav.getByRole('button', { name: 'Next slide' }).tap();
+      await slideIs(page, 'us-pledge');
+      // Let the pledge's words land, then measure them against the controls.
+      await page.waitForTimeout(1600);
+      const hits = await page.evaluate(() => {
+        const n = document.querySelector('[data-slideshow-touch-nav]').getBoundingClientRect();
+        const out = [];
+        for (const el of document.querySelectorAll('.pj-slide .w, .pj-slide .pj-kicker, .pj-slide-clock')) {
+          const r = el.getBoundingClientRect();
+          if (r.width && r.left < n.right && r.right > n.left && r.top < n.bottom && r.bottom > n.top) out.push(el.textContent.trim());
+        }
+        return out;
+      });
+      expect(hits).toEqual([]);
+    });
+
+    test('Exit is tapped twice, with the toast saying so, and goes back to the countdown', async ({ page }) => {
+      await page.goto(`/countdown.html?now=${OPENING}`);
+      const exit = page.getByRole('button', { name: 'Exit the slides' });
+      await exit.tap();
+      const toast = page.locator('[data-pj-bottom-overlay]');
+      await expect(toast).toBeVisible();
+      await expect(toast.getByRole('img')).toHaveAttribute('aria-label', 'EXIT SLIDES Tap Exit again');
+      // The toast is read from arm's length: at least 15px type.
+      const size = await toast.locator('.pj-chip').evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+      expect(size).toBeGreaterThanOrEqual(15);
+      await page.getByRole('button', { name: 'Tap again to exit the slides' }).tap();
+      await expect(page.locator('[data-mode="countdown"]')).toBeVisible();
     });
   });
 }

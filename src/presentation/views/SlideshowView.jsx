@@ -7,6 +7,7 @@ import { DUR, EASE } from '../lib/motion-tokens.js';
 import { LEAVE_TOTAL, holdThen } from '../lib/landing.js';
 import { HOUSE } from '../lib/kit.js';
 import { useKeydown } from '../hooks/useKeydown.js';
+import { slideGesture, useTouch } from '../lib/touch.js';
 import { ColorSweep } from '../components/ColorSweep.jsx';
 import { StepChip } from '../components/StepChip.jsx';
 import { Slide } from './Slide.jsx';
@@ -66,6 +67,9 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
   const sweepIds = useRef(0);
   const sweepDone = useCallback((id) => setSweeps((list) => list.filter((w) => w.id !== id)), []);
   const [escArmed, setEscArmed] = useState(false);
+  // A phone or tablet (lib/touch.js) moves the deck with a finger instead.
+  const touch = useTouch();
+  const finger = useRef(/** @type {null | { id: number, x: number, y: number, t: number }} */ (null));
 
   const slide = slides[Math.min(index, slides.length - 1)];
 
@@ -109,6 +113,38 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
     return () => clearTimeout(timer);
   }, [escArmed]);
 
+  // On touch, the wall itself is the clicker: a swipe or a tap anywhere that
+  // is not a control moves the deck (lib/touch.js slideGesture), on every
+  // slide, the closing blackout included (its next tap starts games, as the
+  // next key press does). Exit is a visible button, pressed twice like
+  // Escape. Nothing of this is on the PC: the arrow keys and the hover pill.
+  const onPointerDown = (e) => {
+    if (!touch || !e.isPrimary || e.target.closest?.(CONTROLS)) return;
+    finger.current = { id: e.pointerId, x: e.clientX, y: e.clientY, t: e.timeStamp };
+  };
+  const onPointerUp = (e) => {
+    const down = finger.current;
+    finger.current = null;
+    if (!touch || !down || down.id !== e.pointerId) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const move = slideGesture({
+      dx: e.clientX - down.x,
+      dy: e.clientY - down.y,
+      dt: e.timeStamp - down.t,
+      x: down.x - rect.left,
+      width: rect.width || window.innerWidth,
+    });
+    if (move === 'next') goNext();
+    else if (move === 'prev') goPrev();
+  };
+  const onPointerCancel = () => {
+    finger.current = null;
+  };
+  const exitTap = () => {
+    if (escArmed) onExit();
+    else setEscArmed(true);
+  };
+
   useKeydown((e) => {
     if (['Space', 'ArrowRight', 'PageDown'].includes(e.code)) {
       e.preventDefault();
@@ -123,7 +159,14 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
   });
 
   return (
-    <div className="w-full h-full relative group" data-slide={slide.id} style={{ background: '#000000' }}>
+    <div
+      className="w-full h-full relative group"
+      data-slide={slide.id}
+      style={{ background: '#000000' }}
+      onPointerDown={touch ? onPointerDown : undefined}
+      onPointerUp={touch ? onPointerUp : undefined}
+      onPointerCancel={touch ? onPointerCancel : undefined}
+    >
       <AnimatePresence>
         <motion.div
           key={slide.id}
@@ -138,7 +181,7 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
             now={now}
             events={events}
             hold={changes > 0 ? CHANGE_HOLD : FIRST_HOLD}
-            onNext={index < slides.length - 1 || onFinish ? goNext : undefined}
+            onNext={!touch && (index < slides.length - 1 || onFinish) ? goNext : undefined}
           />
         </motion.div>
       </AnimatePresence>
@@ -171,12 +214,17 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
           <motion.div
             className="absolute left-1/2 z-50"
             data-pj-bottom-overlay
-            style={{ bottom: 'calc(3 * var(--u))', x: '-50%' }}
+            style={{ bottom: 'var(--pj-toast-bottom, calc(3 * var(--u)))', x: '-50%' }}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0, transition: { duration: DUR.pop, ease: EASE.pop } }}
             exit={{ opacity: 0, y: 12, transition: { duration: DUR.exit, ease: EASE.exit } }}
           >
-            <StepChip label="Exit slides" value="Press ESC again" size="calc(2.2 * var(--u))" plate={HOUSE.hot} />
+            <StepChip
+              label="Exit slides"
+              value={touch ? 'Tap Exit again' : 'Press ESC again'}
+              size="var(--pj-toast-size, calc(2.2 * var(--u)))"
+              plate={HOUSE.hot}
+            />
           </motion.div>
         )}
       </AnimatePresence>
@@ -184,7 +232,10 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
       {/* Hover navigation. Fixed at the window's bottom-right, 2rem in and
           about 11.75rem wide: the first-run setup note stops short of it
           (index.css .pj-setup-note), and e2e/setup-card.spec.js measures it
-          through data-slideshow-nav. */}
+          through data-slideshow-nav. A finger cannot hover, so on touch it is
+          not there at all (it stood at opacity 0, and a blind tap on it moved
+          the deck); the touch controls below take its place. */}
+      {!touch && (
       <div
         className="fixed bottom-8 right-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-50"
         data-slideshow-nav
@@ -200,6 +251,29 @@ export const SlideshowView = ({ deck, now, onExit, onFinish, onBareChange }) => 
           </NavPill>
         </div>
       </div>
+      )}
+
+      {/* Touch: the deck's own controls, always visible, each a finger's
+          size (index.css's touch block places them clear of the wall's
+          words). Exit is pressed twice, like Escape, with the same toast. */}
+      {touch && (
+        <div className="pj-touch-slides" data-slideshow-touch-nav>
+          <button
+            type="button"
+            className={`pj-touch-slides__exit${escArmed ? ' is-armed' : ''}`}
+            onClick={exitTap}
+            aria-label={escArmed ? 'Tap again to exit the slides' : 'Exit the slides'}
+          >
+            Exit
+          </button>
+          <button type="button" onClick={goPrev} disabled={index === 0} aria-label="Previous slide">
+            <ChevronLeft size={22} strokeWidth={2.6} />
+          </button>
+          <button type="button" onClick={goNext} disabled={index === slides.length - 1 && !onFinish} aria-label="Next slide">
+            <ChevronRight size={22} strokeWidth={2.6} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -226,6 +300,9 @@ const SlideClock = ({ now }) => {
     </span>
   );
 };
+
+/** What a finger presses on purpose: a tap on one never also moves the deck. */
+const CONTROLS = 'button, a, input, select, textarea, label, [role="button"], [role="dialog"], [data-pj-bottom-overlay]';
 
 const NavPill = ({ disabled, onClick, children }) => (
   <button

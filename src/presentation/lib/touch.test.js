@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render } from '@testing-library/react';
 import React from 'react';
 
@@ -106,5 +106,37 @@ describe('the touch question', () => {
     unmount();
     expect(matchMedia(mod.PORTRAIT_QUERY).listeners.size).toBe(0);
     expect(matchMedia(mod.TOUCH_QUERY).listeners.size).toBe(0);
+  });
+});
+
+describe('slideGesture: a finger moves a deck as the arrow keys do', () => {
+  // Pure: it reads nothing from the page.
+  let slideGesture;
+  beforeAll(async () => {
+    ({ slideGesture } = await import('./touch.js'));
+  });
+  const W = 400;
+  const g = (over) => slideGesture({ dx: 0, dy: 0, dt: 120, x: 300, width: W, ...over });
+
+  it('a swipe to the left is Next, to the right is Prev, wherever it starts', () => {
+    expect(g({ dx: -80, dy: 10 })).toBe('next');
+    expect(g({ dx: 80, dy: -10, x: 20 })).toBe('prev');
+    expect(g({ dx: -80, x: 20 })).toBe('next');
+  });
+
+  it('a tap in the left 30% is Prev, anywhere else Next', () => {
+    expect(g({ x: 20 })).toBe('prev');
+    expect(g({ x: 0.3 * W - 1 })).toBe('prev');
+    expect(g({ x: 0.3 * W })).toBe('next');
+    expect(g({ x: 390, dx: 5, dy: -6 })).toBe('next');
+  });
+
+  it('a drag up the wall, a wandering finger or a long press is nothing', () => {
+    expect(g({ dx: -50, dy: -120 })).toBeNull();
+    expect(g({ dx: 25, dy: 5 })).toBeNull();
+    expect(g({ dt: 900 })).toBeNull();
+    // A wide tablet needs a longer swipe than a phone: 6% of its width.
+    expect(slideGesture({ dx: -50, dy: 0, dt: 100, x: 500, width: 1194 })).toBeNull();
+    expect(slideGesture({ dx: -75, dy: 0, dt: 100, x: 500, width: 1194 })).toBe('next');
   });
 });

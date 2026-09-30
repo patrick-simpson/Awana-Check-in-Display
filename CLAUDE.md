@@ -1398,18 +1398,38 @@ rule for all of it is that **the desktop does not change at all**.
   are touch words (tap ✕ or outside, tap once to arm the sound, the held step
   named in words since its tooltip cannot be read, "this device"), and it
   keeps owning the keyboard exactly as on the PC.
+- **A slide deck by finger** (`SlideshowView`). The wall is the clicker: a
+  swipe left is Next and right is Prev, a tap in the left 30% is Prev and
+  anywhere else Next (`slideGesture` in `lib/touch.js`, pure, with its
+  thresholds in `SLIDE_GESTURE`), handled on the deck's own root so it works on
+  every slide, the closing blackout included (its next tap starts games, as
+  the next key press does; `Slide.jsx`'s black slide has no button to tap).
+  A tap on a control is that control only (`CONTROLS`). The PC's hover pill
+  and the invisible right-edge Next zone are not rendered on touch (both
+  stood at opacity 0 and moved the deck on a blind tap); a visible cluster
+  (`data-slideshow-touch-nav`: Exit, Prev, Next, each 44px) stands at the
+  bottom-right, or up the right-hand band on a phone on its side
+  (`min-aspect-ratio: 43/20`, where the wall fills the height). Exit is tapped
+  twice, like Escape, with the same toast reading "Tap Exit again", above the
+  cluster and at least 15px (`--pj-toast-bottom` / `--pj-toast-size`, whose
+  fallbacks are the PC's values). The keys still work for a tablet with a
+  keyboard. The page itself is held in a hand: no pull-to-refresh, no
+  double-tap zoom, no long-press callout or text selection on the wall;
+  pinch-zoom stays.
 - **Sound needs a tap.** WebKit plays a page's audio only from a context made
   or resumed inside a gesture, so on touch App wakes the countdown chimes'
   context on every tap (`unlockStingers`, only once they are armed), and the
   sheet's switch wakes it in the tap that arms them.
 - Tests: `lib/touch.test.js`, `views/TouchMenu.test.jsx`,
-  `views/BraceletPanel.test.jsx`, `lib/stingers.test.js`, and
+  `views/BraceletPanel.test.jsx`, `views/SlideshowView.touch.test.jsx`,
+  `lib/stingers.test.js`, and
   `e2e/touch.spec.js`, which runs Chromium's own touch emulation of the
   iPhone 14, Pixel 7 and iPad Pro 11 descriptors (their viewports are the
   area under the browser's toolbars, 390x664 on an iPhone 14, which is what a
   page really gets), both ways up: the menu by tap and every control in it at
   least 44px, its picks, the switches, taps on the wall that never reach a
-  hidden control, and tonight's Bracelet Time controls by tap.
+  hidden control, the opening deck by tap zones and real swipes to games,
+  Exit twice, and tonight's Bracelet Time controls by tap.
 
 ### Bracelet Time (the bracelet nights, fall 2026)
 
