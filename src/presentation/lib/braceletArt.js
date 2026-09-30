@@ -579,19 +579,32 @@ const edgeTilt = (p, side, from = 0.42, to = 0.62, deg = 40) => side * deg * (1 
 
 /**
  * The right hand leaving its resting point (steps 2 to 7 start with it still
- * pointing at the last bead) for more beads, down and off the stage.
+ * pointing at the last bead) for more beads: it draws back to the right,
+ * where the beads come from, lifting a little, and fades as it goes. Never
+ * down: the stage's lower edge is mid-screen on the wall, just above the
+ * words, and a hand sinking through it was sliced flat there (and drawn over
+ * the epic's caption).
  * @param {number} p @param {number} tx the bead it was pointing at @param {string} id
  * @returns {GloveItem[]}
  */
 function pointerLeaves(p, tx, id) {
-  // Gone before the next bead's hand comes in (it is the same hand); a
-  // gentle ease-in, so it never streaks, even in the epic's quick beats.
-  const e = seg(p, 0, 0.1);
-  const k = e * (0.6 + 0.4 * e);
-  if (k >= 1) return [];
+  // Gone before the next bead's hand comes in (it is the same hand); eased,
+  // so it never streaks, even in the epic's quick beats.
+  const e = seg(p, 0, LEAVE_BY);
+  if (e >= LEAVE_FADE) return [];
+  const k = e * e * (3 - 2 * e);
   const r = restingPointer(tx, id);
-  return [glove(r.x + 150 * k, r.y + 330 * k, 'point', { id, rot: lerp(POINT_REST.rot, -20, k), s: POINT_REST.s })];
+  return [glove(r.x + 150 * k, r.y - 64 * k, 'point', { id, rot: lerp(POINT_REST.rot, -28, k), s: POINT_REST.s, o: leaving(e) })];
 }
+/** A hand leaving at a step's start is gone by this p. */
+const LEAVE_BY = 0.09;
+/** It has faded out by this much of the way (a quick dissolve, not a long grey ghost). */
+const LEAVE_FADE = 0.65;
+/** A leaving hand's opacity, `e` of the way along. @param {number} e */
+const leaving = (e) => {
+  const f = clamp01(e / LEAVE_FADE);
+  return 1 - f * f * (3 - 2 * f);
+};
 
 const rowCord = () => cord([[ROW_L, ROW_Y], [ROW_R, ROW_Y]]);
 
@@ -718,11 +731,13 @@ function finishStep(p) {
   items.push(...landingPop(p, TIE.tied - 0.02, slotX(0) - KNOT_OFF, ROW_Y, { seed: 9, size: 0.7 }));
   items.push(...landingPop(p, TIE.tied - 0.02, slotX(7) + KNOT_OFF, ROW_Y, { seed: 10, size: 0.7 }));
 
-  // The holding hand lets go of the cord and goes (down, off the stage) for
-  // a clear bead; it comes back with it from the left.
-  if (p < 0.1) {
-    const e = seg(p, 0, 0.1) ** 2;
-    items.push(glove(lerp(slotX(0) - 18, 300, e), lerp(ROW_Y, 700, e), 'fist', { id: 'left', flip: true, s: 0.86, rot: 14 + 20 * e }));
+  // The holding hand lets go of the cord and draws back to the left for a
+  // clear bead, fading as it goes (never down through the stage's lower
+  // edge; see pointerLeaves); it comes back with the bead from the left.
+  if (p < LEAVE_BY * LEAVE_FADE) {
+    const e = seg(p, 0, LEAVE_BY);
+    const k = e * e * (3 - 2 * e);
+    items.push(glove(lerp(slotX(0) - 18, slotX(0) - 170, k), ROW_Y - 30 * k, 'fist', { id: 'left', flip: true, s: 0.86, rot: 14 - 10 * k, o: leaving(e) }));
   }
   items.push(...pointerLeaves(p, slotX(6), 'right'));
 

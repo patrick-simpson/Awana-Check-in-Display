@@ -536,6 +536,9 @@ describe('the epic\'s camera', () => {
 const FPS = 30;
 const MAX_MOVE = 60; // px a hand's middle may travel between two frames
 const MAX_TURN = 30; // degrees a hand may turn between two frames (same pose)
+const GONE = 0.05; // a hand this faint is not on screen
+const FADING = 0.35; // the most a hand may show on the frame it fades in or out of nothing
+const MAX_FADE = 0.5; // how much a hand's opacity may change between two frames
 const fold = (d) => ((((d % 360) + 540) % 360) - 180);
 const middle = (g) => {
   const pts = glovePoints(g);
@@ -550,7 +553,9 @@ function handsOf(items, label, bad) {
     if (it.kind !== 'glove' || it.id.endsWith('~') || it.id.includes('^')) continue;
     if (!it.id) bad.push(`${label}: a hand with no name`);
     if (m.has(it.id)) bad.push(`${label}: two hands called ${it.id}`);
-    m.set(it.id, { g: it, off: boxOffStage(itemBox(it)), mid: middle(it) });
+    // A hand faded out (o at most GONE) is not on screen either, wherever it is.
+    const offStage = boxOffStage(itemBox(it));
+    m.set(it.id, { g: it, faint: it.o <= GONE, off: offStage || it.o <= GONE, mid: middle(it) });
   }
   return m;
 }
@@ -570,6 +575,14 @@ function hops(frames, label) {
         continue;
       }
       if (ha.off && hb.off) continue;
+      // A hand may fade out where it is and come back elsewhere, but only by
+      // fading: never a pop from strong to nothing, or from nothing to strong.
+      if (ha.faint !== hb.faint) {
+        const shown = ha.faint ? hb : ha;
+        if (!shown.off && shown.g.o > FADING) bad.push(`${at} ${ha.faint ? 'pops in' : 'pops out'} at o ${shown.g.o}`);
+        continue;
+      }
+      if (Math.abs(hb.g.o - ha.g.o) > MAX_FADE) bad.push(`${at} blinks from o ${ha.g.o} to ${hb.g.o}`);
       const move = Math.hypot(hb.mid[0] - ha.mid[0], hb.mid[1] - ha.mid[1]);
       // Where a pose is cross-fading into another, both are on screen and the
       // eye sees a dissolve, so the hand's middle may move further then.
@@ -612,6 +625,37 @@ describe('the hands move like hands', () => {
     bad.push(...hops(run, 'epic'));
     expect(bad).toEqual([]);
   }, 60_000);
+
+  it('leaves at a step\'s start within the stage, never through its lower edge (the loop and the epic, 30 fps)', () => {
+    // The stage's lower edge is mid-screen on the wall, just above the words:
+    // a hand sinking through it was sliced flat there, or drawn on the epic's
+    // caption. So a hand that goes stays inside the safe box while it shows.
+    const shows = (items) => items.filter((it) => it.kind === 'glove' && it.o > 0.05);
+    const bad = [];
+    for (let i = 1; i <= 6; i += 1) {
+      for (let f = 0; f <= stepSlotSec(i) * FPS; f += 1) {
+        const p = stepProgress(i, f / FPS);
+        if (p > 0.1) break;
+        bad.push(...unsafe(shows(sceneFor(i, p)), stepFrame(i, p)).map((u) => `step ${i + 1} p=${p.toFixed(3)}: ${u}`));
+      }
+      const beat = EPIC_BEATS[i + 1];
+      for (let t = beat.start; t < beat.end; t += 1 / FPS) {
+        const { shot, items } = epicAt(t);
+        if (shot.p > 0.1) break;
+        bad.push(...unsafe(shows(items), shot.camera).map((u) => `epic t=${t.toFixed(2)}: ${u}`));
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('lets a hand fade out where it is, but never pop out or blink', () => {
+    const g = sceneFor(0, 1).find((it) => it.kind === 'glove' && it.id === 'right');
+    const fade = [1, 0.7, 0.4, 0.15, 0.03].map((o, i) => ({ at: `f${i}`, items: [{ ...g, o }] }));
+    expect(hops([...fade, { at: 'gone', items: [] }], 'probe')).toEqual([]);
+    expect(hops([{ at: 'a', items: [g] }, { at: 'b', items: [] }], 'probe')).toHaveLength(1);
+    expect(hops([{ at: 'a', items: [g] }, { at: 'b', items: [{ ...g, o: 0.02 }] }], 'probe')).toHaveLength(1);
+    expect(hops([{ at: 'a', items: [g] }, { at: 'b', items: [{ ...g, o: 0.3 }] }], 'probe')).toHaveLength(1);
+  });
 
   it('catches a teleport when there is one', () => {
     const g = sceneFor(0, 0.5).find((it) => it.kind === 'glove' && it.id === 'right');

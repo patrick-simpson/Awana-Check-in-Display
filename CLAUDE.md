@@ -1488,7 +1488,13 @@ night are untouched.
   room can see it (a loop, the end down through it, a pull; the loop cinches
   and slides snug against its clear bead), and a knot is a bead-sized lump
   of cord with its turns showing, never a ring with a strand through it,
-  which reads as a "no" sign. Low power (`useLowPower`: `?vr=1`, OS
+  which reads as a "no" sign. A hand that goes at a step's start (the
+  pointer, step 7's holding fist) draws back sideways toward where it will
+  come from and fades out inside the stage (`pointerLeaves`, `leaving`),
+  never down: the stage's lower edge is mid-screen on the wall, just above
+  the words, and a hand sinking through it was sliced flat there and drawn
+  on the epic's caption. The jump detector lets a hand fade out where it is
+  and come back elsewhere, never pop or blink. Low power (`useLowPower`: `?vr=1`, OS
   reduced motion, the QuickNav toggle), "animations off" and the overview
   draw each step's still (`stillP`): its finished picture, except knot
   steps 1, 4 and 5, which stop mid-move with their arrow up (the left hand
