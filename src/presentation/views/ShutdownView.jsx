@@ -12,7 +12,7 @@ import { HOUSE } from '../lib/kit.js';
 import { FLAGS } from '../lib/flags.js';
 import { shouldBlackout } from '../lib/idleBlackout.js';
 import { useKeydown } from '../hooks/useKeydown.js';
-import { useTouch } from '../lib/touch.js';
+import { usePortrait, useTouch } from '../lib/touch.js';
 
 const RESTART_KEYS = ['Space', 'Enter', 'ArrowRight', 'PageDown'];
 
@@ -80,6 +80,8 @@ export const ShutdownView = ({ now, onRestart, onBareChange }) => {
   // projector's clicker, a mouse anywhere), but a finger taps a screen it is
   // reading, and one tap on "Have a safe drive home!" restarted the countdown.
   const touch = useTouch();
+  // Upright on a phone or tablet the headline takes rows at one big size.
+  const portrait = usePortrait();
   useEffect(() => {
     if (!touch) return undefined;
     window.addEventListener('pointerdown', wake, { passive: true });
@@ -132,7 +134,7 @@ export const ShutdownView = ({ now, onRestart, onBareChange }) => {
 
           <Headline
             text="SEE YOU NEXT WEEK!"
-            fit={{ maxU: 8, widthU: 86 }}
+            fit={portrait ? { maxU: 12, widthU: 88, minU: 12 } : { maxU: 8, widthU: 86 }}
             parts={{ start: 1, hold: 0.2 }}
             style={{ marginTop: 'calc(1.4 * var(--u))' }}
           />

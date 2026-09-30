@@ -1446,6 +1446,28 @@ rule for all of it is that **the desktop does not change at all**.
   screen is not set up. The dismissal is one store (`dismissSetup`,
   `useSetupNeeded`) because three things read it; the PC's note renders as
   it did. The `:has([data-pj-bottom-overlay])` rule hides the touch card too.
+- **Upright, the wall is re-laid, never letterboxed** (`PORTRAIT_QUERY`, the
+  portrait block at the very end of `index.css`; the 16:9 frame had shrunk
+  to a band a quarter of a phone's height, with 8px type). The frame is 9:16
+  on the same unit (`--u: min(1vw, 0.5625svh)`, 177.78u tall), so every width
+  fit in the components holds unchanged; only heights and sizes move: the
+  type tokens, custom properties the components fall back from
+  (`--pj-mark-*`, `--pj-countdown-*`, `--pj-event-*`, `--pj-game-*`,
+  `--pj-bracelet-*`, each defaulting to the PC's inline value), and portrait
+  tables picked with `usePortrait` (`COMING_UP_PORTRAIT`,
+  `PLEDGE_FIT_PORTRAIT`, `THEME_CHIP_PORTRAIT`, the headline fits, game
+  time's `PORTRAIT`, Bracelet Time's `BIRTHDAY_MAX_U_PORTRAIT`), which
+  `src/presentation/portrait.test.js` pins to the block. The top 16u is the
+  mark's and the menu's (the pledge clock stands centred between them); the
+  bottom is the controls' and the setup note's, so a slide's words end by
+  122u and every other view's by about 140u. Headlines take rows at one big
+  size instead of shrinking to one line. Bracelet Time stacks: the kicker,
+  the rail, the STEP chip and the corner on one row, the art the frame's full
+  width (one SVG, it scales with its box), the title and words below; the full
+  instructions become a list (each step's picture beside its words) and the
+  handout fills the column, with the corner under both. A phone on its side
+  keeps the 16:9 wall; both use the small viewport (`svh`), because this page
+  never scrolls the browser's toolbars away.
 - **Sound needs a tap.** WebKit plays a page's audio only from a context made
   or resumed inside a gesture, so on touch App wakes the countdown chimes'
   context on every tap (`unlockStingers`, only once they are armed), and the
@@ -1453,7 +1475,8 @@ rule for all of it is that **the desktop does not change at all**.
 - Tests: `lib/touch.test.js`, `views/TouchMenu.test.jsx`,
   `views/BraceletPanel.test.jsx`, `views/SlideshowView.touch.test.jsx`,
   `views/CountdownView.touch.test.jsx`, `views/ShutdownView.touch.test.jsx`,
-  `components/SetupChecklist.touch.test.jsx`, `lib/stingers.test.js`, and
+  `components/SetupChecklist.touch.test.jsx`, `portrait.test.js`,
+  `lib/stingers.test.js`, and
   `e2e/touch.spec.js`, which runs Chromium's own touch emulation of the
   iPhone 14, Pixel 7 and iPad Pro 11 descriptors (their viewports are the
   area under the browser's toolbars, 390x664 on an iPhone 14, which is what a
@@ -1464,7 +1487,10 @@ rule for all of it is that **the desktop does not change at all**.
   note (inside the screen, never overflowing, 14px type or more, covering no
   word or chip of the countdown, game time, Bracelet Time or the opening
   deck, its Set up opening Display Settings; off the wall on a phone on its
-  side, the mark and the sheet's copy instead), the opening
+  side, the mark and the sheet's copy instead), every wall upright (a 9:16
+  frame at least 85% of the screen's height, its content spanning at least
+  half of it, nothing off the screen or under the menu or the slide
+  controls, no HTML type under 11px), the landscape phone's 16:9 wall, the opening
   deck by tap zones and real swipes to games, Exit twice, and tonight's
   Bracelet Time controls by tap.
 

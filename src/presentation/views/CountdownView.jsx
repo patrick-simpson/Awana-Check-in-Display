@@ -16,7 +16,7 @@ import { playStinger } from '../lib/stingers.js';
 import { useKeydown } from '../hooks/useKeydown.js';
 import { useWeather } from '../hooks/useWeather.js';
 import { useCalendarEvents } from '../hooks/useCalendarEvents.js';
-import { useTouch } from '../lib/touch.js';
+import { usePortrait, useTouch } from '../lib/touch.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
 
 // The five remaining-time marks that sound the optional chime. There is
@@ -100,16 +100,16 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
       }
     >
       <div className="pj-frame pj-countdown">
-        <Kicker color="#FFFFFF" size="calc(3.2 * var(--u))" style={{ letterSpacing: '0.12em', marginRight: '-0.12em' }}>
+        <Kicker color="#FFFFFF" size="var(--pj-countdown-kicker, calc(3.2 * var(--u)))" style={{ letterSpacing: '0.12em', marginRight: '-0.12em' }}>
           Awana begins in
         </Kicker>
 
-        <div style={{ marginTop: 'calc(0.6 * var(--u))' }}>
+        <div style={{ marginTop: 'var(--pj-countdown-gap, calc(0.6 * var(--u)))' }}>
           <BigTimer seconds={seconds} accent={HOUSE.orange} urgencyEnabled onClick={touch ? tapSkip : onSkip} touch={touch} />
         </div>
 
         {seconds >= 24 * 3600 && (
-          <p className="pj-body" style={{ fontSize: 'calc(2.4 * var(--u))', color: 'rgb(255 255 255 / 0.72)', fontWeight: 500 }}>
+          <p className="pj-body" style={{ fontSize: 'var(--pj-countdown-next, calc(2.4 * var(--u)))', color: 'rgb(255 255 255 / 0.72)', fontWeight: 500 }}>
             Next meeting · Wednesday · {targetTimeStr}
           </p>
         )}
@@ -151,12 +151,15 @@ export const CountdownView = ({ now, target, theme, onSkip }) => {
  * src/lib/eventSanitizers.js), and a chip's plate grows with its value.
  */
 export const THEME_CHIP = { label: 'This week', maxU: 2.6, widthU: 90 };
+/** Upright on a phone or tablet (lib/touch.js): the same width, a bigger chip. */
+export const THEME_CHIP_PORTRAIT = { ...THEME_CHIP, maxU: 4.6 };
 
 const ThemeChip = ({ theme }) => {
   // The fit measures the theme: measure again once the faces land.
   useFontsReady();
-  const sizeU = Math.floor(fitChipU(THEME_CHIP.label, theme, THEME_CHIP) * 1000) / 1000;
+  const fit = usePortrait() ? THEME_CHIP_PORTRAIT : THEME_CHIP;
+  const sizeU = Math.floor(fitChipU(fit.label, theme, fit) * 1000) / 1000;
   return (
-    <StepChip label={THEME_CHIP.label} value={theme} size={`calc(${sizeU} * var(--u))`} plate={HOUSE.blueDeep} />
+    <StepChip label={fit.label} value={theme} size={`calc(${sizeU} * var(--u))`} plate={HOUSE.blueDeep} />
   );
 };

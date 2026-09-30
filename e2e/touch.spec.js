@@ -402,6 +402,130 @@ test.describe('the setup note on a phone on its side', () => {
   });
 });
 
+/* ── Upright: a wall re-laid for a tall screen, not a letterboxed band ─── */
+
+// Four special nights dated from the real today (the feed parser filters on
+// the real clock, not ?now=), so the countdown carries its full list.
+const specialFeed = (route) => {
+  const day = (weeks) => {
+    const d = new Date(Date.now() + (weeks * 7 + 1) * 86_400_000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const titles = ['Bring a Friend Night - Posters due', 'Parents Night - Poster voting', 'Pajama Night', 'Missions Month Kickoff', 'Awana meeting'];
+  return route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      version: 1,
+      generatedAt: new Date().toISOString(),
+      sourceUrl: 'https://example.invalid/calendar/index',
+      events: titles.map((title, i) => ({ date: day(i), kind: 'club', title, isCancelled: false })),
+    }),
+  });
+};
+
+/**
+ * The wall's content (its words, chips, figures and pictures, never the
+ * operator's controls) against the frame and the screen, in px.
+ */
+const wallLayout = (page) => page.evaluate(() => {
+  const view = document.querySelector('[data-mode]');
+  const chrome = [...document.querySelectorAll('[data-touch-menu], [data-slideshow-touch-nav]')].map((e) => e.getBoundingClientRect());
+  const inChrome = (el) => el.closest('[data-slideshow-touch-nav], .sr-only');
+  const boxes = [];
+  const fonts = [];
+  const walker = document.createTreeWalker(view, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const el = n.parentElement;
+    if (!n.data.trim() || inChrome(el) || el.closest('svg')) continue;
+    if (el.closest('.pj-reel') && !el.closest('.pj-reel__digit')) continue;
+    let opacity = 1;
+    for (let e = el; e; e = e.parentElement) opacity *= parseFloat(getComputedStyle(e).opacity);
+    if (opacity < 0.2) continue;
+    const range = document.createRange();
+    range.selectNodeContents(n);
+    const rects = [...range.getClientRects()].filter((r) => r.width > 1 && r.height > 1);
+    if (!rects.length) continue;
+    boxes.push(...rects.map((r) => ({ name: n.data.trim().slice(0, 20), r })));
+    fonts.push({ name: n.data.trim().slice(0, 20), size: parseFloat(getComputedStyle(el).fontSize) });
+  }
+  // The wall's pictures count with its words: the art, the club marks and
+  // game time's mascots (the waves and sparkles are the room's, not content).
+  const art = '.pj-chip, [data-timer], .pj-bracelet__stage, .pj-bracelet__thumb, .pj-bracelet__handout img, .pj-game__marks img, .pj-game__character';
+  for (const el of view.querySelectorAll(art)) {
+    const r = el.getBoundingClientRect();
+    if (r.width > 1 && !inChrome(el)) boxes.push({ name: el.getAttribute('aria-label') || el.className.baseVal || el.className, r });
+  }
+  const f = document.querySelector('.pj-frame').getBoundingClientRect();
+  const top = Math.min(...boxes.map((b) => b.r.top));
+  const bottom = Math.max(...boxes.map((b) => b.r.bottom));
+  const under = (r) => chrome.some((c) => r.left < c.right - 0.5 && r.right > c.left + 0.5 && r.top < c.bottom - 0.5 && r.bottom > c.top + 0.5);
+  return {
+    frame: { height: f.height / innerHeight, width: f.width / innerWidth, ratio: f.height / f.width },
+    span: (bottom - top) / f.height,
+    smallest: fonts.sort((a, b) => a.size - b.size)[0],
+    offscreen: boxes.filter((b) => b.r.left < -0.5 || b.r.right > innerWidth + 0.5 || b.r.bottom > innerHeight + 0.5).map((b) => b.name),
+    underChrome: boxes.filter((b) => under(b.r)).map((b) => b.name),
+  };
+});
+
+const UPRIGHT = DEVICES.filter(([name]) => !/landscape/.test(name));
+const TALL_WALLS = [
+  ['the countdown, with four special nights', TUESDAY, 0, null],
+  ['the Pledge of Allegiance', OPENING, 1, null],
+  ['the Awana Pledge', OPENING, 2, null],
+  ['game time', '2026-09-16T18:20:00', 0, null],
+  ['Upcoming Awana Nights', '2026-09-16T19:31:00', 1, null],
+  ['Bracelet Time\'s step card', BRACELETS, 0, null],
+  ['Bracelet Time\'s epic', '2026-09-30T18:05:40', 0, null],
+  ['Bracelet Time\'s full instructions', BRACELETS, 0, 'overview'],
+  ['Bracelet Time\'s handout', BRACELETS, 0, 'handout1'],
+];
+
+for (const [name, use] of UPRIGHT) {
+  test.describe(`upright on ${name}`, () => {
+    test.use(use);
+
+    for (const [wall, now, nexts, display] of TALL_WALLS) {
+      test(`${wall}: a tall frame, filled at least half, nothing off the screen or under the controls`, async ({ page }) => {
+        if (display) await page.addInitScript((d) => localStorage.setItem('awanaBraceletSettings.v1', JSON.stringify({ display: d })), display);
+        await page.route('**/calendar-feed.json', specialFeed);
+        await page.goto(at(now));
+        await expect(page.locator('[data-mode]')).toBeVisible();
+        await expect(page.locator('html')).toHaveAttribute('data-portrait', '1');
+        for (let i = 0; i < nexts; i++) {
+          await page.waitForTimeout(500);
+          await page.getByRole('button', { name: 'Next slide' }).tap();
+        }
+        await page.evaluate(() => document.fonts.ready);
+        await page.waitForTimeout(2400);
+        const m = await wallLayout(page);
+        // 9:16, and the screen's height (the letterboxed band was a quarter of it).
+        expect(m.frame.ratio).toBeCloseTo(16 / 9, 1);
+        expect(m.frame.height).toBeGreaterThanOrEqual(0.85);
+        expect(m.span).toBeGreaterThanOrEqual(0.5);
+        if (m.smallest) expect(m.smallest.size, m.smallest.name).toBeGreaterThanOrEqual(11);
+        expect(m.offscreen).toEqual([]);
+        expect(m.underChrome).toEqual([]);
+      });
+    }
+  });
+}
+
+test.describe('a phone on its side keeps the wall', () => {
+  test.use(DEVICES[1][1]);
+
+  test('the 16:9 frame the projector shows, fitted to the screen\'s height', async ({ page }) => {
+    await page.goto(at(TUESDAY));
+    await expect(page.locator('[data-mode="countdown"]')).toBeVisible();
+    await expect(page.locator('html')).not.toHaveAttribute('data-portrait', /.*/);
+    const f = await page.locator('.pj-frame').boundingBox();
+    expect(f.width / f.height).toBeCloseTo(16 / 9, 2);
+    const vh = page.viewportSize().height;
+    expect(f.height).toBeLessThanOrEqual(vh + 0.5);
+    expect(f.height).toBeGreaterThanOrEqual(vh * 0.97);
+  });
+});
+
 /* ── Bracelet Time by tap (tonight, 2026-09-30, and Oct 7) ─────────────── */
 
 for (const [name, use] of [DEVICES[0], DEVICES[1], DEVICES[3]]) {

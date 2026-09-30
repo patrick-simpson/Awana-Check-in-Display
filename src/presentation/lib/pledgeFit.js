@@ -29,6 +29,23 @@ export const PLEDGE_FIT = Object.freeze({
   step: 0.05,
 });
 
+/**
+ * The same fit on a phone or tablet held upright (lib/touch.js): the frame is
+ * 100 x 177.78u there, so the pledge has a tall column below the mark and the
+ * slide clock (which stands at the top, centred, clear of the corners) and
+ * above the controls and the setup note at the bottom.
+ */
+export const PLEDGE_FIT_PORTRAIT = Object.freeze({
+  ...PLEDGE_FIT,
+  top: 24,
+  bottom: 122,
+  widthU: 88,
+  maxU: 9.5,
+  minU: 4.4,
+  kickerMinU: 4.4,
+  kickerMaxU: 6.4,
+});
+
 const WEIGHT = 600; // .pj-body
 const FAMILY = '"Figtree Variable", "Figtree", "Segoe UI", system-ui, sans-serif';
 
@@ -85,10 +102,10 @@ export function rowsAt(wordsEm, spaceEm, sizeU, widthU) {
  * The pledge's sizes, as big as fits.
  * @param {string} body
  * @param {(text: string) => number} [measure] a word's width in em
+ * @param {typeof PLEDGE_FIT} [f] the frame's table (PLEDGE_FIT_PORTRAIT upright on touch)
  * @returns {{ bodyU: number, kickerU: number, gapU: number, rows: number, heightU: number, topU: number, widthU: number, lineHeight: number }}
  */
-export function fitPledge(body, measure = measureReadEm) {
-  const f = PLEDGE_FIT;
+export function fitPledge(body, measure = measureReadEm, f = PLEDGE_FIT) {
   const words = String(body).trim().split(/\s+/).filter(Boolean);
   const wordsEm = words.map((w) => measure(w));
   const spaceEm = measure('a a') - 2 * measure('a') || 0.25;

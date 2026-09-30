@@ -16,6 +16,7 @@ import { useBirthdays } from '../hooks/useBirthdays.js';
 import { chipGeometry, inkEm, measureEm } from '../lib/chip.js';
 import { FAR_WAVE_KEEP, HOUSE, WARNING_TONES, shade } from '../lib/kit.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
+import { usePortrait } from '../lib/touch.js';
 import { BRACELET_STEPS, EPIC_LEAD_SEC, braceletFrame, stepSlotSec, windowSpan } from '../lib/bracelets.js';
 import { getBraceletSettings, manualEpicStart, subscribeBraceletSettings } from '../lib/braceletSettings.js';
 import { chimeOnce } from '../lib/chime.js';
@@ -44,6 +45,15 @@ const OVERVIEW_PAGE_SEC = 20;
 const BIRTHDAY_TURN_SEC = 10;
 /** A birthday chip never runs wider than this, so it stays right of the kicker and the rail. */
 const BIRTHDAY_MAX_U = 30;
+// Upright on a phone or tablet (lib/touch.js) the portrait block at the end of
+// index.css re-lays the wall for a 100 x 177.78u frame through custom
+// properties that fall back to these sizes: the corner (CORNER_SIZE), the
+// kickers, the chips and the titles. A birthday chip there may run to the
+// frame's right half, beside the STEP chip.
+const BIRTHDAY_MAX_U_PORTRAIT = 56;
+const CORNER_SIZE = `calc(var(--pj-bracelet-corner-u, ${CORNER_U}) * var(--u))`;
+const CORNER_SIZE_LOUD = `calc((var(--pj-bracelet-corner-u, ${CORNER_U}) + 0.4) * var(--u))`;
+const KICKER_SIZE = 'var(--pj-bracelet-kicker, calc(2.4 * var(--u)))';
 const COLOR_WORDS = ['black', 'red', 'white', 'blue', 'green', 'yellow', 'clear'];
 const INK_ON = { white: HOUSE.ink, yellow: HOUSE.ink, clear: '#FFFFFF' };
 
@@ -187,7 +197,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
         {/* One message at a time up top-right: the pre-roll, else the window's end. */}
         <div className="pj-bracelet__corner" data-warning={warning !== 'none' ? warning : undefined}>
           {showCount && (
-            <StepChip label="Checked in" value={count} size={`calc(${CORNER_U} * var(--u))`} plate={club.deep} />
+            <StepChip label="Checked in" value={count} size={CORNER_SIZE} plate={club.deep} />
           )}
           {birthdayTurn ? (
             <BirthdayChip names={names} />
@@ -195,15 +205,15 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
             <StepChip
               label={`${club.name} craft ends ${endTimeStr}`}
               value={WARNING_LABELS[warning]}
-              size={`calc(${CORNER_U + 0.4} * var(--u))`}
+              size={CORNER_SIZE_LOUD}
               plate={WARNING_TONES[warning].plate}
             />
           ) : leadSec != null && auto ? (
-            <StepChip label="Big how-to in" value={`0:${String(leadSec).padStart(2, '0')}`} size={`calc(${CORNER_U + 0.4} * var(--u))`} plate={HOUSE.blueDeep ?? HOUSE.blue} />
+            <StepChip label="Big how-to in" value={`0:${String(leadSec).padStart(2, '0')}`} size={CORNER_SIZE_LOUD} plate={HOUSE.blueDeep ?? HOUSE.blue} />
           ) : ending ? (
-            <StepChip label={`${club.name} craft time`} value={`Ends ${endTimeStr}`} size={`calc(${CORNER_U} * var(--u))`} plate={club.deep} />
+            <StepChip label={`${club.name} craft time`} value={`Ends ${endTimeStr}`} size={CORNER_SIZE} plate={club.deep} />
           ) : (
-            <StepChip label={club.name} value="Craft time" size={`calc(${CORNER_U} * var(--u))`} plate={club.deep} />
+            <StepChip label={club.name} value="Craft time" size={CORNER_SIZE} plate={club.deep} />
           )}
         </div>
       </div>
@@ -215,7 +225,8 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
 const BirthdayChip = ({ names }) => {
   const label = 'Happy birthday';
   const widthEm = chipGeometry(measureEm(label.toUpperCase()), measureEm(names), inkEm(names)).width;
-  const size = `min(calc(${CORNER_U} * var(--u)), calc(${(BIRTHDAY_MAX_U / widthEm).toFixed(3)} * var(--u)))`;
+  const maxU = usePortrait() ? BIRTHDAY_MAX_U_PORTRAIT : BIRTHDAY_MAX_U;
+  const size = `min(${CORNER_SIZE}, calc(${(maxU / widthEm).toFixed(3)} * var(--u)))`;
   return <StepChip label={label} value={names} size={size} plate={HOUSE.hot} />;
 };
 
@@ -237,9 +248,10 @@ const Rail = ({ index }) => (
 
 /** A title with its colour word on a pill of the bead's own colour ("ADD A [RED] BEAD"). */
 const BeadTitle = ({ text, color: bead }) => {
-  const size = fittedSize(text, { maxU: 5.4, widthU: 84, minU: 4.2 });
+  // One line across the wall, or the portrait block's size (rows, upright).
+  const size = `var(--pj-bracelet-title, ${fittedSize(text, { maxU: 5.4, widthU: 84, minU: 4.2 })})`;
   const word = bead && COLOR_WORDS.find((c) => text.toLowerCase().includes(c));
-  if (!word) return <Headline text={text} fit={{ maxU: 5.4, widthU: 84, minU: 4.2 }} className="pj-bracelet__title" />;
+  if (!word) return <Headline text={text} size={size} className="pj-bracelet__title" />;
   const at = text.toLowerCase().indexOf(word);
   const tone = BEAD_TONES[word];
   return (
@@ -288,12 +300,12 @@ const StepCard = ({ index, club, stepStartMs, still, run }) => {
   return (
     <div className="pj-bracelet__card">
       <Changing k={kicker} still={still} wait>
-        <Kicker size="calc(2.4 * var(--u))" className="pj-bracelet__kicker">{kicker}</Kicker>
+        <Kicker size={KICKER_SIZE} className="pj-bracelet__kicker">{kicker}</Kicker>
       </Changing>
       <Rail index={index} />
       <Changing k={index} still={still} wait>
         <div className="pj-bracelet__chip">
-          <StepChip label={chip.label} value={chip.value} size="calc(4.2 * var(--u))" plate={club.deep} />
+          <StepChip label={chip.label} value={chip.value} size="var(--pj-bracelet-chip, calc(4.2 * var(--u)))" plate={club.deep} />
         </div>
       </Changing>
       <Changing k={run != null ? `${stageRun(index)}:${run}` : stageRun(index)} still={still} wait>
@@ -320,7 +332,7 @@ const Epic = ({ startMs, nowMs, club, still }) => {
   const finale = i == null && sec >= 10;
   return (
     <div className="pj-bracelet__card pj-bracelet__card--epic">
-      <Kicker size="calc(2.4 * var(--u))" className="pj-bracelet__kicker">Watch how!</Kicker>
+      <Kicker size={KICKER_SIZE} className="pj-bracelet__kicker">Watch how!</Kicker>
       {i != null && <Rail index={i} />}
       <div className="pj-bracelet__stage pj-bracelet__stage--epic">
         <EpicStage startMs={startMs} still={still} />
@@ -344,11 +356,11 @@ const Overview = ({ nowMs, club, still }) => {
   return (
     <Changing k={knots ? 'knots' : 'beads'} still={still} wait>
       <div className="pj-bracelet__overview">
-        <Kicker size="calc(2.6 * var(--u))">{knots ? 'How to tie an adjustable knot' : 'Make your bracelet'}</Kicker>
+        <Kicker size="var(--pj-bracelet-overview-kicker, calc(2.6 * var(--u)))">{knots ? 'How to tie an adjustable knot' : 'Make your bracelet'}</Kicker>
         <div className={`pj-bracelet__grid${knots ? ' is-knots' : ''}`}>
           {steps.map(({ s, i }) => (
             <div key={s.n} className="pj-bracelet__cell">
-              <StepChip label={chipFor(i).label} value={chipFor(i).value} size="calc(1.7 * var(--u))" plate={club.deep} />
+              <StepChip label={chipFor(i).label} value={chipFor(i).value} size="var(--pj-bracelet-cell-chip, calc(1.7 * var(--u)))" plate={club.deep} />
               <StepArt step={i} p={stillP(i)} camera={stillFrame(i)} className="pj-bracelet__thumb" />
               <p className="pj-body pj-bracelet__cell-words">{s.words}</p>
             </div>

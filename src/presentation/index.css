@@ -813,6 +813,11 @@
        44px and a gap. The wall's own top-right pieces stop short of it. */
     --pj-menu-room: 62px;
   }
+  /* A phone's browser draws its toolbars over the large viewport (vh), and
+     this page never scrolls them away: the frame fits the small one. */
+  @supports (height: 1svh) {
+    :root { --u: min(1vw, 1.7778svh); }
+  }
 
   /* ── The menu button, top-right (a finger cannot hover) ── */
   .pj-touch-bar {
@@ -1288,4 +1293,119 @@
   .pj-bpanel__action { font-size: 1rem; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
   .pj-bpanel__row--steps .pj-bpanel__choice { min-width: 48px; }
   .pj-bpanel__held { margin-top: 8px; }
+}
+
+/* ── Upright on a phone or tablet (lib/touch.js PORTRAIT_QUERY) ──────────────
+   A 16:9 wall letterboxed into a thin band (a fifth of an iPhone's height,
+   8px type) is not the wall. Held upright the frame is 9:16 instead: u stays
+   1% of its WIDTH, so every width fit in the components (fittedU, fitChipU,
+   the chip lists) holds unchanged, and it is 177.78u tall. Only the vertical
+   places and the sizes change, through the type tokens, the custom
+   properties the components fall back from, and the portrait tables they
+   pick with usePortrait (COMING_UP_PORTRAIT, PLEDGE_FIT_PORTRAIT,
+   THEME_CHIP_PORTRAIT, the headline fits; Slide.test.jsx pins the tables to
+   this block). The mark and the menu share the top 16u; the bottom of the
+   screen is the controls' and the setup note's, so a slide's words end by
+   122u and every other view's by about 140u. */
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) {
+  :root {
+    --u: min(1vw, 0.5625vh);
+    --text-timer: calc(21 * var(--u));
+    --text-timer-days: calc(18 * var(--u));
+    --text-game-timer: calc(30 * var(--u));
+    --text-headline: calc(12 * var(--u));
+    --text-game-headline: calc(12 * var(--u));
+    --text-kicker: calc(5 * var(--u));
+    --text-body: calc(5.6 * var(--u));
+    --text-note: calc(4 * var(--u));
+    /* The sizes the components set inline fall back from these. */
+    --pj-mark-left: 5;
+    --pj-mark-top: 4;
+    --pj-mark-width: 22;
+    --pj-countdown-kicker: calc(7 * var(--u));
+    --pj-countdown-gap: calc(2.2 * var(--u));
+    --pj-countdown-next: calc(4.4 * var(--u));
+    --pj-event-size: calc(5 * var(--u));
+    --pj-event-top: calc(14 * var(--u));
+    --pj-event-gap: calc(5.4 * var(--u));
+    --pj-game-chip-u: 5.5;
+    --pj-game-tally: calc(4.4 * var(--u));
+    --pj-bracelet-kicker: calc(5 * var(--u));
+    --pj-bracelet-chip: calc(7.6 * var(--u));
+    --pj-bracelet-title: calc(8 * var(--u));
+    --pj-bracelet-corner-u: 4.2;
+    --pj-bracelet-overview-kicker: calc(5 * var(--u));
+    --pj-bracelet-cell-chip: calc(3.2 * var(--u));
+  }
+  @supports (height: 1svh) {
+    :root { --u: min(1vw, 0.5625svh); }
+  }
+  .pj-frame { height: calc(177.78 * var(--u)); }
+
+  /* ── The countdown: centred above the bottom's controls and note ── */
+  .pj-countdown { padding-bottom: calc(30 * var(--u)); }
+  /* A special night's name may take two lines; its "· in 2 days" never splits. */
+  [data-live] > p { white-space: normal; line-height: 1.12; }
+  [data-live] > p > span { white-space: nowrap; }
+
+  /* ── The slides (Slide.jsx COMING_UP_PORTRAIT restates these) ── */
+  .pj-slide { top: calc(50 * var(--u)); left: calc(6 * var(--u)); right: calc(6 * var(--u)); }
+  /* The Upcoming Awana Nights list takes the column from higher up (COMING_UP_PORTRAIT.top). */
+  .pj-slide:has(> .pj-chip-row) { top: calc(26 * var(--u)); }
+  .pj-chip-row { gap: calc(3.4 * var(--u)) calc(2.4 * var(--u)); }
+  /* The pledge clock stands centred at the top, between the mark and the menu. */
+  .pj-slide-clock { top: calc(5 * var(--u)); left: 0; right: 0; text-align: center; font-size: calc(4.2 * var(--u)); }
+
+  /* ── Game time ── */
+  .pj-game { top: calc(44 * var(--u)); }
+  .pj-game__marks { height: calc(14 * var(--u)); gap: calc(5 * var(--u)); }
+  .pj-game__chips { margin-top: calc(-2 * var(--u)); }
+  .pj-game__cake { width: calc(10 * var(--u)); }
+  .pj-game__tally { top: max(calc(17 * var(--u)), 66px); right: calc(5 * var(--u)); }
+  .pj-game__character { height: calc(30 * var(--u)); bottom: calc(4 * var(--u)); }
+
+  /* ── The shutdown screen ── */
+  .pj-shutdown { padding-bottom: calc(36 * var(--u)); }
+
+  /* ── Bracelet Time (views/BraceletTimeView.jsx), on a tall frame: the art
+       the frame's full width, its words below it, the STEP chip and the corner
+       on one row above it ── */
+  .pj-bracelet__kicker { top: calc(24 * var(--u)); }
+  .pj-bracelet__rail {
+    top: calc(32 * var(--u));
+    gap: calc(1.1 * var(--u));
+    padding: 0 calc(0.8 * var(--u));
+    background-size: 100% calc(0.5 * var(--u));
+  }
+  .pj-bracelet__pip { width: calc(2.6 * var(--u)); height: calc(2.6 * var(--u)); border-width: calc(0.3 * var(--u)); }
+  .pj-bracelet__pip.is-knot { width: calc(2 * var(--u)); height: calc(2 * var(--u)); }
+  .pj-bracelet__pip.is-current { outline-width: calc(0.28 * var(--u)); outline-offset: calc(0.2 * var(--u)); }
+  .pj-bracelet__chip { left: calc(6 * var(--u)); top: calc(39 * var(--u)); }
+  .pj-bracelet__stage { left: calc(2 * var(--u)); width: calc(96 * var(--u)); height: calc(36.8 * var(--u)); top: calc(58 * var(--u)); }
+  .pj-bracelet__stage--epic { left: calc(2 * var(--u)); width: calc(96 * var(--u)); height: calc(36.8 * var(--u)); top: calc(50 * var(--u)); }
+  .pj-bracelet__caption { top: calc(102 * var(--u)); left: calc(6 * var(--u)); right: calc(6 * var(--u)); gap: calc(1.6 * var(--u)); }
+  .pj-bracelet__card--epic .pj-bracelet__caption { top: calc(96 * var(--u)); bottom: auto; }
+  .pj-bracelet__words { font-size: calc(5.2 * var(--u)); max-width: calc(88 * var(--u)); }
+  .pj-bracelet__corner { top: calc(39 * var(--u)); right: calc(6 * var(--u)); }
+  /* The full instructions and the handout fill the column: the corner waits
+     under them, above the waves. */
+  .pj-bracelet[data-bracelet-phase='overview'] > .pj-bracelet__corner,
+  .pj-bracelet[data-bracelet-phase^='handout'] > .pj-bracelet__corner { top: auto; bottom: calc(20 * var(--u)); }
+  /* The full instructions as a list, a picture beside each step's words. */
+  .pj-bracelet__overview { padding-top: calc(16 * var(--u)); gap: calc(2 * var(--u)); }
+  .pj-bracelet__grid,
+  .pj-bracelet__grid.is-knots { grid-template-columns: calc(92 * var(--u)); gap: calc(1.4 * var(--u)); }
+  .pj-bracelet__cell {
+    display: grid;
+    grid-template-columns: calc(38 * var(--u)) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    column-gap: calc(3 * var(--u));
+    row-gap: calc(0.8 * var(--u));
+    align-items: start;
+  }
+  .pj-bracelet__cell > .pj-bracelet__thumb { grid-column: 1; grid-row: 1 / span 2; }
+  .pj-bracelet__cell > .pj-chip { grid-column: 2; grid-row: 1; justify-self: start; }
+  .pj-bracelet__cell-words { grid-column: 2; grid-row: 2; text-align: left; font-size: calc(3.2 * var(--u)); }
+  .pj-bracelet__handout { padding: calc(16 * var(--u)) calc(4 * var(--u)) calc(34 * var(--u)); }
+  .pj-bracelet__handout img { width: 100%; height: auto; }
 }

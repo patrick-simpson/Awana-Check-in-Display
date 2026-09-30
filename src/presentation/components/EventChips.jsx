@@ -24,12 +24,12 @@ export const EventChips = ({ events }) => {
   return (
     // data-live: content depends on the real calendar/wall clock, so
     // visual-regression tests mask this region (e2e/countdown.visual.spec.js).
-    <div className="flex flex-col items-center" style={{ marginTop: 'calc(2.4 * var(--u))', gap: 'calc(0.9 * var(--u))' }} data-live>
+    <div className="flex flex-col items-center" style={{ marginTop: 'var(--pj-event-top, calc(2.4 * var(--u)))', gap: 'var(--pj-event-gap, calc(0.9 * var(--u)))' }} data-live>
       {special.map((event, idx) => (
         <motion.p
           key={`${event.title}-${event.daysUntil}`}
           className="pj-kicker text-center whitespace-nowrap"
-          style={{ fontSize: 'calc(2.2 * var(--u))', letterSpacing: '0.08em', marginRight: '-0.08em', color: '#FFFFFF' }}
+          style={{ fontSize: 'var(--pj-event-size, calc(2.2 * var(--u)))', letterSpacing: '0.08em', marginRight: '-0.08em', color: '#FFFFFF' }}
           initial={{ opacity: 0, y: 12 }}
           animate={holdThen(0.2 + idx * 0.1, DUR.settle, { opacity: 0, y: 12 }, { opacity: 1, y: 0 }, EASE.settle)}
         >

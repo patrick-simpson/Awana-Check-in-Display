@@ -7,7 +7,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 // on the screen is the activity that keeps it lit, as a mouse move is on the PC.
 
 const device = vi.hoisted(() => ({ touch: true }));
-vi.mock('../lib/touch.js', () => ({ useTouch: () => device.touch }));
+vi.mock('../lib/touch.js', () => ({ useTouch: () => device.touch, usePortrait: () => false }));
 vi.mock('../lib/flags.js', () => ({ FLAGS: { freeze: false, vr: false } }));
 
 const { ShutdownView } = await import('./ShutdownView.jsx');

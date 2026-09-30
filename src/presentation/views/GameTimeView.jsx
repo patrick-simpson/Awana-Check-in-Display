@@ -27,6 +27,7 @@ import { chipGeometry, inkEm, measureEm } from '../lib/chip.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
 import { holdThen, partVariants } from '../lib/landing.js';
 import { useBirthdays } from '../hooks/useBirthdays.js';
+import { usePortrait } from '../lib/touch.js';
 
 /** Tally older than this is treated as gone (print server offline). */
 const TALLY_STALE_MS = 10 * 60 * 1000;
@@ -35,6 +36,15 @@ const TALLY_STALE_MS = 10 * 60 * 1000;
 const CHIP_U = 3.4;
 /** The widest the birthday chip may grow before it shrinks to fit, in units. */
 const BIRTHDAY_MAX_U = 36;
+/**
+ * Upright on a phone or tablet (lib/touch.js) the frame is 100 x 177.78u: the
+ * portrait block at the end of index.css sets the chips' size
+ * (--pj-game-chip-u, falling back to CHIP_U) and these, a birthday chip may
+ * run the frame's width, and the marks stand twice as tall.
+ */
+const PORTRAIT = { birthdayMaxU: 88, markAreaU2: 240, markMaxHU: 14 };
+/** The chip row's size as CSS: CHIP_U, or the portrait block's. */
+const CHIP_SIZE = `calc(var(--pj-game-chip-u, ${CHIP_U}) * var(--u))`;
 
 /** The view's parts land just after its crossfade has begun. */
 const LAND_HOLD = 0.25;
@@ -160,12 +170,12 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
                 exit={{ opacity: 0, scale: 0.85, transition: { duration: DUR.exit, ease: EASE.exit } }}
               >
                 {warning === 'none' ? (
-                  <StepChip label="Game ends" value={endTimeStr} size={`calc(${CHIP_U} * var(--u))`} plate={primary.deep} />
+                  <StepChip label="Game ends" value={endTimeStr} size={CHIP_SIZE} plate={primary.deep} />
                 ) : (
                   <StepChip
                     label={`Game ends ${endTimeStr}`}
                     value={WARNING_LABELS[warning]}
-                    size={`calc(${CHIP_U} * var(--u))`}
+                    size={CHIP_SIZE}
                     plate={tone.plate}
                   />
                 )}
@@ -205,7 +215,7 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
                 <StepChip
                   label={clubCounts.length > 1 ? club.name : 'Checked in'}
                   value={count}
-                  size="calc(2.3 * var(--u))"
+                  size="var(--pj-game-tally, calc(2.3 * var(--u)))"
                   plate={club.deep}
                 />
               </motion.span>
@@ -225,9 +235,10 @@ export const GameTimeView = ({ now, window: gameWindow, endsAt, tally }) => {
  * The cake beside it sways gently unless the ambient layers are held still.
  */
 const BirthdayChip = ({ names, still }) => {
+  const maxU = usePortrait() ? PORTRAIT.birthdayMaxU : BIRTHDAY_MAX_U;
   const label = 'HAPPY BIRTHDAY';
   const widthEm = chipGeometry(measureEm(label), measureEm(names), inkEm(names)).width;
-  const size = `min(calc(${CHIP_U} * var(--u)), calc(${(BIRTHDAY_MAX_U / widthEm).toFixed(3)} * var(--u)))`;
+  const size = `min(${CHIP_SIZE}, calc(${(maxU / widthEm).toFixed(3)} * var(--u)))`;
   return (
     <span className="pj-game__birthday">
       <span className="pj-game__cake" aria-hidden="true">
@@ -259,6 +270,9 @@ const MARK_MAX_H_U = 6.9;
  * the same height.
  */
 const ClubEmblem = ({ club }) => {
+  const portrait = usePortrait();
+  const areaU2 = portrait ? PORTRAIT.markAreaU2 : MARK_AREA_U2;
+  const maxHU = portrait ? PORTRAIT.markMaxHU : MARK_MAX_H_U;
   const [failed, setFailed] = useState(false);
   const [ratio, setRatio] = useState(null);
   const art = THEME.clubs[club.id]?.art ?? {};
@@ -271,7 +285,7 @@ const ClubEmblem = ({ club }) => {
       </span>
     );
   }
-  const h = ratio ? Math.min(MARK_MAX_H_U, Math.sqrt(MARK_AREA_U2 / ratio)) : MARK_MAX_H_U;
+  const h = ratio ? Math.min(maxHU, Math.sqrt(areaU2 / ratio)) : maxHU;
   return (
     <motion.img
       src={artUrl(logo)}

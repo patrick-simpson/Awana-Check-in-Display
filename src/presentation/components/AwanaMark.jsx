@@ -42,10 +42,13 @@ export const AwanaMark = ({ placement = 'default', hidden = false }) => {
       draggable={false}
       data-awana-mark
       className="pj-mark"
+      // Upright on a phone or tablet the portrait block at the end of index.css
+      // sets these three to a mark sized for a tall frame; everywhere else they
+      // fall back to the table above.
       style={{
-        left: `calc(${base.left} * var(--u))`,
-        top: `calc(${base.top} * var(--u))`,
-        width: `calc(${base.width} * var(--u))`,
+        left: `calc(var(--pj-mark-left, ${base.left}) * var(--u))`,
+        top: `calc(var(--pj-mark-top, ${base.top}) * var(--u))`,
+        width: `calc(var(--pj-mark-width, ${base.width}) * var(--u))`,
         transformOrigin: '0 0',
       }}
       initial={false}

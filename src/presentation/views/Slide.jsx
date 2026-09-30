@@ -13,7 +13,8 @@ import { HOUSE } from '../lib/kit.js';
 import { chipGeometry, fitChipList, inkEm, measureEm } from '../lib/chip.js';
 import { useFontsReady } from '../hooks/useFontsReady.js';
 import { ambientVariants, partVariants } from '../lib/landing.js';
-import { fitPledge } from '../lib/pledgeFit.js';
+import { PLEDGE_FIT, PLEDGE_FIT_PORTRAIT, fitPledge } from '../lib/pledgeFit.js';
+import { usePortrait } from '../lib/touch.js';
 
 /**
  * One slide, laid out by its explicit `layout` field, in the kit's three
@@ -68,6 +69,12 @@ export const Slide = ({ slide, now, events, hold = 0, onNext }) => {
  * Paytone One), on one line across the text block when it can.
  */
 const HEADLINE_FIT = { maxU: 8, widthU: 82 };
+/**
+ * Upright on a phone or tablet (lib/touch.js) the frame is 100 x 177.78u: a
+ * headline takes rows at one big size, broken only between words, rather
+ * than shrinking to one line across a narrow wall.
+ */
+const HEADLINE_FIT_PORTRAIT = { maxU: 12, widthU: 88, minU: 12 };
 
 /** "Wednesday night": the welcome's kicker, from the evening it is. */
 export const nightOf = (now) => `${(now ?? new Date()).toLocaleDateString([], { weekday: 'long' })} night`;
@@ -80,7 +87,9 @@ export const nightOf = (now) => `${(now ?? new Date()).toLocaleDateString([], { 
  */
 const PledgeBlock = ({ slide, hold }) => {
   const fonts = useFontsReady();
-  const fit = useMemo(() => fitPledge(slide.body), [slide.body, fonts]); // eslint-disable-line react-hooks/exhaustive-deps
+  const portrait = usePortrait();
+  const table = portrait ? PLEDGE_FIT_PORTRAIT : PLEDGE_FIT;
+  const fit = useMemo(() => fitPledge(slide.body, undefined, table), [slide.body, fonts, table]); // eslint-disable-line react-hooks/exhaustive-deps
   const side = (100 - fit.widthU) / 2;
   return (
     <div
@@ -100,6 +109,9 @@ const PledgeBlock = ({ slide, hold }) => {
 };
 
 const SlideBody = ({ slide, now, events, hold }) => {
+  const portrait = usePortrait();
+  const headlineFit = portrait ? HEADLINE_FIT_PORTRAIT : HEADLINE_FIT;
+  const comingUp = portrait ? COMING_UP_PORTRAIT : COMING_UP;
   switch (slide.layout) {
     case 'celebration':
     case 'welcome':
@@ -108,7 +120,7 @@ const SlideBody = ({ slide, now, events, hold }) => {
           <Kicker size="var(--text-kicker)" part={{ index: 0, hold }}>{nightOf(now)}</Kicker>
           <Headline
             text={slide.title}
-            fit={HEADLINE_FIT}
+            fit={headlineFit}
             parts={{ start: 1, hold }}
             style={{ marginTop: 'calc(1.4 * var(--u))' }}
           />
@@ -126,7 +138,7 @@ const SlideBody = ({ slide, now, events, hold }) => {
     case 'closing':
       return (
         <>
-          <Headline text={slide.title} fit={HEADLINE_FIT} parts={{ start: 0, hold }} />
+          <Headline text={slide.title} fit={headlineFit} parts={{ start: 0, hold }} />
           {slide.body && (
             <BodyText
               text={slide.body}
@@ -141,7 +153,7 @@ const SlideBody = ({ slide, now, events, hold }) => {
     case 'coming-up':
       return (
         <>
-          <Headline text={slide.title} fit={COMING_UP.headline} parts={{ start: 0, hold }} />
+          <Headline text={slide.title} fit={comingUp.headline} parts={{ start: 0, hold }} />
           <ComingUpList title={slide.title} events={events ?? []} start={wordCount(slide.title)} hold={hold} />
         </>
       );
@@ -180,6 +192,27 @@ export const COMING_UP = {
 };
 
 /**
+ * The same slide upright on a phone or tablet (lib/touch.js): a 100 x 177.78u
+ * frame. `top` and the gaps restate the portrait block at the end of
+ * index.css, and Slide.test.jsx pins them to it. The list stops at `bottom`,
+ * above the slide controls and the setup note at the bottom of the screen.
+ */
+export const COMING_UP_PORTRAIT = {
+  headline: { maxU: 9, widthU: 88, minU: 9 },
+  headlineLine: HEADLINE_LINE_HEIGHT,
+  // index.css: `.pj-slide:has(> .pj-chip-row)`, the list's own place on a tall frame.
+  top: 26,
+  listGap: 4,
+  frame: 177.78,
+  bottom: 122,
+  row: 88,
+  gapX: 2.4,
+  gapY: 3.4,
+  maxU: 6.4,
+  minU: 3.6,
+};
+
+/**
  * Where the coming-up list sits and how big its chips are: sized to the
  * room left under the headline, so five nights with long names (the
  * church's feed lists "Awana meeting (Making Bracelets)" most weeks, and a
@@ -188,9 +221,9 @@ export const COMING_UP = {
  * further.
  * @param {string} title the slide's headline
  * @param {Array<{ label: string, value: string }>} chips
+ * @param {typeof COMING_UP} [c] the frame's table (COMING_UP_PORTRAIT upright on touch)
  */
-export function comingUpLayout(title, chips) {
-  const c = COMING_UP;
+export function comingUpLayout(title, chips, c = COMING_UP) {
   const headU = fittedU(title, c.headline);
   const headLines = Math.max(1, Math.ceil((measureEm(String(title).toUpperCase()) * headU) / c.headline.widthU));
   // A title with a tall mark (É, Ș) takes the room Headline gives it.
@@ -219,6 +252,7 @@ export function comingUpLayout(title, chips) {
 const ComingUpList = ({ title, events, start, hold }) => {
   // The fit measures the chips' text: measure again once the faces land.
   useFontsReady();
+  const c = usePortrait() ? COMING_UP_PORTRAIT : COMING_UP;
   const upcoming = events.slice(0, 5);
   if (upcoming.length === 0) {
     return (
@@ -231,12 +265,12 @@ const ComingUpList = ({ title, events, start, hold }) => {
     );
   }
   const chips = upcoming.map((event) => ({ event, label: nightLabel(event.date), value: event.title }));
-  const { sizeU, count } = comingUpLayout(title, chips);
+  const { sizeU, count } = comingUpLayout(title, chips, c);
   return (
     <div
       className="pj-chip-row"
       data-chip-u={sizeU}
-      style={{ marginTop: `calc(${COMING_UP.listGap} * var(--u))`, maxWidth: `calc(${COMING_UP.row} * var(--u))` }}
+      style={{ marginTop: `calc(${c.listGap} * var(--u))`, maxWidth: `calc(${c.row} * var(--u))` }}
     >
       {chips.slice(0, count).map(({ event, label, value }, idx) => (
         // A flex box, not inline-block: no line box, so a row stands exactly
