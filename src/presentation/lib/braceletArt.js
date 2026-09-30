@@ -1236,6 +1236,8 @@ function wrappedKnot(g, { left = leftHand({}), gold = 0, threaded = null, route 
   const end = [];
   /** @type {Item[]} */
   const endInside = [];
+  /** The end's hook round to the tunnel's mouth: under the pinching fingers. @type {Item[]} */
+  const hook = [];
   /** @type {Pt} */
   let tipAt;
   if (threaded == null) {
@@ -1243,16 +1245,18 @@ function wrappedKnot(g, { left = leftHand({}), gold = 0, threaded = null, route 
     end.push(...held.items);
     tipAt = held.tip;
   } else {
-    // The end's hook outside the tunnel is in front; its run through the
-    // tunnel sits between the wraps' two halves; out past the X it is in
-    // front again. Its tip glints gold.
+    // The end's hook outside the tunnel passes under the pinching thumb and
+    // middle finger (drawn over them, it read as "take the end round your
+    // finger"); its run through the tunnel sits between the wraps' two
+    // halves; out past the X it is in front. Its tip glints gold.
     const len = clamp(threaded, 1, polyLength(route.all));
     const loopLen = polyLength(route.loop);
     const insideLen = polyLength(route.inside);
     tipAt = alongPt(route.all, len);
     const back16 = alongPt(route.all, Math.max(0, len - 16));
-    if (glint > 0 && (len <= loopLen || len > loopLen + insideLen)) end.push(cord([back16, tipAt], 'gold', lerp(0.6, 1, glint)));
-    end.push(cord(slice(route.all, 0, Math.min(len, loopLen))));
+    if (glint > 0 && len <= loopLen) hook.push(cord([back16, tipAt], 'gold', lerp(0.6, 1, glint)));
+    if (glint > 0 && len > loopLen + insideLen) end.push(cord([back16, tipAt], 'gold', lerp(0.6, 1, glint)));
+    hook.push(cord(slice(route.all, 0, Math.min(len, loopLen))));
     if (len > loopLen) endInside.push(cord(slice(route.all, loopLen, Math.min(len, loopLen + insideLen)), 'back'));
     if (len > loopLen + insideLen) end.push(cord(slice(route.all, loopLen + insideLen, len)));
   }
@@ -1261,6 +1265,7 @@ function wrappedKnot(g, { left = leftHand({}), gold = 0, threaded = null, route 
   under.push(bottomString(g, tail));
   under.push(...theX(g, gold));
   for (const pts of front) under.push(cord(pts));
+  under.push(...hook);
   /** @type {Item[]} */
   const over = [...left.over, ...end];
   return { under, over, tipAt };
