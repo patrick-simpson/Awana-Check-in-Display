@@ -19,7 +19,7 @@ import { DUR, EASE } from '../lib/motion-tokens.js';
 import { BRACELET_STEPS, EPIC_LEAD_SEC, braceletFrame, stepSlotSec, windowSpan } from '../lib/bracelets.js';
 import { getBraceletSettings, manualEpicStart, subscribeBraceletSettings } from '../lib/braceletSettings.js';
 import { chimeOnce } from '../lib/chime.js';
-import { BEAD_TONES } from '../lib/braceletArt.js';
+import { BEAD_TONES, stillP } from '../lib/braceletArt.js';
 import { StepArt } from '../components/bracelet/StepArt.jsx';
 import { BraceletStage, EpicStage, useEpicStep } from '../components/bracelet/BraceletStage.jsx';
 import handout1 from '../assets/bracelets/handout-1.jpg';
@@ -299,7 +299,7 @@ const Overview = ({ nowMs, club }) => {
         {steps.map(({ s, i }) => (
           <div key={s.n} className="pj-bracelet__cell">
             <StepChip label={chipFor(i).label} value={chipFor(i).value} size="calc(2.2 * var(--u))" plate={club.deep} />
-            <StepArt step={i} p={1} className="pj-bracelet__thumb" />
+            <StepArt step={i} p={stillP(i)} className="pj-bracelet__thumb" />
             <p className="pj-body pj-bracelet__cell-words">{s.words}</p>
           </div>
         ))}

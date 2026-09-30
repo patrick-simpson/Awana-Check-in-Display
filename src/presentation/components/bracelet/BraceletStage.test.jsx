@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { BraceletStage, EpicStage, currentEpicStep } from './BraceletStage.jsx';
 import { StepArt } from './StepArt.jsx';
-import { EPIC_BEATS, currentEpicStep as fromLib } from '../../lib/braceletArt.js';
+import { EPIC_BEATS, currentEpicStep as fromLib, stillP } from '../../lib/braceletArt.js';
 
 afterEach(cleanup);
 
@@ -18,6 +18,11 @@ describe('BraceletStage', () => {
   it('shows the finished step when still, whatever the time', () => {
     expect(markup(<BraceletStage step={4} startMs={Date.now()} still />)).toBe(markup(<StepArt step={4} p={1} />));
     expect(markup(<BraceletStage step={4} startMs={Date.now() - 2000} still />)).toBe(markup(<StepArt step={4} p={1} />));
+  });
+
+  it('shows a move\'s key frame when still, its guide arrow up (knot 1: the left hand going over)', () => {
+    expect(stillP(7)).toBeLessThan(1);
+    expect(markup(<BraceletStage step={7} startMs={Date.now()} still />)).toBe(markup(<StepArt step={7} p={stillP(7)} />));
   });
 
   it('starts a step from its first frame and plays it on the clock', async () => {

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { currentTime } from '../../hooks/useClock.js';
 import { useLowPower } from '../../hooks/useLowPower.js';
 import {
-  EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, currentEpicStep, epicShot, stepProgress,
+  EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, currentEpicStep, epicShot, stepProgress, stillP,
 } from '../../lib/braceletArt.js';
 import { StepArt } from './StepArt.jsx';
 
@@ -10,9 +10,10 @@ import { StepArt } from './StepArt.jsx';
 // currentTime() from useClock.js (so ?now= and ?freeze=1 hold here too) on a
 // requestAnimationFrame loop capped near 30 fps, and hand StepArt nothing but
 // numbers. `still` (or the projector's low-power switch, which also covers
-// ?vr=1 and the OS's reduced motion) shows each step's finished picture with
-// no camera: the loop then only wakes a few times a second, to notice the
-// epic moving on to its next beat.
+// ?vr=1 and the OS's reduced motion) shows each step's still (its finished
+// picture, or the key frame of a move, arrow and all: stillP) with no
+// camera: the loop then only wakes a few times a second, to notice the epic
+// moving on to its next beat.
 
 export { currentEpicStep };
 
@@ -77,7 +78,7 @@ export function BraceletStage({ step, startMs, still = false, className }) {
   const lowPower = useLowPower();
   const frozen = still || lowPower;
   const sec = useStageClock(startMs, exact, MOVING_FPS, !frozen);
-  const p = frozen ? 1 : stepProgress(step, sec);
+  const p = frozen ? stillP(step) : stepProgress(step, sec);
   return <StepArt step={step} p={p} className={className} />;
 }
 
@@ -93,7 +94,7 @@ export function EpicStage({ startMs, still = false, className }) {
   const beatIndex = useStageClock(startMs, beatIndexAt, STILL_FPS, frozen);
   if (frozen) {
     const beat = EPIC_BEATS[beatIndex];
-    return <StepArt step={beat.kind === 'step' ? beat.step : beat.kind} p={1} camera={IDENTITY_CAMERA} className={className} />;
+    return <StepArt step={beat.kind === 'step' ? beat.step : beat.kind} p={beat.kind === 'step' ? stillP(beat.step) : 1} camera={IDENTITY_CAMERA} className={className} />;
   }
   const shot = epicShot(moving);
   return <StepArt step={shot.step ?? shot.beat.kind} p={shot.p} camera={shot.camera} className={className} />;

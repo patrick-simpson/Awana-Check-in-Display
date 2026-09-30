@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BEAD_ORDER, BEAD_TONES, BRACELET_ROW, EPIC_BEATS, EPIC_SEC, IDENTITY_CAMERA, SAFE_BOX, STAGE_H, STAGE_W, STEP_COUNT,
-  actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepProgress,
+  actionSec, boxInside, boxOffStage, currentEpicStep, epicShot, finaleScene, glovePoints, introScene, itemBox, sceneFor, sceneOf, stepProgress, stillP,
 } from './braceletArt.js';
 import { BRACELET_STEPS, EPIC_SEC as CADENCE_EPIC_SEC, stepSlotSec } from './bracelets.js';
 // Tests may reach across the isolation rule to pin two copies of one thing.
@@ -123,6 +123,19 @@ describe('sceneFor', () => {
       expect(kinds, `step ${i + 1}`).not.toContain('burst');
       expect(kinds, `step ${i + 1}`).not.toContain('arrow');
     }
+  });
+
+  it('shows each move\'s guide arrow in its still, and nothing half there: no fading hand, arrow or pop', () => {
+    for (const i of STEPS) {
+      const items = sceneFor(i, stillP(i));
+      const label = `step ${i + 1} still`;
+      expect(items.filter((it) => 'o' in it && it.o < 1).map((it) => it.kind), label).toEqual([]);
+      expect(items.some((it) => it.kind === 'glove' && it.id.endsWith('~')), label).toBe(false);
+      expect(items.map((it) => it.kind), label).not.toContain('burst');
+    }
+    // Knot 1, knot 4 and knot 5 are moves: their stills carry the arrow.
+    for (const i of [7, 10, 11]) expect(sceneFor(i, stillP(i)).some((it) => it.kind === 'arrow'), `step ${i + 1}`).toBe(true);
+    expect(STEPS.filter((i) => stillP(i) < 1)).toEqual([7, 10, 11]);
   });
 
   it('treats a missing p as the finished picture and clamps the step', () => {
@@ -370,6 +383,11 @@ describe('the safe area', () => {
 
   it('holds every hand, bead, knot, counter and arrow of each step\'s first frame and resting picture', () => {
     const bad = STEPS.flatMap((i) => [0, 1].flatMap((p) => unsafe(sceneFor(i, p)).map((u) => `step ${i + 1} p=${p}: ${u}`)));
+    expect(bad).toEqual([]);
+  });
+
+  it('holds every still (the low-power and overview picture) too', () => {
+    const bad = STEPS.flatMap((i) => unsafe(sceneFor(i, stillP(i))).map((u) => `step ${i + 1} still: ${u}`));
     expect(bad).toEqual([]);
   });
 

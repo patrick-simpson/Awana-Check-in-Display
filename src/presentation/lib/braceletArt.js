@@ -772,40 +772,65 @@ function arm(end, to, inDir, bend = 0.4) {
 
 // ── Step 8: cross the two sides, left over right ─────────────
 
-/** @param {number} p @returns {Item[]} */
+/** Where the hands hold the ends up in a U before crossing them (x, y). */
+const U_LEFT = /** @type {Pt} */ ([604, 196]);
+const U_RIGHT = /** @type {Pt} */ ([846, 170]);
+/** Where the left end ends up once it has crossed over the right one. */
+const CROSSED_LEFT = /** @type {Pt} */ ([1084, 196]);
+
+/**
+ * Step 8: cross the two ends, left over right. Both hands lift the ends into
+ * a U; the right hand then holds its end still while the left hand carries
+ * the left (black) end over it, in front of the right hand, to the right.
+ * The two strings cross in an X under the hands: the black one on top,
+ * heading up and right, the yellow one heading up and left.
+ * @param {number} p @returns {Item[]}
+ */
 function crossStep(p) {
   const u = easeInOut(seg(p, 0.12, 0.46));
-  const c = easeInOut(seg(p, 0.52, 0.9));
+  const c = easeInOut(seg(p, 0.5, 0.86));
   const row = arcRow({ cx: ROW_CX, yb: lerp(ROW_Y, 452, u), kappa: u / 430, s: lerp(1, 0.86, u) });
 
   // The hands: from where step 7 left them open, in to take the tips, up
-  // into a U, then across each other.
+  // into a U; then only the left one moves, up and over the right one.
   const grab = easeInOut(seg(p, 0, 0.12));
   /** @type {Pt} */
-  const lHand = mix(mix([ROW_L, ROW_Y], [380, 182], u), [1000, 176], c);
+  const lHand = mix(mix([ROW_L, ROW_Y], U_LEFT, u), CROSSED_LEFT, c);
+  lHand[1] -= 58 * Math.sin(Math.PI * c);
   /** @type {Pt} */
-  const rHand = mix(mix([ROW_R, ROW_Y], [1080, 182], u), [460, 190], c);
-  // Mid-cross, the left hand rides a little higher: it is going OVER.
-  lHand[1] -= 20 * Math.sin(Math.PI * c);
-  rHand[1] += 16 * Math.sin(Math.PI * c);
+  const rHand = mix([ROW_R, ROW_Y], U_RIGHT, u);
+  rHand[1] += 6 * Math.sin(Math.PI * c);
+  // Crossed, the black end rises steeply to its hand, so the two strings
+  // meet in an X below the hands, in plain view.
   /** @type {Pt} */
-  const lIn = unit([lerp(-1, 0, u) + 0.55 * c, lerp(0, -1, u) + 0.3 * c]);
+  const lIn = unit([lerp(-1, 0, u), lerp(0, -1, u)]);
   /** @type {Pt} */
-  const rIn = unit([lerp(1, 0, u) - 0.55 * c, lerp(0, -1, u) + 0.3 * c]);
+  const rIn = unit([lerp(1, 0, u) - 0.36 * c, lerp(0, -1, u)]);
 
   /** @type {Item[]} */
   const items = [cord(row.cordPts)];
   items.push(cord(arm(row.right, rHand, rIn)));
-  items.push(cord(arm(row.left, lHand, lIn)));
+  // The black side's arm morphs from its side of the U into the crossing
+  // run: up and right from its end, over the yellow side below the hands,
+  // on up to the left hand.
+  const dL = Math.hypot(lHand[0] - row.left.pt[0], lHand[1] - row.left.pt[1]);
+  const uArm = arm(row.left, lHand, lIn);
+  items.push(cord(c <= 0 ? uArm : cubic(
+    row.left.pt,
+    mix([row.left.pt[0] + row.left.out[0] * dL * 0.4, row.left.pt[1] + row.left.out[1] * dL * 0.4], [row.left.pt[0] + 130, row.left.pt[1] - 95], c),
+    mix([lHand[0] - lIn[0] * dL * 0.35, lHand[1] - lIn[1] * dL * 0.35], [lHand[0] - 224, lHand[1] + 134], c),
+    lHand,
+    18,
+  )));
   items.push(...row.beads, ...row.knots);
-  // Hands holding the cord's ends, the arm (cuff) away from the bracelet.
-  const lRot = lerp(lerp(0, 90, u), 225, c);
-  const rRot = lerp(lerp(0, -90, u), -225, c);
-  // A guide for the crossing, inside the U and under the hands: which way
-  // the left end travels.
-  if (p > 0.46 && p < 0.96) {
-    const o = Math.min(seg(p, 0.46, 0.54), 1 - seg(p, 0.86, 0.96));
-    items.push(arrow(cubic([486, 214], [610, 172], [830, 172], [948, 206], 14), o));
+  // Hands holding the cord's ends up, each arm (cuff) down and away from
+  // the bracelet; the left one's still trails back the way it came.
+  const lRot = lerp(0, 45, u);
+  const rRot = lerp(0, -45, u);
+  // A guide over the hands: the way the left end goes, over the right one.
+  if (p > 0.4 && p < 0.96) {
+    const o = Math.min(seg(p, 0.4, 0.48), 1 - seg(p, 0.88, 0.96));
+    items.push(arrow(cubic([U_LEFT[0] + 30, 134], [760, 84], [950, 84], [CROSSED_LEFT[0] - 20, 124], 14), o));
   }
   if (grab < 1) {
     // Open hands close into fists on the tips, palms kept (see gloveByPalm);
@@ -824,6 +849,7 @@ function crossStep(p) {
       gloveByPalm(lp, 'fist', { id: 'left', s: 0.8, flip: true, rot: lerp(-16, 0, grab) }), k,
     ));
   } else {
+    // The right hand first: the left one passes over it, in front.
     items.push(glove(rHand[0], rHand[1], 'fist', { id: 'right', rot: rRot, s: 0.8 }));
     items.push(glove(lHand[0], lHand[1], 'fist', { id: 'left', rot: lRot, s: 0.8, flip: true }));
   }
@@ -1404,6 +1430,16 @@ export function stepProgress(stepIndex, secondsIntoStep) {
   if (t >= len) return 1;
   return pace(t / len);
 }
+
+/**
+ * The picture a still stage shows for step i (low power, animations off,
+ * the overview): the finished step, or, where the step is a move, its key
+ * frame with the guide arrow up: knot 1's hand going over the other one,
+ * knot 4's finger coming out, knot 5's end in the tunnel.
+ */
+const STILL_P = /** @type {Readonly<Record<number, number>>} */ (Object.freeze({ 7: 0.7, 10: 0.62, 11: 0.34 }));
+/** @param {number} stepIndex */
+export const stillP = (stepIndex) => STILL_P[stepOf(stepIndex)] ?? 1;
 
 /**
  * Step `stepIndex` (0..12) at action progress p, as a display list.
