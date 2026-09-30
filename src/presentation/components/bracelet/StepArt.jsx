@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 import {
-  BEAD_TONES, GLOVE, IDENTITY_CAMERA, STAGE_H, STAGE_W, sceneOf,
+  BEAD_SIZE, BEAD_TONES, GLOVE_OUTLINE, IDENTITY_CAMERA, KNOT_SIZE, STAGE_H, STAGE_W, gloveParts, sceneOf,
 } from '../../lib/braceletArt.js';
 import { HOUSE } from '../../lib/kit.js';
 
@@ -19,7 +19,7 @@ import { HOUSE } from '../../lib/kit.js';
 const INK = '#17161C';
 const GLOVE_FILL = '#FFFFFF';
 const CORD_CORE = '#1c1b22';
-const OUTLINE = 5; // the glove's outline, each side, in glove units
+const OUTLINE = GLOVE_OUTLINE;
 const SHOUT = { fontFamily: 'var(--font-display, "Paytone One", "Arial Rounded MT Bold", sans-serif)' };
 
 const n1 = (v) => Math.round(v * 10) / 10;
@@ -75,37 +75,41 @@ function Cord({ item }) {
 
 // ── A bead (pony bead: a barrel, its hole along the cord) ────
 
-const BEAD_L = 74;
-const BEAD_D = 92;
+const BEAD_L = BEAD_SIZE.l;
+const BEAD_D = BEAD_SIZE.d;
+
+const ICE = '#BFE8FF';
+const GLINT = 'M0 -1 C0.14 -0.14 0.14 -0.14 1 0 C0.14 0.14 0.14 0.14 0 1 C-0.14 0.14 -0.14 0.14 -1 0 C-0.14 -0.14 -0.14 -0.14 0 -1 Z';
 
 function BeadShape({ color, uid }) {
   const clear = color === 'clear';
-  const tone = BEAD_TONES[color] ?? BEAD_TONES.black;
+  if (clear) {
+    // Clear plastic on a black wall: an icy body the cord shows through, an
+    // icy keyline, a bright diagonal glint and a little sparkle, so it reads
+    // as glass from the back of the room and never as another dark bead.
+    return (
+      <g>
+        <rect x={-BEAD_L / 2} y={-BEAD_D / 2} width={BEAD_L} height={BEAD_D} rx={26} fill={`url(#${uid}-bead-clear)`} stroke={ICE} strokeWidth={5} />
+        <rect x={-BEAD_L / 2 + 7} y={-BEAD_D / 2 + 7} width={BEAD_L - 14} height={BEAD_D - 14} rx={19} fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth={2.5} />
+        <rect x={-20} y={-40} width={13} height={50} rx={6.5} transform="rotate(28 -13 -15)" fill="#FFFFFF" opacity={0.92} />
+        <rect x={10} y={10} width={8} height={24} rx={4} transform="rotate(28 14 22)" fill="#FFFFFF" opacity={0.55} />
+        <path d={GLINT} transform="translate(22 -30) scale(11)" fill="#FFFFFF" />
+      </g>
+    );
+  }
+  const key = BEAD_TONES[color] ? color : 'black';
   return (
     <g>
       <rect
         x={-BEAD_L / 2} y={-BEAD_D / 2} width={BEAD_L} height={BEAD_D} rx={26}
-        fill={clear ? tone.tone : `url(#${uid}-bead-${color})`}
-        stroke={clear ? 'rgba(255,255,255,0.9)' : '#FFFFFF'}
-        strokeWidth={5}
+        fill={`url(#${uid}-bead-${key})`} stroke="#FFFFFF" strokeWidth={5}
       />
-      {clear ? (
-        <>
-          {/* Clear plastic: the cord shows through; its edges catch light. */}
-          <rect x={-BEAD_L / 2 + 8} y={-BEAD_D / 2 + 8} width={BEAD_L - 16} height={BEAD_D - 16} rx={18} fill="none" stroke="rgba(214,236,255,0.45)" strokeWidth={2.5} />
-          <rect x={-24} y={-36} width={30} height={10} rx={5} fill="rgba(255,255,255,0.85)" />
-          <circle cx={20} cy={30} r={4} fill="rgba(255,255,255,0.7)" />
-        </>
-      ) : (
-        <>
-          {/* The hole's shadow where the cord goes in, the base's shade, the glint. */}
-          <rect x={-BEAD_L / 2 + 2} y={-10} width={9} height={20} rx={4} fill="rgba(0,0,0,0.32)" />
-          <rect x={BEAD_L / 2 - 11} y={-10} width={9} height={20} rx={4} fill="rgba(0,0,0,0.32)" />
-          <rect x={-24} y={26} width={48} height={11} rx={5.5} fill="rgba(0,0,0,0.16)" />
-          <rect x={-24} y={-37} width={32} height={11} rx={5.5} fill="#FFFFFF" opacity={0.82} />
-          <circle cx={17} cy={-31} r={4.5} fill="#FFFFFF" opacity={0.7} />
-        </>
-      )}
+      {/* The hole's shadow where the cord goes in, the base's shade, the glint. */}
+      <rect x={-BEAD_L / 2 + 2} y={-10} width={9} height={20} rx={4} fill="rgba(0,0,0,0.32)" />
+      <rect x={BEAD_L / 2 - 11} y={-10} width={9} height={20} rx={4} fill="rgba(0,0,0,0.32)" />
+      <rect x={-24} y={26} width={48} height={11} rx={5.5} fill="rgba(0,0,0,0.16)" />
+      <rect x={-24} y={-37} width={32} height={11} rx={5.5} fill="#FFFFFF" opacity={0.82} />
+      <circle cx={17} cy={-31} r={4.5} fill="#FFFFFF" opacity={0.7} />
     </g>
   );
 }
@@ -120,100 +124,8 @@ function Bead({ item, uid }) {
 }
 
 // ── The glove rig ────────────────────────────────────────────
-// Five poses, each a list of parts in the glove's own frame (a RIGHT glove,
-// back of the hand toward us; `flip` mirrors it into a left one). Parts are
-// drawn back to front, each one outline-then-fill, so a finger in front of
-// the palm keeps its own outline. The origin is the pose's action point:
-// the palm's centre (open), between the fingertips (pinch), the pointer's
-// tip (point), the grip (fist, pull).
-
-const cap = (pts, w) => ({ t: 'cap', pts, w });
-const blob = (x, y, w, h, rx, rot = 0) => ({ t: 'blob', x, y, w, h, rx, rot });
-const bump = (cx, cy, r) => ({ t: 'bump', cx, cy, r });
-const crease = (pts) => ({ t: 'line', pts });
-const zip = (pts, color = HOUSE.sun) => ({ t: 'zip', pts, color });
-
-function stitches(cx, cy, len, spread, deg = 90) {
-  const a = (deg * Math.PI) / 180;
-  const ux = Math.cos(a);
-  const uy = Math.sin(a);
-  return [-spread, 0, spread].map((o) => crease([
-    [cx - uy * o - ux * len / 2, cy + ux * o - uy * len / 2],
-    [cx - uy * o + ux * len / 2, cy + ux * o + uy * len / 2],
-  ]));
-}
-
-function openPose() {
-  return [
-    blob(-60, 70, 120, 48, 22),
-    crease([[-50, 88], [50, 88]]),
-    cap([[-50, 20], [-90, -22], [-102, -46]], 44),
-    cap([[-36, -40], [-48, -126]], 46),
-    cap([[-2, -44], [-2, -144]], 46),
-    cap([[32, -40], [46, -120]], 44),
-    blob(-66, -64, 132, 140, 58),
-    ...stitches(0, -8, 52, 24),
-  ];
-}
-
-function pointPose(reach) {
-  const L = reach;
-  return [
-    blob(-22, L + 118, 144, 50, 22),
-    crease([[-12, L + 136], [112, L + 136]]),
-    bump(42, L + 2, 20),
-    bump(76, L + 6, 19),
-    bump(104, L + 14, 17),
-    cap([[0, 24], [0, L + 40]], GLOVE.fingerW),
-    blob(-28, L - 10, 148, 134, 54),
-    // The thumb lies along the pointer, holding what rests on it.
-    cap([[-30, L + 92], [-34, L + 40], [-26, L + 6]], 38),
-    ...stitches(62, L + 62, 48, 26),
-  ];
-}
-
-function pinchPose(gap) {
-  const h = Math.max(8, gap / 2);
-  return [
-    blob(130, 82, 116, 48, 20, 122),
-    cap([[112, 26], [128, -6]], 40),
-    cap([[138, 44], [154, 14]], 36),
-    blob(52, 2, 128, 118, 54, 32),
-    cap([[82, 18], [56, -h - 32], [22, -h - 34], [6, -h - 20]], 44),
-    cap([[66, 92], [26, h + 36], [6, h + 20]], 42),
-    ...stitches(120, 66, 40, 20, 32),
-  ];
-}
-
-function fistPose() {
-  return [
-    blob(-52, 52, 104, 46, 20),
-    crease([[-44, 70], [44, 70]]),
-    blob(-58, -60, 116, 122, 48),
-    cap([[-42, -30], [36, -30]], 32),
-    cap([[-42, 0], [38, 0]], 32),
-    cap([[-38, 30], [34, 30]], 30),
-    cap([[-56, -46], [-22, -64], [20, -60]], 30),
-  ];
-}
-
-function pullPose() {
-  return [
-    ...fistPose(),
-    zip([[-78, -70], [-78, -112]]),
-    zip([[78, -70], [78, -112]]),
-    zip([[-56, -86], [-56, -118]]),
-    zip([[56, -86], [56, -118]]),
-  ];
-}
-
-const POSES = {
-  open: () => openPose(),
-  point: (_gap, reach) => pointPose(reach ?? GLOVE.pointReach),
-  pinch: (gap) => pinchPose(gap),
-  fist: () => fistPose(),
-  pull: () => pullPose(),
-};
+// The poses' parts are lib/braceletArt.js's gloveParts (so the tests measure
+// exactly what is drawn); here each part is drawn outline then fill.
 
 function linePath(pts) {
   return pts.map((p, i) => `${i ? 'L' : 'M'}${n1(p[0])} ${n1(p[1])}`).join(' ');
@@ -244,7 +156,7 @@ function GlovePart({ part }) {
     case 'line':
       return <path d={linePath(part.pts)} {...ROUND} stroke={INK} strokeWidth={4.5} />;
     case 'zip':
-      return <path d={linePath(part.pts)} {...ROUND} stroke={part.color} strokeWidth={7} />;
+      return <path d={linePath(part.pts)} {...ROUND} stroke={HOUSE.sun} strokeWidth={7} />;
     default:
       return null;
   }
@@ -252,7 +164,7 @@ function GlovePart({ part }) {
 
 function Glove({ item }) {
   const { x, y, rot, s, pose, flip, gap } = item;
-  const parts = (POSES[pose] ?? POSES.open)(gap, item.reach);
+  const parts = gloveParts(pose, gap, item.reach);
   return (
     <g transform={`translate(${x} ${y}) rotate(${rot}) scale(${flip ? -s : s} ${s})`}>
       {parts.map((part, i) => <GlovePart key={i} part={part} />)}
@@ -266,7 +178,7 @@ function Glove({ item }) {
 function Knot({ item }) {
   return (
     <g transform={`translate(${item.x} ${item.y}) rotate(${item.rot}) scale(${item.s})`}>
-      <ellipse rx={14} ry={18} fill={CORD_CORE} stroke="#FFFFFF" strokeWidth={4.5} />
+      <ellipse rx={KNOT_SIZE.rx} ry={KNOT_SIZE.ry} fill={CORD_CORE} stroke="#FFFFFF" strokeWidth={4.5} />
       <path d="M-8 -13 C3 -9 7 3 -1 13" {...ROUND} stroke="#FFFFFF" strokeWidth={3.2} />
       <path d="M-2 -16 C9 -11 11 5 5 14" {...ROUND} stroke="rgba(255,255,255,0.4)" strokeWidth={2} />
     </g>
@@ -279,7 +191,7 @@ const POT_BEADS = [[-34, -6, -14], [0, -12, 6], [34, -6, 18], [-17, -28, 24], [1
 
 function Pot({ item, uid }) {
   const clear = item.color === 'clear';
-  const tone = BEAD_TONES[item.color] ?? BEAD_TONES.black;
+  const key = BEAD_TONES[item.color] ? item.color : 'black';
   return (
     <g transform={`translate(${item.x} ${item.y}) scale(${item.s})`}>
       <ellipse cx={0} cy={0} rx={62} ry={15} fill="#0c0b10" stroke="#FFFFFF" strokeWidth={4} />
@@ -287,8 +199,8 @@ function Pot({ item, uid }) {
         <rect
           key={i} x={bx - 16} y={by - 19} width={32} height={38} rx={11}
           transform={`rotate(${br} ${bx} ${by})`}
-          fill={clear ? tone.tone : `url(#${uid}-bead-${item.color})`}
-          stroke={clear ? 'rgba(255,255,255,0.9)' : '#FFFFFF'} strokeWidth={3.5}
+          fill={`url(#${uid}-bead-${key})`}
+          stroke={clear ? ICE : '#FFFFFF'} strokeWidth={3.5}
         />
       ))}
       <path d="M-62 0 A62 15 0 0 0 62 0 Q60 62 0 66 Q-60 62 -62 0 Z" fill="#26242d" stroke="#FFFFFF" strokeWidth={4.5} strokeLinejoin="round" />
@@ -369,8 +281,14 @@ function renderItem(item, i, uid) {
 }
 
 function Defs({ uid }) {
+  const ice = BEAD_TONES.clear;
   return (
     <defs>
+      <linearGradient id={`${uid}-bead-clear`} x1="0" y1="0" x2="0.35" y2="1">
+        <stop offset="0" stopColor={ice.light} />
+        <stop offset="0.45" stopColor={ice.tone} />
+        <stop offset="1" stopColor={ice.dark} />
+      </linearGradient>
       {Object.entries(BEAD_TONES).filter(([k]) => k !== 'clear').map(([k, t]) => (
         <linearGradient key={k} id={`${uid}-bead-${k}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={t.light} />
