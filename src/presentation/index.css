@@ -709,13 +709,16 @@
   mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent), linear-gradient(transparent, #000 8%, #000 92%, transparent);
 }
 .pj-bracelet__stage > svg, .pj-bracelet__stage .pj-bracelet__svg { width: 100%; height: 100%; display: block; }
-.pj-bracelet__stage--epic { left: calc(7 * var(--u)); width: calc(86 * var(--u)); height: calc(33 * var(--u)); top: calc(8.4 * var(--u)); }
+.pj-bracelet__stage--epic { left: calc(7 * var(--u)); width: calc(86 * var(--u)); height: calc(30 * var(--u)); top: calc(8 * var(--u)); }
 .pj-bracelet__caption {
   position: absolute; left: calc(8 * var(--u)); right: calc(8 * var(--u)); top: calc(38.4 * var(--u));
   display: flex; flex-direction: column; align-items: center; text-align: center;
   gap: calc(0.8 * var(--u));
 }
-.pj-bracelet__card--epic .pj-bracelet__caption { top: calc(42.2 * var(--u)); }
+/* The epic's caption stands on a line above the club waves (a far wave's
+   top is 51.2u on a 16:9 wall) and grows upward when its instruction takes
+   a second line, so the title and the words always clear the waves. */
+.pj-bracelet__card--epic .pj-bracelet__caption { top: auto; bottom: calc(6.4 * var(--u)); }
 .pj-bracelet__title { margin: 0; text-transform: uppercase; }
 .pj-bracelet__pill {
   display: inline-block; padding: 0 0.22em; margin: 0 0.06em; border-radius: 0.3em;

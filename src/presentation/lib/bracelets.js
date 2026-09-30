@@ -13,9 +13,8 @@
 //     own slot (STEP_SLOTS: a bead step is quick, a knot step gets the time
 //     a child needs), looping; the loop starts from step 1 after every epic.
 //
-// A leader can nudge the loop (next / previous step) or play the epic now;
-// that state lives in the view, which hands `stepOffset` and `manualEpicAt`
-// in here, so this stays a pure function of its inputs.
+// A leader can play the epic now; that state lives in the view, which hands
+// `manualEpicAt` in here, so this stays a pure function of its inputs.
 
 /** @typedef {{ n: number, kind: 'bead' | 'finish' | 'knot', color?: string, title: string, words: string }} BraceletStep */
 
@@ -137,12 +136,12 @@ export function epicStarts(startMs, endMs) {
  * @param {number} nowMs
  * @param {number} startMs  the window's start
  * @param {number} endMs    the window's end
- * @param {{ stepOffset?: number, manualEpicAt?: number | null, epics?: boolean }} [nudges]
+ * @param {{ manualEpicAt?: number | null, epics?: boolean }} [nudges]
  *   epics: false turns the scheduled showings (and so their chimes) off; a
  *   manual "play now" still plays.
  * @returns {BraceletFrame}
  */
-export function braceletFrame(nowMs, startMs, endMs, { stepOffset = 0, manualEpicAt = null, epics = true } = {}) {
+export function braceletFrame(nowMs, startMs, endMs, { manualEpicAt = null, epics = true } = {}) {
   const epicMs = EPIC_SEC * 1000;
   let starts = epics ? epicStarts(startMs, endMs) : [];
   // "Play it now" wins over any scheduled showing it overlaps: that one is
@@ -174,10 +173,9 @@ export function braceletFrame(nowMs, startMs, endMs, { stepOffset = 0, manualEpi
 
   const loopFrom = lastEnd ?? startMs;
   const elapsed = Math.max(0, (nowMs - loopFrom) / 1000);
-  // Whole passes, then slot by slot through this one (a nudge starts the
-  // pass that many steps along).
+  // Whole passes, then slot by slot through this one.
   const count = BRACELET_STEPS.length;
-  let stepIndex = ((Math.round(stepOffset) % count) + count) % count;
+  let stepIndex = 0;
   let slotStart = Math.floor(elapsed / LOOP_SEC) * LOOP_SEC;
   while (slotStart + STEP_SLOTS[stepIndex] <= elapsed) {
     slotStart += STEP_SLOTS[stepIndex];

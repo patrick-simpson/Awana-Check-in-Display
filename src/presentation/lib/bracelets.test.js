@@ -144,9 +144,7 @@ describe('braceletFrame', () => {
     expect(new Date(knot2.stepStartMs)).toEqual(new Date(at('18:08:03')));
   });
 
-  it('a leader can step the loop and play the epic now', () => {
-    expect(braceletFrame(at('18:06:40'), ...TNT, { stepOffset: 1 }).stepIndex).toBe(1);
-    expect(braceletFrame(at('18:06:40'), ...TNT, { stepOffset: -1 }).stepIndex).toBe(12);
+  it('a leader can play the epic now', () => {
     expect(braceletFrame(at('18:07:05'), ...TNT, { manualEpicAt: at('18:07:00') })).toMatchObject({ mode: 'epic', epicElapsedSec: 5 });
   });
 

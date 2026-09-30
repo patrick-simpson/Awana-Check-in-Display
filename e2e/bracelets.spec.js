@@ -145,3 +145,39 @@ test('"Play it now" waits for Bracelet Time', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Play it now' })).toBeDisabled();
 });
 
+
+// The epic's caption (the step's title and its whole instruction, which can
+// run to two lines) must end above the club waves along the bottom of a 16:9
+// wall, with room to spare: at 1280x720 and 1920x1080 a two-line instruction
+// once sat on the far wave's top edge. Measured against the waves' own boxes
+// (a wave never draws above its box), once they have risen in and stopped.
+for (const [w, h] of [[1280, 720], [1920, 1080], [1024, 768]]) {
+  for (const [now, step] of [['18:06:00', 'knot step 2, the wraps'], ['18:05:45', 'step 7, the clear beads']]) {
+    test(`the epic's caption clears the waves at ${w}x${h}: ${step}`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto(at(`2026-09-30T${now}`));
+      await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'epic');
+      const caption = page.locator('.pj-bracelet__caption');
+      await expect(caption.locator('.pj-bracelet__words')).toBeVisible();
+      const waves = page.locator('[data-mode="game-time"] .pj-wave');
+      await expect(waves).toHaveCount(2);
+      // At rest: no wave still carrying its rise-in transform.
+      await expect.poll(() => waves.evaluateAll((els) => els.every((el) => {
+        const t = getComputedStyle(el).transform;
+        return t === 'none' || new DOMMatrix(t).m42 === 0;
+      })), { timeout: 5000 }).toBe(true);
+      const { gap, lines } = await page.evaluate(() => {
+        const words = document.querySelector('.pj-bracelet__caption .pj-bracelet__words');
+        const bottom = document.querySelector('.pj-bracelet__caption').getBoundingClientRect().bottom;
+        const top = Math.min(...[...document.querySelectorAll('[data-mode="game-time"] .pj-wave')].map((el) => el.getBoundingClientRect().top));
+        return { gap: top - bottom, lines: Math.round(words.getBoundingClientRect().height / parseFloat(getComputedStyle(words).lineHeight)) };
+      });
+      expect(gap).toBeGreaterThanOrEqual(h * 0.015);
+      // Both instructions run to two lines, and are there in full, not cut to fit.
+      expect(lines).toBe(2);
+      const words = await caption.locator('.pj-bracelet__words').textContent();
+      if (now === '18:06:00') expect(words).toBe('Lay the bottom string along your pointer finger. Wrap the top string under and around it 3 times.');
+      else expect(words).toBe('Add a clear bead on each side of your colors. Tie a knot next to each one.');
+    });
+  }
+}
