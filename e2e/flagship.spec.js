@@ -21,6 +21,10 @@ const CONFIG = {
 };
 
 async function boot(page, query = '?lowPower=1', config = CONFIG) {
+  // The flagship is off the air Wednesdays 6:30-8:30 pm by the page's own
+  // clock (src/lib/flagship.js): pin a morning so these tests hold at any
+  // real hour, including a club night's.
+  await page.clock.install({ time: new Date('2026-09-23T10:00:00-04:00') });
   await page.route(/open-meteo|pusher/, (r) => r.abort());
   await page.addInitScript((c) => {
     localStorage.setItem('awanaConfig.v1', JSON.stringify(c));

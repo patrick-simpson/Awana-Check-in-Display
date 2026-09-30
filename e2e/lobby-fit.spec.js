@@ -420,6 +420,8 @@ test.describe('at 1280x720', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
   test('a long kicker on a full slide stays clear of the top-right stack', async ({ page }) => {
+    // Real-clock independent: the lobby changes during Wednesday club hours.
+    await page.clock.install({ time: new Date('2026-09-23T10:00:00-04:00') });
     await showSlide(page, {
       eyebrow: 'IMPORTANT ANNOUNCEMENT FOR ALL PARENTS AND GUARDIANS TONIGHT',
       text: 'Parents, please remember that pick-up is at the gym doors this week while the lobby floor is refinished. '.repeat(6).slice(0, 500),
