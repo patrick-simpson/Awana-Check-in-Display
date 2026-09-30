@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useId, useRef, useState } from 'react';
 import defaults from '../config.js';
 import { sanitizeOverrides } from '../hooks/useConfig.js';
 import { parseMilestoneList, sanitizeMilestoneList } from '../lib/milestones.js';
@@ -19,6 +19,7 @@ import { loadDisplayKey } from '../lib/displayKey.js';
 import { loadPublishToken, maskPublishToken, savePublishToken } from '../lib/publishToken.js';
 import { DESKTOP_APP_DOWNLOAD_URL, DESKTOP_APP_GUIDE_URL } from '../lib/constants.js';
 import CornerTab from './brand/CornerTab.jsx';
+import { ZeroAnimationContext } from '../lib/motion.jsx';
 import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
 
 const TABS = [
@@ -150,6 +151,10 @@ export default function SettingsPanel({
   const tabRefs = useRef({});
   const importRef = useRef(null);
 
+  // Jelly UI's <jelly-button> runs soft-body physics on a canvas and gates it
+  // only on the OS's reduced motion, never on this app's zero animation, so
+  // on ?lowPower=1 Save is the kit's plain primary button instead.
+  const zeroAnimation = useContext(ZeroAnimationContext);
   const { displayKey } = useDisplayKey();
   const login = useDisplayLogin();
   const secure = Boolean(globalThis.crypto?.subtle);
@@ -472,7 +477,9 @@ export default function SettingsPanel({
           )}
           <button className="danger" onClick={reset}>Reset to defaults</button>
           <button onClick={requestClose}>Cancel</button>
-          <jelly-button variant="mint" onClick={save}>Save</jelly-button>
+          {zeroAnimation
+            ? <button className="primary" onClick={save}>Save</button>
+            : <jelly-button variant="mint" onClick={save}>Save</jelly-button>}
         </div>
         <div className="hint panel-legal">
           Awana® and the Awana club names are trademarks of Awana Clubs International.

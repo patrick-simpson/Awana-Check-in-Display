@@ -1219,9 +1219,15 @@ html, body, #root {
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition:
-    opacity var(--brand-dur-exit) var(--brand-ease-settle),
-    transform var(--brand-dur-quick) var(--brand-ease-pop);
+  /* The idle fade, the hover spin, and the soft squish's spring back from a
+     press (see "The soft squish: operator presses" below for why each
+     timing list is written out literally, fallback first). */
+  transition-property: opacity, transform, scale;
+  transition-duration: var(--brand-dur-exit), var(--brand-dur-quick), var(--squish-release);
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1), cubic-bezier(0.34, 1.56, 0.64, 1), cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1), cubic-bezier(0.34, 1.56, 0.64, 1), linear(0, 0.213, 0.605, 0.93, 1.103, 1.142, 1.106, 1.05, 1.006, 0.984, 0.98, 0.986, 0.994, 1, 1.002, 1.003, 1);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   padding: 0;
   z-index: 50;
 }
@@ -1239,6 +1245,15 @@ html, body, #root {
   height: 48%;
 }
 .settings-gear:hover { transform: rotate(45deg) scale(1.05); }
+/* Its press: a firmer squish than a pill's (a small round key), on the
+   individual `scale`, which composes with the hover spin and April Fools'
+   transform instead of fighting them; its origin stays where the rotation
+   turns. */
+.settings-gear:active {
+  scale: var(--squish-gear-x) var(--squish-gear-y);
+  transition-duration: var(--brand-dur-exit), var(--brand-dur-quick), var(--squish-press);
+  transition-timing-function: var(--brand-ease-settle), var(--brand-ease-pop), var(--brand-ease-settle);
+}
 /* Faint, not gone: a volunteer at an unconfigured TV must be able to find the way in. */
 .settings-gear.idle { opacity: 0.12; pointer-events: auto; }
 
@@ -1319,16 +1334,36 @@ html, body, #root {
   color: var(--brand-blue-deep);
 }
 
-/* One short entrance on the settle curve, opacity and translate only.
-   The zero-animation rule removes it, and the panel then simply is. It
-   animates `translate`, not `transform`, so April Fools' rotation (which
-   owns transform) is left alone. */
+/* One short entrance, and a soft squish: the panel rises a little stretched
+   along its travel and springs home on the squish's own spring (the release
+   easing below), so it overshoots into the faintest squash and settles. The
+   zero-animation rule removes it, and the panel then simply is. It animates
+   the individual `translate` and `scale`, never `transform`, so April Fools'
+   rotation (which owns transform) is left alone, and it keeps the default
+   centre origin that rotation turns about. The last frame is the element's
+   own style: the resting design. The timing function is written out
+   literally, fallback first: a linear() behind var() could not fall back. */
 @keyframes panel-enter {
-  from { opacity: 0; translate: 0 0.75rem; }
+  from { opacity: 0; translate: 0 0.75rem; scale: 0.97 1.03; }
 }
 .panel--tabbed,
 .debug {
-  animation: panel-enter var(--brand-dur-settle) var(--brand-ease-settle) both;
+  animation: panel-enter var(--squish-release) both;
+  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation-timing-function: linear(0, 0.213, 0.605, 0.93, 1.103, 1.142, 1.106, 1.05, 1.006, 0.984, 0.98, 0.986, 0.994, 1, 1.002, 1.003, 1);
+}
+/* The first-run card, on the room's screen: the same entrance, softer. It
+   only ever enters: it must leave the DOM in the commit that mounts a name
+   (setup-card.events.spec.js), so it never gets an exit. Declared here, ahead
+   of the reduced-motion block, which must beat it; and never with `right`,
+   whose values embed.test.js pins. */
+@keyframes setup-card-enter {
+  from { opacity: 0; translate: 0 0.6em; scale: 0.985 1.015; }
+}
+.panel.setup-card {
+  animation: setup-card-enter var(--squish-release) both;
+  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation-timing-function: linear(0, 0.213, 0.605, 0.93, 1.103, 1.142, 1.106, 1.05, 1.006, 0.984, 0.98, 0.986, 0.994, 1, 1.002, 1.003, 1);
 }
 
 /* ── Tabbed panels: Settings and the slide editor ────────────────────────
@@ -1427,7 +1462,13 @@ html, body, #root {
   white-space: nowrap;
 }
 .panel button.panel-tab:hover { color: var(--panel-ink); background: var(--brand-cloud); }
-.panel button.panel-tab:active { transform: none; }
+/* A tab is type, not a key: a softer squish about its middle, and no sink. */
+.panel button.panel-tab {
+  --squish-x: var(--squish-tab-x);
+  --squish-y: var(--squish-tab-y);
+  --squish-sink: 0 0;
+  transform-origin: 50% 50%;
+}
 .panel button.panel-tab[aria-selected='true'] {
   color: #ffffff;
   background: var(--brand-blue);
@@ -1670,6 +1711,19 @@ html, body, #root {
   border-radius: 9px;
   background: #ffffff;
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition-property: scale;
+  transition-duration: var(--squish-release);
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-timing-function: linear(0, 0.213, 0.605, 0.93, 1.103, 1.142, 1.106, 1.05, 1.006, 0.984, 0.98, 0.986, 0.994, 1, 1.002, 1.003, 1);
+}
+/* Pressed (the box itself, or anywhere on its toggle row, which makes the
+   box :active too) it squishes evenly, like Jelly UI's own checkbox. */
+.panel input[type='checkbox']:not(:disabled):active {
+  scale: var(--squish-box);
+  transition-duration: var(--squish-press);
+  transition-timing-function: var(--brand-ease-settle);
 }
 .panel input[type='checkbox']::before {
   content: '';
@@ -1679,13 +1733,22 @@ html, body, #root {
   -webkit-mask: url('../../shared/brand/doodles/check.svg') center / contain no-repeat;
   mask: url('../../shared/brand/doodles/check.svg') center / contain no-repeat;
   scale: 0;
-  transition: scale var(--brand-dur-quick) var(--brand-ease-pop);
+  /* Going out on the exit curve, which never overshoots: any overshoot past
+     0 is a negative scale, a mirrored check. */
+  transition: scale var(--brand-dur-quick) var(--brand-ease-exit);
 }
 .panel input[type='checkbox']:checked {
   border-color: var(--brand-blue);
   background: var(--brand-blue);
 }
-.panel input[type='checkbox']:checked::before { scale: 1; }
+/* Coming in on the squish's spring: past full size and back. */
+.panel input[type='checkbox']:checked::before {
+  scale: 1;
+  transition-property: scale;
+  transition-duration: var(--squish-release);
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-timing-function: linear(0, 0.213, 0.605, 0.93, 1.103, 1.142, 1.106, 1.05, 1.006, 0.984, 0.98, 0.986, 0.994, 1, 1.002, 1.003, 1);
+}
 
 /* The toggle row is a real <label>: whole row clickable, checkbox named. */
 .panel .toggle {
@@ -1762,7 +1825,7 @@ html, body, #root {
 .panel .lookup-row button { flex-shrink: 0; }
 
 /* ── Buttons: Londrina caps on kit pills with a hard offset shadow ──────
-   The press moves the button, not its shadow (only transform animates). */
+   The press moves the button, not its shadow: see the soft squish below. */
 .panel .actions {
   display: flex;
   gap: 0.65rem;
@@ -1791,14 +1854,72 @@ html, body, #root {
   text-transform: uppercase;
   box-shadow: 0 3px 0 var(--panel-ink);
   cursor: pointer;
-  transition: transform var(--brand-dur-quick) var(--brand-ease-settle);
 }
 .panel button:hover,
 .panel .actions label:hover,
 .panel a.panel-button:hover { background: var(--brand-cloud); }
-.panel button:active,
+
+/* ── The soft squish: operator presses ───────────────────────────────────
+   Jelly UI's feel on the kit's own controls (src/lib/squish.js has the one
+   physics; squishCss.test.js pins every number here to it). A press squashes
+   the control onto its ledge in --squish-press and sinks it 2px, as it
+   always sank; on release it springs back through a stretch and a smaller
+   squash to rest, over --squish-release, on the spring written as linear().
+   Transitions, never @keyframes: a transition never fires on mount, so a
+   panel that opens on a focused or checked control never wobbles it (and a
+   transition takes its timing from the state it moves INTO: the press is the
+   quick settle, the release the spring). The individual `scale` and
+   `translate` only, never `transform`, which April Fools owns.
+   The spring is written out literally, after a cubic-bezier fallback (the
+   kit's pop), and never inside var(): a linear() a browser cannot read,
+   behind var(), would leave the property unset instead of falling back.
+   Zero animation and the OS's reduced motion both kill the spring AND the
+   squash (the two blocks further down): there the press is the flat,
+   instant 2px sink it always was. */
+:root {
+  --squish-press: 100ms;
+  --squish-release: 750ms;
+  --squish-press-x: 1.04;
+  --squish-press-y: 0.92;
+  /* Per control: the gear is small and round (firmer), a tab is type and a
+     debug tile is wide (softer), a checkbox squishes evenly. */
+  --squish-gear-x: 1.1;
+  --squish-gear-y: 0.88;
+  --squish-tab-x: 1.03;
+  --squish-tab-y: 0.94;
+  --squish-tile-x: 1.02;
+  --squish-tile-y: 0.94;
+  --squish-box: 0.88;
+}
+.panel button,
+.panel .actions label,
+.panel a.panel-button,
+.panel .radio-option,
+.debug button {
+  --squish-x: var(--squish-press-x);
+  --squish-y: var(--squish-press-y);
+  --squish-sink: 0 2px;
+  /* Squash down onto its ledge. */
+  transform-origin: 50% 100%;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition-property: scale, translate;
+  transition-duration: var(--squish-release);
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-timing-function: linear(0, 0.213, 0.605, 0.93, 1.103, 1.142, 1.106, 1.05, 1.006, 0.984, 0.98, 0.986, 0.994, 1, 1.002, 1.003, 1);
+}
+/* `:not(:disabled)` so a disabled key stays put; the two kill switches below
+   repeat it, or their `scale: none` would lose on specificity. */
+.panel button:not(:disabled):active,
 .panel .actions label:active,
-.panel a.panel-button:active { transform: translateY(2px); }
+.panel a.panel-button:active,
+.panel .radio-option:active,
+.debug button:not(:disabled):active {
+  scale: var(--squish-x) var(--squish-y);
+  translate: var(--squish-sink);
+  transition-duration: var(--squish-press);
+  transition-timing-function: var(--brand-ease-settle);
+}
 /* A link that looks like one of the panel's buttons (the sound room app's
    download and guide): same pill, never underlined. */
 .panel a.panel-button { text-decoration: none; }
@@ -1967,10 +2088,13 @@ html, body, #root {
   font-weight: 650;
   font-size: 0.97rem;
   line-height: 1.25;
-  transition: transform var(--brand-dur-quick) var(--brand-ease-settle);
 }
 .debug button:hover { background: var(--brand-cloud); }
-.debug button:active { transform: translateY(2px); }
+/* The simulator tiles are wide: a softer squish keeps them in their grid gap. */
+.debug .debug-actions button {
+  --squish-x: var(--squish-tile-x);
+  --squish-y: var(--squish-tile-y);
+}
 .debug-footer {
   display: flex;
   align-items: center;
@@ -2338,14 +2462,31 @@ input:focus-visible {
   .status-dot.connecting .dot,
   .panel .status-line.connecting .dot,
   .panel--tabbed,
-  .debug {
+  .debug,
+  .panel.setup-card {
     animation: none;
   }
   .settings-gear,
   .panel button,
+  .panel .actions label,
+  .panel a.panel-button,
+  .panel .radio-option,
+  .panel input[type='checkbox'],
   .panel input[type='checkbox']::before,
+  .panel input[type='checkbox']:checked::before,
   .debug button {
     transition: none;
+  }
+  /* No squash either: the press is the flat 2px sink, at once. Each selector
+     is the press rule's own, so it matches its specificity and wins by order. */
+  .settings-gear:active,
+  .panel button:not(:disabled):active,
+  .panel .actions label:active,
+  .panel a.panel-button:active,
+  .panel .radio-option:active,
+  .panel input[type='checkbox']:not(:disabled):active,
+  .debug button:not(:disabled):active {
+    scale: none;
   }
 }
 
@@ -2368,6 +2509,19 @@ input:focus-visible {
 .zero-animation-mode *::after {
   animation: none !important;
   transition: none !important;
+}
+/* The blanket rule stops the spring; this stops the squash, so a press on the
+   Pi is the flat, instant 2px sink it always was (the soft squish's presses,
+   above). Every press rule is named, one prefix deeper so it always wins;
+   squishCss.test.js fails a new press rule that is not. */
+.zero-animation-mode .settings-gear:active,
+.zero-animation-mode .panel button:not(:disabled):active,
+.zero-animation-mode .panel .actions label:active,
+.zero-animation-mode .panel a.panel-button:active,
+.zero-animation-mode .panel .radio-option:active,
+.zero-animation-mode .panel input[type='checkbox']:not(:disabled):active,
+.zero-animation-mode .debug button:not(:disabled):active {
+  scale: none;
 }
 
 /* ────────────────────────────────────────────────────────────
