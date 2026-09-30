@@ -6,13 +6,20 @@ import { act, cleanup, render } from '@testing-library/react';
 // choices must not depend on how a bead is drawn.
 vi.mock('../lib/stingers.js', () => ({ playStinger: vi.fn() }));
 vi.mock('../lib/chime.js', () => ({ chimeOnce: vi.fn() }));
+const { roster } = vi.hoisted(() => ({ roster: { list: [] } }));
+vi.mock('../hooks/useBirthdays.js', () => ({ useBirthdays: () => roster.list }));
 vi.mock('../components/bracelet/StepArt.jsx', () => ({
   StepArt: ({ step }) => <div data-testid="step-art" data-step={step} />,
 }));
+const { stageClock } = vi.hoisted(() => ({ stageClock: { nowMs: 0 } }));
 vi.mock('../components/bracelet/BraceletStage.jsx', () => ({
   BraceletStage: ({ step, still }) => <div data-testid="stage" data-step={step} data-still={String(still)} />,
   EpicStage: ({ still }) => <div data-testid="epic" data-still={String(still)} />,
-  currentEpicStep: (sec) => (sec < 4 || sec >= 84 ? null : Math.min(12, Math.floor((sec - 4) / 6.15))),
+  // The stages' own clock, pinned to the time the test renders at.
+  useEpicStep: (startMs) => {
+    const sec = (stageClock.nowMs - startMs) / 1000;
+    return sec < 4 || sec >= 84 ? null : Math.min(12, Math.floor((sec - 4) / 6.15));
+  },
 }));
 
 import { BraceletTimeView } from './BraceletTimeView.jsx';
@@ -24,8 +31,10 @@ const TNT = { kind: 'game', clubs: ['tnt'], title: 'T&T Game Time', startMin: 18
 const ENDS_AT = new Date('2026-09-30T18:30:00');
 const at = (hms) => new Date(`2026-09-30T${hms}`);
 
-const wall = (now, extra = {}) =>
-  render(<BraceletTimeView now={now} window={TNT} endsAt={ENDS_AT} tally={null} {...extra} />).container;
+const wall = (now, extra = {}) => {
+  stageClock.nowMs = now.getTime();
+  return render(<BraceletTimeView now={now} window={TNT} endsAt={ENDS_AT} tally={null} {...extra} />).container;
+};
 const phase = (c) => c.querySelector('[data-bracelet-phase]').getAttribute('data-bracelet-phase');
 const step = (c) => c.querySelector('[data-bracelet-step]')?.getAttribute('data-bracelet-step') ?? null;
 const corner = (c) => c.querySelector('.pj-bracelet__corner').textContent;
@@ -36,7 +45,10 @@ describe('BraceletTimeView', () => {
     localStorage.clear();
     resetBraceletSettings();
   });
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    roster.list = [];
+  });
 
   it('opens on the title card with the countdown to the first how-to, and chimes once', () => {
     const c = wall(at('18:05:02'));
@@ -123,7 +135,10 @@ describe('BraceletTimeView', () => {
 
   it('an early start keeps its own cadence through 6:05: the epic is not cut off or chimed again', () => {
     // The leader ends the opening at 18:04:40: the epic starts at 18:04:50.
-    const view = (now) => <BraceletTimeView now={now} window={TNT} endsAt={ENDS_AT} tally={null} />;
+    const view = (now) => {
+      stageClock.nowMs = now.getTime();
+      return <BraceletTimeView now={now} window={TNT} endsAt={ENDS_AT} tally={null} />;
+    };
     const { container: c, rerender } = render(view(at('18:04:40')));
     expect(phase(c)).toBe('intro');
     expect(chimeOnce).toHaveBeenCalledTimes(1);
@@ -135,6 +150,39 @@ describe('BraceletTimeView', () => {
     expect(phase(c)).toBe('steps');
     expect(step(c)).toBe('1');
     expect(chimeOnce).toHaveBeenCalledTimes(1);
+  });
+
+  it('celebrates this week\'s birthdays: the corner\'s end time and a HAPPY BIRTHDAY chip take turns', () => {
+    roster.list = [{ name: 'Ivy', month: 10, day: 2, club: 'tnt' }, { name: 'Zed', month: 10, day: 1, club: 'sparks' }];
+    // 18:07:15 and 18:07:25 are on either side of a 10 s turn.
+    const turns = ['18:07:15', '18:07:25'].map((t) => {
+      const c = wall(at(t));
+      const text = corner(c);
+      cleanup();
+      return text;
+    });
+    expect(turns.some((t) => /HAPPY BIRTHDAY/i.test(t) && /Ivy/.test(t))).toBe(true);
+    expect(turns.some((t) => /ENDS 6:30 PM/i.test(t))).toBe(true);
+    // Only this club's children; a Sparks birthday waits for the Sparks window.
+    expect(turns.join(' ')).not.toMatch(/Zed/);
+  });
+
+  it('a warning always wins the corner over a birthday or the count', () => {
+    roster.list = [{ name: 'Ivy', month: 10, day: 2, club: 'tnt' }];
+    const tally = { counts: { 'T&T': 23 }, total: 23, at: at('18:28:00') };
+    for (const t of ['18:28:30', '18:28:40', '18:29:45']) {
+      const c = wall(at(t), { tally });
+      expect(corner(c)).not.toMatch(/HAPPY BIRTHDAY|CHECKED IN/i);
+      cleanup();
+    }
+  });
+
+  it('shows the check-in count only while the corner is quiet on the step-by-step wall', () => {
+    const tally = { counts: { 'T&T': 23 }, total: 23, at: at('18:07:00') };
+    expect(corner(wall(at('18:07:15'), { tally }))).toMatch(/CHECKED IN/i);
+    cleanup();
+    setBraceletSettings({ display: 'overview' });
+    expect(corner(wall(at('18:07:15'), { tally }))).not.toMatch(/CHECKED IN/i);
   });
 
   it('plays the epic now when asked, from the steps', () => {

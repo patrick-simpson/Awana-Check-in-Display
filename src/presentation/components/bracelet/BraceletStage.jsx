@@ -17,7 +17,10 @@ import { StepArt } from './StepArt.jsx';
 export { currentEpicStep };
 
 const MOVING_FPS = 30;
-const STILL_FPS = 4;
+/** A still stage only wakes to notice the epic's next beat; the caption under
+ *  the stage reads the beat at the same rate (useEpicStep), so the two turn
+ *  over together. */
+const STILL_FPS = 15;
 
 const raf = (fn) => (typeof requestAnimationFrame === 'function'
   ? requestAnimationFrame(fn)
@@ -94,6 +97,20 @@ export function EpicStage({ startMs, still = false, className }) {
   }
   const shot = epicShot(moving);
   return <StepArt step={shot.step ?? shot.beat.kind} p={shot.p} camera={shot.camera} className={className} />;
+}
+
+const stepAt = (sec) => currentEpicStep(Number.isFinite(sec) ? sec : 0);
+
+/**
+ * The epic's current step (0-12, or null for its intro and finale), read on
+ * the stages' own clock rather than the page's one-second tick, so the
+ * caption and the rail under the epic change in the same frame as its art.
+ *
+ * @param {number} startMs
+ * @returns {number | null}
+ */
+export function useEpicStep(startMs) {
+  return useStageClock(startMs, stepAt, STILL_FPS, true);
 }
 
 export default BraceletStage;

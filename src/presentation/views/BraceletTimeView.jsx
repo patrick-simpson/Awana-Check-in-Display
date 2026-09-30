@@ -11,6 +11,9 @@ import { secondsUntil } from '../lib/schedule.js';
 import { WARNING_LABELS, WARNING_STINGER_INTENSITY, warningFor } from '../lib/gameWarning.js';
 import { playStinger } from '../lib/stingers.js';
 import { countForClub } from '../lib/tally.js';
+import { birthdaysThisWeek, listNames } from '../lib/birthdays.js';
+import { useBirthdays } from '../hooks/useBirthdays.js';
+import { chipGeometry, inkEm, measureEm } from '../lib/chip.js';
 import { FAR_WAVE_KEEP, HOUSE, WARNING_TONES, shade } from '../lib/kit.js';
 import { DUR, EASE } from '../lib/motion-tokens.js';
 import { BRACELET_STEPS, EPIC_LEAD_SEC, braceletFrame, windowSpan } from '../lib/bracelets.js';
@@ -18,7 +21,7 @@ import { getBraceletSettings, manualEpicStart, subscribeBraceletSettings } from 
 import { chimeOnce } from '../lib/chime.js';
 import { BEAD_TONES } from '../lib/braceletArt.js';
 import { StepArt } from '../components/bracelet/StepArt.jsx';
-import { BraceletStage, EpicStage, currentEpicStep } from '../components/bracelet/BraceletStage.jsx';
+import { BraceletStage, EpicStage, useEpicStep } from '../components/bracelet/BraceletStage.jsx';
 import handout1 from '../assets/bracelets/handout-1.jpg';
 import handout2 from '../assets/bracelets/handout-2.jpg';
 
@@ -37,6 +40,10 @@ import handout2 from '../assets/bracelets/handout-2.jpg';
 const TALLY_STALE_MS = 10 * 60 * 1000;
 const CORNER_U = 2.3;
 const OVERVIEW_PAGE_SEC = 20;
+/** The corner's end-time chip and a birthday chip take turns, this long each. */
+const BIRTHDAY_TURN_SEC = 10;
+/** A birthday chip never runs wider than this, so it stays right of the kicker and the rail. */
+const BIRTHDAY_MAX_U = 30;
 const COLOR_WORDS = ['black', 'red', 'white', 'blue', 'green', 'yellow', 'clear'];
 const INK_ON = { white: HOUSE.ink, yellow: HOUSE.ink, clear: '#FFFFFF' };
 
@@ -105,6 +112,19 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
   const count = tallyFresh ? countForClub(tally, club.id) : null;
   const leadSec = frame.chime && frame.nextEpicMs != null ? Math.max(1, Math.ceil((frame.nextEpicMs - nowMs) / 1000)) : null;
 
+  // This week's birthdays for the club on the wall, as on game time (still no
+  // age): in the step-by-step wall the corner's end-time chip and a hot
+  // HAPPY BIRTHDAY chip take turns. A warning or the how-to's countdown always
+  // wins the corner, and the extra chips (the birthday, the check-in count)
+  // only show while the corner is quiet, where they stay clear of the kicker
+  // and the rail; the full instructions and the handout pages fill the frame,
+  // so they get the one chip only.
+  const celebrants = birthdaysThisWeek(useBirthdays(), now).filter((b) => w.clubs.includes(b.club));
+  const names = celebrants.length > 0 ? listNames(celebrants.map((b) => b.name)) : null;
+  const quiet = auto && warning === 'none' && leadSec == null;
+  const birthdayTurn = quiet && names != null && Math.floor(nowMs / 1000 / BIRTHDAY_TURN_SEC) % 2 === 1;
+  const showCount = count != null && quiet && !birthdayTurn;
+
   let body;
   if (settings.display === 'handout1' || settings.display === 'handout2') {
     body = <Handout page={settings.display === 'handout1' ? 1 : 2} />;
@@ -154,10 +174,12 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
 
         {/* One message at a time up top-right: the pre-roll, else the window's end. */}
         <div className="pj-bracelet__corner" data-warning={warning !== 'none' ? warning : undefined}>
-          {count != null && (
+          {showCount && (
             <StepChip label="Checked in" value={count} size={`calc(${CORNER_U} * var(--u))`} plate={club.deep} />
           )}
-          {warning !== 'none' ? (
+          {birthdayTurn ? (
+            <BirthdayChip names={names} />
+          ) : warning !== 'none' ? (
             <StepChip
               label={`${club.name} craft ends ${endTimeStr}`}
               value={WARNING_LABELS[warning]}
@@ -173,6 +195,14 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
       </div>
     </ScreenFrame>
   );
+};
+
+/** The kit's one hot chip, sized so the names never push it past BIRTHDAY_MAX_U. */
+const BirthdayChip = ({ names }) => {
+  const label = 'Happy birthday';
+  const widthEm = chipGeometry(measureEm(label.toUpperCase()), measureEm(names), inkEm(names)).width;
+  const size = `min(calc(${CORNER_U} * var(--u)), calc(${(BIRTHDAY_MAX_U / widthEm).toFixed(3)} * var(--u)))`;
+  return <StepChip label={label} value={names} size={size} plate={HOUSE.hot} />;
 };
 
 /** The thirteen steps as a threaded rail: done, current, still to come. */
@@ -232,7 +262,7 @@ const StepCard = ({ index, club, stepStartMs, still }) => {
 
 const Epic = ({ startMs, nowMs, club, still }) => {
   const sec = Math.max(0, (nowMs - startMs) / 1000);
-  const i = currentEpicStep(sec);
+  const i = useEpicStep(startMs);
   // The finale's art already shouts "YOUR TURN!", so its caption only says how.
   const finale = i == null && sec >= 10;
   const title = i == null ? "Let's make a bracelet!" : BRACELET_STEPS[i].title;

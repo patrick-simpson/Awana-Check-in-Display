@@ -1361,7 +1361,22 @@ night are untouched.
   5 minutes, only if it ends before the TWO MINUTES warning
   (`EPIC_CLEAR_OF_END_SEC`), then one step at a time (`STEP_SEC` 10, from step
   1 after each epic). The handout's words are `BRACELET_STEPS` (7 bead steps,
-  then the knot steps, shown as KNOT 1-6 like the handout's page 2).
+  then the knot steps, shown as KNOT 1-6 like the handout's page 2). The
+  cadence is anchored ONCE, when the wall appears (`useState` in
+  `BraceletTimeView`): the window's start, or the moment it was opened early
+  (the opening deck's last press, a QuickNav pick). Re-based at 6:05 instead,
+  an early wall cut its running epic off, chimed again and replayed it. A
+  "play it now" drops any scheduled showing it overlaps, so a press shortly
+  before one is never restarted by it; it plays on a wall kept up past its
+  end, and never carries into a later window.
+- **The corner** is one message at a time: a warning, else the how-to's
+  countdown, else "{Club} craft time / Ends ..."; on the step-by-step wall
+  that last one takes turns (`BIRTHDAY_TURN_SEC`) with this week's HAPPY
+  BIRTHDAY chip for the club on the wall, as game time shows it (no age). The
+  birthday and the CHECKED IN count only show while the corner is quiet (no
+  warning, no countdown, step-by-step display): wider than that, the flex row
+  pushed them over the kicker and the rail. In the full instructions the corner
+  rides the bottom-right on the waves, clear of the grid.
 - **The chime** (`lib/chime.js`): a synthesized bell 10 s before each showing,
   once per showing (`chimeOnce`). Browsers allow sound only after a gesture, so
   App arms it on EVERY keydown and pointerdown; it never queues a sound on a
@@ -1370,24 +1385,39 @@ night are untouched.
 - **The controls** (`views/BraceletPanel.jsx`, B or QuickNav's "Bracelet Time
   controls"): show step by step / the full instructions / the original handout
   page 1 or 2 (`assets/bracelets/handout-*.jpg`, rendered from the church's
-  PDF); hold one step; the epic on/off and "play it now"; the chime on/off and
-  a test; animations off (still pictures, no epic). Saved on that PC in
+  PDF, fetched when the wall appears so the service worker holds them through
+  a Wi-Fi drop); hold one step; the epic on/off and "play it now" (disabled
+  until Bracelet Time is on the wall); the chime on/off and a test; animations
+  off (still pictures, no epic, no drifting wave). Saved on that PC in
   `awanaBraceletSettings.v1` until Reset (`lib/braceletSettings.js`); "play it
-  now" is never saved. B is ignored while typing in a field.
+  now" is never saved. **B and the QuickNav button exist on the bracelet
+  nights only** (`isBraceletNight`): B is every slide tool's black-screen key,
+  and on any other night it does nothing, exactly as before. B is ignored while
+  typing in a field. **While open, the panel owns the keyboard**: focus starts
+  on its first control and Tab stays inside it, B and Escape close it, and a
+  window capture-phase listener stops every key from reaching the wall's own
+  shortcuts (an Escape used to arm the slideshow's exit, a Space skipped the
+  countdown); a focused button still clicks, since that is the browser's
+  default action and not a listener.
 - **The art** is `components/bracelet/` + `lib/braceletArt.js`: pure scene
   functions of (step, progress) drawn by one requestAnimationFrame clock that
   reads `currentTime()`, so `?now=`/`&freeze=1` land on any frame, white
   cartoon glove hands, every cord and bead keylined in white so black reads on
   the black wall, the bead palette pinned to the lobby poster's `BEADS`.
   Low power (`useLowPower`: `?vr=1`, OS reduced motion, the QuickNav toggle)
-  and "animations off" draw each step's finished picture.
+  and "animations off" draw each step's finished picture. The epic's caption
+  and rail read the stage's own clock (`useEpicStep`), not the page's
+  one-second tick, so they turn over in the same frame as the art.
 - **Deploy timing:** the projector reloads itself only while idle (before
   5:30 pm on a club night), so a change to this must be live by about 5:15 pm
   on the night, or someone presses F5 on the projector.
-- Tests: `lib/bracelets.test.js`, `lib/braceletSettings.test.js`, and
+- Tests: `lib/bracelets.test.js`, `lib/braceletSettings.test.js`,
+  `lib/braceletArt.test.js`, `components/bracelet/*.test.jsx`,
+  `views/BraceletTimeView.test.jsx` (the wall's choices with the art stubbed:
+  bodies, the corner, the chime, an early start, birthdays), and
   `e2e/bracelets.spec.js` (both nights, the untouched windows and weeks, the
-  step order, the countdown, the warning, the controls), plus a Bracelet Time
-  wall in `e2e/setup-card.spec.js`.
+  step order, the countdown, the warning, the controls and their keyboard, B
+  on another night), plus a Bracelet Time wall in `e2e/setup-card.spec.js`.
 
 ## Privacy invariant — DO NOT relax
 
