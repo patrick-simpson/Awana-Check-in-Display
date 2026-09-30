@@ -524,3 +524,19 @@ describe('footer actions', () => {
     expect(screen.getByRole('button', { name: 'Reload display' })).toBeTruthy();
   });
 });
+
+describe('the sound room app card', () => {
+  it('links the Windows installer and its guide from Settings → Display', () => {
+    render(<SettingsPanel {...baseProps()} />);
+    tab('Display');
+    const download = screen.getByRole('link', { name: 'Download for Windows' });
+    expect(download.getAttribute('href')).toBe('https://github.com/patrick-simpson/Awana-Check-in-Display/releases/latest/download/Awana-Lobby-Display-Setup.exe');
+    const guide = screen.getByRole('link', { name: 'Setup guide' });
+    expect(guide.getAttribute('href')).toBe('https://github.com/patrick-simpson/Awana-Check-in-Display/blob/main/desktop/README.md');
+    // Out to a new tab: the lobby page itself never navigates away.
+    for (const a of [download, guide]) {
+      expect(a.getAttribute('target')).toBe('_blank');
+      expect(a.getAttribute('rel')).toContain('noopener');
+    }
+  });
+});

@@ -1758,7 +1758,8 @@ html, body, #root {
   flex-wrap: wrap;
 }
 .panel button,
-.panel .actions label {
+.panel .actions label,
+.panel a.panel-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1780,17 +1781,26 @@ html, body, #root {
   transition: transform var(--brand-dur-quick) var(--brand-ease-settle);
 }
 .panel button:hover,
-.panel .actions label:hover { background: var(--brand-cloud); }
+.panel .actions label:hover,
+.panel a.panel-button:hover { background: var(--brand-cloud); }
 .panel button:active,
-.panel .actions label:active { transform: translateY(2px); }
+.panel .actions label:active,
+.panel a.panel-button:active { transform: translateY(2px); }
+/* A link that looks like one of the panel's buttons (the sound room app's
+   download and guide): same pill, never underlined. */
+.panel a.panel-button { text-decoration: none; }
+.panel a.panel-button:focus-visible { outline: 3px solid var(--brand-blue); outline-offset: 2px; }
+.panel .panel-links { display: flex; flex-wrap: wrap; gap: 0.65rem; margin: 0.75rem 0; }
 
 /* The quiet ones: tools and in-field actions. */
-.panel button.ghost {
+.panel button.ghost,
+.panel a.panel-button.ghost {
   border-color: var(--panel-keyline);
   box-shadow: 0 3px 0 var(--panel-keyline);
 }
 /* Second rank: outlined in Awana blue (Save slides when Publish leads). */
-.panel button.secondary {
+.panel button.secondary,
+.panel a.panel-button.secondary {
   border-color: var(--brand-blue);
   color: var(--brand-blue-deep);
   box-shadow: 0 3px 0 var(--brand-blue);

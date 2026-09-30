@@ -677,7 +677,10 @@ over it. `src/lib/flagship.js` is the pure half (`FLAGSHIP_SLIDE`,
 Owner request 2026-09-29: a Windows app for the sound room PC that shows the
 lobby signage full screen on the lobby TV on club nights, 5:00 to 8:00 pm.
 Electron, in `desktop/` with its own `package.json` (the root `npm ci` never
-installs it). `desktop/README.md` is the volunteer's guide. The owner's calls:
+installs it). `desktop/README.md` is the volunteer's guide. The signage's Settings →
+Display → **Sound room app** card links the installer and that guide
+(`DESKTOP_APP_DOWNLOAD_URL` / `DESKTOP_APP_GUIDE_URL` in `src/lib/constants.js`;
+the installer's asset name is fixed, so the link never changes). The owner's calls:
 
 - **The live site, not a bundled copy.** It loads
   `https://patrick-simpson.github.io/Awana-Check-in-Display/index.html` in a

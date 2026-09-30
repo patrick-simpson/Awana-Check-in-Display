@@ -17,6 +17,7 @@ import { maskDisplayKey } from '../lib/displayKey.js';
 import { isPlausibleKey } from '../lib/envelope.js';
 import { loadDisplayKey } from '../lib/displayKey.js';
 import { loadPublishToken, maskPublishToken, savePublishToken } from '../lib/publishToken.js';
+import { DESKTOP_APP_DOWNLOAD_URL, DESKTOP_APP_GUIDE_URL } from '../lib/constants.js';
 import CornerTab from './brand/CornerTab.jsx';
 import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
 
@@ -1477,6 +1478,26 @@ function DisplayTab({ form, set }) {
         title="Simplified mode (panic switch)"
         hint="Strips the screen to a placeholder background and the clock while banners keep working. Also toggles live with Ctrl+Shift+X."
       />
+      </PanelCard>
+
+      <PanelCard title="Sound room app" tab="var(--brand-blue)">
+        <p className="hint">
+          <strong>Awana Lobby Display</strong> is a Windows app for the sound room PC. It puts this
+          lobby screen full screen on the lobby TV on club nights, from 5:00 to 8:00 pm, starts with
+          Windows and keeps itself up to date.
+        </p>
+        <div className="panel-links">
+          <a className="panel-button secondary" href={DESKTOP_APP_DOWNLOAD_URL} target="_blank" rel="noopener noreferrer">
+            Download for Windows
+          </a>
+          <a className="panel-button ghost" href={DESKTOP_APP_GUIDE_URL} target="_blank" rel="noopener noreferrer">
+            Setup guide
+          </a>
+        </div>
+        <p className="hint">
+          The first time, Windows may say &ldquo;Windows protected your PC&rdquo; (the app is not code
+          signed): choose <strong>More info</strong>, then <strong>Run anyway</strong>.
+        </p>
       </PanelCard>
     </>
   );
