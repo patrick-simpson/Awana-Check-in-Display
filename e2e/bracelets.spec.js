@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 
 const CASES = [
   // [now, bracelets?, phase, label]
-  ['2026-09-30T18:05:04', true, 'intro', 'T&T opens on the title card, with the chime lead'],
+  ['2026-09-30T18:05:04', true, 'steps', 'T&T opens on step 1, the chime lead in the corner only'],
   ['2026-09-30T18:05:40', true, 'epic', 'the epic how-to 10 s in'],
   ['2026-09-30T18:07:15', true, 'steps', 'one step at a time after it'],
   ['2026-09-30T18:31:50', true, 'steps', 'Sparks too'],

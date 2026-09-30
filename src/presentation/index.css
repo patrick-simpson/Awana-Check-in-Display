@@ -725,10 +725,6 @@
   margin: 0; font-size: calc(2.8 * var(--u)); line-height: 1.32; font-weight: 600;
   max-width: calc(84 * var(--u)); text-wrap: balance; color: rgb(255 255 255 / 0.92);
 }
-.pj-bracelet__card--intro {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: calc(1.4 * var(--u)); padding-bottom: calc(6 * var(--u));
-}
 .pj-bracelet__corner {
   position: absolute; z-index: 20; top: calc(3.3 * var(--u)); right: calc(3.2 * var(--u));
   display: flex; align-items: flex-start; gap: calc(1 * var(--u));

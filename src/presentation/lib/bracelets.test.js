@@ -56,9 +56,9 @@ describe('epicStarts', () => {
 });
 
 describe('braceletFrame', () => {
-  it('opens on the title card with the chime, then the epic', () => {
-    expect(braceletFrame(at('18:05:00'), ...TNT)).toMatchObject({ mode: 'intro', chime: true });
-    expect(braceletFrame(at('18:05:09'), ...TNT)).toMatchObject({ mode: 'intro', chime: true });
+  it('opens on step 1 with the chime lead (never a full-screen title card), then the epic', () => {
+    expect(braceletFrame(at('18:05:00'), ...TNT)).toMatchObject({ mode: 'steps', stepIndex: 0, chime: true });
+    expect(braceletFrame(at('18:05:09'), ...TNT)).toMatchObject({ mode: 'steps', stepIndex: 0, chime: true });
     expect(braceletFrame(at('18:05:10'), ...TNT)).toMatchObject({ mode: 'epic', chime: false, epicElapsedSec: 0 });
     expect(braceletFrame(at('18:06:39'), ...TNT)).toMatchObject({ mode: 'epic', epicElapsedSec: 89 });
   });

@@ -50,10 +50,12 @@ describe('BraceletTimeView', () => {
     roster.list = [];
   });
 
-  it('opens on the title card with the countdown to the first how-to, and chimes once', () => {
+  it('opens on step 1 with the countdown to the first how-to in the corner only, and chimes once', () => {
     const c = wall(at('18:05:02'));
-    expect(phase(c)).toBe('intro');
-    expect(c.textContent).toMatch(/Bracelet time!/i);
+    expect(phase(c)).toBe('steps');
+    expect(step(c)).toBe('1');
+    // The countdown never takes the whole screen (owner, 2026-09-30): no title card.
+    expect(c.textContent).not.toMatch(/Bracelet time!|Watch the wall/i);
     expect(corner(c)).toMatch(/BIG HOW-TO IN/i);
     expect(corner(c)).toMatch(/0:08/);
     expect(chimeOnce).toHaveBeenCalledTimes(1);
@@ -140,7 +142,7 @@ describe('BraceletTimeView', () => {
       return <BraceletTimeView now={now} window={TNT} endsAt={ENDS_AT} tally={null} />;
     };
     const { container: c, rerender } = render(view(at('18:04:40')));
-    expect(phase(c)).toBe('intro');
+    expect(phase(c)).toBe('steps');
     expect(chimeOnce).toHaveBeenCalledTimes(1);
     for (const t of ['18:04:55', '18:05:00', '18:05:05', '18:05:15', '18:06:15']) {
       rerender(view(at(t)));

@@ -64,7 +64,7 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
 
   // The cadence's anchor is fixed once, when the wall appears: the window's
   // start, or the moment it was opened early (the opening deck's last press, a
-  // QuickNav pick), so an early wall never sits on a title card for minutes
+  // QuickNav pick), so an early wall never waits minutes for its first epic
   // and is never re-based at the window's start (which cut a running epic off
   // and chimed it again). The view remounts for every window, so this is per
   // window.
@@ -134,16 +134,13 @@ export const BraceletTimeView = ({ now, window: w, endsAt, tally }) => {
     body = <StepCard index={settings.hold} club={club} stepStartMs={nowMs - ((nowMs - startMs) % 10_000)} still={still} />;
   } else if (frame.mode === 'epic') {
     body = <Epic startMs={frame.epicStartMs} nowMs={nowMs} club={club} still={still} />;
-  } else if (frame.mode === 'intro') {
-    body = <Intro club={club} leadSec={leadSec} />;
   } else {
     body = <StepCard index={frame.stepIndex} club={club} stepStartMs={frame.stepStartMs} still={still} />;
   }
 
   const bodyKey = settings.display !== 'auto' ? settings.display
     : settings.hold != null ? `hold:${settings.hold}`
-      : frame.mode === 'epic' ? `epic:${frame.epicStartMs}`
-        : frame.mode === 'intro' ? 'intro' : `step:${frame.stepStartMs}`;
+      : frame.mode === 'epic' ? `epic:${frame.epicStartMs}` : `step:${frame.stepStartMs}`;
 
   return (
     <ScreenFrame
@@ -282,16 +279,6 @@ const Epic = ({ startMs, nowMs, club, still }) => {
     </div>
   );
 };
-
-const Intro = ({ club, leadSec }) => (
-  <div className="pj-bracelet__card pj-bracelet__card--intro">
-    <Kicker size="calc(3 * var(--u))">{club.name} craft time</Kicker>
-    <Headline text="Bracelet time!" color={club.color} size="calc(10 * var(--u))" parts={{ start: 1, hold: 0.2 }} />
-    <p className="pj-body pj-bracelet__words">
-      {leadSec != null ? `Watch the wall: how to make it in ${leadSec}…` : 'Make a bracelet, one bead at a time.'}
-    </p>
-  </div>
-);
 
 /** The whole sheet at once, like the handout: the bead page, then the knot page. */
 const Overview = ({ nowMs, club }) => {

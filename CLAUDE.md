@@ -1356,8 +1356,11 @@ night are untouched.
   `data-activity="bracelets"`. `BraceletBoundary` degrades a crash to plain
   game time, never the Oops screen. After 2026-10-07 nothing matches and the
   code is inert; next season means editing the date list.
-- **The cadence is pure** (`braceletFrame`): the title card with the chime
-  lead, an EPIC how-to (`EPIC_SEC` 90) 10 s after the window opens and every
+- **The cadence is pure** (`braceletFrame`): step 1 from the window's start
+  (never a full-screen title card: owner, 2026-09-30, "the countdown shouldn't
+  take up the whole screen with the ten second warning"; the ten seconds
+  before every showing, the first included, are the corner's BIG HOW-TO IN
+  chip and the chime), an EPIC how-to (`EPIC_SEC` 90) 10 s after the window opens and every
   5 minutes, only if it ends before the TWO MINUTES warning
   (`EPIC_CLEAR_OF_END_SEC`), then one step at a time (`STEP_SEC` 10, from step
   1 after each epic). The handout's words are `BRACELET_STEPS` (7 bead steps,

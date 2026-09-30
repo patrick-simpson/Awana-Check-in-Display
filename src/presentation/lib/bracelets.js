@@ -7,7 +7,8 @@
 //   - An EPIC how-to (EPIC_SEC, all 13 steps at a child's pace) plays
 //     EPIC_LEAD_SEC after the window opens and then every EPIC_EVERY_SEC,
 //     as long as it can finish before the window ends.
-//   - A CHIME sounds EPIC_LEAD_SEC before each showing, so the room looks up.
+//   - A CHIME sounds EPIC_LEAD_SEC before each showing, so the room looks up,
+//     and the corner counts it down; the wall itself keeps showing its step.
 //   - The rest of the time the wall shows ONE step at a time, STEP_SEC each,
 //     looping; the loop starts from step 1 after every epic.
 //
@@ -91,7 +92,7 @@ export const EPIC_CLEAR_OF_END_SEC = 120;
 
 /**
  * @typedef {{
- *   mode: 'intro' | 'epic' | 'steps',
+ *   mode: 'epic' | 'steps',
  *   stepIndex: number,
  *   stepElapsedSec: number,
  *   stepStartMs: number,
@@ -152,14 +153,11 @@ export function braceletFrame(nowMs, startMs, endMs, { stepOffset = 0, manualEpi
     };
   }
 
-  // Before the very first epic: the title card that the opening chime rides on.
+  // No title card, even before the very first epic (owner, 2026-09-30: the
+  // countdown must not take the whole screen): the wall opens on step 1, and
+  // the ten seconds before every showing are the corner's countdown chip and
+  // the chime, the first one included.
   const lastEnd = starts.filter((s) => s + epicMs <= nowMs).map((s) => s + epicMs).pop();
-  if (lastEnd == null && starts.length > 0 && nowMs < starts[0] && starts[0] - nowMs <= EPIC_LEAD_SEC * 1000) {
-    return {
-      mode: 'intro', stepIndex: 0, stepElapsedSec: 0, stepStartMs: nowMs, epicStartMs: null, epicElapsedSec: 0,
-      chime, nextEpicMs: next, cycle: 'intro',
-    };
-  }
 
   const loopFrom = lastEnd ?? startMs;
   const elapsed = Math.max(0, (nowMs - loopFrom) / 1000);
