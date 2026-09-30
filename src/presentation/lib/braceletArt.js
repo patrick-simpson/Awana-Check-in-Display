@@ -1538,10 +1538,12 @@ export function stepProgress(stepIndex, secondsIntoStep) {
 /**
  * The picture a still stage shows for step i (low power, animations off,
  * the overview): the finished step, or, where the step is a move, its key
- * frame with the guide arrow up: knot 1's hand going over the other one,
- * knot 4's finger coming out, knot 5's end in the tunnel.
+ * frame with the guide arrow up: knot 1's X just made (the left end over
+ * the right, the fists apart; halfway across, at 0.7, the two fists were one
+ * clump over the crossing), knot 4's finger coming out, knot 5's end in the
+ * tunnel.
  */
-const STILL_P = /** @type {Readonly<Record<number, number>>} */ (Object.freeze({ 7: 0.7, 10: 0.62, 11: 0.34 }));
+const STILL_P = /** @type {Readonly<Record<number, number>>} */ (Object.freeze({ 7: 0.87, 10: 0.62, 11: 0.34 }));
 /** @param {number} stepIndex */
 export const stillP = (stepIndex) => STILL_P[stepOf(stepIndex)] ?? 1;
 

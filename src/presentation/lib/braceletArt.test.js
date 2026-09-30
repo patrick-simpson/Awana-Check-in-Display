@@ -136,6 +136,11 @@ describe('sceneFor', () => {
     // Knot 1, knot 4 and knot 5 are moves: their stills carry the arrow.
     for (const i of [7, 10, 11]) expect(sceneFor(i, stillP(i)).some((it) => it.kind === 'arrow'), `step ${i + 1}`).toBe(true);
     expect(STEPS.filter((i) => stillP(i) < 1)).toEqual([7, 10, 11]);
+    // Knot 1's still shows the X made, the two fists apart, the arrow at full strength.
+    const k1 = sceneFor(7, stillP(7));
+    expect(k1.find((it) => it.kind === 'arrow').o).toBe(1);
+    const [a, b] = k1.filter((it) => it.kind === 'glove').map(itemBox);
+    expect(a.x1 < b.x0 || b.x1 < a.x0 || a.y1 < b.y0 || b.y1 < a.y0).toBe(true);
   });
 
   it('treats a missing p as the finished picture and clamps the step', () => {

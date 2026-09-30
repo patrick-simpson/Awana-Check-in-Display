@@ -1500,8 +1500,9 @@ night are untouched.
   finger slides in from inside the stage (`FINGER_SLIDE`, pinned by a test). Low power (`useLowPower`: `?vr=1`, OS
   reduced motion, the QuickNav toggle), "animations off" and the overview
   draw each step's still (`stillP`): its finished picture, except knot
-  steps 1, 4 and 5, which stop mid-move with their arrow up (the left hand
-  over the right, the finger half out, the end in the tunnel), since their
+  steps 1, 4 and 5, which stop mid-move with their arrow up (the X just
+  made, the left end over the right and the fists apart, the finger half
+  out, the end in the tunnel), since their
   finished pictures show no direction. The loop frames each step with its
   own camera (`stepFrame(i, p)`, look-at keys through the epic's clamp): a
   bead step a little closer on the whole row, then in on the new bead and
