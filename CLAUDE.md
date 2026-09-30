@@ -1186,14 +1186,15 @@ as they are. The projector is a later, separate change.
   every token and every `linear()` string to `PRESS` / `releaseEasing()`. The
   kit checkbox's check springs in and goes out on the exit curve: any
   overshoot past 0 is a negative scale, a mirrored check.
-- **Panels enter, and never exit.** Settings, the slide editor, the debug
-  panel (`panel-enter`) and the first-run card (`setup-card-enter`) rise a
-  little stretched and spring home on the same easing. Closing stays an
-  instant unmount: the first-run card must leave in the commit that mounts a
-  name (`setup-card.events.spec.js`), the visual suite closes the debug panel
-  under a paused clock, the Settings / editor / debug hand-offs happen in one
-  commit (an exit would stack two scrims), and `settingsOpen` is the
-  self-updater's busy flag.
+- **Panels enter, and never exit.** Settings, the slide editor and the debug
+  panel (`panel-enter`) rise a little stretched and spring home on the same
+  easing. Closing stays an instant unmount: the visual suite closes the debug
+  panel under a paused clock, the Settings / editor / debug hand-offs happen
+  in one commit (an exit would stack two scrims), and `settingsOpen` is the
+  self-updater's busy flag. The first-run card has no motion of its own at
+  all (only its buttons' press): it must be there, whole, on the very first
+  frame (`e2e/setup-card.spec.js` counts its animations) and leave in the
+  commit that mounts a name (`setup-card.events.spec.js`).
 - **Both kill switches keep today's flat, instant 2px sink.** The blanket rule
   stops the spring but not the squash, so every press rule has a `scale: none`
   twin prefixed `.zero-animation-mode` (one class deeper, so it always wins),

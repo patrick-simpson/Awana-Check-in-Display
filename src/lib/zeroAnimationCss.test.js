@@ -186,7 +186,7 @@ describe('the soft squish\'s presses stop in both kill switches (app.css)', () =
     const moved = all.filter((r) => valueOf(r.body, 'transform-origin') && selectorsOf(r).some((sel) => turned.test(subject(sel))));
     expect(moved.map((r) => r.selector)).toEqual([]);
     const src = css.replace(/\/\*[\s\S]*?\*\//g, '');
-    for (const name of ['panel-enter', 'setup-card-enter']) {
+    for (const name of ['panel-enter']) {
       const block = src.match(new RegExp(`@keyframes ${name}\\s*\\{([\\s\\S]*?\\})\\s*\\}`))?.[1];
       expect(block, name).toBeDefined();
       expect(block).not.toMatch(/(^|[;{\s])transform\s*:/);
