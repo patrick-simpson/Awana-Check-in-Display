@@ -205,8 +205,19 @@ async function showWall(page, { now, coming = false }) {
   await page.evaluate(() => document.fonts.ready);
   if (coming) {
     await expect(page.locator('[data-slide="goodnight"]')).toBeVisible();
-    await page.keyboard.press('Space');
-    await expect(page.locator('.pj-chip-row .pj-chip')).toHaveCount(5);
+    // The slideshow starts listening for keys a moment after its first slide is
+    // on screen (its effects run after the first paint), so a press sent the
+    // instant the slide appears can be lost, as countdown-modes.spec.js found.
+    // Press until the next slide is up; the closing deck holds its last slide,
+    // so an extra press is harmless.
+    const chips = page.locator('.pj-chip-row .pj-chip');
+    await expect
+      .poll(async () => {
+        if ((await chips.count()) === 0) await page.keyboard.press('Space');
+        return chips.count();
+      }, { timeout: 10_000, intervals: [250] })
+      .toBeGreaterThan(0);
+    await expect(chips).toHaveCount(5);
   }
 }
 
