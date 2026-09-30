@@ -1337,6 +1337,69 @@ type, the club colours and marks, the stepped chip and the edge waves.
   to 0.593em), clipped top and bottom only so the roll never shaves a
   figure, in a 1.06em line (the mockup's 1.12em at Galindo's size).
 
+### The projector on phones and tablets (touch)
+
+Owner, 2026-09-30: "I want this website to fully work on mobile. I tested it
+out and couldn't push B." The page was built for the projector PC, a mouse and
+a keyboard: the menu opened on hover, the Bracelet Time controls on B, and a
+finger has neither. The projector PC runs this page every club night, so the
+rule for all of it is that **the desktop does not change at all**.
+
+- **One question, the primary pointer's, never the width.**
+  `lib/touch.js` has `TOUCH_QUERY` (`(hover: none) and (pointer: coarse)`)
+  and `PORTRAIT_QUERY` (the same plus `(orientation: portrait)`), their hooks
+  `useTouch()` / `usePortrait()` (they follow a tablet turning, or a mouse
+  plugged into it), and App stamps `html[data-touch]` / `[data-portrait]` for
+  the e2e suites. A phone in landscape is as wide as a laptop and the PC's
+  window can be any size, so nothing here may key off the window's size.
+  The CSS asks the same two strings in `@media` blocks at the very END of
+  `index.css`; `lib/touch.test.js` pins the strings to the file and fails if
+  anything but those blocks follows the first one. A touch rule overrides a
+  rule above it or sets a custom property that defaults to today's value
+  (so the desktop computes the same style), never edits one. The proof is
+  the desktop suites, unchanged (countdown-modes, bracelets, setup-card, the
+  countdown visual baselines), and a pixel comparison with main's build.
+- **The menu (`views/TouchMenu.jsx`) replaces QuickNav on touch**, it is not
+  QuickNav made visible: App renders one or the other, so a touch page has no
+  hover panel at all. (Its buttons stood at opacity 0 over the top 70% of a
+  phone, and an ordinary tap on the timer armed the chimes or jumped the
+  wall.) A 44px button top-right opens a full-screen sheet with the same
+  items: `QuickNavItems` in `views/QuickNav.jsx`, whose `touch` branch has its
+  own `pj-sheet__*` markup (rows 48px, pills and fields 44px, inputs 16px or
+  iOS zooms the page, each field a real `<form>` with `enterKeyHint` so the
+  phone's Go key submits, never capitalised or autocorrected) and writes the
+  tooltips out as hints. **The desktop branch is the old markup verbatim**:
+  keep editing both when the menu grows an item. A pick that changes the wall
+  closes the sheet; settings leave it open. The sheet owns the keyboard like
+  the bracelet panel (a key typed in it stops at the sheet, any other key is
+  stopped in the window's capture phase, Escape closes it), because a
+  tablet's keyboard would otherwise skip the countdown from a passphrase
+  field. The clock-drift pill rides beside the button, and a tap reads out
+  the fix its tooltip gives on the PC. The wall's top-right pieces (the
+  pledge clock, the CHECKED IN chips) stop short of the button
+  (`--pj-menu-room`).
+- **Bracelet Time by tap.** On a bracelet night the sheet has a "Bracelet
+  Time controls" row (no "(B)"), exactly where QuickNav has its button, and it
+  opens the same `BraceletPanel`, which the touch block turns into a bottom
+  sheet under a 56px strip of the dimmed wall (a tap there closes it: a phone
+  snaps a tap a few pixels off the sheet onto the sheet, so a thinner strip
+  never closed it), its own scroll, `100dvh`-safe, safe-area insets. Its words
+  are touch words (tap ✕ or outside, tap once to arm the sound, the held step
+  named in words since its tooltip cannot be read, "this device"), and it
+  keeps owning the keyboard exactly as on the PC.
+- **Sound needs a tap.** WebKit plays a page's audio only from a context made
+  or resumed inside a gesture, so on touch App wakes the countdown chimes'
+  context on every tap (`unlockStingers`, only once they are armed), and the
+  sheet's switch wakes it in the tap that arms them.
+- Tests: `lib/touch.test.js`, `views/TouchMenu.test.jsx`,
+  `views/BraceletPanel.test.jsx`, `lib/stingers.test.js`, and
+  `e2e/touch.spec.js`, which runs Chromium's own touch emulation of the
+  iPhone 14, Pixel 7 and iPad Pro 11 descriptors (their viewports are the
+  area under the browser's toolbars, 390x664 on an iPhone 14, which is what a
+  page really gets), both ways up: the menu by tap and every control in it at
+  least 44px, its picks, the switches, taps on the wall that never reach a
+  hidden control, and tonight's Bracelet Time controls by tap.
+
 ### Bracelet Time (the bracelet nights, fall 2026)
 
 Owner request 2026-09-30: on the two bracelet club nights the projector's

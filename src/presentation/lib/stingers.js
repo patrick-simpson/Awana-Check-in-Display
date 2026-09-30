@@ -49,6 +49,29 @@ function audioCtx() {
 }
 
 /**
+ * Wake the chimes' audio from inside a tap. A phone or tablet (WebKit, and
+ * Chrome on Android) lets a page make sound only when its AudioContext was
+ * created or resumed inside a user gesture, and the chimes play from a clock
+ * tick, so without this they never sounded there. Called by the touch menu's
+ * "Countdown sounds" switch and by every tap on a touch page (App.jsx); a
+ * silent one-sample buffer primes Safari. Nothing happens while the chimes are
+ * off: no context is made for a feature nobody armed.
+ */
+export function unlockStingers() {
+  if (!enabled || typeof window === 'undefined') return;
+  try {
+    const ac = audioCtx();
+    if (!ac) return;
+    const src = ac.createBufferSource();
+    src.buffer = ac.createBuffer(1, 1, 22050);
+    src.connect(ac.destination);
+    src.start(0);
+  } catch {
+    /* audio unavailable */
+  }
+}
+
+/**
  * A bright two-note rising chime. `intensity` 0–1 scales loudness and
  * adds a third note for the final milestone.
  */

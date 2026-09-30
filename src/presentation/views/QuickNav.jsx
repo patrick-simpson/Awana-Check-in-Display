@@ -3,7 +3,7 @@ import { CLUBS } from '../config.js';
 import { stateKey, stateForWindow, windowsForDate } from '../lib/schedule.js';
 import { localDateKey } from '../lib/shared-config.js';
 import { addSkipDate, overlayEntries, removeSkipDate, subscribeOverlay } from '../lib/scheduleOverlay.js';
-import { setStingersEnabled, stingersEnabled, subscribeStingers } from '../lib/stingers.js';
+import { setStingersEnabled, stingersEnabled, subscribeStingers, unlockStingers } from '../lib/stingers.js';
 import { clearBirthdays, useBirthdays } from '../hooks/useBirthdays.js';
 import { useEffectiveSchedule } from '../hooks/useEffectiveSchedule.js';
 import { lowPowerPreference, setLowPowerPreference, useLowPower } from '../hooks/useLowPower.js';
@@ -21,11 +21,14 @@ import { GlassPanel } from '../components/GlassPanel.jsx';
  * anywhere revealed it. Windows listed are the ones in effect on
  * `now`'s date (special dates can replace the normal table), and the
  * active probe uses the app clock so it is honest under `?now=` QA.
+ *
+ * This is the projector PC's menu (a mouse and a keyboard). A phone or tablet
+ * cannot hover, so there App renders TouchMenu instead, a visible button and
+ * a full-screen sheet holding these same items (`QuickNavItems` with
+ * `touch`); nothing of this hover panel is on a touch page at all, so its
+ * invisible buttons can never catch a tap meant for the wall.
  */
 export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketStatus, onBracelets }) => {
-  const activeKey = stateKey(state);
-  const cfg = useEffectiveSchedule();
-  const windows = windowsForDate(now, cfg) ?? cfg.windows;
   const skewMs = useClockDrift();
 
   return (
@@ -36,20 +39,61 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketSta
         <div
           className="absolute top-3 right-3 px-3 py-1 rounded-full text-[0.65rem] uppercase text-[var(--brand-sun)] bg-[var(--brand-sun)]/15 border border-[var(--brand-sun)]/45"
           style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.1em' }}
-          title="This device's clock disagrees with the web server — the countdown and schedule may be wrong. Fix the system clock / enable network time."
+          title={CLOCK_DRIFT_HELP}
         >
           ⚠ clock off by ~{Math.round(Math.abs(skewMs) / 60000)} min
         </div>
       )}
       <div className="opacity-0 group-hover/nav:opacity-100 transition-opacity duration-300">
         <GlassPanel className="p-2 flex flex-col gap-1 max-h-[92vh] overflow-y-auto">
+          <QuickNavItems
+            now={now}
+            state={state}
+            isOverride={isOverride}
+            onSelect={onSelect}
+            onResume={onResume}
+            socketStatus={socketStatus}
+            onBracelets={onBracelets}
+          />
+        </GlassPanel>
+      </div>
+    </div>
+  );
+};
+
+/** What the clock-drift pill means and how to fix it (a tooltip on the PC, tap-to-read on touch). */
+export const CLOCK_DRIFT_HELP =
+  "This device's clock disagrees with the web server — the countdown and schedule may be wrong. Fix the system clock / enable network time.";
+
+/**
+ * The menu's items: the window jumps, Resume Schedule, the Bracelet Time
+ * controls (on a bracelet night only), Skip Weeks, the birthday roster, the
+ * two switches and Display Settings. The hover panel above renders them as
+ * they always were; `touch` renders the same items for the touch sheet
+ * (TouchMenu.jsx): full-width rows at least 44px tall, the tooltips written
+ * out as visible hints, 16px inputs (iOS zooms the page on a smaller one) in
+ * real forms, so a phone keyboard's Go key submits. `displayOpen` opens
+ * Display Settings from the start (the setup note's shortcut).
+ */
+export const QuickNavItems = ({ now, state, isOverride, onSelect, onResume, socketStatus, onBracelets, touch = false, displayOpen = false }) => {
+  const activeKey = stateKey(state);
+  const cfg = useEffectiveSchedule();
+  const windows = windowsForDate(now, cfg) ?? cfg.windows;
+
+  if (touch) {
+    return (
+      <>
+        <section className="pj-sheet__group pj-sheet__group--first" aria-label="Show on the wall">
+          <h3 className="pj-sheet__label">Show on the wall</h3>
           <NavButton
+            touch
             label="Main Countdown"
             active={activeKey === 'countdown'}
             onClick={() => onSelect({ type: 'countdown' })}
           />
           {windows.map((window, index) => (
             <NavButton
+              touch
               key={window.title}
               label={window.title}
               dotColor={window.kind === 'game' ? CLUBS[window.clubs[0]].color : undefined}
@@ -58,39 +102,84 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketSta
             />
           ))}
           {isOverride && (
-            <button
-              onClick={onResume}
-              className="mt-2 px-3 py-1.5 text-xs uppercase text-[var(--brand-tnt)] hover:bg-[var(--brand-tnt)]/15 rounded-lg transition-all border border-[var(--brand-tnt)]/40 text-center"
-              style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.12em' }}
-            >
+            <button type="button" onClick={onResume} className="pj-sheet__action pj-sheet__action--go">
               Resume Schedule
             </button>
           )}
-          {onBracelets && (
-            <button
-              onClick={onBracelets}
-              className="mt-2 px-3 py-1.5 text-xs uppercase text-[var(--brand-sun)] hover:bg-[var(--brand-sun)]/15 rounded-lg transition-all border border-[var(--brand-sun)]/40 text-right"
-              style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.12em' }}
-            >
-              Bracelet Time controls (B)
+          {isOverride && <p className="pj-sheet__hint">A pick holds for 15 minutes, then the schedule takes over again.</p>}
+        </section>
+        {onBracelets && (
+          <section className="pj-sheet__group" aria-label="Bracelet Time">
+            <button type="button" onClick={onBracelets} className="pj-sheet__action pj-sheet__action--sun">
+              Bracelet Time controls
             </button>
-          )}
-          <SkipWeeks now={now} cfg={cfg} />
-          <BirthdayStatus />
-          <TogglesRow />
-          <DisplaySettings socketStatus={socketStatus} />
-          <p
-            className="pj-panel-note mt-2 pt-2 border-t border-white/10 px-3 pb-1 text-[0.62rem] text-white/45 text-right leading-relaxed"
-          >
-            Awana® is a trademark of Awana Clubs International.
-            <br />
-            Not affiliated or endorsed by Awana Clubs International.
-          </p>
-        </GlassPanel>
-      </div>
-    </div>
+            <p className="pj-sheet__hint">Hold a step, show the full instructions or the handout, the epic and the chime.</p>
+          </section>
+        )}
+        <SkipWeeks now={now} cfg={cfg} touch />
+        <BirthdayStatus touch />
+        <TogglesRow touch />
+        <DisplaySettings socketStatus={socketStatus} touch initialOpen={displayOpen} />
+        <p className="pj-panel-note pj-sheet__fine">
+          Awana® is a trademark of Awana Clubs International.
+          <br />
+          Not affiliated or endorsed by Awana Clubs International.
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <NavButton
+        label="Main Countdown"
+        active={activeKey === 'countdown'}
+        onClick={() => onSelect({ type: 'countdown' })}
+      />
+      {windows.map((window, index) => (
+        <NavButton
+          key={window.title}
+          label={window.title}
+          dotColor={window.kind === 'game' ? CLUBS[window.clubs[0]].color : undefined}
+          active={activeKey === stateKey(stateForWindow(window, now))}
+          onClick={() => onSelect({ type: 'window', index })}
+        />
+      ))}
+      {isOverride && (
+        <button
+          onClick={onResume}
+          className="mt-2 px-3 py-1.5 text-xs uppercase text-[var(--brand-tnt)] hover:bg-[var(--brand-tnt)]/15 rounded-lg transition-all border border-[var(--brand-tnt)]/40 text-center"
+          style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.12em' }}
+        >
+          Resume Schedule
+        </button>
+      )}
+      {onBracelets && (
+        <button
+          onClick={onBracelets}
+          className="mt-2 px-3 py-1.5 text-xs uppercase text-[var(--brand-sun)] hover:bg-[var(--brand-sun)]/15 rounded-lg transition-all border border-[var(--brand-sun)]/40 text-right"
+          style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.12em' }}
+        >
+          Bracelet Time controls (B)
+        </button>
+      )}
+      <SkipWeeks now={now} cfg={cfg} />
+      <BirthdayStatus />
+      <TogglesRow />
+      <DisplaySettings socketStatus={socketStatus} />
+      <p
+        className="pj-panel-note mt-2 pt-2 border-t border-white/10 px-3 pb-1 text-[0.62rem] text-white/45 text-right leading-relaxed"
+      >
+        Awana® is a trademark of Awana Clubs International.
+        <br />
+        Not affiliated or endorsed by Awana Clubs International.
+      </p>
+    </>
   );
 };
+
+/** A switch-style state marker for a touch row: the dot the hover panel shows, grown into a track. */
+const Switch = ({ on }) => <span className={`pj-sheet__switch${on ? ' is-on' : ''}`} aria-hidden="true" />;
 
 /**
  * Operator "skip weeks" editor (device-local overlay over the shared
@@ -98,7 +187,7 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketSta
  * baked into shared/schedule.json show read-only; reshaped window
  * tables still require editing the JSON (validated in CI).
  */
-const SkipWeeks = ({ now, cfg }) => {
+const SkipWeeks = ({ now, cfg, touch = false }) => {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState('');
   const [error, setError] = useState(null);
@@ -115,6 +204,60 @@ const SkipWeeks = ({ now, cfg }) => {
     setError(err);
     if (!err) setDate('');
   };
+
+  if (touch) {
+    return (
+      <section className="pj-sheet__group" aria-label="Skip weeks">
+        <button type="button" onClick={() => setOpen((v) => !v)} className="pj-sheet__row" aria-expanded={open}>
+          <span className="pj-sheet__grow">Skip Weeks</span>
+          <span aria-hidden="true">{open ? '▴' : '📅'}</span>
+        </button>
+        {open && (
+          <div className="pj-sheet__fold">
+            {upcoming.length > 0 && (
+              <ul className="pj-sheet__list">
+                {upcoming.map(([key, val]) => (
+                  <li key={key} className="pj-sheet__item">
+                    <span className="pj-sheet__grow">
+                      {key} — no club{val.label ? ` (${val.label})` : ''}
+                    </span>
+                    {key in overlay ? (
+                      <button type="button" onClick={() => removeSkipDate(key)} className="pj-sheet__pill pj-sheet__pill--hot">
+                        Undo
+                      </button>
+                    ) : (
+                      <span className="pj-sheet__hint">shared: edit shared/schedule.json to change</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <form
+              className="pj-sheet__field"
+              onSubmit={(e) => {
+                e.preventDefault();
+                add();
+              }}
+            >
+              <input
+                type="date"
+                className="pj-sheet__input"
+                value={date}
+                onChange={(e) => { setDate(e.target.value); setError(null); }}
+                aria-label="Night with no club"
+              />
+              <button type="submit" className="pj-sheet__pill pj-sheet__pill--sun">
+                Mark “no club”
+              </button>
+            </form>
+            <p className="pj-sheet__hint">
+              {error ? error : 'This device only · shared/schedule.json is the master copy'}
+            </p>
+          </div>
+        )}
+      </section>
+    );
+  }
 
   const inputStyle =
     'px-2 py-1 text-xs rounded bg-white/10 border border-white/15 text-white outline-none focus:border-white/40 w-40';
@@ -180,10 +323,39 @@ const SkipWeeks = ({ now, cfg }) => {
   );
 };
 
+const LOW_POWER_HINT = 'Hides particle / weather layers for weak hardware';
+const SOUNDS_HINT = 'Chimes at 1hr/30/10/5/1min — off by default';
+
 /** Low-power mode + countdown-stinger switches. */
-const TogglesRow = () => {
+const TogglesRow = ({ touch = false }) => {
   useLowPower(); // subscribe so the row re-renders when either side flips
   const stingers = useSyncExternalStore(subscribeStingers, stingersEnabled, stingersEnabled);
+
+  if (touch) {
+    return (
+      <section className="pj-sheet__group" aria-label="Switches">
+        <ToggleButton
+          touch
+          label="Low power mode"
+          hint={LOW_POWER_HINT}
+          on={lowPowerPreference()}
+          onToggle={() => setLowPowerPreference(!lowPowerPreference())}
+        />
+        <ToggleButton
+          touch
+          label="Countdown sounds"
+          hint={SOUNDS_HINT}
+          on={stingers}
+          onToggle={() => {
+            // A phone lets a page make sound only from inside a tap, so the
+            // chimes' audio is woken here, by the tap that arms them.
+            setStingersEnabled(!stingers);
+            if (!stingers) unlockStingers();
+          }}
+        />
+      </section>
+    );
+  }
 
   return (
     <div
@@ -192,13 +364,13 @@ const TogglesRow = () => {
     >
       <ToggleButton
         label="Low power mode"
-        hint="Hides particle / weather layers for weak hardware"
+        hint={LOW_POWER_HINT}
         on={lowPowerPreference()}
         onToggle={() => setLowPowerPreference(!lowPowerPreference())}
       />
       <ToggleButton
         label="Countdown sounds"
-        hint="Chimes at 1hr/30/10/5/1min — off by default"
+        hint={SOUNDS_HINT}
         on={stingers}
         onToggle={() => setStingersEnabled(!stingers)}
       />
@@ -206,7 +378,15 @@ const TogglesRow = () => {
   );
 };
 
-const ToggleButton = ({ label, hint, on, onToggle }) => (
+const ToggleButton = ({ label, hint, on, onToggle, touch = false }) => (touch ? (
+  <button type="button" onClick={onToggle} className="pj-sheet__toggle" role="switch" aria-checked={on}>
+    <span className="pj-sheet__grow">
+      <span className="pj-sheet__toggle-label">{label}</span>
+      <span className="pj-sheet__hint">{hint}</span>
+    </span>
+    <Switch on={on} />
+  </button>
+) : (
   <button
     onClick={onToggle}
     title={hint}
@@ -220,7 +400,7 @@ const ToggleButton = ({ label, hint, on, onToggle }) => (
       className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${on ? 'bg-[var(--brand-tnt)]' : 'bg-white/25'}`}
     />
   </button>
-);
+));
 
 /**
  * Birthday roster status. The roster fills itself from the print
@@ -230,7 +410,7 @@ const ToggleButton = ({ label, hint, on, onToggle }) => (
  * CSV upload this replaced is gone on purpose: two sources meant a
  * stale spreadsheet could contradict the live one.
  */
-const BirthdayStatus = () => {
+const BirthdayStatus = ({ touch = false }) => {
   const roster = useBirthdays();
   const [notice, setNotice] = useState(null);
 
@@ -239,6 +419,34 @@ const BirthdayStatus = () => {
     const timer = setTimeout(() => setNotice(null), 6000);
     return () => clearTimeout(timer);
   }, [notice]);
+
+  const clear = () => {
+    clearBirthdays();
+    setNotice({ text: 'Cleared — refills on the next broadcast', ok: true });
+  };
+
+  if (touch) {
+    return (
+      <section className="pj-sheet__group" aria-label="Birthdays">
+        <div className="pj-sheet__item pj-sheet__item--status">
+          <span className="pj-sheet__grow">
+            {roster.length > 0 ? `${roster.length} birthdays · synced live` : 'Birthdays sync from check-in'}
+          </span>
+          <span aria-hidden="true">🎂</span>
+          {roster.length > 0 && (
+            <button type="button" onClick={clear} className="pj-sheet__pill pj-sheet__pill--hot">
+              Clear
+            </button>
+          )}
+        </div>
+        {notice && (
+          <p className={`pj-sheet__note ${notice.ok ? 'is-ok' : 'is-warn'}`} role="status">
+            {notice.text}
+          </p>
+        )}
+      </section>
+    );
+  }
 
   return (
     <div
@@ -252,10 +460,7 @@ const BirthdayStatus = () => {
       {roster.length > 0 && (
         <div className="px-3 flex items-center justify-end gap-2 text-[0.65rem] uppercase text-white/45">
           <button
-            onClick={() => {
-              clearBirthdays();
-              setNotice({ text: 'Cleared — refills on the next broadcast', ok: true });
-            }}
+            onClick={clear}
             className="text-[var(--brand-hot)]/80 hover:text-[var(--brand-hot)] transition-colors"
             style={{ fontWeight: 700 }}
           >
@@ -283,9 +488,9 @@ const BirthdayStatus = () => {
  * Settings panel writes — and the sanctioned socket picks changes up
  * immediately (no reload needed).
  */
-const DisplaySettings = ({ socketStatus }) => {
+const DisplaySettings = ({ socketStatus, touch = false, initialOpen = false }) => {
   const { config, updateConfig } = useConfig();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
   // The by-hand fold opens itself when it IS the fix: no Pusher key yet.
   const [advanced, setAdvanced] = useState(() => socketStatus === 'off');
   const [key, setKey] = useState(config.pusherAppKey || '');
@@ -351,11 +556,6 @@ const DisplaySettings = ({ socketStatus }) => {
   const tone = loginNote ? loginTone : lineTone;
   const toneClass = tone === 'ok' ? 'text-[var(--brand-tnt)]' : tone === 'bad' ? 'text-[var(--brand-hot)]' : 'text-white/60';
 
-  const inputStyle =
-    'px-2 py-1 text-xs rounded bg-white/10 border border-white/15 text-white placeholder-white/40 outline-none focus:border-white/40 w-40 disabled:opacity-40';
-  const pillGrey = 'px-3 py-1 text-xs uppercase text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-all border border-white/15';
-  const pillGreen = 'px-3 py-1 text-xs uppercase text-[var(--brand-tnt)] hover:bg-[var(--brand-tnt)]/15 rounded-lg transition-all border border-[var(--brand-tnt)]/40 disabled:opacity-40';
-
   const saveKey = () => {
     const next = keyDraft.trim();
     if (!isPlausibleKey(next)) return;
@@ -363,6 +563,154 @@ const DisplaySettings = ({ socketStatus }) => {
     setKeyNote(ok ? 'Saved — applies immediately' : 'Could not save (storage blocked)');
     if (ok) { setKeyDraft(''); setEditingKey(false); }
   };
+  const confirmLogout = () => {
+    if (window.confirm('Log this screen out? It forgets the display key and publish token too.')) { logout(); setLoginNote(''); }
+  };
+  const confirmRemoveKey = () => {
+    if (window.confirm('Remove the display key from THIS screen? Names and birthdays stop here until it is set again.')) setDisplayKey('');
+  };
+
+  if (touch) {
+    // Typed on a phone keyboard: never capitalised or "corrected", and each
+    // field is its own form, so the keyboard's Go / Done key submits it.
+    const typed = { spellCheck: false, autoComplete: 'off', autoCapitalize: 'none', autoCorrect: 'off' };
+    const toneTouch = tone === 'ok' ? 'is-ok' : tone === 'bad' ? 'is-bad' : '';
+    return (
+      <section className="pj-sheet__group" aria-label="Display settings">
+        <button type="button" onClick={() => setOpen((v) => !v)} className="pj-sheet__row" aria-expanded={open}>
+          <span className="pj-sheet__grow">Display Settings</span>
+          <span aria-hidden="true">{open ? '▴' : '⚙️'}</span>
+        </button>
+        {open && (
+          <div className="pj-sheet__fold">
+            <h4 className="pj-sheet__label">Display login</h4>
+            {loginStatus !== 'logged-in' ? (
+              <form
+                className="pj-sheet__field"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (canLogin) doLogin();
+                }}
+              >
+                <input
+                  className="pj-sheet__input"
+                  type={reveal ? 'text' : 'password'}
+                  value={passphrase}
+                  onChange={(e) => setPassphrase(e.target.value)}
+                  placeholder="display passphrase"
+                  enterKeyHint="go"
+                  disabled={!secure || busy}
+                  aria-label="Display passphrase"
+                  {...typed}
+                />
+                <button type="button" onClick={() => setReveal((v) => !v)} aria-pressed={reveal} className="pj-sheet__pill">
+                  {reveal ? 'Hide' : 'Show'}
+                </button>
+                <button type="submit" disabled={!canLogin} className="pj-sheet__pill pj-sheet__pill--go">
+                  Log in
+                </button>
+              </form>
+            ) : (
+              <button type="button" onClick={confirmLogout} className="pj-sheet__pill">
+                Log out
+              </button>
+            )}
+            <p className={`pj-sheet__note ${toneTouch}`} role="status">
+              {loginNote || loginLine}
+            </p>
+
+            <button type="button" onClick={() => setAdvanced((v) => !v)} className="pj-sheet__row pj-sheet__row--quiet" aria-expanded={advanced}>
+              <span className="pj-sheet__grow">{advanced ? 'Advanced' : 'Advanced (paste keys by hand)'}</span>
+              <span aria-hidden="true">{advanced ? '▴' : '▾'}</span>
+            </button>
+            {advanced && (
+              <>
+                <form
+                  className="pj-sheet__fields"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    save();
+                  }}
+                >
+                  <h4 className="pj-sheet__label">Live data key (Pusher, public)</h4>
+                  <input
+                    className="pj-sheet__input"
+                    value={key}
+                    onChange={(e) => setKey(e.target.value)}
+                    placeholder="public key — blank = off"
+                    enterKeyHint="next"
+                    aria-label="Pusher app key"
+                    {...typed}
+                  />
+                  <input
+                    className="pj-sheet__input"
+                    value={cluster}
+                    onChange={(e) => setCluster(e.target.value)}
+                    placeholder="cluster (us2)"
+                    enterKeyHint="done"
+                    aria-label="Pusher cluster"
+                    {...typed}
+                  />
+                  <button type="submit" className="pj-sheet__pill pj-sheet__pill--go">
+                    Save
+                  </button>
+                  <p className="pj-sheet__hint">
+                    {saved ? 'Saved — applies immediately' : 'Powers live counts + birthday sync'}
+                  </p>
+                </form>
+
+                <h4 className="pj-sheet__label">Display key (names + birthdays)</h4>
+                {!secure ? (
+                  <p className="pj-sheet__note is-bad">
+                    Insecure page — encrypted names cannot be read here. Open this page over https://
+                  </p>
+                ) : displayKey && !editingKey ? (
+                  <div className="pj-sheet__field">
+                    <span className="pj-sheet__mono">{maskDisplayKey(displayKey)}</span>
+                    <button type="button" onClick={() => setEditingKey(true)} className="pj-sheet__pill">Replace</button>
+                    <button type="button" onClick={confirmRemoveKey} className="pj-sheet__pill">Remove</button>
+                  </div>
+                ) : (
+                  <form
+                    className="pj-sheet__field"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      saveKey();
+                    }}
+                  >
+                    <input
+                      className="pj-sheet__input"
+                      type="password"
+                      value={keyDraft}
+                      onChange={(e) => setKeyDraft(e.target.value)}
+                      placeholder="paste the 44-character key"
+                      enterKeyHint="done"
+                      aria-label="Display key"
+                      {...typed}
+                    />
+                    <button type="submit" disabled={!isPlausibleKey(keyDraft.trim())} className="pj-sheet__pill pj-sheet__pill--go">
+                      Save key
+                    </button>
+                    {editingKey && (
+                      <button type="button" onClick={() => { setEditingKey(false); setKeyDraft(''); }} className="pj-sheet__pill">
+                        Cancel
+                      </button>
+                    )}
+                  </form>
+                )}
+                {keyNote && <p className="pj-sheet__note" role="status">{keyNote}</p>}
+              </>
+            )}
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  const inputStyle =
+    'px-2 py-1 text-xs rounded bg-white/10 border border-white/15 text-white placeholder-white/40 outline-none focus:border-white/40 w-40 disabled:opacity-40';
+  const pillGrey = 'px-3 py-1 text-xs uppercase text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-all border border-white/15';
+  const pillGreen = 'px-3 py-1 text-xs uppercase text-[var(--brand-tnt)] hover:bg-[var(--brand-tnt)]/15 rounded-lg transition-all border border-[var(--brand-tnt)]/40 disabled:opacity-40';
 
   return (
     <div
@@ -417,9 +765,7 @@ const DisplaySettings = ({ socketStatus }) => {
             </>
           ) : (
             <button
-              onClick={() => {
-                if (window.confirm('Log this screen out? It forgets the display key and publish token too.')) { logout(); setLoginNote(''); }
-              }}
+              onClick={confirmLogout}
               className={pillGrey}
               style={{ fontWeight: 800 }}
             >
@@ -483,9 +829,7 @@ const DisplaySettings = ({ socketStatus }) => {
                   </span>
                   <button onClick={() => setEditingKey(true)} className={pillGrey} style={{ fontWeight: 800 }}>Replace</button>
                   <button
-                    onClick={() => {
-                      if (window.confirm('Remove the display key from THIS screen? Names and birthdays stop here until it is set again.')) setDisplayKey('');
-                    }}
+                    onClick={confirmRemoveKey}
                     className={pillGrey}
                     style={{ fontWeight: 800 }}
                   >
@@ -526,7 +870,12 @@ const DisplaySettings = ({ socketStatus }) => {
   );
 };
 
-const NavButton = ({ label, active, dotColor, onClick }) => (
+const NavButton = ({ label, active, dotColor, onClick, touch = false }) => (touch ? (
+  <button type="button" onClick={onClick} className={`pj-sheet__row${active ? ' is-on' : ''}`} aria-current={active ? 'true' : undefined}>
+    <span className="pj-sheet__dot" style={dotColor ? { backgroundColor: dotColor } : undefined} aria-hidden="true" />
+    <span className="pj-sheet__grow">{label}</span>
+  </button>
+) : (
   <button
     onClick={onClick}
     className={`px-3 py-1.5 text-xs uppercase rounded-lg transition-all text-right flex items-center justify-end gap-2 ${
@@ -542,4 +891,4 @@ const NavButton = ({ label, active, dotColor, onClick }) => (
       />
     )}
   </button>
-);
+));

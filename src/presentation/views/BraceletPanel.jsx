@@ -6,6 +6,7 @@ import {
   setBraceletSettings, subscribeBraceletSettings,
 } from '../lib/braceletSettings.js';
 import { audioState, playBraceletChime, unlockAudio } from '../lib/chime.js';
+import { useTouch } from '../lib/touch.js';
 import { currentTime } from '../hooks/useClock.js';
 
 // The Bracelet Time controls (owner, 2026-09-30): a panel on the projector
@@ -36,6 +37,9 @@ const Choice = ({ on, onClick, children, title }) => (
 const CLOSE_KEYS = new Set(['Escape', 'KeyB']);
 
 export const BraceletPanel = ({ onClose, active }) => {
+  // On a phone or tablet it opens from the touch menu, and index.css's touch
+  // block makes it a bottom sheet; only its words change here (no B, no clicks).
+  const touch = useTouch();
   const s = useSyncExternalStore(subscribeBraceletSettings, getBraceletSettings);
   const changed = braceletSettingsChanged(s);
   const sound = audioState();
@@ -92,7 +96,7 @@ export const BraceletPanel = ({ onClose, active }) => {
             {active
               ? 'Showing now: T&T and Sparks craft time on bracelet nights.'
               : 'Not showing right now. Bracelet Time runs 6:05 to 7:00 pm on Sept 30 and Oct 7.'}{' '}
-            Saved on this PC until you press Reset.
+            Saved on this {touch ? 'device' : 'PC'} until you press Reset.
           </p>
 
           <section className="pj-bpanel__group">
@@ -114,6 +118,12 @@ export const BraceletPanel = ({ onClose, active }) => {
                 </Choice>
               ))}
             </div>
+            {/* A finger cannot read the steps' tooltips: name the one held. */}
+            {touch && s.hold != null && BRACELET_STEPS[s.hold] && (
+              <p className="pj-bpanel__hint pj-bpanel__held">
+                Holding {s.hold < 7 ? `step ${s.hold + 1}` : `knot ${s.hold - 6}`}: {BRACELET_STEPS[s.hold].title}
+              </p>
+            )}
           </section>
 
           <section className="pj-bpanel__group">
@@ -147,14 +157,18 @@ export const BraceletPanel = ({ onClose, active }) => {
             </div>
             {sound !== 'running' && (
               <p className="pj-bpanel__warn">
-                Sound is not armed yet: click anywhere on this page or press any key once, and the chime can play.
+                {touch
+                  ? 'Sound is not armed yet: tap anywhere on this page once, and the chime can play.'
+                  : 'Sound is not armed yet: click anywhere on this page or press any key once, and the chime can play.'}
               </p>
             )}
           </section>
 
           <div className="pj-bpanel__foot">
             <button type="button" className="pj-bpanel__action" disabled={!changed} onClick={resetBraceletSettings}>Reset</button>
-            <span className="pj-bpanel__hint">B opens and closes this panel.</span>
+            <span className="pj-bpanel__hint">
+              {touch ? 'Tap ✕ or anywhere outside this panel to close it.' : 'B opens and closes this panel.'}
+            </span>
           </div>
         </GlassPanel>
       </div>

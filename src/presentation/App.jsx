@@ -21,10 +21,13 @@ import { GameTimeView } from './views/GameTimeView.jsx';
 import { SlideshowView } from './views/SlideshowView.jsx';
 import { ShutdownView } from './views/ShutdownView.jsx';
 import { QuickNav } from './views/QuickNav.jsx';
+import { TouchMenu } from './views/TouchMenu.jsx';
 import { BraceletTimeView } from './views/BraceletTimeView.jsx';
 import { BraceletPanel } from './views/BraceletPanel.jsx';
 import { isBraceletNight, isBraceletWindow } from './lib/bracelets.js';
 import { unlockAudio } from './lib/chime.js';
+import { unlockStingers } from './lib/stingers.js';
+import { isTouch, usePortrait, useTouch } from './lib/touch.js';
 import { useKeydown } from './hooks/useKeydown.js';
 
 const OPENING_WINDOW_INDEX = 0;
@@ -59,6 +62,22 @@ export const App = () => {
     document.documentElement.dataset.vr = '1';
     return () => { delete document.documentElement.dataset.vr; };
   }, []);
+
+  // A phone or tablet (lib/touch.js): the root carries it, as it carries
+  // ?vr=1, for the e2e suites and anything that asks the DOM. The CSS itself
+  // reads the same media queries directly (index.css, the touch and portrait
+  // blocks at its end), so the first paint is already the right page.
+  const touch = useTouch();
+  const portrait = usePortrait();
+  useEffect(() => {
+    const root = document.documentElement;
+    if (touch) root.dataset.touch = '1';
+    if (portrait) root.dataset.portrait = '1';
+    return () => {
+      delete root.dataset.touch;
+      delete root.dataset.portrait;
+    };
+  }, [touch, portrait]);
 
   // While the tab is hidden (projector input switched away, window
   // minimized) pause every ambient keyframe loop — no reason to burn
@@ -96,8 +115,9 @@ export const App = () => {
 
   // Bracelet Time (the two bracelet nights' T&T and Sparks windows). Its
   // controls panel opens with B (never while typing in a field) or from
-  // QuickNav, on a bracelet night only: on any other night B does nothing and
-  // QuickNav has no such button, exactly as before (B is the black-screen key
+  // QuickNav (on a phone or tablet, the touch menu's "Bracelet Time controls"
+  // row), on a bracelet night only: on any other night B does nothing and
+  // neither menu has such a button, exactly as before (B is the black-screen key
   // of every slide tool and many clickers). While it is open the panel owns
   // the keyboard (see BraceletPanel), so B and Escape close it there. Every
   // key press and click also arms the page's sound, which browsers only allow
@@ -109,8 +129,18 @@ export const App = () => {
   // next bracelet night a week later on a page that was never reloaded.
   if (braceletPanel && !braceletNight) setBraceletPanel(false);
   const panelOpen = braceletPanel && braceletNight;
+  // The touch menu (TouchMenu): null while closed, 'menu' open, 'display'
+  // open on Display Settings. A device that stops being touch-first (a mouse
+  // plugged into a tablet) gets the hover menu back, closed.
+  const [menu, setMenu] = useState(/** @type {null | 'menu' | 'display'} */ (null));
+  if (menu !== null && !touch) setMenu(null);
   useEffect(() => {
-    const arm = () => unlockAudio();
+    // On a phone the countdown chimes can only sound once a tap has woken
+    // their audio too (lib/stingers.js); the PC's browser needs no help.
+    const arm = () => {
+      unlockAudio();
+      if (isTouch()) unlockStingers();
+    };
     window.addEventListener('pointerdown', arm, { capture: true, passive: true });
     window.addEventListener('keydown', arm, { capture: true, passive: true });
     return () => {
@@ -159,7 +189,23 @@ export const App = () => {
           slide change or view crossfade ever moves it. */}
       <AwanaMark placement={state.mode === AppMode.GAME_TIME ? 'game' : 'default'} hidden={bare} />
 
-      <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} socketStatus={socketStatus} onBracelets={braceletNight ? () => setBraceletPanel(true) : undefined} />
+      {touch ? (
+        <TouchMenu
+          now={now}
+          state={state}
+          isOverride={isOverride}
+          onSelect={select}
+          onResume={resume}
+          socketStatus={socketStatus}
+          onBracelets={braceletNight ? () => setBraceletPanel(true) : undefined}
+          open={menu !== null}
+          displayOpen={menu === 'display'}
+          onOpen={() => setMenu('menu')}
+          onClose={() => setMenu(null)}
+        />
+      ) : (
+        <QuickNav now={now} state={state} isOverride={isOverride} onSelect={select} onResume={resume} socketStatus={socketStatus} onBracelets={braceletNight ? () => setBraceletPanel(true) : undefined} />
+      )}
       {panelOpen && <BraceletPanel active={bracelets} onClose={() => setBraceletPanel(false)} />}
       {isOverride && <ResumePill now={now} resumeAt={resumeAt} onStay={stay} />}
       <SetupChecklist />
