@@ -166,7 +166,8 @@ function pointPose(reach) {
     bump(104, L + 14, 17),
     cap([[0, 24], [0, L + 40]], GLOVE.fingerW),
     blob(-28, L - 10, 148, 134, 54),
-    cap([[-18, L + 96], [-30, L + 52], [-6, L + 30]], 40),
+    // The thumb lies along the pointer, holding what rests on it.
+    cap([[-30, L + 92], [-34, L + 40], [-26, L + 6]], 38),
     ...stitches(62, L + 62, 48, 26),
   ];
 }

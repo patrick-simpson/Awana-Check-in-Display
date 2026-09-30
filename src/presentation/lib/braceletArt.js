@@ -17,6 +17,7 @@
 // is the same picture on every screen.
 
 import { HOUSE } from './kit.js';
+import { mulberry32 } from './color.js';
 
 export const STAGE_W = 1460;
 export const STAGE_H = 560;
@@ -591,19 +592,19 @@ function wraps(g, uTip) {
 
 /**
  * The bottom string past the X: over the far edge, under the finger (or
- * through the tunnel), out past the fingertip, to its tail.
+ * through the tunnel), then out past the fingertip to its tail, which is in
+ * plain view again.
  * @param {ReturnType<typeof knotGeom>} g @param {Pt} tail
- * @returns {Pt[]}
+ * @param {number} fingerTip the fingertip's x (Infinity once it is out)
+ * @returns {Item[]}
  */
-function bottomUnder(g, tail) {
+function bottomString(g, tail, fingerTip) {
   const y = FY + g.inset;
+  // Hidden while it runs under the finger or through the wraps.
+  const out = Math.min(g.xe - 12, fingerTip - 4);
   return [
-    g.bBot,
-    [g.bBot[0] - 8, FY - g.R * 0.45],
-    [g.bBot[0] - 26, y],
-    [g.xe - 30, y],
-    [lerp(g.xe - 30, tail[0], 0.55), lerp(y, tail[1], 0.3)],
-    tail,
+    cord([g.bBot, [g.bBot[0] - 8, FY - g.R * 0.45], [g.bBot[0] - 26, y], [out, y]], 'back'),
+    cord([[out, y], [lerp(out, tail[0], 0.55), lerp(y, tail[1], 0.3)], tail]),
   ];
 }
 
@@ -712,7 +713,7 @@ function wrapStep(p) {
   /** @type {Item[]} */
   const items = hangingBracelet(g);
   for (const pts of back) items.push(cord(pts, 'back'));
-  items.push(cord(bottomUnder(g, BOTTOM_TAIL), 'back'));
+  items.push(...bottomString(g, BOTTOM_TAIL, TIP_X));
   if (h.behind) items.push(tail, hold);
   items.push(pointerHand());
   items.push(...theX(g, 0));
@@ -734,7 +735,7 @@ function wrapCounters(g, uTip, o = 1) {
     const done = k + 0.5;
     if (uTip < done) continue;
     const pop = clamp01((uTip - done) / 0.22);
-    out.push(badge(g.x1 - g.pitch * (k + 0.25), FY + g.R + 56, String(k + 1), backOut(pop), o));
+    out.push(badge(g.x1 - g.pitch * (k + 0.25), FY - g.R - 50, String(k + 1), backOut(pop), o));
   }
   return out;
 }
@@ -780,7 +781,7 @@ function drawKnot(k, { gold = 0, over = [] } = {}) {
   /** @type {Item[]} */
   const items = hangingBracelet(k.g);
   for (const pts of k.back) items.push(cord(pts, 'back'));
-  items.push(cord(bottomUnder(k.g, BOTTOM_TAIL), 'back'));
+  items.push(...bottomString(k.g, BOTTOM_TAIL, k.fingerDX == null ? Infinity : TIP_X + k.fingerDX));
   items.push(...k.backItems);
   if (k.fingerDX != null) items.push(pointerHand(k.fingerDX));
   items.push(...theX(k.g, gold));
@@ -814,10 +815,10 @@ function xStep(p) {
   return mirror(drawKnot(k, { gold, over }));
 }
 
-/** Pinching the wraps from above, fingertips at the tunnel's two ends. */
-function wrapPinch(/** @type {ReturnType<typeof knotGeom>} */ g, gapExtra = 26) {
+/** Pinching the wraps from above, fingertips pressed on the loops. */
+function wrapPinch(/** @type {ReturnType<typeof knotGeom>} */ g) {
   const cx = (g.x1 + g.xe) / 2;
-  return glove(cx, FY - g.R - 10, 'pinch', { gap: g.x1 - g.xe + gapExtra, flip: true, s: 0.9, rot: 90 });
+  return glove(cx, FY - g.R - 8, 'pinch', { gap: (g.x1 - g.xe) * 0.62, flip: true, s: 0.9, rot: 90 });
 }
 
 /**
@@ -892,7 +893,7 @@ function pullStep(p) {
   /** @type {Item[]} */
   const items = hangingBracelet(g);
   for (const pts of back) items.push(cord(pts, 'back'));
-  items.push(cord(bottomUnder(g, bTail), 'back'));
+  items.push(...bottomString(g, bTail, Infinity));
   items.push(cord(route.inside, 'back'));
   items.push(...theX(g, 0));
   for (const pts of front) items.push(cord(pts));
@@ -1005,6 +1006,20 @@ export function introScene(p) {
 }
 
 const FIN = { cx: 452, cy: 334, r: 176 };
+// Seeded, so the confetti falls the same way on every screen.
+const FINALE_CONFETTI = (() => {
+  const rand = mulberry32(2026_0930);
+  const colors = [SUN, WHITE, ...BEAD_ORDER.filter((c) => c !== 'black').map((c) => BEAD_TONES[c].light)];
+  return Array.from({ length: 16 }, (_, i) => ({
+    x: 700 + rand() * 720,
+    to: 300 + rand() * 240,
+    at: 0.42 + (i / 16) * 0.2,
+    size: 9 + rand() * 9,
+    wobble: 0.6 + rand() * 0.9,
+    spin: (rand() - 0.5) * 540,
+    color: colors[i % colors.length],
+  }));
+})();
 const FIN_KNOT_DEG = -48; // where the sliding knot sits on the loop
 
 /**
@@ -1067,7 +1082,9 @@ export function finaleScene(p) {
   // Held up at the top of the loop.
   items.push(glove(pivot[0], pivot[1], 'pinch', { gap: 30, s: 0.9, rot: -90 }));
 
-  // The words.
+  // The words, each landing with a pop at its outer end (behind the letters).
+  items.push(...landingPop(q, 0.5, 836, 196, { seed: 31, size: 1.2, len: 0.2 }));
+  items.push(...landingPop(q, 0.6, 1290, 396, { seed: 32, size: 1.2, len: 0.2 }));
   const slam = seg(q, 0.34, 0.52);
   if (slam > 0) {
     items.push(text(1050, 214, 'YOUR', 150, { s: lerp(1.8, 1, backOut(slam)), o: easeOut(Math.min(1, slam * 3)), rot: lerp(-8, -4, slam) }));
@@ -1088,8 +1105,14 @@ export function finaleScene(p) {
       items.push(fx('sparkle', FIN.cx + Math.cos(a) * d, FIN.cy + Math.sin(a) * d * 0.8, lerp(22, 10, e), 1 - e, colors[i % colors.length], 200 * e));
     }
   }
-  items.push(...landingPop(q, 0.5, 1050, 214, { seed: 31, size: 1.3, len: 0.2 }));
-  items.push(...landingPop(q, 0.6, 1060, 382, { seed: 32, size: 1.3, len: 0.2 }));
+  // Confetti in the bead colours drifts down past the words, gone by the rest.
+  for (const c of FINALE_CONFETTI) {
+    const t = seg(q, c.at, c.at + 0.36);
+    if (t <= 0 || t >= 1) continue;
+    const y = lerp(-30, c.to, easeOut(t));
+    const x = c.x + Math.sin(t * TAU * c.wobble) * 22;
+    items.push(fx('sparkle', x, y, c.size, 1 - t * t, c.color, c.spin * t));
+  }
   const stay = easeOut(seg(q, 0.6, 0.8));
   if (stay > 0) {
     for (const [x, y, sz, c] of /** @type {[number, number, number, string][]} */ ([[742, 150, 26, SUN], [1388, 250, 20, WHITE], [760, 454, 18, WHITE], [1370, 470, 28, SUN]])) {
