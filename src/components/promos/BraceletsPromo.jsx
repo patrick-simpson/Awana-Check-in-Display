@@ -21,8 +21,8 @@ import {
 //        slams in above the cord:
 //          1.3  SIN      black: a heavy thud, the frame shakes, dust
 //          2.5  BLOOD    red: a cross of light opens behind the word
-//          3.7  PURITY   white: glints pop around the word
-//          4.9  BAPTISM  blue: ripples run out of the bead
+//          3.7  BAPTISM  blue: ripples run out of the bead
+//          4.9  PURITY   white: glints pop around the word
 //          6.1  GROWTH   green: vines climb in from both corners
 //          7.3  HEAVEN   gold: rays turn, light blooms, sparkles
 //        Each flood carries its own word and effect, so the next flood
@@ -60,13 +60,13 @@ export const DETAILS = Object.freeze({
   tonight: Object.freeze(['Made at club tonight', SUBLINE]),
 });
 
-// The six truths, in gospel order (owner's call, 2026-09-28), in the words
+// The six truths, in the order of the church's bracelet card (black, red, blue, white, green, yellow; owner, 2026-09-30), in the words
 // the bracelet kit itself prints on each colour.
 export const BEADS = Object.freeze([
   Object.freeze({ key: 'sin', word: 'SIN', tone: '#1c1b22', light: '#4a4852', dark: '#050507', flood: '#09080d' }),
   Object.freeze({ key: 'blood', word: 'BLOOD', tone: '#d7263d', light: '#ff6b78', dark: '#8e0e20', flood: '#b3122a' }),
-  Object.freeze({ key: 'purity', word: 'PURITY', tone: '#f4f3f0', light: '#ffffff', dark: '#c9c6d4', flood: '#fbfaf7' }),
   Object.freeze({ key: 'baptism', word: 'BAPTISM', tone: '#1f5fd6', light: '#6aa0ff', dark: '#0e3690', flood: '#1648b8' }),
+  Object.freeze({ key: 'purity', word: 'PURITY', tone: '#f4f3f0', light: '#ffffff', dark: '#c9c6d4', flood: '#fbfaf7' }),
   Object.freeze({ key: 'growth', word: 'GROWTH', tone: '#22a447', light: '#6ee08a', dark: '#0f6a2a', flood: '#15873a' }),
   Object.freeze({ key: 'heaven', word: 'HEAVEN', tone: '#ffc928', light: '#fff0a8', dark: '#d18f00', flood: '#f7b512' }),
 ]);
@@ -399,13 +399,13 @@ const GLEAMS = (() => {
     x,
     y,
     size: n1(4 + rnd() * 4),
-    anim: landsAt(T_BEADS[2] + 0.25 + i * 0.09, 0.6, { opacity: [0, 1, 0], scale: [0, 1.2, 0], rotate: [0, 45, 90] }, EASE_OUT),
+    anim: landsAt(T_BEADS[3] + 0.25 + i * 0.09, 0.6, { opacity: [0, 1, 0], scale: [0, 1.2, 0], rotate: [0, 45, 90] }, EASE_OUT),
   }));
 })();
 
 // BAPTISM: rings run out of the bead across the water.
 const RIPPLES = [0, 0.22, 0.44].map((lag) => landsAt(
-  T_BEADS[3] + 0.1 + lag, 1.1, { opacity: [0, 0.7, 0], scale: [0.1, 1, 1.8] }, EASE_OUT,
+  T_BEADS[2] + 0.1 + lag, 1.1, { opacity: [0, 0.7, 0], scale: [0.1, 1, 1.8] }, EASE_OUT,
 ));
 
 // GROWTH: two vines climb in from the bottom corners.
@@ -734,7 +734,7 @@ export default function BraceletsPromo({ promo, lines }) {
               {bead.key === 'baptism' && (
                 <svg className="promo-brc-fx" viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} preserveAspectRatio="xMidYMid meet">
                   {RIPPLES.map((r, j) => (
-                    <g key={j} transform={`translate(${BEAD_X[3]} ${CORD_Y})`}>
+                    <g key={j} transform={`translate(${BEAD_X[2]} ${CORD_Y})`}>
                       <M.ellipse rx="520" ry="200" className="promo-brc-ripple" {...r} />
                     </g>
                   ))}

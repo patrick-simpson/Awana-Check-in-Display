@@ -42,10 +42,10 @@ describe('BraceletsPromo', () => {
   });
 
   it('tells the six truths in gospel order, in the kit’s own words', () => {
-    expect(BEADS.map((b) => b.word)).toEqual(['SIN', 'BLOOD', 'PURITY', 'BAPTISM', 'GROWTH', 'HEAVEN']);
+    expect(BEADS.map((b) => b.word)).toEqual(['SIN', 'BLOOD', 'BAPTISM', 'PURITY', 'GROWTH', 'HEAVEN']);
     const { container } = mount(promo());
     expect([...container.querySelectorAll('.promo-brc-word')].map((w) => w.textContent))
-      .toEqual(['SIN', 'BLOOD', 'PURITY', 'BAPTISM', 'GROWTH', 'HEAVEN']);
+      .toEqual(['SIN', 'BLOOD', 'BAPTISM', 'PURITY', 'GROWTH', 'HEAVEN']);
     // One bead per truth on the cord, and the two clear sliders at the knot.
     expect(container.querySelectorAll('.promo-brc-bead')).toHaveLength(6);
     expect(container.querySelectorAll('.promo-brc-slider')).toHaveLength(2);
