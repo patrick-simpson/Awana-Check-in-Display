@@ -1,6 +1,6 @@
 import React, { useId } from 'react';
 import {
-  BEAD_SIZE, BEAD_TONES, GLOVE_OUTLINE, IDENTITY_CAMERA, KNOT_SIZE, STAGE_H, STAGE_W, gloveParts, lineWeight, sceneOf,
+  BEAD_SIZE, BEAD_TONES, GLOVE_OUTLINE, IDENTITY_CAMERA, STAGE_H, STAGE_W, gloveParts, lineWeight, sceneOf,
 } from '../../lib/braceletArt.js';
 import { HOUSE } from '../../lib/kit.js';
 
@@ -179,12 +179,19 @@ function Glove({ item }) {
 // ── A knot on the cord ───────────────────────────────────────
 
 // A tied knot: a lump of cord with the wrap showing across it.
+// A knot: a lump of cord (three turns bunched together, keylined like a
+// cord) with the turns showing across it, bead-sized so it reads from the
+// back of the room, and never a ring with a line through it (a "no" sign).
+const KNOT_LUMPS = [[-6, -6, 11], [6, -5, 11], [0, 7, 11.5]];
+
 function Knot({ item }) {
   return (
     <g transform={`translate(${item.x} ${item.y}) rotate(${item.rot}) scale(${item.s})`}>
-      <ellipse rx={KNOT_SIZE.rx} ry={KNOT_SIZE.ry} fill={CORD_CORE} stroke="#FFFFFF" strokeWidth={4.5} />
-      <path d="M-8 -13 C3 -9 7 3 -1 13" {...ROUND} stroke="#FFFFFF" strokeWidth={3.2} />
-      <path d="M-2 -16 C9 -11 11 5 5 14" {...ROUND} stroke="rgba(255,255,255,0.4)" strokeWidth={2} />
+      {KNOT_LUMPS.map(([cx, cy, r]) => <circle key={`o${cx}${cy}`} cx={cx} cy={cy} r={r + 2.6} fill="#FFFFFF" />)}
+      {KNOT_LUMPS.map(([cx, cy, r]) => <circle key={`i${cx}${cy}`} cx={cx} cy={cy} r={r} fill={CORD_CORE} />)}
+      <path d="M-11 -12 C-3 -8 1 2 -4 14" {...ROUND} stroke="#FFFFFF" strokeWidth={3.4} />
+      <path d="M1 -14 C9 -9 11 3 6 13" {...ROUND} stroke="#FFFFFF" strokeWidth={3.4} />
+      <path d="M-4 -15 C2 -13 5 -9 6 -4" {...ROUND} stroke="rgba(255,255,255,0.35)" strokeWidth={2} />
     </g>
   );
 }

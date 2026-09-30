@@ -1484,7 +1484,11 @@ night are untouched.
   which must lie ALONG the finger in view (wraps round the finger alone knot
   only the top string, and the bracelet never closes). The hands keep the
   handout's roles: the left thumb and middle finger pinch the loops, the
-  right hand pushes the end through. Low power (`useLowPower`: `?vr=1`, OS
+  right hand pushes the end through. Step 7 ties each end's knot where the
+  room can see it (a loop, the end down through it, a pull; the loop cinches
+  and slides snug against its clear bead), and a knot is a bead-sized lump
+  of cord with its turns showing, never a ring with a strand through it,
+  which reads as a "no" sign. Low power (`useLowPower`: `?vr=1`, OS
   reduced motion, the QuickNav toggle), "animations off" and the overview
   draw each step's still (`stillP`): its finished picture, except knot
   steps 1, 4 and 5, which stop mid-move with their arrow up (the left hand

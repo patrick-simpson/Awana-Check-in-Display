@@ -52,7 +52,8 @@ export const BRACELET_ROW = /** @type {readonly BeadColor[]} */ (Object.freeze([
 export const BEAD_SIZE = Object.freeze({ l: 74, d: 92 });
 const BEAD_HALF = { w: BEAD_SIZE.l / 2, h: BEAD_SIZE.d / 2 };
 /** A tied knot's lump at scale 1 (StepArt draws it). */
-export const KNOT_SIZE = Object.freeze({ rx: 14, ry: 18 });
+/** A knot's lump of cord (StepArt draws it), half its width and height at scale 1. */
+export const KNOT_SIZE = Object.freeze({ rx: 20, ry: 21 });
 
 /** The cartoon glove's pointer finger, in the glove's own units (StepArt draws it). */
 export const GLOVE = Object.freeze({ fingerW: 48, pointReach: 128 });
@@ -572,8 +573,9 @@ function carrierGlove(p, b, tx, id) {
  * body down, so the whole glove stays on the stage instead of reaching off
  * its edge; it straightens as the bead slides in.
  * @param {number} p @param {number} side 1 for the right hand, -1 for the left
+ * @param {number} [from] @param {number} [to] when it straightens
  */
-const edgeTilt = (p, side) => side * 40 * (1 - seg(p, 0.42, 0.62));
+const edgeTilt = (p, side, from = 0.42, to = 0.62) => side * 40 * (1 - seg(p, from, to));
 
 /**
  * The right hand leaving its resting point (steps 2 to 7 start with it still
@@ -626,71 +628,148 @@ function beadStep(k, p) {
   return items;
 }
 
-const KNOT_S = 1.3;
+// Bead-sized, as the handout's knots are (a bead is 74 x 92).
+const KNOT_S = 1.75;
 
 /**
- * Step 7: a clear bead on each end, then tie each one in place.
+ * One end's overhand knot beside its clear bead (`out` -1 for the left end,
+ * 1 for the right): the hand swings the tail up and back over into a loop,
+ * pushes the end down through it, and pulls it out straight again; the loop
+ * cinches into a knot that slides snug against the bead. Returns the cords
+ * to draw (null once the knot is tied: the knot item takes over) and where
+ * the hand holds the end.
+ * @param {number} p @param {-1 | 1} out
+ */
+function tying(p, out) {
+  const kx = out < 0 ? slotX(0) - KNOT_OFF : slotX(7) + KNOT_OFF;
+  const end = /** @type {Pt} */ ([out < 0 ? ROW_L + 12 : ROW_R - 12, ROW_Y]);
+  const loop = easeInOut(seg(p, TIE.loop, TIE.tuck));
+  const tuck = easeInOut(seg(p, TIE.tuck, TIE.pull));
+  const tight = easeInOut(seg(p, TIE.pull, TIE.tied));
+  const snug = easeInOut(seg(p, TIE.pull + 0.03, TIE.tied));
+  const r = lerp(lerp(6, 38, loop), 12, tight);
+  /** @type {Pt} */
+  const k = [kx + out * 36 * (1 - snug), ROW_Y];
+  /** @type {Pt} */
+  const c = [k[0], ROW_Y - r * 0.95 * (1 - tight)];
+  // The hand: at the tip, then up and back over the knot's place, down
+  // through the loop, and out to the tip's place again.
+  /** @type {Pt} */
+  const up = [kx + out * 10, ROW_Y - 124];
+  /** @type {Pt} */
+  const down = [kx + out * 34, ROW_Y + 84];
+  /** @type {Pt} */
+  let hand;
+  if (p < TIE.tuck) {
+    hand = mix(end, up, loop);
+    hand[1] -= 30 * Math.sin(Math.PI * loop);
+  } else if (p < TIE.pull) {
+    hand = tuck < 0.5 ? mix(up, c, tuck * 2) : mix(c, down, tuck * 2 - 1);
+  } else {
+    hand = mix(down, end, tight);
+  }
+  if (p < TIE.loop || p >= TIE.tied) return { cords: null, hand, kx, lump: null };
+  // The loop: a ring of the tail, sitting on the cord, going round from
+  // where it leaves the row (clockwise on the left, the mirror on the right).
+  /** @type {Pt[]} */
+  const ring = [];
+  for (let i = 0; i <= 22; i += 1) {
+    const a = Math.PI / 2 - out * (i / 22) * (Math.PI * 11) / 6;
+    ring.push([c[0] + r * Math.cos(a), c[1] + r * Math.sin(a)]);
+  }
+  const ringEnd = ring[ring.length - 1];
+  /** @type {Item[]} */
+  const cords = [cord([[out < 0 ? k[0] + 4 : k[0] - 4, ROW_Y], [out < 0 ? kx + 60 : kx - 60, ROW_Y]])];
+  if (p < TIE.tuck) {
+    cords.push(cord(ring), cord([ringEnd, hand]));
+  } else {
+    // Through the loop: in behind its rim, out in front.
+    const through = tuck < 0.5 ? hand : c;
+    cords.push(cord([ringEnd, mix(ringEnd, through, 0.5), through]), cord(ring));
+    if (tuck >= 0.5 || p >= TIE.pull) cords.push(cord([c, hand]));
+  }
+  // As the loop cinches, the knot's lump lands on it and covers it.
+  const land = seg(tight, 0.5, 1);
+  const lump = land > 0 ? knot(k[0], ROW_Y, KNOT_S * lerp(0.5, 1, backOut(land)), 0) : null;
+  return { cords, hand, kx, lump };
+}
+
+/** When step 7's knots are tied: the loop, the tuck, the pull, tied. */
+const TIE = { loop: 0.53, tuck: 0.63, pull: 0.72, tied: 0.85 };
+
+/**
+ * Step 7: a clear bead on each end, then an overhand knot beside each one.
  * @param {number} p @returns {Item[]}
  */
 function finishStep(p) {
+  const tieL = tying(p, -1);
+  const tieR = tying(p, 1);
   /** @type {Item[]} */
-  const items = [rowCord()];
+  const items = [];
+  // The cord: whole, until the ends are being tied.
+  if (tieL.cords) items.push(cord([[tieL.kx + 58, ROW_Y], [tieR.kx - 58, ROW_Y]]));
+  else items.push(rowCord());
   for (let i = 0; i < 6; i += 1) items.push(bead(slotX(i + 1), ROW_Y, BEAD_ORDER[i]));
   // Pops first, so they sit behind the beads and knots they celebrate.
-  items.push(...landingPop(p, 0.64, slotX(0), ROW_Y, { seed: 7, size: 0.85 }));
-  items.push(...landingPop(p, 0.64, slotX(7), ROW_Y, { seed: 8, size: 0.85 }));
-  items.push(...landingPop(p, 0.84, slotX(0) - KNOT_OFF, ROW_Y, { seed: 9, size: 0.7 }));
-  items.push(...landingPop(p, 0.84, slotX(7) + KNOT_OFF, ROW_Y, { seed: 10, size: 0.7 }));
+  items.push(...landingPop(p, 0.42, slotX(0), ROW_Y, { seed: 7, size: 0.85 }));
+  items.push(...landingPop(p, 0.42, slotX(7), ROW_Y, { seed: 8, size: 0.85 }));
+  items.push(...landingPop(p, TIE.tied - 0.02, slotX(0) - KNOT_OFF, ROW_Y, { seed: 9, size: 0.7 }));
+  items.push(...landingPop(p, TIE.tied - 0.02, slotX(7) + KNOT_OFF, ROW_Y, { seed: 10, size: 0.7 }));
 
   // The holding hand lets go of the cord and goes (down, off the stage) for
   // a clear bead; it comes back with it from the left.
-  if (p < 0.14) {
-    const e = seg(p, 0, 0.14) ** 2;
+  if (p < 0.1) {
+    const e = seg(p, 0, 0.1) ** 2;
     items.push(glove(lerp(slotX(0) - 18, 300, e), lerp(ROW_Y, 700, e), 'fist', { id: 'left', flip: true, s: 0.86, rot: 14 + 20 * e }));
   }
   items.push(...pointerLeaves(p, slotX(6), 'right'));
 
-  const T = { t0: 0.14, t1: 0.3, t2: 0.42, t3: 0.64 };
+  const T = { t0: 0.1, t1: 0.21, t2: 0.29, t3: 0.42 };
   const L = carriedBead(p, { from: FROM_LEFT, entry: ROW_L - 58, thread: ROW_L + 46, to: slotX(0), ...T });
   const R = carriedBead(p, { from: FROM_RIGHT, entry: ROW_R + 58, thread: ROW_R - 46, to: slotX(7), ...T });
   if (p >= T.t0) {
     items.push(bead(L.x, L.y, 'clear', { rot: L.rot, sx: L.sx, sy: L.sy }));
     items.push(bead(R.x, R.y, 'clear', { rot: R.rot, sx: R.sx, sy: R.sy }));
   }
-
-  // The knots: tied just outside each clear bead, with a tug on the tail.
-  const tie = seg(p, 0.7, 0.86);
-  if (p >= 0.7) {
-    const k = backOut(tie);
-    items.push(knot(slotX(0) - KNOT_OFF, ROW_Y, k * KNOT_S, lerp(-140, 0, easeOut(tie))));
-    items.push(knot(slotX(7) + KNOT_OFF, ROW_Y, k * KNOT_S, lerp(140, 0, easeOut(tie))));
+  // The knots: tied from the tails, then knots.
+  if (tieL.cords) items.push(...tieL.cords, ...(tieR.cords ?? []));
+  if (tieL.lump) items.push(tieL.lump);
+  if (tieR.lump) items.push(tieR.lump);
+  if (p >= TIE.tied) {
+    items.push(knot(tieL.kx, ROW_Y, KNOT_S, 0));
+    items.push(knot(tieR.kx, ROW_Y, KNOT_S, 0));
   }
 
-  const tugL = /** @type {Pt} */ ([slotX(0) - KNOT_OFF - 92, ROW_Y]);
-  const tugR = /** @type {Pt} */ ([slotX(7) + KNOT_OFF + 92, ROW_Y]);
   if (p < T.t0) {
     // (both hands are off stage fetching beads)
-  } else if (p < 0.66) {
-    items.push(glove(L.x, L.y, 'pinch', { id: 'left', gap: BEAD_GAP, rot: L.rot + edgeTilt(p, -1), flip: true, s: 0.92 }));
-    items.push(glove(R.x, R.y, 'pinch', { id: 'right', gap: BEAD_GAP, rot: R.rot + edgeTilt(p, 1), s: 0.92 }));
+  } else if (p < T.t3) {
+    items.push(glove(L.x, L.y, 'pinch', { id: 'left', gap: BEAD_GAP, rot: L.rot + edgeTilt(p, -1, T.t2, T.t3), flip: true, s: 0.92 }));
+    items.push(glove(R.x, R.y, 'pinch', { id: 'right', gap: BEAD_GAP, rot: R.rot + edgeTilt(p, 1, T.t2, T.t3), s: 0.92 }));
   } else if (p < FINISH_OPEN - FADE / 2) {
-    // Both hands take the tails and tug them outward: the knot pulls snug,
-    // then the hands shrink back a little, ready to let go.
-    const move = easeInOut(seg(p, 0.66, 0.72));
-    const tug = Math.sin(Math.PI * tie) * 26;
-    const shrink = easeInOut(seg(p, 0.84, FINISH_OPEN - FADE / 2));
-    items.push(glove(lerp(L.x, tugL[0], move) - tug, ROW_Y, 'pinch', { id: 'left', gap: lerp(BEAD_GAP, 30, move), flip: true, s: lerp(0.92, 0.6, shrink) }));
-    items.push(glove(lerp(R.x, tugR[0], move) + tug, ROW_Y, 'pinch', { id: 'right', gap: lerp(BEAD_GAP, 30, move), s: lerp(0.92, 0.6, shrink) }));
+    // Each hand goes to its tail's tip and ties the knot with it, then
+    // shrinks back a little, ready to let go.
+    const m = seg(p, T.t3, TIE.loop);
+    const move = m * m * (3 - 2 * m);
+    const shrink = easeInOut(seg(p, TIE.tied, FINISH_OPEN - FADE / 2));
+    const at = (/** @type {Pt} */ bd, /** @type {Pt} */ h) => mix(bd, h, move);
+    const lAt = at([L.x, L.y], tieL.hand);
+    const rAt = at([R.x, R.y], tieR.hand);
+    items.push(glove(lAt[0], lAt[1], 'pinch', { id: 'left', gap: lerp(BEAD_GAP, 30, move), flip: true, s: lerp(lerp(0.92, 0.72, move), 0.6, shrink) }));
+    items.push(glove(rAt[0], rAt[1], 'pinch', { id: 'right', gap: lerp(BEAD_GAP, 30, move), s: lerp(lerp(0.92, 0.72, move), 0.6, shrink) }));
   } else {
     // Let go: both hands spring open under the finished row, a "ta-da" (the
     // pinch fades into the open hand as it pops).
     const k = seg(p, FINISH_OPEN - FADE / 2, FINISH_OPEN + FADE / 2);
     const [openL, openR] = openHands(p);
-    items.push(...crossfade(glove(tugL[0], ROW_Y, 'pinch', { id: 'left', gap: 30, flip: true, s: 0.6 }), openL, k));
-    items.push(...crossfade(glove(tugR[0], ROW_Y, 'pinch', { id: 'right', gap: 30, s: 0.6 }), openR, k));
+    items.push(...crossfade(glove(TUG_L[0], ROW_Y, 'pinch', { id: 'left', gap: 30, flip: true, s: 0.6 }), openL, k));
+    items.push(...crossfade(glove(TUG_R[0], ROW_Y, 'pinch', { id: 'right', gap: 30, s: 0.6 }), openR, k));
   }
   return items;
 }
+
+/** Where step 7's hands hold the tips once the knots are tied. */
+const TUG_L = /** @type {Pt} */ ([ROW_L + 12, ROW_Y]);
+const TUG_R = /** @type {Pt} */ ([ROW_R - 12, ROW_Y]);
 
 /** When step 7's hands let go and spring open. */
 const FINISH_OPEN = 0.9;
@@ -703,8 +782,8 @@ const OPEN_REST = /** @type {readonly [Pt, Pt]} */ ([[196, 392], [1264, 392]]);
  * @param {number} p @returns {GloveItem[]}
  */
 function openHands(p) {
-  const tugL = /** @type {Pt} */ ([slotX(0) - KNOT_OFF - 92, ROW_Y]);
-  const tugR = /** @type {Pt} */ ([slotX(7) + KNOT_OFF + 92, ROW_Y]);
+  const tugL = TUG_L;
+  const tugR = TUG_R;
   const e = easeOut(seg(p, FINISH_OPEN - FADE / 2, 1));
   const pop = backOut(seg(p, FINISH_OPEN - FADE / 2, 1));
   const lp = palmOf(glove(tugL[0], ROW_Y, 'pinch', { gap: 30, flip: true, s: 0.6 }));
@@ -1411,7 +1490,7 @@ const progressOf = (p) => (Number.isFinite(p) ? clamp01(p) : 1);
  * child's pace; it then holds its finished picture for the rest of its slot
  * (lib/bracelets.js STEP_SLOTS; a test keeps a hold of at least 3 s).
  */
-const ACTION_SEC = Object.freeze([6, 6, 6, 6, 6, 6, 9, 9, 11.5, 7, 9.5, 11.5, 9.5]);
+const ACTION_SEC = Object.freeze([6, 6, 6, 6, 6, 6, 10, 9, 11.5, 7, 9.5, 11.5, 9.5]);
 
 /** @param {number} stepIndex */
 export function actionSec(stepIndex) {
@@ -1749,8 +1828,7 @@ export function sceneOf(which, p) {
 /** @typedef {{ x0: number, y0: number, x1: number, y1: number }} Box */
 
 const KNOT_HULL = /** @type {Pt[]} */ ([
-  [-KNOT_SIZE.rx - 2.5, -KNOT_SIZE.ry - 2.5], [KNOT_SIZE.rx + 2.5, -KNOT_SIZE.ry - 2.5],
-  [KNOT_SIZE.rx + 2.5, KNOT_SIZE.ry + 2.5], [-KNOT_SIZE.rx - 2.5, KNOT_SIZE.ry + 2.5],
+  [-KNOT_SIZE.rx, -KNOT_SIZE.ry], [KNOT_SIZE.rx, -KNOT_SIZE.ry], [KNOT_SIZE.rx, KNOT_SIZE.ry], [-KNOT_SIZE.rx, KNOT_SIZE.ry],
 ]);
 
 export const SAFE_BOX = /** @type {Readonly<Box>} */ (Object.freeze({ x0: 70, y0: 60, x1: 1390, y1: 500 }));
