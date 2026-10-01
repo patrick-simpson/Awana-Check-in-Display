@@ -1909,6 +1909,28 @@ html, body, #root {
   transition-duration: var(--squish-press);
   transition-timing-function: var(--brand-ease-settle);
 }
+/* The hit area never shrinks under a held pointer. Squashed onto its ledge
+   (origin at the foot) the box's top edge drops 4-6px, so a press that began
+   in that top band and was held past the 100 ms squash came up outside the
+   box, and the click went to the ancestor instead of the control. While
+   pressed, an invisible strip stands on the control's top edge and reaches
+   up past where it has gone (12px of its own, 11 drawn): it belongs to the
+   control, so up-in-place is a click on it. It only exists under :active,
+   where `scale` has made the control a containing block for it, so no
+   `position` is set on the control itself (the gear is absolute already).
+   The kill switches below hide it with the squash it compensates for. */
+.panel button:not(:disabled):active::after,
+.panel .actions label:active::after,
+.panel a.panel-button:active::after,
+.panel .radio-option:active::after,
+.debug button:not(:disabled):active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 12px;
+}
 /* A link that looks like one of the panel's buttons (the sound room app's
    download and guide): same pill, never underlined. */
 .panel a.panel-button { text-decoration: none; }
@@ -2476,6 +2498,15 @@ input:focus-visible {
   .debug button:not(:disabled):active {
     scale: none;
   }
+  /* Nothing squashes, so nothing needs the hit-area strip (and without a
+     scale there is no containing block for it to sit in). */
+  .panel button:not(:disabled):active::after,
+  .panel .actions label:active::after,
+  .panel a.panel-button:active::after,
+  .panel .radio-option:active::after,
+  .debug button:not(:disabled):active::after {
+    content: none;
+  }
 }
 
 /* Zero-animation mode (App.jsx toggles this on <html> from
@@ -2510,6 +2541,13 @@ input:focus-visible {
 .zero-animation-mode .panel input[type='checkbox']:not(:disabled):active,
 .zero-animation-mode .debug button:not(:disabled):active {
   scale: none;
+}
+.zero-animation-mode .panel button:not(:disabled):active::after,
+.zero-animation-mode .panel .actions label:active::after,
+.zero-animation-mode .panel a.panel-button:active::after,
+.zero-animation-mode .panel .radio-option:active::after,
+.zero-animation-mode .debug button:not(:disabled):active::after {
+  content: none;
 }
 
 /* ────────────────────────────────────────────────────────────

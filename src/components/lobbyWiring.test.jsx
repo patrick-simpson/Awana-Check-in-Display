@@ -13,7 +13,7 @@ import { READ } from '../lib/lobbyFrame.js';
 import {
   HANDOFF, STINGER_SEC, SWAP_AT, chromeMove, entranceHold, exitDelay, holdThenLeave, swellKeyframes, vanishAtSwap,
 } from '../lib/lobbyMotion.js';
-import { squishBump, squishLand } from '../lib/squish.js';
+import { ARRIVAL, squishBump, squishLand } from '../lib/squish.js';
 import { kickerFor, momentFor } from '../lib/checkInMoment.js';
 
 const fonts = vi.hoisted(() => {
@@ -203,7 +203,7 @@ describe('the soft squish, as wired', () => {
     const kicker = container.querySelector('.lobby-kicker');
     expect(squishOf(kicker)).toEqual(squishLand(entranceHold('boot'), 'kicker', HANDOFF.kicker, 'settle'));
     for (const w of container.querySelectorAll('.lobby-word')) {
-      expect(squishOf(w)).toEqual(squishLand(landsAt(w), 'text', HANDOFF.word, 'settle'));
+      expect(squishOf(w)).toEqual(squishLand(landsAt(w), 'text', HANDOFF.word, ARRIVAL));
       // What the word already did is untouched: it still lands from hidden to rest.
       expect(rec(w).animate.opacity).toEqual([0, 0, 1]);
       expect(rec(w).initial).toMatchObject({ scaleX: 1, scaleY: 1 });
@@ -272,7 +272,7 @@ describe('the check-in moment\'s squish, as wired', () => {
       // The entrance: the name at 0.5 s, 40 ms a letter, on the settle.
       expect(landsAt(el)).toBeCloseTo(0.5 + 0.04 * i, 10);
       expect(runOf(el)).toBeCloseTo(DUR.settle, 10);
-      expect(squishOf(el)).toEqual(squishLand(landsAt(el), 'name', runOf(el), 'settle'));
+      expect(squishOf(el)).toEqual(squishLand(landsAt(el), 'name', runOf(el), ARRIVAL));
       expect(rec(el).animate.opacity).toEqual([0, 0, 1]);
       // Its exit is today's, untouched.
       expect(rec(el).exit).toEqual({ opacity: 0, y: '-0.6em', scale: 1, transition: { duration: 0.22, delay: i * 0.014, ease: EASE.exit } });
@@ -297,7 +297,7 @@ describe('the check-in moment\'s squish, as wired', () => {
     expect(owen.map((el) => el.textContent)).toEqual(['O', 'W', 'E', 'N']);
     owen.forEach((el, i) => {
       expect(landsAt(el)).toBeCloseTo(0.26 + 0.028 * i, 10);
-      expect(squishOf(el)).toEqual(squishLand(landsAt(el), 'name', 0.36, 'settle'));
+      expect(squishOf(el)).toEqual(squishLand(landsAt(el), 'name', 0.36, ARRIVAL));
     });
   });
 

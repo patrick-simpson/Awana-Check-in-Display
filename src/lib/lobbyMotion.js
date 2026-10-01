@@ -9,6 +9,7 @@
 // used as-is; the rest are counted in beats.
 
 import { DUR, EASE, beats } from './brand.js';
+import { ARRIVAL, squishLand, withSquish } from './squish.js';
 
 /* ── The stinger (a change that involves a held slide) ───────────── */
 
@@ -328,3 +329,49 @@ export function copyBeats(fit, hold) {
   const chip = fit.chip ? { index: index++, at: landed + HANDOFF.chipAt + (sub ? HANDOFF.lineStagger : 0) } : null;
   return { pieces: index, kicker, tokens: tokenBeats, sub, chip };
 }
+
+/* ── Letters and words that grow as they land ─────────────────────── */
+
+/**
+ * The three letter entrances a name can be dealt (src/lib/nameAccent.js,
+ * #336), re-cut to the brand's settle curve; `i` is the letter's place in the
+ * whole name. `pop` and `wave` grow from 0.7 / 0.85, which is why their squish
+ * waits for ARRIVAL.
+ */
+export const LETTER_FROM = {
+  pop: () => ({ opacity: 0, y: '0.55em', scale: 0.7 }),
+  wave: (/** @type {number} */ i) => ({ opacity: 0, y: `${(0.5 * Math.sin(i * 0.9 + 0.4)).toFixed(3)}em`, scale: 0.85 }),
+  drop: () => ({ opacity: 0, y: '-0.6em', scale: 1 }),
+};
+export const LETTER_TO = { opacity: 1, y: '0em', scale: 1 };
+
+/**
+ * One piece of a name (a letter, or a word of a long name) landing on its
+ * beat: one "hold, then land" keyframe list with the squish composed on, so
+ * the squash ripples across the name at the letter stagger. It squashes at
+ * arrival (see ARRIVAL), so the drawn height never goes under the name's cap.
+ * @param {{ at: number, dur: number, from: Record<string, number | string> }} beat
+ */
+export const letterEnter = ({ at, dur, from }) => withSquish(
+  holdThenLand(at, dur, from, LETTER_TO, EASE.settle),
+  squishLand(at, 'name', dur, ARRIVAL),
+);
+
+/** How a headline token lands, per the layout it was first fitted in. */
+export const WORD_FROM = {
+  shout: { opacity: 0, y: '0.45em', scale: 0.85 },
+  read: { opacity: 0, y: '0.45em', scale: 1 },
+};
+export const WORD_TO = { opacity: 1, y: '0em', scale: 1 };
+
+/**
+ * A headline word landing at `at`. A shouted word squashes onto its baseline
+ * at arrival (see ARRIVAL); a read word only lands.
+ * @param {number} at
+ * @param {number} dur
+ * @param {'shout' | 'read'} landing
+ */
+export const wordLanding = (at, dur, landing) => withSquish(
+  holdThenLand(at, dur, WORD_FROM[landing], WORD_TO, EASE.settle),
+  landing === 'shout' ? squishLand(at, 'text', dur, ARRIVAL) : null,
+);

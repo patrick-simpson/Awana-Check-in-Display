@@ -3,10 +3,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import tokens from '../../shared/brand/tokens.json';
 import {
-  BULGE, DEPTH, HALF_PERIOD, IMPACT, OVERSHOOT, PRESS, REST, SPRING,
+  ARRIVAL, BULGE, DEPTH, HALF_PERIOD, IMPACT, OVERSHOOT, PRESS, REST, SPRING,
   releaseEasing, settleScale, springPeaks, springProgress, squishBump, squishLand, withSquish,
 } from './squish.js';
-import { holdThenLand, holdThenLeave } from './lobbyMotion.js';
+import { LETTER_FROM, WORD_FROM, holdThenLand, holdThenLeave, letterEnter, wordLanding } from './lobbyMotion.js';
 import { landsAt } from '../components/promos/kit.jsx';
 
 // The soft squish (CLAUDE.md, "Soft squish"): one pure primitive, one physics.
@@ -193,6 +193,93 @@ describe('squishLand', () => {
   it('depends on its arguments alone: the same beat gives the same keyframes', () => {
     expect(JSON.stringify(squishLand(1.44, 'text'))).toBe(JSON.stringify(squishLand(1.44, 'text')));
     expect(squishLand(-1, 'chip', 0.46, 'pop')).toEqual(squishLand(0, 'chip', 0.46, 'pop'));
+  });
+});
+
+/**
+ * One value of a framer-motion keyframe animation at `t` seconds, the way
+ * framer-motion reads it: `times` are shares of `duration`, `ease` is one
+ * curve per segment (a bezier, or a preset name).
+ */
+function sampleValue(values, timing, t) {
+  const PRESETS = { linear: (x) => x, easeIn: bezier([0.42, 0, 1, 1]), easeOut: bezier([0, 0, 0.58, 1]), easeInOut: bezier([0.42, 0, 0.58, 1]) };
+  const x = Math.min(1, Math.max(0, t / timing.duration));
+  // No `times` means an even spread; a lone bezier (numbers) is every segment's.
+  const times = timing.times ?? values.map((_, k) => k / (values.length - 1));
+  const eases = typeof timing.ease[0] === 'number' ? values.slice(1).map(() => timing.ease) : timing.ease;
+  let i = 0;
+  while (i < values.length - 2 && x > times[i + 1]) i += 1;
+  const span = times[i + 1] - times[i];
+  const e = eases[i];
+  const curve = Array.isArray(e) ? bezier(e) : PRESETS[e];
+  return values[i] + (values[i + 1] - values[i]) * curve(span > 0 ? (x - times[i]) / span : 1);
+}
+
+describe('the squish composed onto the entrance that grows the piece', () => {
+  // What is DRAWN is the entrance's uniform `scale` times the squish's
+  // scaleY, so the readability caps (names 0.93, words 0.94) are only kept if
+  // the two never stack. The squish lands at ARRIVAL, where scale is 1.
+  /** Drawn height at `t`, and the entrance's own scale there. */
+  const drawn = (beat, t) => {
+    const scale = sampleValue(beat.animate.scale, beat.transition, t);
+    return { scale, y: scale * sampleValue(beat.animate.scaleY, beat.transition.scaleY, t) };
+  };
+  const names = [];
+  for (const [entrance, from] of Object.entries(LETTER_FROM)) {
+    for (const index of [0, 1, 4, 9]) {
+      for (const at of [0.2, 0.564, 1.44]) for (const dur of [0.4, 0.52, 0.6]) names.push({ entrance, beat: letterEnter({ at, dur, from: from(index) }), at, dur, cap: 0.93 });
+    }
+  }
+  const words = [];
+  for (const at of [0, 0.2, 0.564, 1.44]) {
+    for (const dur of [0.4, 0.52]) words.push({ entrance: 'word', beat: wordLanding(at, dur, 'shout'), at, dur, cap: 0.94 });
+  }
+
+  it('never draws a piece shorter than its cap once its entrance has finished growing', () => {
+    for (const { entrance, beat, at, dur, cap } of [...names, ...words]) {
+      const total = beat.transition.scaleY.duration;
+      let lowest = Infinity;
+      for (let t = at + dur; t <= total + 1e-9; t += total / 4000) lowest = Math.min(lowest, drawn(beat, t).y);
+      expect(lowest, `${entrance} at ${at} for ${dur}`).toBeGreaterThanOrEqual(cap - 1e-3);
+    }
+  });
+
+  it('never lets the squish take a growing piece below what its entrance alone draws, or its cap', () => {
+    for (const { entrance, beat, at, dur, cap } of [...names, ...words]) {
+      const total = beat.transition.scaleY.duration;
+      for (let t = 0; t <= total + 1e-9; t += total / 2000) {
+        const { scale, y } = drawn(beat, t);
+        expect(y, `${entrance} at ${at}+${dur}, t=${t.toFixed(3)}`).toBeGreaterThanOrEqual(Math.min(scale, cap) - 1e-3);
+      }
+    }
+  });
+
+  it('squashes at the very end of the entrance, and still rests on the design at the last keyframe', () => {
+    for (const { beat, at, dur } of [...names, ...words]) {
+      const { times, duration } = beat.transition.scaleY;
+      const low = beat.animate.scaleY.indexOf(Math.min(...beat.animate.scaleY));
+      expect(times[low] * duration).toBeCloseTo(at + dur * ARRIVAL, 10);
+      for (const key of ['scale', 'scaleX', 'scaleY']) expect(beat.animate[key].at(-1)).toBe(1);
+      expect(beat.animate.opacity.at(-1)).toBe(1);
+      expect(beat.animate.y.at(-1)).toBe('0em');
+    }
+  });
+
+  it('a read headline word only lands: no squish at all', () => {
+    const read = wordLanding(0.3, 0.52, 'read');
+    expect(read.animate.scaleY).toBeUndefined();
+    expect(WORD_FROM.read.scale).toBe(1);
+  });
+
+  it('would fail on the old stacking: a squish at the settle curve\'s 30% under a 0.7 entrance', () => {
+    const old = { ...holdThenLand(0.4, 0.52, LETTER_FROM.pop(0), { opacity: 1, y: '0em', scale: 1 }, tokens.motion.curves.settle) };
+    const beat = withSquish(old, squishLand(0.4, 'name', 0.52, 'settle'));
+    let lowest = Infinity;
+    for (let t = 0; t <= beat.transition.scaleY.duration; t += 0.002) lowest = Math.min(lowest, drawn(beat, t).y);
+    expect(lowest).toBeLessThan(0.93 - 1e-3);
+    let readable = Infinity;
+    for (let t = 0.4 + 0.52 * 0.3; t <= beat.transition.scaleY.duration; t += 0.002) readable = Math.min(readable, drawn(beat, t).y);
+    expect(readable).toBeLessThan(0.91);
   });
 });
 

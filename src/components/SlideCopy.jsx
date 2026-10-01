@@ -5,7 +5,7 @@ import { useFontsReady } from '../hooks/useFontsReady.js';
 import StepChip from './brand/StepChip.jsx';
 import { CHIP, KICKER, READ, SUB, bidiIsolates, fitFrame, LOBBY_THEMES, lobbyTheme } from '../lib/lobbyFrame.js';
 import {
-  HANDOFF, copyBeats, entranceHold, exitDelay, holdThenLand, holdThenLeave, vanishAtSwap,
+  HANDOFF, copyBeats, entranceHold, exitDelay, holdThenLand, holdThenLeave, vanishAtSwap, wordLanding,
 } from '../lib/lobbyMotion.js';
 import { squishLand, withSquish } from '../lib/squish.js';
 
@@ -66,13 +66,6 @@ function leaveFor(i, n) {
       : holdThenLeave(exitDelay(i, n), HANDOFF.exit, { opacity: 1, y: '0em' }, { opacity: 0, y: '-0.5em' }, EASE.exit)),
   };
 }
-
-/** How a headline token lands, per the layout it was first fitted in. */
-const WORD_FROM = {
-  shout: { opacity: 0, y: '0.45em', scale: 0.85 },
-  read: { opacity: 0, y: '0.45em', scale: 1 },
-};
-const WORD_TO = { opacity: 1, y: '0em', scale: 1 };
 
 /**
  * Where the headline needs a <br>: at every row's first token, except where
@@ -187,10 +180,7 @@ export default function SlideCopy({ frame, theme = 'sky', via = 'boot', still = 
   // a read word only lands. Decided by the beat sheet's `landing` and timed by
   // its beat alone, never by the fit, so a refit never re-targets (and so
   // never replays) a word.
-  const land = (i) => withSquish(
-    holdThenLand(tokenBeat(i).at, HANDOFF.word, WORD_FROM[landing], WORD_TO, EASE.settle),
-    landing === 'shout' ? squishLand(tokenBeat(i).at, 'text', HANDOFF.word, 'settle') : null,
-  );
+  const land = (i) => wordLanding(tokenBeat(i).at, HANDOFF.word, landing);
   const kickerAt = beats.kicker?.at ?? hold;
   const chipAt = beats.chip?.at ?? hold;
 

@@ -148,6 +148,48 @@ test('a panel button squishes onto its ledge while pressed and springs back to r
   await expect(page.getByRole('dialog', { name: 'Settings' })).toBeVisible();
 });
 
+// The squash pulls a pressed control's top edge down 4-6px. A press that began
+// in that band and is held past the 100 ms squash must still come up ON the
+// control: otherwise the click goes to the common ancestor and nothing
+// happens (holdCancel above releases off the button on purpose; this is the
+// in-place case). An invisible strip under :active keeps the hit area whole.
+for (const inside of [1, 3, 5, 8]) {
+  test(`a press ${inside}px inside a button's top edge, held past the squash, still clicks it`, async ({ page }) => {
+    await boot(page);
+    const dialog = await openSettingsTab(page, 'Connection');
+    await expect.poll(() => dialog.evaluate((el) => el.getAnimations().filter((a) => a.playState === 'running').length), { timeout: 3000 }).toBe(0);
+    await page.evaluate(() => {
+      window.__clickTargets = [];
+      window.addEventListener('click', (e) => window.__clickTargets.push(e.target.closest('button')?.textContent ?? `ancestor:${e.target.className}`), true);
+    });
+    const cancel = dialog.locator('.actions button', { hasText: /^cancel$/i });
+    const box = await cancel.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + inside);
+    await page.mouse.down();
+    await page.waitForTimeout(250);
+    // It really has shrunk out from under the pointer, so only the strip holds the press.
+    const held = await cancel.evaluate((el) => ({ top: el.getBoundingClientRect().top, scale: getComputedStyle(el).scale }));
+    expect(held.scale).not.toBe('none');
+    expect(held.top).toBeGreaterThan(box.y + 3);
+    await page.mouse.up();
+    expect(await page.evaluate(() => window.__clickTargets)).toEqual(['Cancel']);
+    await expect(dialog).toBeHidden();
+  });
+}
+
+test('the hit-area strip exists only while a squashed press is held, and never under ?lowPower=1', async ({ page }) => {
+  await boot(page, '?lowPower=1');
+  const dialog = await openSettingsTab(page, 'Connection');
+  const cancel = dialog.locator('.actions button', { hasText: /^cancel$/i });
+  const box = await cancel.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(150);
+  expect(await cancel.evaluate((el) => getComputedStyle(el, '::after').content)).toBe('none');
+  await page.mouse.move(box.x + box.width / 2, box.y + 1);
+  await page.mouse.up();
+});
+
 test('under ?lowPower=1 a press is the flat, instant 2px sink, and nothing on the panels animates', async ({ page }) => {
   await boot(page, '?lowPower=1');
   const { held, release } = await holdCancel(page);

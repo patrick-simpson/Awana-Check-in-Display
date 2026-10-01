@@ -6,7 +6,7 @@ import { fireBirthday, fireFirstTimer, fireStandard } from '../lib/confetti.js';
 import { playBirthdayChime, playChime, playFirstTimerChime } from '../lib/audio.js';
 import { nameAccent } from '../lib/nameAccent.js';
 import { DUR, EASE, inkEm, measureEm, shoutBaseline } from '../lib/brand.js';
-import { holdThenLand } from '../lib/lobbyMotion.js';
+import { holdThenLand, LETTER_FROM, letterEnter } from '../lib/lobbyMotion.js';
 import { squishLand, withSquish } from '../lib/squish.js';
 import {
   FRONT_WAVE_DELAY, KICKER_TRACKING, KICKER_U, kickerFor, momentFor, NAME_ROOM_U, nameBox, nameRoomU, nameSizeU,
@@ -81,16 +81,6 @@ function nameRoom() {
   if (!(px > 0)) return NAME_ROOM_U;
   return nameRoomU(window.innerWidth / px, hostClearancePx(window.innerWidth) / px);
 }
-
-// The three letter entrances a name can be dealt (src/lib/nameAccent.js,
-// #336): a child flies in the same way every week. Re-cut to the brand's
-// settle curve; `i` is the letter's place in the whole name.
-const LETTER_FROM = {
-  pop: () => ({ opacity: 0, y: '0.55em', scale: 0.7 }),
-  wave: (i) => ({ opacity: 0, y: `${(0.5 * Math.sin(i * 0.9 + 0.4)).toFixed(3)}em`, scale: 0.85 }),
-  drop: () => ({ opacity: 0, y: '-0.6em', scale: 1 }),
-};
-const LETTER_TO = { opacity: 1, y: '0em', scale: 1 };
 
 const DOODLES = [
   { kind: 'sparkle', x: u(74), y: u(10.6), size: u(2.6) },
@@ -206,17 +196,6 @@ function stickerOrigin(root) {
 // The cells above a changing line glide to their new place rather than
 // snapping (framer-motion layout animation, instant under ?lowPower=1).
 const GLIDE = { duration: DUR.settle, ease: EASE.settle };
-
-/**
- * One piece of a name (a letter, or a word of a long name) landing on its
- * beat: one "hold, then land" keyframe list with the squish composed on, so
- * the squash ripples across the name at the letter stagger.
- * @param {{ at: number, dur: number, from: Record<string, number | string> }} beat
- */
-const letterEnter = ({ at, dur, from }) => withSquish(
-  holdThenLand(at, dur, from, LETTER_TO, EASE.settle),
-  squishLand(at, 'name', dur, 'settle'),
-);
 
 function Name({ text, entrance, timing, size, wraps, box, club }) {
   const className = useLeaving(`checkin__name${wraps ? ' checkin__name--wraps' : ''}`);

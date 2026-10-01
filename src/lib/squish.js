@@ -77,6 +77,16 @@ export const REST = 0.004;
  */
 export const IMPACT = Object.freeze({ settle: 0.3, pop: 0.57, wipe: 0.76 });
 
+/**
+ * A beat that grows as it lands (an entrance's own uniform `scale`, from 0.7
+ * or 0.85 up to 1) squashes AT ARRIVAL: passed as squishLand's `curve`, the
+ * impact is the very end of its run, where that scale is exactly 1, so what
+ * is drawn (scale x scaleY) is never lower than the squish's own scaleY.
+ * Squashing at the settle curve's 30% instead stacked the two: a name at
+ * 0.896 of its height while fully opaque, against a cap of 0.93.
+ */
+export const ARRIVAL = 1;
+
 /** The kit durations the helpers default to (tokens.json: settle 520, pop 460). */
 const SETTLE_SEC = 0.52;
 const POP_SEC = 0.46;

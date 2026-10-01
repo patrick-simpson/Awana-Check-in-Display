@@ -1101,6 +1101,17 @@ as they are. The projector is a later, separate change.
   0.93, a headline word's bulge never passes 3%, the kicker is a whisper, a
   figure (a count) and a wave move scaleY only. scaleX answers at half the
   squash, less than volume-preserving on purpose, so letters never touch.
+  **The caps are on what is DRAWN**, which is the entrance's own uniform
+  `scale` times the squish's scaleY. A name's letters grow from 0.7 / 0.85 and
+  a shouted word from 0.85, so a squash at the settle curve's 30% stacked with
+  them (a name at 0.896 of its height, fully opaque; words at 0.923). Those
+  two squash AT ARRIVAL instead (`ARRIVAL` in `squish.js`, passed as the
+  `curve`: impact at the very end of the run, where scale is exactly 1, so the
+  drawn height is the squish's own and never under the cap). They are built
+  by `letterEnter()` / `wordLanding()` in `lobbyMotion.js` (with
+  `LETTER_FROM` / `WORD_FROM`), not in the components, because
+  `squish.test.js` samples the COMPOSED scale x scaleY from those exact
+  beats. Any new squish on a piece whose entrance also grows it does the same.
 - **Rules a new squish keeps** (each is a way it went wrong in review):
   - Its keyframes come from the beat sheet alone (SlideCopy's frozen `landing`
     mode and `beat.at`), never from the fit: a late web font refits the words,
@@ -1152,6 +1163,18 @@ as they are. The projector is a later, separate change.
   every token and every `linear()` string to `PRESS` / `releaseEasing()`. The
   kit checkbox's check springs in and goes out on the exit curve: any
   overshoot past 0 is a negative scale, a mirrored check.
+  **A held press keeps its hit area.** Squashed about its foot, a pill's top
+  edge drops 4-6px, so a press that began in that band and was held past the
+  100 ms squash came up OUTSIDE the box and the click went to the ancestor.
+  Under `:active` an `::after` strip (12px, `bottom: 100%`) stands on the
+  control's top edge and belongs to it. It is positioned against the control
+  because `scale` already makes the control a containing block, so no
+  `position` is ever set on it, and every kill switch (reduced motion, zero
+  animation) sets its `content: none` with the squash, since without a scale
+  it would anchor to an ancestor. Pills, radio options, debug tiles; the gear
+  (round, mostly rotated, own `::before`) and the checkbox are covered by their
+  own box. `e2e/panels.spec.js` holds a press at +1..+8px past the squash and
+  expects the control to get the click.
 - **Panels enter, and never exit.** Settings, the slide editor and the debug
   panel (`panel-enter`) rise a little stretched and spring home on the same
   easing. Closing stays an instant unmount: the visual suite closes the debug
