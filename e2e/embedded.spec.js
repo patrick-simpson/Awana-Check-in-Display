@@ -112,15 +112,15 @@ for (const [width, height] of [[640, 480], [1280, 720], [1920, 1080]]) {
 // The operator's panels, opened inside the frame. Settings and the slide
 // editor are 94-96vw wide and the debug panel is parked top-left at nearly the
 // full width, so on a small screen they reached under the host's column: at
-// 640x480 and 1024x768 Settings' SAVE sat under the host's gear (a click on
+// 640x480 and 1024x768 Settings' SAVE (now DONE) sat under the host's gear (a click on
 // its right end opened JOURNEY's panel, and Settings stayed open unsaved), the
 // slide editor's CANCEL under it at 640x480, and the debug panel's Close under
 // the toggle. The stand-in host's buttons are real buttons over the frame, so
 // a click there never reaches this page, exactly as on Journey. (Under
-// ?lowPower=1, which the embed always passes, Save is a plain primary button:
+// ?lowPower=1, which the embed always passes, Done is a plain primary button:
 // Jelly UI's <jelly-button> animates its canvas whatever the page says.)
 const PANELS = [
-  ['Settings', 'Control+Shift+S', '.panel--tabbed', (frame) => frame.locator('.panel .actions :is(jelly-button, button.primary)', { hasText: /^save$/i })],
+  ['Settings', 'Control+Shift+S', '.panel--settings', (frame) => frame.locator('.panel .actions :is(jelly-button, button.primary)', { hasText: /^done$/i })],
   ['the slide editor', 'Control+Shift+E', '.panel--tabbed', (frame) => frame.locator('.panel .actions button', { hasText: /^cancel$/i })],
   ['the debug panel', 'Control+Shift+D', '.debug', (frame) => frame.locator('.debug-footer button')],
 ];

@@ -13,7 +13,7 @@ export function setConfettiLoad(bursting) {
   loadFactor = bursting ? 0.5 : 1;
 }
 
-// Operator-tunable room-wide intensity (Settings → Banners):
+// Operator-tunable room-wide intensity (Settings → Screen & corner):
 // 'full' 1×, 'reduced' 0.5×, 'off' skips every burst entirely.
 let levelFactor = 1;
 export function setConfettiLevel(level) {

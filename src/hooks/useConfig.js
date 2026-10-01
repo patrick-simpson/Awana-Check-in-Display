@@ -237,6 +237,17 @@ export function updateConfig(patch) {
   invalidate();
 }
 
+/**
+ * Replace this device's whole override layer (sanitized). Settings' Undo uses
+ * it to put back exactly the layer it opened on: merging the old VALUES back
+ * would pin keys that were never overrides (a baked key, a ?config= value).
+ */
+export function replaceConfig(next) {
+  overrides = sanitizeOverrides(next);
+  saveOverrides(overrides);
+  invalidate();
+}
+
 /** Drop every device override — back to defaults (+ the remote layer, if any). */
 export function resetConfig() {
   try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
@@ -263,7 +274,7 @@ export function _resetForTest() {
  *  - `config`       effective: defaults < remote < overrides < URL flags
  *  - `storedConfig` the same without URL flags — what Settings edits/exports
  *  - `overrides`    this device's saved layer alone
- * `updateConfig` / `resetConfig` are stable module functions, safe in deps.
+ * `updateConfig` / `replaceConfig` / `resetConfig` are stable module functions, safe in deps.
  */
 export function useConfig() {
   const snap = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -272,6 +283,7 @@ export function useConfig() {
     storedConfig: snap.storedConfig,
     overrides: snap.overrides,
     updateConfig,
+    replaceConfig,
     resetConfig,
   };
 }

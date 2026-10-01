@@ -560,7 +560,7 @@ wins over readability, but every fact lands on the end card. Signage only
   length on the next slide, and the stinger wave carries the lobby into and
   out of each poster. At 15 s a poster now holds the line a little longer
   than the old 8 s ones did.
-- Settings → Calendar & Weather → **"Fall event promos"**
+- Settings → Slides → **"Fall event promos"**
   (`config.seasonPromos`) turns them off without touching the other
   auto-slides.
 - Testing: vitest fake timers cannot drive framer-motion (it captured the
@@ -644,7 +644,7 @@ Owner request 2026-09-29: a Windows app for the sound room PC that shows the
 lobby signage full screen on the lobby TV on club nights, 5:00 to 8:00 pm.
 Electron, in `desktop/` with its own `package.json` (the root `npm ci` never
 installs it). `desktop/README.md` is the volunteer's guide. The signage's Settings →
-Display → **Sound room app** card links the installer and that guide
+Setup → **Sound room app** card links the installer and that guide
 (`DESKTOP_APP_DOWNLOAD_URL` / `DESKTOP_APP_GUIDE_URL` in `src/lib/constants.js`;
 the installer's asset name is fixed, so the link never changes). The owner's calls:
 
@@ -1194,11 +1194,61 @@ as they are. The projector is a later, separate change.
   real button in each mode.
 - **Jelly UI's Save button** gates its canvas physics on the OS's reduced
   motion only, never on this app's zero animation, so under
-  `ZeroAnimationContext` Settings renders Save as the kit's plain
+  `ZeroAnimationContext` Settings renders Done as the kit's plain
   `button.primary`; the embedded panel spec's locator takes either.
 - Wiring is pinned in `lobbyWiring.test.jsx` ("the soft squish", "the
   check-in moment's squish", "the overlays' squish", as wired), next to the
   keyframes the squish composes onto.
+
+## The Settings panel (two panes, live apply)
+
+Owner request 2026-10-01: Settings "looks bad on desktop and mobile"; rebuilt
+for usability. `src/components/SettingsPanel.jsx` is the shell (the form,
+live apply, the rail, Undo / Done); `src/components/settings/sections.jsx`
+holds the eight sections and `settings/fields.jsx` the rows, cards and the
+fields with their own storage (login, display key, publish token, uploads);
+`src/lib/settingsSections.js` is the pure half (the section table, the old
+tab ids, which section it opens on, the phase in plain words).
+
+- **Eight sections, everyday first:** Status, Check-ins, Slides, Screen &
+  corner, Celebrations, Pickup board, Look & season, Setup. The rail is a
+  vertical tablist (Up/Down, Left/Right, Home, End); each item's accessible
+  name is its label alone, the blurb is its description. Old tab ids
+  (`connection`, `background`, `banners`, `display`, `calendar`) still resolve
+  (`LEGACY_TABS`), so a caller or old copy lands on the right section.
+- **It opens where the volunteer needs to be** (`openingSection`): an explicit
+  request (the first-run card asks for `setup`, the slide editor returns to
+  `slides`), else Setup when the screen cannot work yet (no Pusher app, or no
+  key), else Status when anything is wrong (the rail counts it), else
+  Check-ins. App passes `initialTab: null` from the gear and Ctrl+Shift+S.
+- **Live apply, Undo and Done (no Save, no Cancel).** A box, radio or menu
+  applies the moment it changes; a typed field applies when it loses focus or
+  on Enter (one focusout listener on the pane), so a half-typed number never
+  reaches the TV. Every apply diffs the clamped form against what was last
+  written, so only a touched key is ever written (a baked key or a `?config=`
+  value is never pinned). **Undo changes** hands `replaceConfig` (useConfig)
+  the device's override layer exactly as it was on opening, never the old
+  values merged back. Done, Escape and the backdrop flush a field still being
+  typed in and close; nothing asks, because nothing is ever unsaved. Preview,
+  Edit slides and the Debug panel flush first too. Simplified mode is a switch
+  outside the form, read live from `savedConfig`, like Ctrl+Shift+X. The
+  login, keys and uploaded files keep their own storage and are never undone.
+- **Durations are typed in seconds** and stored in ms (the keys and their
+  clamps are unchanged).
+- **Status replaces the old header band**: connection and login, tonight in
+  plain words (`PHASE_WORDS`), the calendar line, the published deck, every
+  problem worded by fix, the build and the trademark line. The header keeps
+  only a short status pill.
+- **Layout:** `.panel--settings` (the slide editor also wears `.panel--tabbed`,
+  which is unchanged, so restyle only the modifier). Below 720px wide or 480px
+  tall the dialog's `data-view` switches between the list and one section with
+  "All settings" back (focus moves with it). Focus starts on the selected rail
+  item, Tab stays inside the dialog, and focus goes back on closing. Embedded,
+  the `html.embedded .panel--tabbed` cap still applies. `e2e/settings.spec.js`
+  checks the panes at three sizes and the phone flow; `e2e/panels.spec.js`
+  presses Undo (a plain panel button) for the squish tests.
+- Copy elsewhere names sections as `Settings → Setup`, `Settings → Slides`,
+  `Settings → Screen & corner`: rename a section and grep for its name.
 
 ## Tonight counter: the printer's tally is the source of truth
 

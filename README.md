@@ -106,14 +106,15 @@ your repository and is not inherited by anyone who forks it.
    steps and an **Open Settings** button.
 2. Or click the gear icon in the bottom-left corner (it stays faintly visible),
    or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>.
-3. **Connection** tab → **Display login** → type the church's display passphrase
+3. A new screen opens Settings on **Setup** → **Connect this screen** → type the church's display passphrase
    (print-server dashboard → Settings → **Display login**) → **Log in**. That
    fills in the display key and the slide publish token by itself.
-4. Only if the header says *Not set up yet*: open **Advanced — paste keys by
-   hand** on the same tab, paste the **Pusher App Key** and **Cluster**, press
-   **Save**, then log in. (A site built with the repository variables —
-   Option C — already has these filled in.)
-5. **Background** tab: the default source is **Typed slides**, which shows the
+4. Only if the header says *Not set up*: open **Advanced — paste keys by
+   hand** in the same section, paste the **Pusher App Key** and **Cluster**
+   (every change in Settings applies as you make it; there is no Save), then
+   log in. (A site built with the repository variables — Option C — already
+   has these filled in.)
+5. **Slides** section: the default is **Typed & published slides**, which shows the
    deck published from the check-in computer plus the calendar slides. Pick
    another source only if this screen should play its own PowerPoint or video.
 
@@ -170,7 +171,7 @@ baked defaults < `?config=` file < this device's Settings < `?key=`).
 With Pusher connected, the one remaining step on each screen is the **display
 login**. On the print-server dashboard, Settings → **Display login** →
 **Generate** (it saves immediately). Then on the screen: gear → Settings →
-Connection → **Display login** → type the passphrase → **Log in**. The screen
+Setup → **Connect this screen** → type the passphrase → **Log in**. The screen
 receives the display key (children's names, published slides) and the slide
 publish token by itself, and keeps following rotations made on the print
 server. The print server must be running while a screen logs in. Pasting the
@@ -185,7 +186,7 @@ keys by hand still works under the same tab's **Advanced** section.
 ### Typed slides — no PowerPoint needed
 
 Instead of a PowerPoint embed, you can free-type background slides right in
-the app: Settings → Background source → **Typed slides** → **Edit slides…**
+the app: Settings → Slides → **Typed & published slides** → **Edit slides…**
 (or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>E</kbd>). Each slide gets the
 catalog look automatically, with a per-slide theme, text size, and duration.
 
@@ -207,22 +208,22 @@ file (mp4/webm) into the rotation:
 Type the deck once, on the check-in computer, then press **Publish to all
 displays** — the text slides go to every screen through the print server (the
 button is the filled one whenever this machine holds a publish token, which a
-logged-in screen gets automatically). Each screen's Settings → Background →
+logged-in screen gets automatically). Each screen's Settings → Slides →
 **Follow published slides** (on by default) is what makes the published deck
 appear; **Save slides** only keeps a deck on the device you are typing on;
-**Forget received deck** stops following. Video slides never publish: they stay
+Settings → Setup → **Forget received deck** drops what a screen received. Video slides never publish: they stay
 on the device they were added to, and a following screen keeps playing its own
 alongside the published text. **Export**/**Import** remain for moving a deck
 between machines by hand, and as the fallback when this machine has no publish
 token (paste the file into the dashboard → Lobby Slides → Publish). A screen set
 to any other background source ignores the published deck — Settings →
-Background says so and offers **Use Typed slides**.
+Slides says so and offers **Show the published slides**.
 
 ### Calendar slides — automatic, from the church calendar
 
-With **Typed slides** as the background source, the display also reads the
+With **Typed & published slides** as the background, the display also reads the
 church's Awana calendar and generates slides on its own (Settings →
-**Calendar & Weather**):
+**Slides** → **Calendar slides**):
 
 - **Welcome** — "Welcome to Water Night!" on special nights (the calendar
   title after any "` - `note" becomes a subtitle), or your own wording
@@ -241,7 +242,7 @@ The **corner weather chip** is separate from these slides: it takes its turn
 top-right in the one-item corner rotation over any background source
 (PowerPoint or Typed slides), refreshes every 15 minutes, and sits out
 whenever no reading is available. Set your
-town in Settings → Calendar & Weather with the **Look up** button.
+town in Settings → Screen & corner → **Weather** with the **Look up** button.
 
 **How the data flows:** the calendar site doesn't allow direct browser
 fetches, so a nightly GitHub Action (`.github/workflows/update-calendar.yml`
@@ -255,7 +256,7 @@ the Action refuses to overwrite the last good feed and the workflow run
 fails, which emails the repo owner.
 
 To point at a different church's calendar, change the URL in Settings →
-Calendar & Weather *and* the `DEFAULT_URL` in `scripts/fetch-calendar.mjs`
+Slides → **Calendar source** *and* the `DEFAULT_URL` in `scripts/fetch-calendar.mjs`
 (or run the workflow with `--url`). Note "tonight" is decided by the display
 device's own clock and timezone — keep the TV's clock right.
 

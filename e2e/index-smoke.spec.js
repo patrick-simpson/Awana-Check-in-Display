@@ -115,9 +115,10 @@ test('saving the Pusher key in Settings connects without a reload', async ({ pag
   await page.goto('/index.html');
   await expect(page.locator('.status-dot')).toContainText('not set up');
   await page.keyboard.press('Control+Shift+S');
-  // With no key the Advanced fold is already open.
+  // With no key Settings opens on Setup, its Advanced fold already open.
   await page.getByLabel('Pusher App Key').fill('abc123');
   await page.getByLabel('Pusher Cluster').fill('us2');
-  await page.locator('jelly-button:has-text("Save")').click();
+  // Typed fields apply as they are left; Done applies the last one and closes.
+  await page.locator('jelly-button:has-text("Done")').click();
   await expect(page.locator('.status-dot')).not.toContainText('not set up');
 });

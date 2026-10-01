@@ -75,9 +75,9 @@ test('a keyboard move leaves a visible focus ring on the slide index line', asyn
 test('under ?lowPower=1 no panel pseudo-element animates, and a checkbox ticks with no transition', async ({ page }) => {
   await boot(page, '?lowPower=1');
   await expect(page.locator('html.zero-animation-mode')).toHaveCount(1);
-  const dialog = await openSettingsTab(page, 'Connection');
+  const dialog = await openSettingsTab(page, 'Status');
 
-  for (const name of ['Connection', 'Background', 'Banners & celebrations', 'Display', 'Calendar & Weather']) {
+  for (const name of ['Status', 'Check-ins', 'Slides', 'Screen & corner', 'Celebrations', 'Pickup board', 'Look & season', 'Setup']) {
     await dialog.getByRole('tab', { name }).click();
     const moving = await dialog.evaluate((root) => {
       const out = [];
@@ -96,7 +96,7 @@ test('under ?lowPower=1 no panel pseudo-element animates, and a checkbox ticks w
     expect(moving, name).toEqual([]);
   }
 
-  await dialog.getByRole('tab', { name: 'Display' }).click();
+  await dialog.getByRole('tab', { name: 'Check-ins' }).click();
   const box = dialog.locator('input[type="checkbox"]:visible').first();
   await expect(box).toBeVisible();
   await box.click();
@@ -111,12 +111,23 @@ test('under ?lowPower=1 no panel pseudo-element animates, and a checkbox ticks w
 // Held with the mouse and released OFF the button, on the panel's own header
 // (the click then lands on the dialog, which keeps it from the backdrop, so
 // nothing closes), then read from the computed style.
-/** Press and hold Settings' Cancel; returns what it reads while held, and a way to let go. */
-async function holdCancel(page) {
-  const dialog = await openSettingsTab(page, 'Connection');
+/**
+ * Open Settings with one change made, so its plain "Undo changes" button is
+ * live (Done is Jelly UI's canvas button wherever motion is allowed).
+ */
+async function openWithUndo(page) {
+  const dialog = await openSettingsTab(page, 'Check-ins');
+  await dialog.getByRole('checkbox', { name: 'First arrival of the night' }).click();
   // Let the panel's own entrance finish first, so the button holds still.
   await expect.poll(() => dialog.evaluate((el) => el.getAnimations().filter((a) => a.playState === 'running').length), { timeout: 3000 }).toBe(0);
-  const cancel = dialog.locator('.actions button', { hasText: /^cancel$/i });
+  const undo = dialog.getByRole('button', { name: 'Undo changes' });
+  await expect(undo).toBeEnabled();
+  return { dialog, undo };
+}
+
+/** Press and hold Settings' Undo; returns what it reads while held, and a way to let go. */
+async function holdCancel(page) {
+  const { dialog, undo: cancel } = await openWithUndo(page);
   const box = await cancel.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
@@ -156,13 +167,11 @@ test('a panel button squishes onto its ledge while pressed and springs back to r
 for (const inside of [1, 3, 5, 8]) {
   test(`a press ${inside}px inside a button's top edge, held past the squash, still clicks it`, async ({ page }) => {
     await boot(page);
-    const dialog = await openSettingsTab(page, 'Connection');
-    await expect.poll(() => dialog.evaluate((el) => el.getAnimations().filter((a) => a.playState === 'running').length), { timeout: 3000 }).toBe(0);
+    const { undo: cancel } = await openWithUndo(page);
     await page.evaluate(() => {
       window.__clickTargets = [];
       window.addEventListener('click', (e) => window.__clickTargets.push(e.target.closest('button')?.textContent ?? `ancestor:${e.target.className}`), true);
     });
-    const cancel = dialog.locator('.actions button', { hasText: /^cancel$/i });
     const box = await cancel.boundingBox();
     await page.mouse.move(box.x + box.width / 2, box.y + inside);
     await page.mouse.down();
@@ -172,15 +181,15 @@ for (const inside of [1, 3, 5, 8]) {
     expect(held.scale).not.toBe('none');
     expect(held.top).toBeGreaterThan(box.y + 3);
     await page.mouse.up();
-    expect(await page.evaluate(() => window.__clickTargets)).toEqual(['Cancel']);
-    await expect(dialog).toBeHidden();
+    expect(await page.evaluate(() => window.__clickTargets)).toEqual(['Undo changes']);
+    // The click landed: the change is undone, so there is nothing left to undo.
+    await expect(cancel).toBeDisabled();
   });
 }
 
 test('the hit-area strip exists only while a squashed press is held, and never under ?lowPower=1', async ({ page }) => {
   await boot(page, '?lowPower=1');
-  const dialog = await openSettingsTab(page, 'Connection');
-  const cancel = dialog.locator('.actions button', { hasText: /^cancel$/i });
+  const { undo: cancel } = await openWithUndo(page);
   const box = await cancel.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
@@ -196,10 +205,10 @@ test('under ?lowPower=1 a press is the flat, instant 2px sink, and nothing on th
   expect(held).toEqual({ scale: 'none', translate: '0px 2px' });
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
   await release();
-  // Save is the kit's plain primary button here, not Jelly UI's canvas one.
+  // Done is the kit's plain primary button here, not Jelly UI's canvas one.
   const dialog = page.getByRole('dialog', { name: 'Settings' });
   await expect(dialog.locator('jelly-button')).toHaveCount(0);
-  await expect(dialog.locator('.actions button.primary', { hasText: /^save$/i })).toBeVisible();
+  await expect(dialog.locator('.actions button.primary', { hasText: /^done$/i })).toBeVisible();
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
 });
 

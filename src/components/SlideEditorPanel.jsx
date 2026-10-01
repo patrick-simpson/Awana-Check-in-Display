@@ -257,7 +257,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
       // too large fails identically through the dashboard, so say nothing
       // extra there — the server's message already says what to shorten.
       const fallback = result.reason === 'auth'
-        ? ' This machine has no valid publish token — log in under Settings → Connection → Display login, or paste a token under Settings → Background. Or press Export and paste the file into the print-server dashboard → Lobby Slides → Publish.'
+        ? ' This machine has no valid publish token — log in under Settings → Setup → Connect this screen, or paste a token under Settings → Setup → Publishing slides. Or press Export and paste the file into the print-server dashboard → Lobby Slides → Publish.'
         : '';
       setPublishState({ phase: 'err', message: `${result.message}${fallback}`, deckRev: null });
     }
@@ -345,7 +345,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
             files. Videos are stored on <strong>this device only</strong> and never uploaded.
             {config.backgroundSource !== 'manual' && (
               <> This screen&rsquo;s background source is not <strong>Typed slides</strong> — switch it in
-              Settings → Background to put these on screen.</>
+              Settings → Slides to put these on screen.</>
             )}
           </div>
 
@@ -617,7 +617,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
             disabled={publishState.phase === 'busy'}
             title={hasToken
               ? 'Send this deck to every display, via the print server'
-              : 'Needs a publish token — log in under Settings → Connection → Display login, or paste one under Settings → Background'}
+              : 'Needs a publish token — log in under Settings → Setup → Connect this screen, or paste one under Settings → Setup → Publishing slides'}
           >
             {publishState.phase === 'busy' ? 'Publishing…' : 'Publish to all displays'}
           </button>

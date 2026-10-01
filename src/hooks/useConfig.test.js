@@ -230,6 +230,21 @@ describe('useConfig store', () => {
     expect(result.current.config.nightTheme).toBe('christmas');
   });
 
+  it('replaceConfig swaps the whole override layer, so a key added since is gone again', () => {
+    const { result } = renderHook(() => useConfig());
+    act(() => { setRemoteDefaults({ nightTheme: 'christmas' }); updateConfig({ showClock: false }); });
+    const opened = { ...result.current.overrides };
+    act(() => updateConfig({ nightTheme: 'easter', milestoneEvery: 50 }));
+    act(() => result.current.replaceConfig(opened));
+    expect(result.current.overrides).toEqual({ showClock: false });
+    expect(JSON.parse(localStorage.getItem('awanaConfig.v1'))).toEqual({ showClock: false });
+    // The remote layer shows through again, never pinned as an override.
+    expect(result.current.config.nightTheme).toBe('christmas');
+    expect(result.current.config.milestoneEvery).toBe(defaults.milestoneEvery);
+    act(() => result.current.replaceConfig({ showClock: 'nope' }));
+    expect(result.current.overrides).toEqual({});
+  });
+
   it('updateConfig and resetConfig are stable across renders', () => {
     const { result, rerender } = renderHook(() => useConfig());
     const { updateConfig: u1, resetConfig: r1 } = result.current;

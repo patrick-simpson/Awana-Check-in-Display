@@ -120,7 +120,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [remoteConfigUrl]);
 
-  const { config: effectiveConfig, storedConfig, overrides, updateConfig, resetConfig } = useConfig();
+  const { config: effectiveConfig, storedConfig, overrides, updateConfig, replaceConfig, resetConfig } = useConfig();
 
   // Layering — baked defaults < ?config= remote < this device's overrides <
   // ?key=/?cluster=/?lowPower=1 URL flags — lives in useConfig.js so EVERY
@@ -607,7 +607,7 @@ export default function App() {
     setConfettiLoad(pending > BURST_THRESHOLD);
   }, [pending]);
 
-  // Room-wide confetti intensity (Settings → Banners).
+  // Room-wide confetti intensity (Settings → Screen & corner).
   useEffect(() => {
     setConfettiLevel(config.confettiLevel);
   }, [config.confettiLevel]);
@@ -632,9 +632,9 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [slideEditorOpen, setSlideEditorOpen] = useState(false);
   // Settings remembers its tab for the session, and the slide editor knows
-  // whether it was opened from Settings → Background (so closing it goes back
+  // whether it was opened from Settings → Slides (so closing it goes back
   // there) or straight from the keyboard (so closing it returns to the stage).
-  const [settingsTab, setSettingsTab] = useState('connection');
+  const [settingsTab, setSettingsTab] = useState(null);
   const [editorFromSettings, setEditorFromSettings] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [gearIdle, setGearIdle] = useState(true);
@@ -919,6 +919,7 @@ export default function App() {
         setDebugOpen((v) => !v);
       } else if (k === 's') {
         e.preventDefault();
+        setSettingsTab(null);
         setSettingsOpen(true);
       } else if (k === 'e') {
         e.preventDefault();
@@ -1222,7 +1223,7 @@ export default function App() {
                   tells an operator to look at the network; a silent absence of
                   banners tells them nothing, so this says which side to fix. */}
               {nameFaultText && (
-                <span className="name-fault" title="Children's names arrive encrypted — see Settings → Display key">
+                <span className="name-fault" title="Children's names arrive encrypted — see Settings → Setup">
                   {nameFaultText}
                 </span>
               )}
@@ -1297,7 +1298,7 @@ export default function App() {
       {flagsUp && (
         <div className={`top-flags${flagCount > 2 ? ' top-flags--tight' : ''}`}>
           {panicUp && (
-            <div className="panic-pill" title="Simplified mode is on — toggle with Ctrl+Shift+X or in Settings → Display">
+            <div className="panic-pill" title="Simplified mode is on — toggle with Ctrl+Shift+X or in Settings → Screen & corner">
               simplified mode
             </div>
           )}
@@ -1323,14 +1324,14 @@ export default function App() {
       {setupSeated && (
         <SetupCard
           card={setupCard}
-          onOpenSettings={() => { setSettingsTab('connection'); setSettingsOpen(true); }}
+          onOpenSettings={() => { setSettingsTab('setup'); setSettingsOpen(true); }}
         />
       )}
 
       {!overlay && (
         <button
           className={`settings-gear ${gearIdle ? 'idle' : ''}`}
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => { setSettingsTab(null); setSettingsOpen(true); }}
           title="Settings (Ctrl+Shift+S)"
           aria-label="Open settings"
         >
@@ -1348,7 +1349,6 @@ export default function App() {
             nameStatus={nameStatus}
             demoActive={demoActive}
             initialTab={settingsTab}
-            onTabChange={setSettingsTab}
             layerFaults={activeLayerFaults}
             lastEventAt={lastEventAt}
             calendar={calendar}
@@ -1361,6 +1361,7 @@ export default function App() {
             slidesStatus={slidesStatus}
             onForgetSyncedDeck={forgetSyncedDeck}
             onChange={updateConfig}
+            onReplace={replaceConfig}
             onReset={resetConfig}
             onClose={() => setSettingsOpen(false)}
             // A rehearsal for the operator, not a child in the lobby: it plays
@@ -1394,7 +1395,7 @@ export default function App() {
               setSlideEditorOpen(false);
               if (editorFromSettings) {
                 setEditorFromSettings(false);
-                setSettingsTab('background');
+                setSettingsTab('slides');
                 setSettingsOpen(true);
               }
             }}

@@ -68,10 +68,10 @@ describe('SetupCard (signage first-run)', () => {
     render(<Screen status="off" hasDisplayKey={false} />);
     const card = screen.getByRole('region', { name: 'Display setup' });
     // The two steps say where to go and where the secret is kept.
-    expect(card.textContent).toMatch(/Settings → Connection → Advanced/);
+    expect(card.textContent).toMatch(/Settings → Setup → Advanced/);
     expect(card.textContent).toMatch(/App Key and Cluster/);
     expect(card.textContent).toMatch(/Settings → Pusher Integration/);
-    expect(card.textContent).toMatch(/Settings → Connection → Display login/);
+    expect(card.textContent).toMatch(/Settings → Setup → Display login/);
     expect(card.textContent).toMatch(/Settings → Display login/);
     expect(card.textContent).toMatch(/sync themselves/);
     // The gear stands beside the card now; the shortcut rides the button.

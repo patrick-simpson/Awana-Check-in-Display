@@ -1,5 +1,5 @@
 // Panic mode — "something on screen looks wrong and the room is full."
-// One toggle (Ctrl+Shift+X or Settings → Display) strips the display to
+// One toggle (Ctrl+Shift+X or Settings → Screen & corner) strips the display to
 // its reliable core: placeholder background, no calendar or weather
 // widgets, clock only — while the banner pipeline keeps running
 // untouched, because kids still deserve their moment. Pure function so

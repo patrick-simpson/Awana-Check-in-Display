@@ -41,7 +41,7 @@ const config = {
   //   'manual'     — the typed/published slide deck plus the calendar
   //                  slides. THE DEFAULT: a freshly logged-in screen shows
   //                  the deck published from the check-in machine with
-  //                  nothing else set. (Settings → Background, or Ctrl+Shift+E)
+  //                  nothing else set. (Settings → Slides, or Ctrl+Shift+E)
   //   'powerpoint' — the OneDrive PowerPoint embed URL below. A saved URL
   //                  with no source chosen still means this, for screens set
   //                  up before 'manual' became the default — see
@@ -180,7 +180,7 @@ const config = {
   // also served from this site's shared/. Blank keeps the baked palette.
   sharedThemeUrl: fromSiteRoot('shared/theme.json'),
 
-  // Where the weather chip looks. Use Settings → Calendar & Weather →
+  // Where the weather chip looks. Use Settings → Screen & corner →
   // "Look up" to fill the coordinates from a town name.
   weatherLocationName: 'Waterville, Maine',
   weatherLat: 44.552,
@@ -296,7 +296,7 @@ const config = {
   // rainy or snowy night cools and dims the background scene. On by
   // default — the room should feel like the evening outside. The season
   // still owns the palette, so a chosen VBS skin doesn't disappear when
-  // it rains. Needs a weather location (Calendar & Weather) but NOT the
+  // it rains. Needs a weather location (Settings → Screen & corner) but NOT the
   // corner chip — either one being on is enough to fetch.
   weatherTheme: true,
 

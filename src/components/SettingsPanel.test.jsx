@@ -48,12 +48,17 @@ beforeEach(() => {
   loginState.logout.mockReset();
 });
 
-// The Save control is a <jelly-button> web component (vendored script,
-// loaded via index.html — not in jsdom). Its accessible button role
-// lives in its shadow DOM, so tests target the host element by tag;
-// React's onClick is attached to the host and fires the same way.
-const clickSave = () => fireEvent.click(screen.getByText('Save', { selector: 'jelly-button' }));
-const tab = (name) => fireEvent.click(screen.getByRole('tab', { name }));
+// Done is a <jelly-button> web component (vendored script, loaded via
+// index.html — not in jsdom). Its accessible button role lives in its shadow
+// DOM, so tests target the host element by tag; React's onClick is attached
+// to the host and fires the same way.
+const clickDone = () => fireEvent.click(screen.getByText('Done', { selector: 'jelly-button' }));
+const section = (name) => fireEvent.click(screen.getByRole('tab', { name }));
+/** Type into a field, then leave it: typed fields apply on blur. */
+const typeAndLeave = (el, value) => {
+  fireEvent.change(el, { target: { value } });
+  fireEvent.blur(el);
+};
 
 const baseProps = () => ({
   config: { ...defaults, audioMuted: true },
@@ -63,6 +68,7 @@ const baseProps = () => ({
   lastEventAt: null,
   calendar: { events: [], source: 'none', generatedAt: null, refresh: vi.fn() },
   onChange: vi.fn(),
+  onReplace: vi.fn(),
   onReset: vi.fn(),
   onClose: vi.fn(),
   onTest: vi.fn(),
@@ -70,102 +76,193 @@ const baseProps = () => ({
   onOpenSlideEditor: vi.fn(),
   onOpenDebug: vi.fn(),
 });
+/** A screen that works: connected and keyed, so it opens on Check-ins. */
+const happyProps = () => {
+  saveDisplayKey(FAKE_KEY);
+  return { ...baseProps(), status: 'connected' };
+};
 
-describe('SettingsPanel (tabbed)', () => {
-  it('renders all five tabs with Connection active first', () => {
-    render(<SettingsPanel {...baseProps()} />);
+const SECTION_NAMES = [
+  'Status', 'Check-ins', 'Slides', 'Screen & corner', 'Celebrations', 'Pickup board', 'Look & season', 'Setup',
+];
+
+describe('SettingsPanel: the two-pane shell', () => {
+  it('lists the eight sections in order, as a vertical tab list', () => {
+    render(<SettingsPanel {...happyProps()} />);
     const tabs = screen.getAllByRole('tab');
-    expect(tabs.map((t) => t.textContent)).toEqual([
-      'Connection', 'Background', 'Banners & celebrations', 'Display', 'Calendar & Weather',
-    ]);
-    expect(tabs[0].getAttribute('aria-selected')).toBe('true');
+    expect(tabs.map((t) => t.querySelector('.settings-nav__label').textContent)).toEqual(SECTION_NAMES);
+    expect(screen.getByRole('tablist').getAttribute('aria-orientation')).toBe('vertical');
+    // Each name is the label alone; the blurb describes it.
+    for (const name of SECTION_NAMES) expect(screen.getByRole('tab', { name })).toBeTruthy();
+  });
+
+  it('a working screen opens on Check-ins, with focus on its rail item', () => {
+    render(<SettingsPanel {...happyProps()} />);
+    const tab = screen.getByRole('tab', { name: 'Check-ins' });
+    expect(tab.getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(tab);
+    expect(screen.getByLabelText('How long each name stays up (seconds)')).toBeTruthy();
+  });
+
+  it('an unconfigured screen opens on Setup, with the by-hand fold open', () => {
+    const { container } = render(<SettingsPanel {...baseProps()} />);
+    expect(screen.getByRole('tab', { name: 'Setup' }).getAttribute('aria-selected')).toBe('true');
+    expect(container.querySelector('details.advanced-fields').open).toBe(true);
     expect(screen.getByLabelText('Pusher App Key')).toBeTruthy();
   });
 
-  it('switches tabs on click and shows that tab’s fields', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    tab('Calendar & Weather');
-    expect(screen.getByLabelText('Calendar page URL')).toBeTruthy();
-    expect(screen.queryByLabelText('Pusher App Key')).toBeNull();
+  it('a working screen with a problem opens on Status and counts it on the rail', () => {
+    render(<SettingsPanel {...{ ...happyProps(), opsFailures: [{ club: 'Sparks', at: Date.now() }] }} />);
+    const tab = screen.getByRole('tab', { name: 'Status' });
+    expect(tab.getAttribute('aria-selected')).toBe('true');
+    expect(tab.querySelector('.settings-nav__badge').textContent).toBe('1');
+    expect(screen.getByText(/The printer reported 1 problem tonight/)).toBeTruthy();
   });
 
-  it('moves between tabs with arrow keys, Home, and End', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    const [first] = screen.getAllByRole('tab');
-    fireEvent.keyDown(first, { key: 'ArrowRight' });
-    expect(screen.getByRole('tab', { name: 'Background' }).getAttribute('aria-selected')).toBe('true');
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Background' }), { key: 'ArrowLeft' });
-    expect(screen.getByRole('tab', { name: 'Connection' }).getAttribute('aria-selected')).toBe('true');
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Connection' }), { key: 'End' });
-    expect(screen.getByRole('tab', { name: 'Calendar & Weather' }).getAttribute('aria-selected')).toBe('true');
-    fireEvent.keyDown(screen.getByRole('tab', { name: 'Calendar & Weather' }), { key: 'Home' });
-    expect(screen.getByRole('tab', { name: 'Connection' }).getAttribute('aria-selected')).toBe('true');
+  it('opens on a requested section, old tab ids included', () => {
+    const { unmount } = render(<SettingsPanel {...{ ...happyProps(), initialTab: 'background' }} />);
+    expect(screen.getByRole('tab', { name: 'Slides' }).getAttribute('aria-selected')).toBe('true');
+    unmount();
+    render(<SettingsPanel {...{ ...happyProps(), initialTab: 'pickup', onTabChange: vi.fn() }} />);
+    expect(screen.getByRole('tab', { name: 'Pickup board' }).getAttribute('aria-selected')).toBe('true');
   });
 
-  it('opens on the requested tab and reports tab changes', () => {
-    const props = { ...baseProps(), initialTab: 'background', onTabChange: vi.fn() };
+  it('switches sections on click and reports the change', () => {
+    const props = { ...happyProps(), onTabChange: vi.fn() };
     render(<SettingsPanel {...props} />);
-    expect(screen.getByRole('tab', { name: 'Background' }).getAttribute('aria-selected')).toBe('true');
-    tab('Display');
-    expect(props.onTabChange).toHaveBeenCalledWith('display');
+    section('Slides');
+    expect(screen.getByLabelText('Calendar page URL')).toBeTruthy();
+    expect(screen.queryByLabelText('How long each name stays up (seconds)')).toBeNull();
+    expect(props.onTabChange).toHaveBeenCalledWith('slides');
   });
 
-  it('keeps edits from multiple tabs and saves ONLY the edited keys in one patch', () => {
+  it('moves along the rail with Up/Down (and Left/Right), Home and End', () => {
+    render(<SettingsPanel {...happyProps()} />);
+    const selected = () => screen.getAllByRole('tab').find((t) => t.getAttribute('aria-selected') === 'true')
+      .querySelector('.settings-nav__label').textContent;
+    fireEvent.keyDown(screen.getByRole('tab', { name: 'Check-ins' }), { key: 'ArrowDown' });
+    expect(selected()).toBe('Slides');
+    expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Slides' }));
+    fireEvent.keyDown(document.activeElement, { key: 'ArrowUp' });
+    fireEvent.keyDown(document.activeElement, { key: 'ArrowLeft' });
+    expect(selected()).toBe('Status');
+    fireEvent.keyDown(document.activeElement, { key: 'End' });
+    expect(selected()).toBe('Setup');
+    fireEvent.keyDown(document.activeElement, { key: 'ArrowRight' });
+    expect(selected()).toBe('Status');
+    fireEvent.keyDown(document.activeElement, { key: 'Home' });
+    expect(selected()).toBe('Status');
+  });
+
+  it('a phone sees the list first, and a tap opens the section with a way back', () => {
+    const { container } = render(<SettingsPanel {...happyProps()} />);
+    const dialog = container.querySelector('[role="dialog"]');
+    expect(dialog.dataset.view).toBe('list');
+    section('Celebrations');
+    expect(dialog.dataset.view).toBe('section');
+    fireEvent.click(screen.getByRole('button', { name: 'Back to all settings' }));
+    expect(dialog.dataset.view).toBe('list');
+  });
+
+  it('a requested section opens straight on it on a phone too', () => {
+    const { container } = render(<SettingsPanel {...{ ...baseProps(), initialTab: 'setup' }} />);
+    expect(container.querySelector('[role="dialog"]').dataset.view).toBe('section');
+  });
+});
+
+describe('SettingsPanel: live apply, Undo and Done', () => {
+  it('a toggle applies the moment it is flipped, and only that key', () => {
+    const props = happyProps();
+    render(<SettingsPanel {...props} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'First arrival of the night' }));
+    expect(props.onChange).toHaveBeenCalledTimes(1);
+    expect(props.onChange).toHaveBeenCalledWith({ firstArrivalMoment: false });
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it('a typed field applies when it loses focus, not on every keystroke', () => {
+    const props = happyProps();
+    render(<SettingsPanel {...props} />);
+    section('Slides');
+    const welcome = screen.getByLabelText('Calendar welcome wording (regular nights)');
+    fireEvent.change(welcome, { target: { value: 'Welcome to KVB Awana!' } });
+    expect(props.onChange).not.toHaveBeenCalled();
+    fireEvent.blur(welcome);
+    expect(props.onChange).toHaveBeenCalledWith({ calendarWelcomeText: 'Welcome to KVB Awana!' });
+  });
+
+  it('Enter in a typed field applies it too', () => {
     const props = baseProps();
     render(<SettingsPanel {...props} />);
+    const key = screen.getByLabelText('Pusher App Key');
+    fireEvent.change(key, { target: { value: 'key123' } });
+    fireEvent.keyDown(key, { key: 'Enter' });
+    expect(props.onChange).toHaveBeenCalledWith({ pusherAppKey: 'key123' });
+  });
 
+  it('durations are typed in seconds and stored in milliseconds, clamped', () => {
+    const props = happyProps();
+    render(<SettingsPanel {...props} />);
+    const std = screen.getByLabelText('How long each name stays up (seconds)');
+    expect(std.value).toBe('6');
+    typeAndLeave(std, '7.5');
+    expect(props.onChange).toHaveBeenLastCalledWith({ standardDisplayMs: 7500 });
+    typeAndLeave(std, '999');
+    expect(props.onChange).toHaveBeenLastCalledWith({ standardDisplayMs: 20000 });
+  });
+
+  it('Done applies a field still being typed in, then closes', () => {
+    const props = baseProps();
+    render(<SettingsPanel {...props} />);
     fireEvent.change(screen.getByLabelText('Pusher App Key'), { target: { value: 'key123' } });
-    tab('Calendar & Weather');
-    fireEvent.change(screen.getByLabelText('Welcome wording (regular nights)'), {
-      target: { value: 'Welcome to KVB Awana!' },
-    });
-    // Edits on the first tab survive the round trip.
-    tab('Connection');
-    expect(screen.getByLabelText('Pusher App Key').value).toBe('key123');
-
-    clickSave();
-    expect(props.onChange).toHaveBeenCalledTimes(1);
-    const patch = props.onChange.mock.calls[0][0];
-    expect(Object.keys(patch).sort()).toEqual(['calendarWelcomeText', 'pusherAppKey']);
-    expect(patch.pusherAppKey).toBe('key123');
-    expect(patch.calendarWelcomeText).toBe('Welcome to KVB Awana!');
+    clickDone();
+    expect(props.onChange).toHaveBeenCalledWith({ pusherAppKey: 'key123' });
     expect(props.onClose).toHaveBeenCalled();
   });
 
-  it('an untouched Save writes nothing — a baked key or fleet value is never pinned', () => {
+  it('an untouched panel writes nothing — a baked key or fleet value is never pinned', () => {
     const props = baseProps();
     props.config = { ...defaults, pusherAppKey: 'baked-from-build', audioMuted: true };
     render(<SettingsPanel {...props} />);
-    clickSave();
+    for (const name of SECTION_NAMES) section(name);
+    clickDone();
     expect(props.onChange).not.toHaveBeenCalled();
     expect(props.onClose).toHaveBeenCalled();
   });
 
-  it('clamps out-of-range values on save', () => {
-    const props = baseProps();
-    render(<SettingsPanel {...props} />);
-    tab('Banners & celebrations');
-    fireEvent.change(screen.getByLabelText('Standard banner duration (ms)'), { target: { value: '999999' } });
-    clickSave();
-    const patch = props.onChange.mock.calls[0][0];
-    expect(patch.standardDisplayMs).toBe(20000);
-    expect(Object.keys(patch)).toEqual(['standardDisplayMs']);
+  it('Escape and the backdrop close at once (nothing is left unsaved)', () => {
+    const props = happyProps();
+    const confirm = vi.spyOn(window, 'confirm');
+    const { container } = render(<SettingsPanel {...props} />);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(props.onClose).toHaveBeenCalledTimes(1);
+    fireEvent.click(container.querySelector('.panel-backdrop'));
+    expect(props.onClose).toHaveBeenCalledTimes(2);
+    expect(confirm).not.toHaveBeenCalled();
   });
 
-  it('the corner has no layout or interval to choose: one item at a time, with each slide', () => {
-    const props = baseProps();
+  it('Undo puts back exactly the layer the panel opened on, and the form with it', () => {
+    const props = happyProps();
+    props.overrides = { nightTheme: 'christmas' };
+    props.savedConfig = { ...defaults, audioMuted: true, nightTheme: 'christmas' };
     render(<SettingsPanel {...props} />);
-    tab('Display');
-    expect(screen.queryByLabelText('Animated cycle (recommended)')).toBeNull();
-    expect(screen.queryByLabelText('Classic corner stickers')).toBeNull();
-    expect(screen.queryByLabelText('Seconds per item')).toBeNull();
-    expect(screen.getByText(/One item at a time/)).toBeTruthy();
-    // The item toggles are still here.
-    expect(screen.getByText("Tonight's check-in counter")).toBeTruthy();
+    const undo = screen.getByRole('button', { name: 'Undo changes' });
+    expect(undo.disabled).toBe(true);
+    const box = screen.getByRole('checkbox', { name: 'First arrival of the night' });
+    fireEvent.click(box);
+    expect(box.checked).toBe(false);
+    expect(undo.disabled).toBe(false);
+    fireEvent.click(undo);
+    expect(props.onReplace).toHaveBeenCalledWith({ nightTheme: 'christmas' });
+    expect(screen.getByRole('checkbox', { name: 'First arrival of the night' }).checked).toBe(true);
+    expect(screen.getByRole('button', { name: 'Undo changes' }).disabled).toBe(true);
+    // After an Undo the next change is a change again.
+    fireEvent.click(screen.getByRole('checkbox', { name: 'First arrival of the night' }));
+    expect(props.onChange).toHaveBeenLastCalledWith({ firstArrivalMoment: false });
   });
 
-  it('seeds the form from savedConfig, never from the panic-masked config', () => {
-    const props = baseProps();
+  it('seeds from savedConfig, never from the panic-masked config, and simplified mode is a live switch', () => {
+    const props = happyProps();
     const saved = {
       ...defaults, audioMuted: true, panicMode: true, backgroundSource: 'powerpoint',
       powerpointEmbedUrl: 'https://onedrive.live.com/embed?x', calendarEnabled: true,
@@ -173,71 +270,73 @@ describe('SettingsPanel (tabbed)', () => {
     props.savedConfig = saved;
     props.config = applyPanicMode(saved);
     render(<SettingsPanel {...props} />);
-    tab('Display');
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Simplified mode (panic switch)' }));
-    clickSave();
-    // Only the toggle the operator touched — the mask's placeholder values
-    // (background source, empty URL, calendar off) never reach storage.
-    expect(props.onChange.mock.calls[0][0]).toEqual({ panicMode: false });
+    section('Screen & corner');
+    const box = screen.getByRole('checkbox', { name: 'Strip the screen to the basics' });
+    expect(box.checked).toBe(true);
+    fireEvent.click(box);
+    // Only the switch — the mask's placeholder values (background source,
+    // empty URL, calendar off) never reach storage.
+    expect(props.onChange).toHaveBeenCalledWith({ panicMode: false });
+    clickDone();
+    expect(props.onChange).toHaveBeenCalledTimes(1);
   });
 
-  it('Cancel on a clean panel closes without asking or writing', () => {
-    const props = baseProps();
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    render(<SettingsPanel {...props} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(confirm).not.toHaveBeenCalled();
-    expect(props.onChange).not.toHaveBeenCalled();
-    expect(props.onClose).toHaveBeenCalled();
-  });
-
-  it('a dirty panel asks before discarding on Cancel, Escape and the backdrop', () => {
-    const props = baseProps();
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const { container } = render(<SettingsPanel {...props} />);
-    fireEvent.change(screen.getByLabelText('Pusher App Key'), { target: { value: 'discard-me' } });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(confirm).toHaveBeenCalledTimes(2);
-    expect(props.onClose).not.toHaveBeenCalled();
-
-    confirm.mockReturnValue(true);
-    fireEvent.click(container.querySelector('.panel-backdrop'));
-    expect(props.onClose).toHaveBeenCalledTimes(1);
-    expect(props.onChange).not.toHaveBeenCalled();
-  });
-
-  it('Escape closes a clean panel', () => {
-    const props = baseProps();
-    render(<SettingsPanel {...props} />);
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(props.onClose).toHaveBeenCalled();
-  });
-
-  it('Preview a check-in, Debug panel and Edit slides… all commit pending edits first', () => {
-    for (const [label, cb] of [['Preview a check-in', 'onTest'], ['Debug panel', 'onOpenDebug']]) {
-      const props = baseProps();
+  it('Preview a check-in, Debug panel and Edit slides… apply a field still being typed in first', () => {
+    for (const [label, cb, where] of [['Preview a check-in', 'onTest', 'Check-ins'], ['Debug panel', 'onOpenDebug', 'Setup'], [/Edit slides/, 'onOpenSlideEditor', 'Slides']]) {
+      const props = happyProps();
       render(<SettingsPanel {...props} />);
+      section('Setup');
       fireEvent.change(screen.getByLabelText('Pusher App Key'), { target: { value: 'key123' } });
+      section(where);
+      // Leaving Setup unmounts the field without a blur: the pending value
+      // is still applied before the action runs.
       fireEvent.click(screen.getByRole('button', { name: label }));
       expect(props.onChange).toHaveBeenCalledWith({ pusherAppKey: 'key123' });
       expect(props[cb]).toHaveBeenCalled();
       expect(props.onChange.mock.invocationCallOrder[0]).toBeLessThan(props[cb].mock.invocationCallOrder[0]);
       cleanup();
+      localStorage.clear();
     }
-    const props = baseProps();
-    render(<SettingsPanel {...props} />);
-    tab('Background');
-    // Default source is Typed slides now; picking PowerPoint and heading to the editor saves that first.
-    fireEvent.click(screen.getByLabelText('Looping PowerPoint'));
-    fireEvent.click(screen.getByRole('button', { name: /Edit slides/ }));
-    expect(props.onChange).toHaveBeenCalledWith({ backgroundSource: 'powerpoint' });
-    expect(props.onChange.mock.invocationCallOrder[0]).toBeLessThan(props.onOpenSlideEditor.mock.invocationCallOrder[0]);
   });
 
-  it('shows the live calendar preview line when data is loaded', () => {
-    const props = baseProps();
+  it('under zero animation Done is a plain primary button', () => {
+    const props = happyProps();
+    const { container } = render(
+      <ZeroAnimationContext.Provider value>
+        <SettingsPanel {...props} />
+      </ZeroAnimationContext.Provider>,
+    );
+    expect(container.querySelector('jelly-button')).toBeNull();
+    const done = screen.getByRole('button', { name: 'Done' });
+    expect(done.classList.contains('primary')).toBe(true);
+    fireEvent.click(done);
+    expect(props.onClose).toHaveBeenCalled();
+  });
+
+  it('with motion Done is the Jelly UI button', () => {
+    const { container } = render(<SettingsPanel {...happyProps()} />);
+    expect(container.querySelector('.actions jelly-button')?.textContent).toBe('Done');
+  });
+});
+
+describe('Status', () => {
+  it('names the login state (key pasted by hand) and what the screen can read', () => {
+    render(<SettingsPanel {...{ ...happyProps(), initialTab: 'status' }} />);
+    expect(screen.getByText('Connected — check-ins will appear instantly')).toBeTruthy();
+    expect(screen.getByText(/display key pasted by hand/)).toBeTruthy();
+    expect(screen.getByText(/this screen can read encrypted names/)).toBeTruthy();
+  });
+
+  it('a connected but unkeyed screen is told to log in, with a jump to Setup', () => {
+    render(<SettingsPanel {...{ ...baseProps(), status: 'connected', nameStatus: 'no-key', initialTab: 'status' }} />);
+    expect(screen.getByText('Connected — not logged in yet (Setup → Connect this screen)')).toBeTruthy();
+    expect(screen.getByText(/encrypted names are arriving but this screen has no key/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Set up this screen/ }));
+    expect(screen.getByRole('tab', { name: 'Setup' }).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('shows tonight in plain words and the live calendar line', () => {
+    const props = { ...happyProps(), initialTab: 'status', phase: 'game-time' };
     props.calendar = {
       events: [
         { date: '2099-01-06', kind: 'club', title: 'Awana meeting', isCancelled: false, isSpecial: false },
@@ -248,47 +347,38 @@ describe('SettingsPanel (tabbed)', () => {
       refresh: vi.fn(),
     };
     render(<SettingsPanel {...props} />);
-    tab('Calendar & Weather');
+    expect(screen.getByText(/Game time/)).toBeTruthy();
     expect(screen.getByText(/2 events loaded/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh calendar now' }));
     expect(props.calendar.refresh).toHaveBeenCalled();
   });
 
-  it('offers the fall event promos alongside the other auto-slides, on by default', () => {
-    const props = baseProps();
-    render(<SettingsPanel {...props} />);
-    tab('Calendar & Weather');
-    const promos = screen.getByLabelText('Fall event promos');
-    expect(promos.checked).toBe(true);
-    fireEvent.click(promos);
-    clickSave();
-    // Only the toggle the volunteer actually touched is written.
-    expect(props.onChange).toHaveBeenCalledWith({ seasonPromos: false });
+  it('demo mode is disclosed with a reload exit', () => {
+    render(<SettingsPanel {...{ ...happyProps(), demoActive: true }} />);
+    expect(screen.getByText(/a sample or simulated check-in was fired/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reload display' })).toBeTruthy();
+  });
+
+  it('lists every problem, worded by fix', () => {
+    render(<SettingsPanel {...{
+      ...happyProps(), layerFaults: ['weather'], remoteConfigError: 'HTTP 404', wakeLockStatus: 'unsupported',
+    }} />);
+    expect(screen.getByText(/A screen layer crashed/)).toBeTruthy();
+    expect(screen.getByText(/central config for this screen could not be applied/)).toBeTruthy();
+    expect(screen.getByText(/no Screen Wake Lock/)).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Status' }).querySelector('.settings-nav__badge').textContent).toBe('3');
+  });
+
+  it('keeps the trademark line', () => {
+    render(<SettingsPanel {...{ ...happyProps(), initialTab: 'status' }} />);
+    expect(screen.getByText(/NOT AFFILIATED OR ENDORSED BY/)).toBeTruthy();
   });
 });
 
-describe('Connection tab', () => {
-  it('names the login state in the header and the summary (key pasted by hand)', () => {
-    saveDisplayKey(FAKE_KEY);
-    const props = { ...baseProps(), status: 'connected' };
-    render(<SettingsPanel {...props} />);
-    expect(screen.getByText('Connected — check-ins will appear instantly')).toBeTruthy();
-    expect(screen.getByText(/display key pasted by hand/)).toBeTruthy();
-    expect(screen.getByText(/this screen can read encrypted names/)).toBeTruthy();
-  });
-
-  it('a connected but unkeyed screen is told to log in', () => {
-    const props = { ...baseProps(), status: 'connected', nameStatus: 'no-key' };
-    render(<SettingsPanel {...props} />);
-    expect(screen.getByText('Connected — not logged in yet (Connection → Display login)')).toBeTruthy();
-    expect(screen.getByText(/encrypted names are arriving but this screen has no key/)).toBeTruthy();
-  });
-
-  it('with no Pusher key the login field points at Advanced and the fold is open', () => {
-    const { container } = render(<SettingsPanel {...baseProps()} />);
+describe('Setup: connecting this screen', () => {
+  it('with no Pusher key the login field points at Advanced', () => {
+    render(<SettingsPanel {...baseProps()} />);
     expect(screen.getByText(/not connected to Pusher yet/)).toBeTruthy();
-    expect(container.querySelector('details.advanced-fields').open).toBe(true);
-    expect(screen.getByText('Not set up yet — add the Pusher App Key under Connection → Advanced')).toBeTruthy();
   });
 
   it('the passphrase box is typeable before any frame arrives and Log in enables on text', async () => {
@@ -304,6 +394,8 @@ describe('Connection tab', () => {
     expect(button.disabled).toBe(false);
     fireEvent.click(button);
     await waitFor(() => expect(loginState.login).toHaveBeenCalledWith('abcd-efgh-ijkm-npqr'));
+    // The passphrase is never config.
+    expect(props.onChange).not.toHaveBeenCalled();
   });
 
   it('Show reveals the passphrase', () => {
@@ -332,7 +424,7 @@ describe('Connection tab', () => {
   it('a logged-in screen shows its kid and offers Log out behind a confirm', () => {
     Object.assign(loginState, { frameStatus: 'received', loginStatus: 'logged-in', kid: '2c366156' });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    render(<SettingsPanel {...{ ...baseProps(), status: 'connected' }} />);
+    render(<SettingsPanel {...{ ...baseProps(), status: 'connected', initialTab: 'setup' }} />);
     expect(screen.getByText('logged in · key 2c366156')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Log out' }));
     expect(loginState.logout).toHaveBeenCalled();
@@ -341,6 +433,7 @@ describe('Connection tab', () => {
   it('without secure crypto nothing pretends a pasted key would help', () => {
     vi.stubGlobal('crypto', {});
     const { container } = render(<SettingsPanel {...{ ...baseProps(), status: 'connected' }} />);
+    expect(screen.getByRole('tab', { name: 'Setup' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getAllByText(/not in a secure context/).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Paste key' })).toBeNull();
     expect(screen.getByLabelText('Display login').disabled).toBe(true);
@@ -349,59 +442,49 @@ describe('Connection tab', () => {
   });
 });
 
-describe('Background tab', () => {
-  it('lists Typed slides first and defaults to it', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    tab('Background');
-    const radios = screen.getAllByRole('radio', { name: /slides|PowerPoint|video/ });
-    expect(radios[0]).toBe(screen.getByLabelText('Typed slides'));
-    expect(screen.getByLabelText('Typed slides').checked).toBe(true);
+describe('Slides', () => {
+  const open = (props = happyProps()) => { render(<SettingsPanel {...{ ...props, initialTab: 'slides' }} />); return props; };
+
+  it('lists the typed & published deck first and defaults to it', () => {
+    open();
+    const radios = screen.getAllByRole('radio');
+    expect(radios[0]).toBe(screen.getByLabelText('Typed & published slides'));
+    expect(radios[0].checked).toBe(true);
   });
 
-  it('a published deck on a non-Typed screen shows the notice; Use Typed slides fixes it on Save', () => {
-    const props = baseProps();
+  it('a published deck on another source shows the notice; its button switches at once', () => {
+    const props = happyProps();
     props.config = { ...defaults, audioMuted: true, backgroundSource: 'powerpoint' };
     props.syncedDeck = { deckRev: 3, publishedAt: Date.now(), slides: [{ id: 's1', text: 'Hi', eyebrow: '', theme: 'auto', durationSec: 0, textSize: 'auto' }] };
-    render(<SettingsPanel {...props} />);
-    tab('Background');
-    expect(screen.getByText(/but this screen is set to Looping PowerPoint/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Use Typed slides' }));
-    expect(screen.getByLabelText('Typed slides').checked).toBe(true);
+    open(props);
+    expect(screen.getByText(/but this screen is set to OneDrive PowerPoint/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Show the published slides' }));
+    expect(screen.getByLabelText('Typed & published slides').checked).toBe(true);
     expect(screen.queryByText(/but this screen is set to/)).toBeNull();
-    clickSave();
-    expect(props.onChange.mock.calls[0][0]).toEqual({ backgroundSource: 'manual' });
+    expect(props.onChange).toHaveBeenCalledWith({ backgroundSource: 'manual' });
   });
 
-  it('the OneDrive URL and auto-advance fields follow the source; the dead start-time field is gone', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    tab('Background');
-    expect(screen.queryByLabelText(/Club start time/)).toBeNull();
-    // Typed slides: no OneDrive URL.
+  it('a source change applies at once; the URL and timing fields follow it', () => {
+    const props = open();
     expect(screen.queryByLabelText(/OneDrive PowerPoint embed URL/)).toBeNull();
-    expect(screen.getByLabelText('Slide auto-advance (seconds)')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Looping PowerPoint'));
+    expect(screen.getByLabelText('Seconds per slide')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('OneDrive PowerPoint'));
+    expect(props.onChange).toHaveBeenLastCalledWith({ backgroundSource: 'powerpoint' });
     expect(screen.getByLabelText('OneDrive PowerPoint embed URL')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Uploaded PowerPoint'));
     expect(screen.getByLabelText('OneDrive PowerPoint embed URL (fallback if the uploaded deck cannot render)')).toBeTruthy();
     fireEvent.click(screen.getByLabelText('Looping video'));
-    expect(screen.queryByLabelText(/OneDrive/)).toBeNull();
-    expect(screen.queryByLabelText('Slide auto-advance (seconds)')).toBeNull();
-  });
-
-  it('Edit slides… is reachable from every source', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    tab('Background');
-    fireEvent.click(screen.getByLabelText('Looping video'));
+    expect(screen.queryByLabelText(/OneDrive PowerPoint embed URL/)).toBeNull();
+    expect(screen.queryByLabelText('Seconds per slide')).toBeNull();
     expect(screen.getByRole('button', { name: /Edit slides/ })).toBeTruthy();
     expect(screen.getByText('Follow published slides')).toBeTruthy();
   });
 
   it('Remove video asks first', async () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const props = baseProps();
+    const props = happyProps();
     props.config = { ...defaults, audioMuted: true, backgroundSource: 'video' };
-    render(<SettingsPanel {...props} />);
-    tab('Background');
+    open(props);
     const remove = await screen.findByRole('button', { name: 'Remove video' });
     fireEvent.click(remove);
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining('clip.mp4'));
@@ -411,101 +494,111 @@ describe('Background tab', () => {
     await waitFor(() => expect(video.deleteVideo).toHaveBeenCalled());
   });
 
-  it('slide-sync hints lead with logging in', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    tab('Background');
-    expect(screen.getByText(/type the church’s display passphrase under Connection → Display login/)).toBeTruthy();
+  it('the calendar slide options fold away with the calendar, the promos toggle applies at once', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-01T12:00:00'));
+    const props = open();
+    const promos = screen.getByLabelText('Fall event promos');
+    expect(promos.checked).toBe(true);
+    fireEvent.click(promos);
+    expect(props.onChange).toHaveBeenCalledWith({ seasonPromos: false });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Calendar-aware slides' }));
+    expect(screen.queryByLabelText('Welcome slide')).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('after the season the promos toggle leaves the page', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-12-01T12:00:00'));
+    open();
+    expect(screen.queryByLabelText('Fall event promos')).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('published-slide hints on Status lead with logging in', () => {
+    render(<SettingsPanel {...{ ...baseProps(), status: 'connected', initialTab: 'status' }} />);
+    expect(screen.getByText(/type the church’s display passphrase under Setup → Connect this screen/)).toBeTruthy();
   });
 });
 
-describe('Banners & celebrations and Display tabs', () => {
-  it('celebration controls live on Banners & celebrations, not Display', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    tab('Banners & celebrations');
-    expect(screen.getByLabelText('Confetti intensity')).toBeTruthy();
-    expect(screen.getByLabelText('Milestone celebration (every N check-ins)')).toBeTruthy();
-    // A rush no longer shortens anyone's banner, so there is no floor to set.
-    expect(screen.queryByLabelText('Rush-mode minimum banner time (ms)')).toBeNull();
-    tab('Display');
-    expect(screen.queryByLabelText('Confetti intensity')).toBeNull();
-    expect(screen.getByLabelText("Who's still here board")).toBeTruthy();
+describe('Check-ins, Screen & corner, Celebrations, Pickup board, Look & season', () => {
+  it('confetti and reduce motion sit together on Screen & corner', () => {
+    const props = happyProps();
+    render(<SettingsPanel {...props} />);
+    section('Screen & corner');
+    expect(screen.getByLabelText('Confetti')).toBeTruthy();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Reduce motion on this screen' }));
+    expect(props.onChange).toHaveBeenCalledWith({ reduceMotion: true });
+    expect(defaults.reduceMotion).toBe(false);
+    expect(defaults.confettiLevel).toBe('full');
+  });
+
+  it('says when ?lowPower=1 is overriding the motion settings', () => {
+    const props = happyProps();
+    props.savedConfig = { ...defaults, audioMuted: true };
+    props.config = { ...props.savedConfig, reduceMotion: true, confettiLevel: 'off' };
+    render(<SettingsPanel {...{ ...props, initialTab: 'screen' }} />);
+    expect(screen.getByText(/lowPower=1/)).toBeTruthy();
+  });
+
+  it('the corner is one item at a time, and the counter note only shows with the counter', () => {
+    render(<SettingsPanel {...{ ...happyProps(), initialTab: 'screen' }} />);
+    expect(screen.getByText(/One item at a time/)).toBeTruthy();
+    expect(screen.queryByLabelText('Seconds per item')).toBeNull();
+    expect(screen.getByText('Explain corrections to the counter')).toBeTruthy();
+    fireEvent.click(screen.getByRole('checkbox', { name: "Tonight's check-in counter" }));
+    expect(screen.queryByText('Explain corrections to the counter')).toBeNull();
   });
 
   it('the milestone hint stops advertising a toast when milestones are off', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    tab('Banners & celebrations');
+    render(<SettingsPanel {...{ ...happyProps(), initialTab: 'celebrations' }} />);
     expect(screen.getByText(/Every 25 check-ins/)).toBeTruthy();
-    fireEvent.change(screen.getByLabelText('Milestone celebration (every N check-ins)'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Room milestone (every N check-ins)'), { target: { value: '0' } });
     expect(screen.getByText(/Milestone celebrations are off/)).toBeTruthy();
   });
 
-  it('club phrases save through the same sanitizer as an import', () => {
-    const props = baseProps();
+  it('club phrases apply through the same sanitizer as an import', () => {
+    const props = happyProps();
     render(<SettingsPanel {...props} />);
-    tab('Banners & celebrations');
     const club = getAllClubs()[0];
-    fireEvent.change(screen.getByLabelText(`${club} phrase`), { target: { value: '  Bring it!  ' } });
-    clickSave();
+    typeAndLeave(screen.getByLabelText(`${club} phrase`), '  Bring it!  ');
     const patch = props.onChange.mock.calls[0][0];
     expect(Object.keys(patch)).toEqual(['clubPhrases']);
     expect(patch.clubPhrases[club.toLowerCase()]).toBe('  Bring it!  '); // trimmed by sanitizeClubPhrases in useConfig
   });
 
-  it('the reduce-motion toggle round-trips and never touches the default', () => {
-    const props = baseProps();
-    render(<SettingsPanel {...props} />);
-    tab('Display');
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Reduce motion on this screen' }));
-    clickSave();
-    expect(props.onChange.mock.calls[0][0]).toEqual({ reduceMotion: true });
-    expect(defaults.reduceMotion).toBe(false);
-    expect(defaults.confettiLevel).toBe('full');
+  it('toggle titles are clickable labels with an accessible name', () => {
+    render(<SettingsPanel {...happyProps()} />);
+    const box = screen.getByRole('checkbox', { name: 'Play a chime with each welcome' });
+    expect(box.checked).toBe(false);
+    fireEvent.click(screen.getByText('Play a chime with each welcome'));
+    expect(box.checked).toBe(true);
   });
 
-  it('toggle titles are clickable labels with an accessible name', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    tab('Banners & celebrations');
-    const box = screen.getByRole('checkbox', { name: 'Sound on' });
-    expect(box.checked).toBe(false);
-    fireEvent.click(screen.getByText('Sound on'));
-    expect(box.checked).toBe(true);
+  it('the pickup board is its own section and keeps its guard copy', () => {
+    render(<SettingsPanel {...{ ...happyProps(), initialTab: 'pickup' }} />);
+    expect(screen.getByLabelText("Who's still here board").value).toBe('off');
+    expect(screen.queryByLabelText('Stop showing names at or below')).toBeNull();
+    fireEvent.change(screen.getByLabelText("Who's still here board"), { target: { value: 'pickup' } });
+    expect(screen.getByText(/This is the setting that matters/)).toBeTruthy();
+  });
+
+  it("follow-the-printer's-season only shows while the skin is Auto", () => {
+    render(<SettingsPanel {...{ ...happyProps(), initialTab: 'look' }} />);
+    expect(screen.queryByText("Follow the printer's season")).toBeNull();
+    fireEvent.change(screen.getByLabelText('Themed night skin'), { target: { value: 'auto' } });
+    expect(screen.getByText("Follow the printer's season")).toBeTruthy();
   });
 });
 
-describe('footer actions', () => {
-  // Jelly UI gates its canvas physics on the OS's reduced motion only, so under
-  // this app's zero animation (?lowPower=1, the Pi) Save is the kit's plain
-  // primary button: nothing on the page may move there.
-  it('under zero animation Save is a plain primary button, and it still saves', () => {
-    const props = baseProps();
-    const { container } = render(
-      <ZeroAnimationContext.Provider value>
-        <SettingsPanel {...props} />
-      </ZeroAnimationContext.Provider>,
-    );
-    expect(container.querySelector('jelly-button')).toBeNull();
-    const save = screen.getByRole('button', { name: 'Save' });
-    expect(save.tagName).toBe('BUTTON');
-    expect(save.classList.contains('primary')).toBe(true);
-    fireEvent.change(screen.getByLabelText('Pusher App Key'), { target: { value: 'key123' } });
-    fireEvent.click(save);
-    expect(props.onChange).toHaveBeenCalledWith(expect.objectContaining({ pusherAppKey: 'key123' }));
-    expect(props.onClose).toHaveBeenCalled();
-  });
-
-  it('with motion Save is the Jelly UI button', () => {
-    const { container } = render(<SettingsPanel {...baseProps()} />);
-    expect(container.querySelector('.actions jelly-button')?.textContent).toBe('Save');
-  });
-
-  it('Import is a real button that refuses a file with no display settings', async () => {
+describe('Setup: tools', () => {
+  it('Import refuses a file with no display settings', async () => {
     const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    const props = baseProps();
-    render(<SettingsPanel {...props} />);
-    expect(screen.getByRole('button', { name: 'Import' })).toBeTruthy();
-    const input = screen.getByTestId('import-settings-file');
+    const props = happyProps();
+    render(<SettingsPanel {...{ ...props, initialTab: 'setup' }} />);
+    expect(screen.getByRole('button', { name: 'Import settings' })).toBeTruthy();
     const file = new File(['[{"text":"a slide"}]'], 'awana-slides.json', { type: 'application/json' });
-    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.change(screen.getByTestId('import-settings-file'), { target: { files: [file] } });
     await waitFor(() => expect(alert).toHaveBeenCalledWith(expect.stringMatching(/no display settings/)));
     expect(props.onChange).not.toHaveBeenCalled();
   });
@@ -513,7 +606,7 @@ describe('footer actions', () => {
   it('Import merges the recognised keys and reports the real count', async () => {
     vi.spyOn(window, 'alert').mockImplementation(() => {});
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const props = baseProps();
+    const props = happyProps();
     render(<SettingsPanel {...props} />);
     const file = new File(['{"nightTheme":"christmas","bogus":1}'], 'settings.json', { type: 'application/json' });
     fireEvent.change(screen.getByTestId('import-settings-file'), { target: { files: [file] } });
@@ -522,39 +615,46 @@ describe('footer actions', () => {
     expect(props.onReset).not.toHaveBeenCalled();
   });
 
-  it('Export writes what differs from the baked defaults, even on a centrally configured screen', async () => {
-    saveDisplayKey(FAKE_KEY);
+  it('Export writes what differs from the baked defaults, changes made in the panel included', async () => {
     let captured = null;
     URL.createObjectURL = vi.fn((blob) => { captured = blob; return 'blob:x'; });
     URL.revokeObjectURL = vi.fn();
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
-    const props = baseProps();
+    const props = happyProps();
     props.savedConfig = { ...defaults, audioMuted: true, nightTheme: 'christmas', weatherLat: 10 };
     props.config = { ...props.savedConfig, pusherAppKey: 'from-url-flag' };
     render(<SettingsPanel {...props} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'First arrival of the night' }));
+    section('Setup');
+    fireEvent.click(screen.getByRole('button', { name: 'Export settings' }));
     const text = await new Promise((resolve) => {
       const r = new FileReader();
       r.onload = () => resolve(r.result);
       r.readAsText(captured);
     });
-    const json = JSON.parse(text);
-    expect(json).toEqual({ nightTheme: 'christmas', weatherLat: 10 });
+    expect(JSON.parse(text)).toEqual({ nightTheme: 'christmas', weatherLat: 10, firstArrivalMoment: false });
     expect(text).not.toContain(FAKE_KEY);
     expect(text).not.toContain('from-url-flag');
   });
 
-  it('demo mode is disclosed with a reload exit', () => {
-    render(<SettingsPanel {...{ ...baseProps(), demoActive: true }} />);
-    expect(screen.getByText(/Demo mode — a sample or simulated check-in/)).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Reload display' })).toBeTruthy();
+  it('both resets ask first and say what they do', () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const props = happyProps();
+    render(<SettingsPanel {...{ ...props, initialTab: 'setup' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset tonight’s counter' }));
+    expect(confirm).toHaveBeenLastCalledWith(expect.stringMatching(/Doors are open/));
+    expect(props.onResetTally).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset this screen' }));
+    expect(confirm).toHaveBeenLastCalledWith(expect.stringMatching(/typed slides.*login, keys/s));
+    expect(props.onReset).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Reset this screen' }));
+    expect(props.onReset).toHaveBeenCalled();
+    expect(props.onClose).toHaveBeenCalled();
   });
-});
 
-describe('the sound room app card', () => {
-  it('links the Windows installer and its guide from Settings → Display', () => {
-    render(<SettingsPanel {...baseProps()} />);
-    tab('Display');
+  it('links the Windows installer and its guide', () => {
+    render(<SettingsPanel {...{ ...happyProps(), initialTab: 'setup' }} />);
     const download = screen.getByRole('link', { name: 'Download for Windows' });
     expect(download.getAttribute('href')).toBe('https://github.com/patrick-simpson/Awana-Check-in-Display/releases/latest/download/Awana-Lobby-Display-Setup.exe');
     const guide = screen.getByRole('link', { name: 'Setup guide' });

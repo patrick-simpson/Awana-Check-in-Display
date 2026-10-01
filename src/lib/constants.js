@@ -122,7 +122,7 @@ export const BUILD_PROBE_TIMEOUT_MS = 5000;
 export const BUILD_QUIET_MS = 5000;
 
 // The sound room desktop app (desktop/, "Awana Lobby Display"): the installer
-// on this repo's Latest release, and its volunteer guide. Settings → Display
+// on this repo's Latest release, and its volunteer guide. Settings → Setup
 // links both. The fixed asset name keeps the download link permanent.
 export const DESKTOP_APP_DOWNLOAD_URL = 'https://github.com/patrick-simpson/Awana-Check-in-Display/releases/latest/download/Awana-Lobby-Display-Setup.exe';
 export const DESKTOP_APP_GUIDE_URL = 'https://github.com/patrick-simpson/Awana-Check-in-Display/blob/main/desktop/README.md';

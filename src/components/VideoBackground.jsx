@@ -3,7 +3,7 @@ import { BACKGROUND_VIDEO_ID, getVideo } from '../lib/videoStore.js';
 
 /**
  * Full-screen looping video background (#25). One video, uploaded in
- * Settings → Background, stored in THIS device's IndexedDB (never uploaded
+ * Settings → Slides, stored in THIS device's IndexedDB (never uploaded
  * anywhere) under the single well-known background slot.
  *
  * Rules it must never break:

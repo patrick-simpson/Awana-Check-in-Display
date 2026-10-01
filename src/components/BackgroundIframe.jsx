@@ -137,7 +137,7 @@ export default function BackgroundIframe({
     );
   }
 
-  // Uploaded .pptx deck rendered locally (Settings → Background →
+  // Uploaded .pptx deck rendered locally (Settings → Slides →
   // "Uploaded PowerPoint"). Whole-deck failure falls back to the URL
   // embed when one is configured, else the placeholder scene.
   if (backgroundSource === 'pptx') {
