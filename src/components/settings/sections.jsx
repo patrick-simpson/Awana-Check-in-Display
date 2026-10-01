@@ -267,7 +267,7 @@ export function StatusSection({
 export function CheckinsSection({ form, set, update, onPreview }) {
   return (
     <>
-      <PanelCard title="Welcome banners">
+      <PanelCard title="Welcome banners" scope="shared">
         <SecondsField
           id="std" label="How long each name stays up (seconds)" min="2" max="20"
           ms={form.standardDisplayMs}
@@ -280,19 +280,13 @@ export function CheckinsSection({ form, set, update, onPreview }) {
           onChange={(ms) => update({ specialDisplayMs: ms }, { apply: false })}
           hint="The extra-celebratory banners hold a little longer."
         />
-        <Toggle
-          checked={!form.audioMuted}
-          onChange={(e) => update({ audioMuted: !e.target.checked })}
-          title="Play a chime with each welcome"
-          hint="This screen only. Browsers stay silent until someone has clicked the page once."
-        />
         <button type="button" className="secondary section-jump" onClick={onPreview}
           title="Shows a sample welcome on this screen. It marks the screen ‘demo mode’ (red badge at the top) until it is reloaded.">
           Preview a check-in
         </button>
       </PanelCard>
 
-      <PanelCard title="Extras" tab="var(--brand-journey)">
+      <PanelCard title="Extras" tab="var(--brand-journey)" scope="shared">
         <Toggle
           checked={form.firstArrivalMoment}
           onChange={set('firstArrivalMoment')}
@@ -319,7 +313,7 @@ export function CheckinsSection({ form, set, update, onPreview }) {
         />
       </PanelCard>
 
-      <PanelCard title="Club lines" tab="var(--brand-trek)">
+      <PanelCard title="Club lines" tab="var(--brand-trek)" scope="shared">
         <span className="hint panel-intro">
           A short line under the child’s name on their welcome, one per club. Leave a club blank for no line. Up to
           80 characters.
@@ -378,7 +372,7 @@ export function SlidesSection({ form, set, update, slideCount, onEditSlides, syn
         </div>
       )}
 
-      <PanelCard title="What plays behind the names">
+      <PanelCard title="What plays behind the names" scope="screen">
         <div className="field">
           <span className="field-label" id="bgsource-label">Background</span>
           <div className="radio-row" role="radiogroup" aria-labelledby="bgsource-label">
@@ -396,7 +390,7 @@ export function SlidesSection({ form, set, update, slideCount, onEditSlides, syn
             ))}
           </div>
           <span className="hint">
-            This screen only. Typed slides are made right here in the app and get the catalog look automatically;
+            Typed slides are made right here in the app and get the catalog look automatically;
             publish them from the check-in computer and every screen shows the same deck.
           </span>
         </div>
@@ -439,7 +433,7 @@ export function SlidesSection({ form, set, update, slideCount, onEditSlides, syn
         )}
       </PanelCard>
 
-      <PanelCard title="Typed & published slides" tab="var(--brand-journey)">
+      <PanelCard title="Typed & published slides" tab="var(--brand-journey)" scope="screen">
         <div className="field">
           <span className="hint">{typedLine}</span>
           <button type="button" className="secondary section-jump" onClick={onEditSlides}>
@@ -454,7 +448,7 @@ export function SlidesSection({ form, set, update, slideCount, onEditSlides, syn
         />
       </PanelCard>
 
-      <PanelCard title="Calendar slides" tab="var(--brand-trek)">
+      <PanelCard title="Calendar slides" tab="var(--brand-trek)" scope="shared">
         <Toggle
           checked={form.calendarEnabled}
           onChange={set('calendarEnabled')}
@@ -522,7 +516,7 @@ export function ScreenSection({ form, set, update, panicMode, onPanic, wakeLockS
 
   return (
     <>
-      <PanelCard title="Simplified mode" tab="var(--brand-sparks-deep)">
+      <PanelCard title="Simplified mode" tab="var(--brand-sparks-deep)" scope="screen">
         <Toggle
           checked={panicMode}
           onChange={(e) => onPanic(e.target.checked)}
@@ -531,7 +525,7 @@ export function ScreenSection({ form, set, update, panicMode, onPanic, wakeLockS
         />
       </PanelCard>
 
-      <PanelCard title="Corner">
+      <PanelCard title="Corner" scope="shared">
         <p className="hint panel-intro">
           One item at a time — the time, tonight's tally or the weather — changing with each slide. They step
           aside while a poster or a slide marked “Hold check-ins” is up. A connection or printer problem always shows.
@@ -553,12 +547,9 @@ export function ScreenSection({ form, set, update, panicMode, onPanic, wakeLockS
         )}
         <Toggle checked={form.showWeatherChip} onChange={set('showWeatherChip')}
           title="Corner weather" hint="The temperature and the sky, top-right. Refreshes every 15 minutes." />
-        <Toggle checked={form.showConnectionStatus} onChange={set('showConnectionStatus')}
-          title="Always show the connection sticker"
-          hint="Useful while setting up. Even when off, it appears by itself if the connection drops or the screen is not set up." />
       </PanelCard>
 
-      <PanelCard title="Weather" tab="var(--brand-journey)">
+      <PanelCard title="Weather" tab="var(--brand-journey)" scope="shared">
         <div className="field">
           <label htmlFor="wloc">Weather location</label>
           <div className="lookup-row">
@@ -591,7 +582,13 @@ export function ScreenSection({ form, set, update, panicMode, onPanic, wakeLockS
         </div>
       </PanelCard>
 
-      <PanelCard title="This TV" tab="var(--brand-trek)">
+      <PanelCard title="This TV" tab="var(--brand-trek)" scope="screen">
+        <Toggle
+          checked={!form.audioMuted}
+          onChange={(e) => update({ audioMuted: !e.target.checked })}
+          title="Play a chime with each welcome"
+          hint="Browsers stay silent until someone has clicked the page once."
+        />
         <Toggle
           checked={form.keepScreenAwake}
           onChange={set('keepScreenAwake')}
@@ -609,7 +606,7 @@ export function ScreenSection({ form, set, update, panicMode, onPanic, wakeLockS
             <option value="reduced">Reduced (half the particles)</option>
             <option value="off">Off (banners and chimes only)</option>
           </select>
-          <span className="hint">Every burst on this screen — welcomes, birthdays, milestones. "Reduced" helps weak TV sticks keep up on busy nights.</span>
+          <span className="hint">Every burst — welcomes, birthdays, milestones. "Reduced" helps weak TV sticks keep up on busy nights.</span>
         </div>
         <Toggle
           checked={form.reduceMotion}
@@ -619,6 +616,9 @@ export function ScreenSection({ form, set, update, panicMode, onPanic, wakeLockS
             ? <>Freezes every animation — banners still appear, just instantly. <strong>This page’s address has <code>?lowPower=1</code>, which is forcing it on (and confetti off) whatever these say.</strong></>
             : 'Freezes every animation — banners still appear, just instantly. For weak TV sticks, or when the movement is distracting.'}
         />
+        <Toggle checked={form.showConnectionStatus} onChange={set('showConnectionStatus')}
+          title="Always show the connection sticker"
+          hint="Useful while setting up. Even when off, it appears by itself if the connection drops or the screen is not set up." />
       </PanelCard>
     </>
   );
@@ -628,7 +628,7 @@ export function ScreenSection({ form, set, update, panicMode, onPanic, wakeLockS
 
 export function CelebrationsSection({ form, set, update }) {
   return (
-    <PanelCard title="Celebrations" tab="var(--brand-journey)">
+    <PanelCard title="Celebrations" tab="var(--brand-journey)" scope="shared">
       <div className="field">
         <label htmlFor="milestone">Room milestone (every N check-ins)</label>
         <input
@@ -686,7 +686,7 @@ export function PickupSection({ form, set, onBoardDemo }) {
   });
   return (
     <>
-      <PanelCard title={<>Who&apos;s still here</>} tab="var(--brand-puggles-deep)">
+      <PanelCard title={<>Who&apos;s still here</>} tab="var(--brand-puggles-deep)" scope="shared">
         <div className="field">
           <label htmlFor="cbmode">Who&apos;s still here board</label>
           <select id="cbmode" value={form.checkoutBoardMode} onChange={set('checkoutBoardMode')}>
@@ -779,7 +779,7 @@ export function PickupSection({ form, set, onBoardDemo }) {
 export function LookSection({ form, set }) {
   return (
     <>
-      <PanelCard title="Season" tab="var(--brand-journey)">
+      <PanelCard title="Season" tab="var(--brand-journey)" scope="shared">
         <div className="field">
           <label htmlFor="nightTheme">Themed night skin</label>
           <select id="nightTheme" value={form.nightTheme} onChange={set('nightTheme')}>
@@ -804,7 +804,7 @@ export function LookSection({ form, set }) {
         )}
       </PanelCard>
 
-      <PanelCard title="Weather effects" tab="var(--brand-trek)">
+      <PanelCard title="Weather effects" tab="var(--brand-trek)" scope="shared">
         <div className="field">
           <label htmlFor="particleEffect">Ambient particles</label>
           <select id="particleEffect" value={form.particleEffect} onChange={set('particleEffect')}>
@@ -842,9 +842,48 @@ export function LookSection({ form, set }) {
 
 // ── Setup ─────────────────────────────────────────────────────────────────
 
+/** "rev 4, 7:35 PM" for a shared layer, or what is true when there is none. */
+function sharedLine(shared) {
+  if (!shared) return 'No shared settings have reached this screen yet.';
+  if (shared.local && !shared.publishedAt) return 'A change made here has not reached the print server yet.';
+  const when = shared.publishedAt
+    ? new Date(shared.publishedAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
+    : '';
+  const tail = shared.local ? ' A newer change made here has not reached the print server yet.' : '';
+  return `Following update ${shared.rev}${when ? `, sent ${when}` : ''}.${tail}`;
+}
+
+function SharedSettingsCard({ form, set, shared, shareStatus, onShareNow }) {
+  const following = form.followSharedSettings !== false;
+  return (
+    <PanelCard title="Shared settings" tab="var(--brand-blue)" scope="screen">
+      <Toggle
+        checked={following}
+        onChange={set('followSharedSettings')}
+        title="Follow the shared settings"
+        hint="Settings tagged EVERY SCREEN (banner times, celebrations, the pickup board, the look, the calendar and weather) come from the check-in computer, and a change made there reaches every screen. Turn off to keep this one screen on its own values. Settings tagged THIS SCREEN never travel."
+      />
+      <p className="hint">{following ? sharedLine(shared) : 'This screen keeps its own values for everything.'}</p>
+      {shareStatus?.state === 'failed' && <p className="hint hint--warn" role="status">{shareStatus.message}</p>}
+      {following && onShareNow && (
+        <div className="field">
+          <button type="button" className="ghost section-jump" onClick={onShareNow}>
+            Send this screen&rsquo;s shared settings to every screen
+          </button>
+          <span className="hint">
+            Works on the check-in computer, while the printer app is running. Every other screen then takes these
+            values, the next time it hears from the print server (within 5 minutes, or at once if it is on).
+          </span>
+        </div>
+      )}
+    </PanelCard>
+  );
+}
+
 export function SetupSection({
   form, set, status, secure, login, syncedDeck, onForgetSyncedDeck,
   onOpenDebug, onExport, onImport, onResetTally, onReset,
+  shared, shareStatus, onShareNow,
 }) {
   // The by-hand fields fold away behind the login — unless they are the
   // fix: no Pusher connection, or no secure crypto.
@@ -852,7 +891,7 @@ export function SetupSection({
 
   return (
     <>
-      <PanelCard title="Connect this screen">
+      <PanelCard title="Connect this screen" scope="screen">
         <DisplayLoginField status={status} secure={secure} login={login} />
         <details
           className="advanced-fields"
@@ -882,7 +921,9 @@ export function SetupSection({
         </details>
       </PanelCard>
 
-      <PanelCard title="Publishing slides" tab="var(--brand-journey)">
+      <SharedSettingsCard form={form} set={set} shared={shared} shareStatus={shareStatus} onShareNow={onShareNow} />
+
+      <PanelCard title="Publishing slides" tab="var(--brand-journey)" scope="screen">
         <PublishTokenField />
         {syncedDeck && (
           <div className="field">

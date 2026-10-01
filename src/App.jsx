@@ -48,7 +48,9 @@ import {
   AWARD_MILESTONES, BOOK_MILESTONES, awardMilestoneCopy, bookMilestoneCopy,
   crossedMilestones, isBigMilestone, nightMilestoneCopy,
 } from './lib/milestones.js';
-import { setRemoteDefaults } from './hooks/useConfig.js';
+import { receiveSharedSettings, setRemoteDefaults, setSharedLocally } from './hooks/useConfig.js';
+import { publishSettings } from './lib/publishSettings.js';
+import { loadPublishToken } from './lib/publishToken.js';
 import { FLEET_CONFIG_URL_CHANGE_EVENT, loadFleetConfigUrl, resolveRemoteConfigUrl } from './lib/fleetConfigUrl.js';
 import { getClubPalette } from './lib/clubs.js';
 import { clubTintFor } from './lib/clubTint.js';
@@ -63,7 +65,7 @@ import { useWatchdogReload } from './hooks/useWatchdogReload.js';
 import { useBuildReload } from './hooks/useBuildReload.js';
 import { useTallerThan } from './hooks/useTallerThan.js';
 import { isEmbedded } from './lib/embed.js';
-import { BOARD_DEMO_MS, BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, SETUP_CARD_QUIET_MS } from './lib/constants.js';
+import { BOARD_DEMO_MS, BUILD_QUIET_MS, SHARE_DEBOUNCE_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, SETUP_CARD_QUIET_MS } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -122,7 +124,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [remoteConfigUrl]);
 
-  const { config: effectiveConfig, storedConfig, overrides, updateConfig, replaceConfig, resetConfig } = useConfig();
+  const { config: effectiveConfig, storedConfig, overrides, shared, updateConfig, replaceConfig, resetConfig } = useConfig();
 
   // Layering — baked defaults < ?config= remote < this device's overrides <
   // ?key=/?cluster=/?lowPower=1 URL flags — lives in useConfig.js so EVERY
@@ -504,6 +506,38 @@ export default function App() {
   // to every screen over the sealed `slides` event, cached for reboots.
   const { deck: syncedDeck, onSlides, forget: forgetSyncedDeck } = useSyncedDeck();
 
+  // Shared settings (contract v6). A sealed `settings` frame from the print
+  // server lands in the config store's shared layer (newest publishedAt wins).
+  // A shared change made in Settings here is applied at once and sent to the
+  // print server SHARE_DEBOUNCE_MS after the last change (a typed field or a
+  // run of switches is one publish), from this screen's own shared values.
+  const onSettings = useCallback((payload) => { receiveSharedSettings(payload); }, []);
+  const [shareStatus, setShareStatus] = useState(/** @type {{state: string, message?: string, rev?: number, at?: number}} */ ({ state: 'idle' }));
+  const shareTimerRef = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null));
+  const pendingShareRef = useRef(/** @type {Record<string, unknown> | null} */ (null));
+  const shareSettings = useCallback((sharedValues) => {
+    setSharedLocally(sharedValues);
+    pendingShareRef.current = sharedValues;
+    setShareStatus({ state: 'sending' });
+    if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
+    shareTimerRef.current = setTimeout(async () => {
+      shareTimerRef.current = null;
+      const values = pendingShareRef.current;
+      if (!values) return;
+      const result = await publishSettings(values, loadPublishToken());
+      // A newer change queued while this one was in flight sends itself.
+      if (pendingShareRef.current !== values) return;
+      pendingShareRef.current = null;
+      if (result.ok) {
+        setSharedLocally(values, { rev: result.rev, publishedAt: result.publishedAt });
+        setShareStatus({ state: 'sent', rev: result.rev, at: Date.now() });
+      } else {
+        setShareStatus({ state: 'failed', message: result.message });
+      }
+    }, SHARE_DEBOUNCE_MS);
+  }, []);
+  useEffect(() => () => { if (shareTimerRef.current) clearTimeout(shareTimerRef.current); }, []);
+
   const socketHandlers = useMemo(() => ({
     onCheckin: handleCheckIn,
     onRecap: handleRecap,
@@ -514,7 +548,8 @@ export default function App() {
     onCheckout: handleCheckout,
     onBirthdays: setBirthdays,
     onSlides,
-  }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice, handleCheckout, onSlides]);
+    onSettings,
+  }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice, handleCheckout, onSlides, onSettings]);
 
   const { status, lastEventAt, lastCheckinAt, retry, nameStatus, slidesStatus, hasDisplayKey } = useSocket(socketHandlers);
 
@@ -1413,6 +1448,9 @@ export default function App() {
             onForgetSyncedDeck={forgetSyncedDeck}
             onChange={updateConfig}
             onReplace={replaceConfig}
+            shared={shared}
+            shareStatus={shareStatus}
+            onShare={shareSettings}
             onReset={resetConfig}
             onClose={() => setSettingsOpen(false)}
             // A rehearsal for the operator, not a child in the lobby: it plays

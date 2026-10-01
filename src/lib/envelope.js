@@ -56,8 +56,8 @@
 export const ENVELOPE_VERSION = 1;
 
 /** Events that must arrive sealed: the name-bearing four plus the synced
- * slide deck (operator-authored free text). */
-export const ENCRYPTED_EVENTS = ['checkin', 'recap', 'birthdays', 'checkout', 'slides'];
+ * slide deck and the shared settings (operator-authored free text). */
+export const ENCRYPTED_EVENTS = ['checkin', 'recap', 'birthdays', 'checkout', 'slides', 'settings'];
 
 /**
  * Fixed padded plaintext size for `checkin` — every frame is exactly this big.
@@ -108,7 +108,8 @@ export function paddedSize(event, jsonByteLength) {
     // fails closed rather than leaking.
     return needed <= CHECKIN_PAD ? CHECKIN_PAD : null;
   }
-  if (event === 'slides') {
+  // `settings` (contract v6) is one frame capped under 4096: the same ladder.
+  if (event === 'slides' || event === 'settings') {
     for (const rung of SLIDES_PAD_LADDER) if (needed <= rung) return rung;
     return null;   // fail closed — see SLIDES_PAD_LADDER above
   }

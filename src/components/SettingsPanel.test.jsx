@@ -568,7 +568,7 @@ describe('Check-ins, Screen & corner, Celebrations, Pickup board, Look & season'
   });
 
   it('toggle titles are clickable labels with an accessible name', () => {
-    render(<SettingsPanel {...happyProps()} />);
+    render(<SettingsPanel {...{ ...happyProps(), initialTab: 'screen' }} />);
     const box = screen.getByRole('checkbox', { name: 'Play a chime with each welcome' });
     expect(box.checked).toBe(false);
     fireEvent.click(screen.getByText('Play a chime with each welcome'));
@@ -717,5 +717,77 @@ describe('Pickup board', () => {
     render(<SettingsPanel {...props} />);
     expect(screen.queryByLabelText('Show from')).toBeNull();
     expect(screen.getByRole('img', { name: /preview of the pickup board/ })).toBeTruthy();
+  });
+});
+
+describe('shared settings (contract v6)', () => {
+  const open = (extra = {}) => {
+    const props = { ...happyProps(), onShare: vi.fn(), ...extra };
+    render(<SettingsPanel {...props} />);
+    return props;
+  };
+
+  it('a shared change goes to every screen with this screen’s whole shared set; a per-screen one never does', () => {
+    const props = open();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'First arrival of the night' }));
+    expect(props.onShare).toHaveBeenCalledTimes(1);
+    const sent = props.onShare.mock.calls[0][0];
+    expect(sent.firstArrivalMoment).toBe(false);
+    expect(sent.milestoneEvery).toBe(25);
+    expect('backgroundSource' in sent).toBe(false);
+    section('Screen & corner');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Reduce motion on this screen' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Play a chime with each welcome' }));
+    expect(props.onShare).toHaveBeenCalledTimes(1);
+  });
+
+  it('a screen that does not follow keeps its changes to itself', () => {
+    const props = { ...happyProps(), onShare: vi.fn() };
+    props.config = { ...defaults, audioMuted: true, followSharedSettings: false };
+    render(<SettingsPanel {...props} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'First arrival of the night' }));
+    expect(props.onChange).toHaveBeenCalled();
+    expect(props.onShare).not.toHaveBeenCalled();
+    // And its tags say so.
+    expect(screen.queryByText('Every screen')).toBeNull();
+  });
+
+  it('Undo sends the opening shared values back out', () => {
+    const props = open();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'First arrival of the night' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Undo changes' }));
+    expect(props.onShare).toHaveBeenCalledTimes(2);
+    expect(props.onShare.mock.calls[1][0].firstArrivalMoment).toBe(true);
+  });
+
+  it('every card says where its settings apply', () => {
+    open({ initialTab: 'screen' });
+    const tags = [...document.querySelectorAll('.panel-card__head')].map((h) => [h.textContent.replace(/(Every screen|This screen)$/, ''), h.querySelector('.scope-tag')?.textContent]);
+    expect(tags).toEqual([
+      ['Simplified mode', 'This screen'],
+      ['Corner', 'Every screen'],
+      ['Weather', 'Every screen'],
+      ['This TV', 'This screen'],
+    ]);
+  });
+
+  it('Setup shows what the screen follows, and can send its own set now', () => {
+    const props = open({
+      initialTab: 'setup',
+      shared: { rev: 4, publishedAt: '2026-10-01T23:35:00.000Z', settings: {} },
+      shareStatus: { state: 'failed', message: 'Could not reach the print server from this screen' },
+    });
+    expect(screen.getByText(/Following update 4/)).toBeTruthy();
+    expect(screen.getAllByText(/Could not reach the print server from this screen/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/This screen only \(see Setup → Shared settings\)/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Send this screen’s shared settings to every screen/ }));
+    expect(props.onShare).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Follow the shared settings' }));
+    expect(props.onChange).toHaveBeenCalledWith({ followSharedSettings: false });
+  });
+
+  it('the footer says when a change has gone to every screen', () => {
+    open({ shareStatus: { state: 'sent', rev: 5 } });
+    expect(screen.getByText('Sent to every screen.')).toBeTruthy();
   });
 });

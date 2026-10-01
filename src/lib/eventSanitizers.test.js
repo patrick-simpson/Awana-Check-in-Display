@@ -10,6 +10,7 @@ import {
   sanitizePoints,
   sanitizeRecap,
   sanitizeSchedule,
+  sanitizeSettings,
   sanitizeSlidesChunk,
   sanitizeTally,
   sanitizeTonight,
@@ -31,6 +32,7 @@ const SANITIZERS = {
   schedule: sanitizeSchedule,
   notice: sanitizeNotice,
   slides: sanitizeSlidesChunk,
+  settings: sanitizeSettings,
 };
 
 // The exact key set each sanitizer may emit (checkin `at` becomes epoch
@@ -48,15 +50,16 @@ const ALLOWED_KEYS = {
   schedule: ['at', 'nextMeetingDate', 'title', 'noClubThisWeek'],
   notice: ['level', 'message', 'at'],
   slides: ['deckRev', 'publishedAt', 'seq', 'total', 'slides'],
+  settings: ['rev', 'publishedAt', 'settings'],
 };
 
 // Straight from the contract, so a new optional field (holdCheckIns, stage 4)
 // is allowed here exactly when the canonical copy allows it.
 const SLIDE_ENTRY_KEYS = [...vectors.events.slides.entryFields, ...vectors.events.slides.entryOptionalFields];
 
-describe('contract vectors are the v5 contract', () => {
-  it('is contract version 5 on awana-channel', () => {
-    expect(vectors.contractVersion).toBe(5);
+describe('contract vectors are the v6 contract', () => {
+  it('is contract version 6 on awana-channel', () => {
+    expect(vectors.contractVersion).toBe(6);
     expect(vectors.channel).toBe('awana-channel');
   });
 

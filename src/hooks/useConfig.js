@@ -4,8 +4,13 @@ import { sanitizeSlides } from '../lib/slides.js';
 import { sanitizeMilestoneList } from '../lib/milestones.js';
 import { NIGHT_THEME_VALUES } from '../lib/skins.js';
 import { parseUrlFlags } from '../lib/urlFlags.js';
+import { SHARED_KEYS, sanitizeSettingsPayload, sanitizeSharedValues } from '../lib/sharedSettings.js';
 
 const STORAGE_KEY = 'awanaConfig.v1';
+// The shared settings this screen last received or published (contract v6):
+// { rev, publishedAt, settings }. Its own entry, never part of the overrides,
+// so Export / ?config= / Reset this screen never see it as a device setting.
+const SHARED_STORAGE_KEY = 'awanaSharedSettings.v1';
 
 // Per-key validators for override values coming back out of
 // localStorage. Anything that fails its check is dropped so a corrupt
@@ -64,6 +69,7 @@ const VALIDATORS = {
   nightTheme: (v) => NIGHT_THEME_VALUES.includes(v),
   followPrinterTheme: (v) => typeof v === 'boolean',
   followPublishedSlides: isBool,
+  followSharedSettings: isBool,
   aprilFools: (v) => typeof v === 'boolean',
   particleEffect: (v) => ['auto', 'off', 'snow', 'rain', 'sparkle'].includes(v),
   weatherTheme: isBool,
@@ -127,6 +133,30 @@ function loadOverrides() {
   }
 }
 
+function loadShared() {
+  try {
+    const raw = localStorage.getItem(SHARED_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.local === true && parsed.settings) {
+      // A change made here that has not been stamped by the print server yet.
+      return { rev: Number(parsed.rev) || 0, publishedAt: parsed.publishedAt ?? null, settings: sanitizeSharedValues(parsed.settings), local: true };
+    }
+    return sanitizeSettingsPayload(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function saveShared(value) {
+  try {
+    if (value) localStorage.setItem(SHARED_STORAGE_KEY, JSON.stringify(value));
+    else localStorage.removeItem(SHARED_STORAGE_KEY);
+  } catch {
+    /* in memory only */
+  }
+}
+
 function saveOverrides(overrides) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
@@ -149,6 +179,8 @@ function saveOverrides(overrides) {
 //   1. src/config.js baked defaults (incl. VITE_PUSHER_* from the build)
 //   2. ?config=<url> remote JSON — App fetches it and calls setRemoteDefaults()
 //   3. this device's saved overrides (awanaConfig.v1)
+//   3b. the SHARED settings from the check-in computer (awanaSharedSettings.v1,
+//      contract v6), for the shared keys only, while followSharedSettings
 //      ⇒ storedConfig: what Settings edits and Export writes
 //   4. URL flags — ?key=/&cluster= and ?lowPower=1 (src/lib/urlFlags.js) — in
 //      memory only: never saved, never shown as a saved setting, never exported
@@ -159,23 +191,34 @@ function saveOverrides(overrides) {
 let flags = null;           // parsed lazily once per page (tests reset it)
 let overrides = null;       // null = not yet read from localStorage
 let remoteDefaults = {};    // the ?config= layer
-let snapshot = null;        // cached { config, storedConfig, overrides }
+let shared;                 // undefined = not yet read; null = none
+let snapshot = null;        // cached { config, storedConfig, overrides, shared }
 const listeners = new Set();
 
 const getFlags = () => flags ?? (flags = parseUrlFlags());
 const getOverrides = () => overrides ?? (overrides = loadOverrides());
+const getShared = () => (shared === undefined ? (shared = loadShared()) : shared);
 
 /**
  * Layers 1–3: baked defaults < ?config= remote < this device's overrides.
  * Pure and exported so the compatibility rule below is unit-testable.
  */
-export function resolveStoredConfig(remote, device) {
+export function resolveStoredConfig(remote, device, shared = null) {
   const stored = {
     ...defaults,
     audioMuted: !defaults.audioEnabledByDefault,
     ...remote,
     ...device,
   };
+  // The shared layer (contract v6) beats this device's own values for the
+  // shared keys only, and only while the screen follows it: a change made on
+  // the check-in computer must reach a screen that once changed the same
+  // setting itself. Run through VALIDATORS too, so a value the wire allows
+  // but this build does not (a skin it has never heard of) is dropped.
+  if (shared?.settings && stored.followSharedSettings !== false) {
+    const mine = sanitizeOverrides(sanitizeSharedValues(shared.settings));
+    for (const key of SHARED_KEYS) if (key in mine) stored[key] = mine[key];
+  }
   // backgroundSource now defaults to 'manual' (the typed/published deck). A
   // screen — or a fleet file — set up before that saved only a PowerPoint URL
   // and relied on 'powerpoint' being the default. A URL with no explicit source
@@ -202,11 +245,12 @@ function applyFlags(stored, f) {
 
 function getSnapshot() {
   if (!snapshot) {
-    const storedConfig = resolveStoredConfig(remoteDefaults, getOverrides());
+    const storedConfig = resolveStoredConfig(remoteDefaults, getOverrides(), getShared());
     snapshot = {
       config: applyFlags(storedConfig, getFlags()),
       storedConfig,
       overrides: getOverrides(),
+      shared: getShared(),
     };
   }
   return snapshot;
@@ -221,6 +265,9 @@ function invalidate() {
 const onStorage = (e) => {
   if (e.key === STORAGE_KEY || e.key === null) {
     overrides = loadOverrides();
+    invalidate();
+  } else if (e.key === SHARED_STORAGE_KEY) {
+    shared = loadShared();
     invalidate();
   }
 };
@@ -259,6 +306,40 @@ export function resetConfig() {
   invalidate();
 }
 
+/**
+ * A `settings` payload from the print server (already sanitized by the socket).
+ * Commits iff its publishedAt is strictly newer than the one held: the
+ * 5-minute rebroadcast of the same publish, or an older one replayed, changes
+ * nothing, and neither overwrites a change made here that is newer. Returns
+ * whether it was applied.
+ */
+export function receiveSharedSettings(payload) {
+  const next = sanitizeSettingsPayload(payload);
+  if (!next) return false;
+  const held = getShared();
+  const heldAt = held?.publishedAt ? Date.parse(held.publishedAt) : -Infinity;
+  if (!(Date.parse(next.publishedAt) > heldAt)) return false;
+  shared = next;
+  saveShared(shared);
+  invalidate();
+  return true;
+}
+
+/**
+ * A shared change made on THIS screen: applied here at once (so live apply is
+ * live), marked local until the print server stamps it, then given the
+ * server's publishedAt and rev (`stamp`). A later publish from the check-in
+ * computer, newer than the last stamp, replaces it like any other.
+ */
+export function setSharedLocally(settings, stamp = null) {
+  const held = getShared();
+  shared = stamp
+    ? { rev: stamp.rev, publishedAt: new Date(Date.parse(stamp.publishedAt)).toISOString(), settings: sanitizeSharedValues(settings) }
+    : { rev: held?.rev ?? 0, publishedAt: held?.publishedAt ?? null, settings: sanitizeSharedValues(settings), local: true };
+  saveShared(shared);
+  invalidate();
+}
+
 /** The ?config=<url> layer, already fetched by App. Sanitized like overrides. */
 export function setRemoteDefaults(raw) {
   remoteDefaults = sanitizeOverrides(raw);
@@ -270,6 +351,7 @@ export function _resetForTest() {
   flags = null;
   overrides = null;
   remoteDefaults = {};
+  shared = undefined;
   snapshot = null;
 }
 
@@ -278,6 +360,7 @@ export function _resetForTest() {
  *  - `config`       effective: defaults < remote < overrides < URL flags
  *  - `storedConfig` the same without URL flags — what Settings edits/exports
  *  - `overrides`    this device's saved layer alone
+ *  - `shared`       the shared settings layer (contract v6), or null
  * `updateConfig` / `replaceConfig` / `resetConfig` are stable module functions, safe in deps.
  */
 export function useConfig() {
@@ -286,6 +369,7 @@ export function useConfig() {
     config: snap.config,
     storedConfig: snap.storedConfig,
     overrides: snap.overrides,
+    shared: snap.shared,
     updateConfig,
     replaceConfig,
     resetConfig,

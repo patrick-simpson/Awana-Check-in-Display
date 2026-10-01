@@ -126,7 +126,9 @@ import { afterEach, beforeEach } from 'vitest';
 import defaults from '../config.js';
 import {
   _resetForTest,
+  receiveSharedSettings,
   resolveStoredConfig,
+  setSharedLocally,
   setRemoteDefaults,
   updateConfig,
   useConfig,
@@ -251,5 +253,62 @@ describe('useConfig store', () => {
     rerender();
     expect(result.current.updateConfig).toBe(u1);
     expect(result.current.resetConfig).toBe(r1);
+  });
+});
+
+describe('the shared settings layer (contract v6)', () => {
+  const at = (iso) => ({ rev: 1, publishedAt: iso, settings: {} });
+  beforeEach(() => { localStorage.clear(); _resetForTest(); });
+  afterEach(() => { cleanup(); _resetForTest(); });
+
+  it('beats this screen’s own value for a shared key, but never a per-screen one', () => {
+    updateConfig({ milestoneEvery: 5, confettiLevel: 'off' });
+    const { result } = renderHook(() => useConfig());
+    act(() => { receiveSharedSettings({ ...at('2026-10-01T23:35:00.000Z'), settings: { milestoneEvery: 40, confettiLevel: 'full' } }); });
+    expect(result.current.config.milestoneEvery).toBe(40);
+    expect(result.current.config.confettiLevel).toBe('off');
+    expect(result.current.shared.publishedAt).toBe('2026-10-01T23:35:00.000Z');
+    // Stored on its own, never as a device override (so Reset / Export ignore it).
+    expect(JSON.parse(localStorage.getItem('awanaConfig.v1')).milestoneEvery).toBe(5);
+    expect(JSON.parse(localStorage.getItem('awanaSharedSettings.v1')).settings).toEqual({ milestoneEvery: 40 });
+  });
+
+  it('applies only a strictly newer publish: rebroadcasts and replays change nothing', () => {
+    expect(receiveSharedSettings({ ...at('2026-10-01T23:35:00.000Z'), settings: { milestoneEvery: 40 } })).toBe(true);
+    expect(receiveSharedSettings({ ...at('2026-10-01T23:35:00.000Z'), settings: { milestoneEvery: 99 } })).toBe(false);
+    expect(receiveSharedSettings({ ...at('2026-10-01T22:00:00.000Z'), settings: { milestoneEvery: 1 } })).toBe(false);
+    const { result } = renderHook(() => useConfig());
+    expect(result.current.config.milestoneEvery).toBe(40);
+    expect(receiveSharedSettings({ ...at('2026-10-02T00:00:00.000Z'), settings: { milestoneEvery: 50 } })).toBe(true);
+  });
+
+  it('a screen that stops following keeps its own values', () => {
+    receiveSharedSettings({ ...at('2026-10-01T23:35:00.000Z'), settings: { milestoneEvery: 40 } });
+    updateConfig({ followSharedSettings: false, milestoneEvery: 7 });
+    const { result } = renderHook(() => useConfig());
+    expect(result.current.config.milestoneEvery).toBe(7);
+  });
+
+  it('a change made here applies at once, and the server’s stamp then orders it', () => {
+    const { result } = renderHook(() => useConfig());
+    act(() => setSharedLocally({ milestoneEvery: 33 }));
+    expect(result.current.config.milestoneEvery).toBe(33);
+    expect(result.current.shared.local).toBe(true);
+    act(() => setSharedLocally({ milestoneEvery: 33 }, { rev: 4, publishedAt: '2026-10-01T23:40:00.000Z' }));
+    expect(result.current.shared).toMatchObject({ rev: 4, publishedAt: '2026-10-01T23:40:00.000Z' });
+    // Its own rebroadcast is not newer; the check-in computer's next publish is.
+    expect(receiveSharedSettings({ rev: 4, publishedAt: '2026-10-01T23:40:00.000Z', settings: { milestoneEvery: 33 } })).toBe(false);
+    let applied;
+    act(() => { applied = receiveSharedSettings({ rev: 5, publishedAt: '2026-10-01T23:45:00.000Z', settings: { milestoneEvery: 12 } }); });
+    expect(applied).toBe(true);
+    expect(result.current.config.milestoneEvery).toBe(12);
+  });
+
+  it('survives a reload, and a value this build does not know is dropped', () => {
+    receiveSharedSettings({ ...at('2026-10-01T23:35:00.000Z'), settings: { nightTheme: 'not-a-skin-we-ship', milestoneEvery: 40 } });
+    _resetForTest();
+    const { result } = renderHook(() => useConfig());
+    expect(result.current.config.milestoneEvery).toBe(40);
+    expect(result.current.config.nightTheme).toBe(defaults.nightTheme);
   });
 });

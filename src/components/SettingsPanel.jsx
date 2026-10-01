@@ -10,11 +10,13 @@ import { useDisplayKey } from '../hooks/useDisplayKey.js';
 import { useDisplayLogin } from '../hooks/useDisplayLogin.js';
 import { pageBuild } from '../lib/buildReload.js';
 import { SECTIONS, openingSection } from '../lib/settingsSections.js';
+import { isSharedKey, pickShared } from '../lib/sharedSettings.js';
 import { ZeroAnimationContext } from '../lib/motion.jsx';
 import {
   CelebrationsSection, CheckinsSection, LookSection, PickupSection, ScreenSection, SetupSection,
   SlidesSection, StatusSection, statusProblems,
 } from './settings/sections.jsx';
+import { FollowingContext } from './settings/fields.jsx';
 import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -45,6 +47,7 @@ export function seedForm(c) {
     nightTheme: NIGHT_THEME_VALUES.includes(c.nightTheme) ? c.nightTheme : 'none',
     followPrinterTheme: c.followPrinterTheme !== false,
     followPublishedSlides: c.followPublishedSlides !== false,
+    followSharedSettings: c.followSharedSettings !== false,
     aprilFools: c.aprilFools === true,
     particleEffect: ['auto', 'snow', 'rain', 'sparkle', 'off'].includes(c.particleEffect)
       ? c.particleEffect
@@ -128,6 +131,7 @@ export default function SettingsPanel({
   initialTab = null, onTabChange,
   onChange, onReplace, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug, onBoardDemo,
   syncedDeck, slidesStatus, onForgetSyncedDeck,
+  shared = null, shareStatus = null, onShare,
 }) {
   const stored = savedConfig ?? config;
   const [initial] = useState(() => seedForm(stored));
@@ -164,6 +168,9 @@ export default function SettingsPanel({
   const backRef = useRef(null);
   const importRef = useRef(null);
 
+  // Did this session change a shared setting? Undo then sends the opening
+  // values back out, so every screen goes back too.
+  const sharedTouchedRef = useRef(false);
   const flush = useCallback((next = formRef.current) => {
     const n = normalize(next);
     const patch = diff(n, appliedRef.current);
@@ -171,7 +178,13 @@ export default function SettingsPanel({
     appliedRef.current = n;
     onChange(patch);
     setChanged(true);
-  }, [onChange]);
+    // A shared change (contract v6) goes to every screen, with this screen's
+    // whole shared set, so the screens converge on what this one shows.
+    if (onShare && n.followSharedSettings !== false && Object.keys(patch).some(isSharedKey)) {
+      sharedTouchedRef.current = true;
+      onShare(pickShared(n));
+    }
+  }, [onChange, onShare]);
 
   /** Change the form; `apply: false` for a typed field (flushed on blur / Enter). */
   const update = (patchOrFn, { apply = true } = {}) => {
@@ -211,6 +224,10 @@ export default function SettingsPanel({
     // The form was seeded from this very layer (plus the defaults and any
     // ?config= values under it), so going back to the seed is going back to it.
     (onReplace ?? onChange)(openedOverrides);
+    if (sharedTouchedRef.current && onShare && initial.followSharedSettings !== false) {
+      sharedTouchedRef.current = false;
+      onShare(pickShared(normalize(initial)));
+    }
     formRef.current = initial;
     appliedRef.current = normalize(initial);
     setFormState(initial);
@@ -396,6 +413,9 @@ export default function SettingsPanel({
         onImport={() => importRef.current?.click()}
         onResetTally={onResetTally ? resetTally : null}
         onReset={reset}
+        shared={shared}
+        shareStatus={shareStatus}
+        onShareNow={onShare ? () => { flush(); onShare(pickShared(normalize(formRef.current))); } : null}
       />
     );
   }
@@ -427,6 +447,7 @@ export default function SettingsPanel({
           </div>
         </div>
 
+        <FollowingContext.Provider value={form.followSharedSettings !== false}>
         <div className="settings-main">
           <nav className="settings-nav" aria-label="Settings sections">
             <div role="tablist" aria-orientation="vertical" aria-label="Settings sections" onKeyDown={onNavKeyDown}>
@@ -476,9 +497,14 @@ export default function SettingsPanel({
           </section>
         </div>
 
+        </FollowingContext.Provider>
+
         <div className="actions">
-          <span className="hint settings-live" aria-live="polite">
-            {changed ? 'Changes are live on this screen.' : 'Changes apply as you make them.'}
+          <span className={`hint settings-live${shareStatus?.state === 'failed' ? ' hint--warn' : ''}`} aria-live="polite">
+            {shareStatus?.state === 'sending' ? 'Sending to every screen…'
+              : shareStatus?.state === 'sent' ? 'Sent to every screen.'
+                : shareStatus?.state === 'failed' ? 'This screen only (see Setup → Shared settings).'
+                  : changed ? 'Changes are live on this screen.' : 'Changes apply as you make them.'}
           </span>
           <button type="button" className="ghost" onClick={undo} disabled={!changed}
             title="Put every setting back the way it was when you opened Settings (not the login, keys or uploaded files)">

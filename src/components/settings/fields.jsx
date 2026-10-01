@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { createContext, useContext, useEffect, useId, useState } from 'react';
 import { parseMilestoneList } from '../../lib/milestones.js';
 import { deleteDeck, getDeck, putDeck } from '../../lib/pptxStore.js';
 import { BACKGROUND_VIDEO_ID, deleteVideo, getVideo, putVideo } from '../../lib/videoStore.js';
@@ -78,17 +78,43 @@ export function Toggle({ checked, onChange, title, hint, disabled }) {
   );
 }
 
+// Whether this screen follows the shared settings (contract v6): the card tags
+// say "Every screen" only while it does.
+export const FollowingContext = createContext(true);
+
+/**
+ * Where a card's settings apply: `shared` ones reach every screen through the
+ * check-in computer (src/lib/sharedSettings.js), `screen` ones stay on this
+ * one. A tag says so on the card, so nobody has to guess.
+ */
+function ScopeTag({ scope }) {
+  const following = useContext(FollowingContext);
+  if (!scope) return null;
+  const shared = scope === 'shared' && following;
+  return (
+    <span className={`scope-tag scope-tag--${shared ? 'shared' : 'screen'}`}
+      title={shared
+        ? 'Shared: a change here reaches every screen (made on the check-in computer).'
+        : scope === 'shared' ? 'This screen is not following the shared settings, so these stay on this screen.' : 'This screen only.'}>
+      {shared ? 'Every screen' : 'This screen'}
+    </span>
+  );
+}
+
 // One white card on the panel's pale field, like the printer dashboard's
 // cards. A titled card names its section with the kit's corner tab (the
 // colour only tells the sections apart); the heading inside it is the same
 // <h3 className="section"> the tab always had.
-export function PanelCard({ title, tab = 'var(--brand-blue)', children }) {
+export function PanelCard({ title, tab = 'var(--brand-blue)', scope, children }) {
   return (
     <div className="panel-card">
       {title ? (
-        <CornerTab color={tab} className="panel-card__tab">
-          <h3 className="section">{title}</h3>
-        </CornerTab>
+        <div className="panel-card__head">
+          <CornerTab color={tab} className="panel-card__tab">
+            <h3 className="section">{title}</h3>
+          </CornerTab>
+          <ScopeTag scope={scope} />
+        </div>
       ) : null}
       {children}
     </div>

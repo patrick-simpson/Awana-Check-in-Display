@@ -130,3 +130,8 @@ export const DESKTOP_APP_GUIDE_URL = 'https://github.com/patrick-simpson/Awana-C
 // How long Settings → Pickup board → "Show a demo on this TV" holds a sample
 // board on this screen (owner, 2026-10-01: about 20 seconds).
 export const BOARD_DEMO_MS = 20_000;
+
+// Shared settings (contract v6): how long Settings waits after the last
+// shared change before sending the set to the print server, so a typed field
+// or a run of switches is one publish rather than one each.
+export const SHARE_DEBOUNCE_MS = 800;

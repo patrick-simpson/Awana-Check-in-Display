@@ -598,3 +598,12 @@ export function sanitizeNotice(payload) {
   const level = NOTICE_LEVELS.find((l) => l === raw.level) || 'info';
   return { level, message, at };
 }
+
+/**
+ * `settings` (contract v6): the lobby screens' shared settings, one sealed
+ * frame. Reduced to {rev, publishedAt, settings} with ONLY the shared keys,
+ * every value checked against its rule (src/lib/sharedSettings.js, pinned to
+ * the contract's `events.settings.keys`). Per-screen keys can never arrive
+ * this way, and no name can either: none of the keys holds one.
+ */
+export { sanitizeSettingsPayload as sanitizeSettings } from './sharedSettings.js';

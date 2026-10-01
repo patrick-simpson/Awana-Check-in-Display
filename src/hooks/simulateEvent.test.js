@@ -24,6 +24,7 @@ const HANDLER_FOR = {
   schedule: 'onSchedule',
   notice: 'onNotice',
   slides: 'onSlides',
+  settings: 'onSettings',
 };
 
 describe('simulateEvent', () => {

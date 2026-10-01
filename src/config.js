@@ -290,6 +290,13 @@ const config = {
   // stay per-device by design.
   followPublishedSlides: true,
 
+  // Shared settings (contract v6, owner 2026-10-01): when the check-in
+  // computer publishes the screens' shared settings (banner times, the
+  // celebrations, the pickup board, the look, the calendar and weather; the
+  // list is src/lib/sharedSettings.js), follow them. Turn off to keep this
+  // one screen on its own values. Per-screen settings never travel either way.
+  followSharedSettings: true,
+
   // April Fools (#21): flips this screen upside down. SCREENS ONLY - labels
   // and the printer dashboard stay serious - and the flip only actually
   // happens on April 1st, so a toggle left on is inert the rest of the year.

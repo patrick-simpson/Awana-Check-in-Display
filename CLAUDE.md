@@ -1250,6 +1250,49 @@ tab ids, which section it opens on, the phase in plain words).
 - Copy elsewhere names sections as `Settings → Setup`, `Settings → Slides`,
   `Settings → Screen & corner`: rename a section and grep for its name.
 
+## Shared settings across screens (contract v6)
+
+Owner, 2026-10-01: "Settings changes should apply on all devices also",
+except each screen's hardware and location. `src/lib/sharedSettings.js` is the
+one table of SHARED keys (`SHARED_SPEC`, rule for rule the printer's
+`SETTINGS_SPEC` and the contract's `events.settings.keys`;
+`sharedSettings.test.js` fails if they drift). Everything else is per-screen:
+what plays behind the names (and its uploads), this TV's chime, motion,
+confetti, wake lock and connection sticker, simplified mode, the Pusher keys,
+`followPublishedSlides` / `followSharedSettings`, the fleet URLs.
+
+- **The path is the slide deck's.** Settings, live-applying a shared change,
+  calls App's `shareSettings` with this screen's whole shared set
+  (`pickShared`): it lands in the store's shared layer at once
+  (`setSharedLocally`, marked `local`), and `SHARE_DEBOUNCE_MS` after the last
+  change `publishSettings()` POSTs it to `http://localhost:3456/api/display-settings`
+  with the publish token. The print server (6.20.0+) sanitizes, stamps, persists
+  and broadcasts one sealed `settings` frame, rebroadcast every 5 minutes; every
+  screen opens it like `slides` (`settings` is in `ENCRYPTED_EVENTS`, on the
+  `slides` pad ladder) and `receiveSharedSettings()` commits it iff its
+  `publishedAt` is strictly newer than the one held. **Only the check-in
+  computer can publish**: an https page may call `http://localhost` but not a
+  LAN address (mixed content), so the owner's "any screen via a LAN address"
+  was not buildable. Elsewhere the change stays on that screen, Settings says
+  so (footer, and Setup → Shared settings), and the next newer publish
+  replaces it.
+- **The shared layer beats this device's own values for the shared keys**
+  (`resolveStoredConfig(remote, device, shared)`), only while
+  `followSharedSettings` is on, and through `VALIDATORS` too, so a value this
+  build does not know is dropped. It lives in its own `awanaSharedSettings.v1`
+  entry: never an override, so Export, `?config=` and Reset this screen do not
+  see it, and Undo republishes the opening shared values (`replaceConfig`
+  restores only the device layer).
+- **Settings says where each setting applies**: every card's head carries an
+  "Every screen" or "This screen" tag (`PanelCard`'s `scope`; a shared card on
+  a screen that does not follow reads "This screen"). A new setting goes in
+  `SHARED_SPEC` (and the printer's table, the contract vectors and the
+  printer first) or it stays per-screen; there is no third place.
+- `App.sharedSettings.test.jsx` drives it end to end: a frame turns the pickup
+  board on and cannot smuggle a per-screen key, a non-following screen ignores
+  it, and a shared change in Settings reaches the print server's URL with the
+  token.
+
 ## Tonight counter: the printer's tally is the source of truth
 
 The corner "Tonight" chip used to run ABOVE the check-in desk's number all
@@ -1642,7 +1685,7 @@ does not change at all**.
 `src/lib/eventSanitizers.js` (bound per-event in
 `src/hooks/useSocket.js`). Each incoming payload on the Pusher channel
 (`checkin`, `recap`, `checkout`, `tally`, `birthdays`, `ops`, `canary`,
-`tonight`, `points`, `schedule`, `notice`, `slides`) is reduced
+`tonight`, `points`, `schedule`, `notice`, `slides`, `settings`) is reduced
 to exactly its allowlisted fields before anything else sees it: first
 names only, ever. Allergy info, contact info, last names, birth years,
 photos — none of it can ever reach the screen. Payload shapes are
@@ -1657,7 +1700,8 @@ authorization primitive at all. `checkin`, `recap`, `birthdays` and
 `checkout` — plus `slides`, the operator's published slide deck (free-typed
 church copy, contract v5; chunked, ordered strictly by `publishedAt`,
 cached in `awanaSyncedSlides.v1`, publish token in its own storage like the
-display key) — are sealed with AES-256-GCM (`src/lib/envelope.js`; publisher half is
+display key), and `settings`, the shared settings (contract v6, one frame,
+allowlisted keys only; see "Shared settings across screens") — are sealed with AES-256-GCM (`src/lib/envelope.js`; publisher half is
 `print-server/events.js` in the printer repo, pinned to a shared
 `envelope-vectors.json` interop fixture). Rules that must survive any
 change:

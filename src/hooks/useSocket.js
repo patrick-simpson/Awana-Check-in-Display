@@ -24,6 +24,7 @@ import {
   sanitizePoints,
   sanitizeRecap,
   sanitizeSchedule,
+  sanitizeSettings,
   sanitizeSlidesChunk,
   sanitizeTally,
   sanitizeTonight,
@@ -48,6 +49,7 @@ const EVENT_SANITIZERS = {
   schedule: sanitizeSchedule,
   notice: sanitizeNotice,
   slides: sanitizeSlidesChunk,
+  settings: sanitizeSettings,
 };
 
 /**
@@ -77,6 +79,7 @@ const HANDLER_NAMES = {
   schedule: 'onSchedule',
   notice: 'onNotice',
   slides: 'onSlides',
+  settings: 'onSettings',
 };
 
 /**
@@ -226,7 +229,7 @@ export function useSocket(handlers) {
           // Refused slides mean a rollout-mode publisher, not unreadable
           // names — keep the wall sticker for the events it was built for.
           if (event === 'slides') setSlidesStatus('refused-plaintext');
-          else setNameStatus('downgraded');
+          else if (event !== 'settings') setNameStatus('downgraded');
           return;
         }
 
@@ -245,11 +248,17 @@ export function useSocket(handlers) {
             if (result.ok) {
               if (event === 'slides') {
                 setSlidesStatus('ok');
-              } else {
+              } else if (event !== 'settings') {
                 failuresRef.current = 0;
                 setNameStatus('ok');
               }
               accept(event, result.payload);
+              return;
+            }
+            if (event === 'settings') {
+              // Shared settings are operator copy, not names: a frame this
+              // screen cannot open changes nothing on the wall.
+              console.warn(`[socket] Could not open 'settings': ${result.reason}`);
               return;
             }
             if (event === 'slides') {

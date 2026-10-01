@@ -1491,12 +1491,35 @@ html, body, #root {
   margin-bottom: 1.1rem;
   overflow: hidden;
 }
-.panel-card > .panel-card__tab {
+/* The card's head: its corner tab, and (Settings) the scope tag on the right. */
+.panel-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: -1.15rem 0 1rem -1.4rem;
+}
+.panel-card__head > .panel-card__tab {
   position: relative;
   width: max-content;
   max-width: calc(100% + 1.4rem);
-  margin: -1.15rem 0 1rem -1.4rem;
+  min-width: 0;
 }
+/* Every screen / This screen (Settings, contract v6 shared settings). */
+.panel .scope-tag {
+  flex: none;
+  margin-top: 0.9rem;
+  padding: 0.25rem 0.65rem 0.2rem;
+  border-radius: 999px;
+  font-family: var(--font-condensed);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.panel .scope-tag--shared { background: var(--brand-blue); color: #ffffff; }
+.panel .scope-tag--screen { background: var(--brand-cloud); color: var(--panel-ink); box-shadow: inset 0 0 0 1.5px var(--panel-keyline); }
 .panel-card__tab .brand-tab__content {
   padding: 0.75rem 3.1rem 1.3rem 1.4rem;
 }
@@ -2626,7 +2649,7 @@ input:focus-visible {
   }
   .panel-body { padding: 0.9rem var(--panel-pad) 0.4rem; }
   .panel-card { padding: 0.9rem 1rem 0.2rem; }
-  .panel-card > .panel-card__tab { margin: -0.9rem 0 0.8rem -1rem; }
+  .panel-card__head { margin: -0.9rem 0 0.8rem -1rem; }
   .panel h2 { font-size: 1.5rem; margin-bottom: 0.9rem; }
 
   /* The pinned actions compress into tidy rows of small buttons. */
