@@ -14,6 +14,8 @@ import {
   noteCacheMiss,
   receiveProvisionFrame,
 } from '../lib/displayLogin.js';
+import { SYNC_CHANNEL, SYNC_EVENT } from '../lib/syncService.js';
+import { ringSyncDoorbell } from './useSync.js';
 import {
   sanitizeBirthdays,
   sanitizeCanary,
@@ -200,6 +202,14 @@ export function useSocket(handlers) {
     provision.bind(PROVISION_EVENT, (frame) => receiveProvisionFrame(frame));
     provision.bind('pusher:cache_miss', () => noteCacheMiss());
 
+    // THE SYNC SERVICE'S DOORBELL, NOT DISPLAY DATA. The Worker (worker/)
+    // rings `changed` {what} on its own channel when the calendar, the screen
+    // template or Journey's settings change. It carries no content; the screen
+    // fetches the change from the Worker, where it passes the same sanitizers.
+    // Like `provision`, it never reaches dispatchEvent.
+    const sync = pusher.subscribe(SYNC_CHANNEL);
+    sync.bind(SYNC_EVENT, (payload) => ringSyncDoorbell(payload));
+
     // Bind every contract event. The sanitizing + handler lookup lives in
     // dispatchEvent so the debug panel's simulated events use the identical
     // path — see simulateEvent below.
@@ -311,6 +321,8 @@ export function useSocket(handlers) {
       pusher.unsubscribe('awana-channel');
       provision.unbind_all();
       pusher.unsubscribe(PROVISION_CHANNEL);
+      sync.unbind_all();
+      pusher.unsubscribe(SYNC_CHANNEL);
       pusher.disconnect();
     };
   }, [enabled, pusherAppKey, pusherCluster]);

@@ -123,6 +123,37 @@ worded sticker onto the screen for each fault regardless of the
 `showConnectionStatus` setting, because a screen that silently stops welcoming
 children is the worst outcome this change could produce.
 
+### The sync service (`worker/`)
+
+Once the church has deployed the sync service (`worker/README.md`) and
+`shared/sync.json` names it, the passphrase signs a screen in **through the
+service** instead of opening the print server's `provision` frame:
+
+- The word is checked **online only**, by the service, against limits (5 wrong
+  tries lock one address out for 15 minutes; 30 in an hour pause sign-ins for
+  an hour). It is never on a public channel, so it cannot be guessed offline,
+  which is what makes a short dictionary word ("kennebec") reasonable here
+  where the old frame needed 12+ characters. The service keeps only a salted
+  HMAC of it.
+- A sign-in returns a session (its own storage slot, `awanaSyncSession.v1`,
+  never config, never an export or a URL), the display key and the Pusher key.
+  **Anyone with the word can read names and change every screen** (the owner's
+  choice): treat it like the WiFi password, and change it from Settings →
+  Setup → **Change the passphrase** if it gets out. A change signs every screen
+  out and replaces the display key.
+- The service holds the display key, the shared settings, the slide deck, the
+  screen template, Journey's room settings and the church calendar. It never
+  sees a check-in: names still go from the check-in laptop straight to the
+  screens, sealed.
+- What it hands back is not trusted as-is: shared settings and the deck pass
+  the same allowlist sanitizers as a Pusher frame (`dispatchEvent`), the
+  template its own allowlist, the calendar `sanitizeFeed`.
+- Its doorbell (`changed` `{what}` on `awana-sync`) is plaintext and carries no
+  content; a screen that hears it fetches from the service.
+
+Until `shared/sync.json` names a service, everything below is how screens are
+set up.
+
 ### Setting it up
 
 The easy way — **display login**:

@@ -509,7 +509,7 @@ const DisplaySettings = ({ socketStatus, touch = false, initialOpen = false }) =
   // Display login: one passphrase provisions the display key + publish token
   // (the sealed birthday list needs the key). Same store the signage page's
   // Settings uses — src/lib/displayLogin.js.
-  const { frameStatus, loginStatus, kid, pendingLogin, login, logout } = useDisplayLogin();
+  const { frameStatus, loginStatus, kid, pendingLogin, login, logout, viaSync } = useDisplayLogin();
   const [passphrase, setPassphrase] = useState('');
   const [reveal, setReveal] = useState(false);
   const [loginNote, setLoginNote] = useState('');
@@ -537,7 +537,8 @@ const DisplaySettings = ({ socketStatus, touch = false, initialOpen = false }) =
     if (result === 'logged-in') setPassphrase('');
     const notes = {
       'logged-in': ['Logged in — birthdays + names unlocked', 'ok'],
-      wrong: ['Wrong passphrase — check the dashboard (Settings → Display login)', 'bad'],
+      wrong: [viaSync ? 'That is not the passphrase' : 'Wrong passphrase — check the dashboard (Settings → Display login)', 'bad'],
+      locked: ['Too many wrong tries — wait 15 minutes, then try again', 'bad'],
       'no-frame': ['Waiting for the print server — will log in when its frame arrives', 'muted'],
       unsupported: ['Insecure page — open this page over https:// to log in', 'bad'],
       storage: ['Could not save (storage blocked)', 'bad'],
@@ -555,6 +556,7 @@ const DisplaySettings = ({ socketStatus, touch = false, initialOpen = false }) =
   else if (loginStatus === 'logged-in') { loginLine = `Logged in${kid ? ` · key ${kid}` : ''}`; lineTone = 'ok'; }
   else if (loginStatus === 'stale') { loginLine = 'Passphrase changed — log in again'; lineTone = 'bad'; }
   else if (busy) loginLine = 'Checking…';
+  else if (viaSync) loginLine = 'Type the church passphrase to set this screen up';
   else if (socketStatus === 'off') { loginLine = 'Not connected — add the live data key under Advanced first'; lineTone = 'bad'; }
   else if (socketStatus === 'disconnected') { loginLine = 'Not connected — check the network, then the key under Advanced'; lineTone = 'bad'; }
   else if (socketStatus === 'connecting') loginLine = 'Connecting…';

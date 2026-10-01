@@ -22,7 +22,7 @@ import { useCheckInQueue, BURST_THRESHOLD } from './hooks/useCheckInQueue.js';
 import { useCornerItem } from './hooks/useCornerItem.js';
 import { useLinger } from './hooks/useLinger.js';
 import { DUR, EASE } from './lib/brand.js';
-import { useSocket, simulateEvent } from './hooks/useSocket.js';
+import { useSocket, simulateEvent, dispatchEvent } from './hooks/useSocket.js';
 import { useSyncedDeck } from './hooks/useSyncedDeck.js';
 import { useSeenEvents } from './hooks/useSeenEvents.js';
 import { useSchedule } from './hooks/useSchedule.js';
@@ -50,6 +50,7 @@ import {
 } from './lib/milestones.js';
 import { receiveSharedSettings, setRemoteDefaults, setSharedLocally } from './hooks/useConfig.js';
 import { publishSettings } from './lib/publishSettings.js';
+import { publishViaSync, useSync, useSyncDriver } from './hooks/useSync.js';
 import { loadPublishToken } from './lib/publishToken.js';
 import { FLEET_CONFIG_URL_CHANGE_EVENT, loadFleetConfigUrl, resolveRemoteConfigUrl } from './lib/fleetConfigUrl.js';
 import { getClubPalette } from './lib/clubs.js';
@@ -514,6 +515,9 @@ export default function App() {
   const onSettings = useCallback((payload) => { receiveSharedSettings(payload); }, []);
   const [shareStatus, setShareStatus] = useState(/** @type {{state: string, message?: string, rev?: number, at?: number}} */ ({ state: 'idle' }));
   const shareTimerRef = useRef(/** @type {ReturnType<typeof setTimeout> | null} */ (null));
+  const sync = useSync();
+  const syncRef = useRef(sync);
+  useEffect(() => { syncRef.current = sync; }, [sync]);
   const pendingShareRef = useRef(/** @type {Record<string, unknown> | null} */ (null));
   const shareSettings = useCallback((sharedValues) => {
     setSharedLocally(sharedValues);
@@ -524,7 +528,12 @@ export default function App() {
       shareTimerRef.current = null;
       const values = pendingShareRef.current;
       if (!values) return;
-      const result = await publishSettings(values, loadPublishToken());
+      // Signed in to the sync service: it is the one home for shared settings,
+      // reachable from every screen. Otherwise the print server on this
+      // computer, as before.
+      const result = syncRef.current.url && syncRef.current.signedIn
+        ? await publishViaSync('settings', values)
+        : await publishSettings(values, loadPublishToken());
       // A newer change queued while this one was in flight sends itself.
       if (pendingShareRef.current !== values) return;
       pendingShareRef.current = null;
@@ -552,6 +561,9 @@ export default function App() {
   }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice, handleCheckout, onSlides, onSettings]);
 
   const { status, lastEventAt, lastCheckinAt, retry, nameStatus, slidesStatus, hasDisplayKey } = useSocket(socketHandlers);
+  // The sync service's state (shared settings, the published deck) enters
+  // through the same sanitizing dispatch path as a Pusher frame.
+  useSyncDriver({ handlers: socketHandlers, dispatch: dispatchEvent });
 
   // Which typed deck actually renders: the published one wherever this device
   // follows it (the default), else this device's own. An EMPTY published deck

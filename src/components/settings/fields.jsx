@@ -9,6 +9,9 @@ import { maskDisplayKey } from '../../lib/displayKey.js';
 import { isPlausibleKey } from '../../lib/envelope.js';
 import { loadPublishToken, maskPublishToken, savePublishToken } from '../../lib/publishToken.js';
 import CornerTab from '../brand/CornerTab.jsx';
+import { changePassphrase, saveTemplate, signIn, signOut, useSync } from '../../hooks/useSync.js';
+import { useConfig } from '../../hooks/useConfig.js';
+import { PASSPHRASE_MIN, TEMPLATE_KEYS } from '../../lib/syncSpecs.js';
 
 // The Settings panel's building blocks: rows, cards, and the fields that keep
 // their own storage (the three secrets, the uploaded files) and so are never
@@ -233,6 +236,211 @@ export function DisplayLoginField({ status, secure, login }) {
       <span className="hint">
         {note && <><strong>{note}</strong> </>}
         {statusCopy}
+      </span>
+    </div>
+  );
+}
+
+/** "7:42 PM" today, else "Tue 7:42 PM". @param {number|string|null|undefined} at */
+function whenWords(at) {
+  if (at == null || at === '') return '';
+  const d = new Date(at);
+  if (!Number.isFinite(d.getTime())) return '';
+  const sameDay = d.toDateString() === new Date().toDateString();
+  return d.toLocaleString([], sameDay
+    ? { hour: 'numeric', minute: '2-digit' }
+    : { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
+/**
+ * Sign this screen in to the sync service with the church passphrase
+ * (worker/). One word sets it up completely: the display key, the Pusher
+ * keys, the shared settings, the slides and, for a new screen, the template.
+ * Shown instead of the print server's display login once shared/sync.json
+ * names a sync service.
+ */
+export function SyncSignInField({ secure }) {
+  const sync = useSync();
+  const { config, overrides, updateConfig } = useConfig();
+  const [draft, setDraft] = useState('');
+  const [reveal, setReveal] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(/** @type {{text: string, warn?: boolean} | null} */ (null));
+
+  const submit = async () => {
+    const p = draft.trim();
+    if (!p || busy || !secure) return;
+    setBusy(true);
+    setNote(null);
+    const res = await signIn(p, { config, overrides, updateConfig });
+    setBusy(false);
+    if (res.ok) {
+      setDraft('');
+      setNote({ text: 'Signed in. This screen now has everything it needs, and changes made here reach every screen.' });
+      return;
+    }
+    /** @type {any} */
+    const err = res;
+    if (err.reason === 'wrong') {
+      const left = err.triesLeft;
+      setNote({ warn: true, text: `That is not the passphrase.${Number.isFinite(left) ? ` ${left} ${left === 1 ? 'try' : 'tries'} left before a 15-minute wait.` : ''}` });
+    } else if (err.reason === 'locked') {
+      setNote({ warn: true, text: `Too many wrong tries. Try again in about ${Math.max(1, Math.ceil((err.retryAfterSec || 900) / 60))} minutes.` });
+    } else {
+      setNote({ warn: true, text: err.message });
+    }
+  };
+
+  if (!sync.signedIn) {
+    return (
+      <div className="field">
+        <label htmlFor="sync-pass">Passphrase</label>
+        <div className="display-key-row">
+          <input
+            id="sync-pass"
+            type={reveal ? 'text' : 'password'}
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="go"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+            placeholder="the church passphrase"
+            disabled={!secure || busy}
+          />
+          <button
+            type="button"
+            className="ghost"
+            aria-pressed={reveal}
+            aria-label={reveal ? 'Hide passphrase' : 'Show passphrase'}
+            onClick={() => setReveal((v) => !v)}
+          >
+            {reveal ? 'Hide' : 'Show'}
+          </button>
+          <button type="button" className="ghost" disabled={!secure || busy || !draft.trim()} onClick={submit}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </div>
+        <span className="hint" role="status">
+          {note && <><strong className={note.warn ? 'hint--warn' : undefined}>{note.text}</strong> </>}
+          {!secure
+            ? INSECURE_CONTEXT_COPY
+            : sync.phase === 'expired'
+              ? <><strong>The passphrase was changed.</strong> Type the new one to sign this screen in again. Names keep working meanwhile.</>
+              : <>Type the church&rsquo;s passphrase. This screen then gets the encryption key, the shared settings, the slides and the calendar by itself.</>}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="field">
+      <span className="field-label" id="sync-label">Passphrase</span>
+      <div className="display-key-row" role="group" aria-labelledby="sync-label">
+        <code className="display-key-value">signed in{sync.kid ? ` · key ${sync.kid}` : ''}</code>
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => {
+            if (window.confirm('Sign this screen out of the sync service? It keeps its key and settings, but stops receiving changes until someone types the passphrase again.')) {
+              signOut();
+              setNote(null);
+            }
+          }}
+        >
+          Sign out
+        </button>
+      </div>
+      <span className="hint" role="status">
+        {note && <><strong>{note.text}</strong> </>}
+        {sync.phase === 'offline'
+          ? <><strong>Cannot reach the sync service right now.</strong> This screen keeps what it has and tries again.</>
+          : <>Synced{sync.lastSyncAt ? ` at ${whenWords(sync.lastSyncAt)}` : ''}. Changes made on any signed-in screen reach this one within seconds.</>}
+      </span>
+    </div>
+  );
+}
+
+/** Change the church passphrase for every screen (needs the current one). */
+export function ChangePassphraseField() {
+  const sync = useSync();
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [again, setAgain] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(/** @type {{text: string, warn?: boolean} | null} */ (null));
+  if (!sync.signedIn) return null;
+  const mismatch = again !== '' && next.trim().toLowerCase() !== again.trim().toLowerCase();
+  const tooShort = next.trim().length > 0 && next.trim().length < PASSPHRASE_MIN;
+  const canSubmit = !busy && current.trim() && next.trim() && !mismatch && !tooShort && again.trim();
+  const submit = async () => {
+    if (!canSubmit) return;
+    if (!window.confirm('Change the passphrase for EVERY screen?\n\nEvery other screen, and the check-in laptop, is signed out until someone types the new word on it, and the encryption key is replaced. This screen stays signed in.')) return;
+    setBusy(true);
+    const res = await changePassphrase(current, next);
+    setBusy(false);
+    if (res.ok) {
+      setCurrent(''); setNext(''); setAgain('');
+      setNote({ text: 'Changed. Type the new passphrase on every other screen, and sign the check-in laptop in first so check-ins keep showing.' });
+    } else {
+      setNote({ warn: true, text: res.message });
+    }
+  };
+  return (
+    <details className="advanced-fields">
+      <summary>Change the passphrase</summary>
+      <div className="field">
+        <label htmlFor="pp-current">Current passphrase</label>
+        <input id="pp-current" type="password" autoComplete="off" value={current} onChange={(e) => setCurrent(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor="pp-next">New passphrase</label>
+        <input id="pp-next" type="password" autoComplete="off" value={next} onChange={(e) => setNext(e.target.value)} />
+        {tooShort && <span className="hint hint--warn">At least {PASSPHRASE_MIN} characters.</span>}
+      </div>
+      <div className="field">
+        <label htmlFor="pp-again">New passphrase again</label>
+        <input id="pp-again" type="password" autoComplete="off" value={again} onChange={(e) => setAgain(e.target.value)} />
+        {mismatch && <span className="hint hint--warn">The two do not match.</span>}
+      </div>
+      <button type="button" className="ghost section-jump" disabled={!canSubmit} onClick={submit}>
+        {busy ? 'Changing…' : 'Change it for every screen'}
+      </button>
+      <span className="hint" role="status">
+        {note ? <strong className={note.warn ? 'hint--warn' : undefined}>{note.text}</strong>
+          : 'Do this if the word got out. It signs every screen out and replaces the encryption key.'}
+      </span>
+    </details>
+  );
+}
+
+/** Save this screen's per-screen settings as what new screens start from. */
+export function TemplateField() {
+  const sync = useSync();
+  const { config } = useConfig();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(/** @type {{text: string, warn?: boolean} | null} */ (null));
+  if (!sync.signedIn) return null;
+  const save = async () => {
+    setBusy(true);
+    /** @type {Record<string, unknown>} */
+    const picked = {};
+    for (const key of TEMPLATE_KEYS) if (config[key] !== undefined) picked[key] = config[key];
+    const res = await saveTemplate(picked);
+    setBusy(false);
+    setNote(res.ok ? { text: 'Saved. The next new screen signed in starts from these.' } : { warn: true, text: res.message });
+  };
+  return (
+    <div className="field">
+      <button type="button" className="ghost section-jump" disabled={busy} onClick={save}>
+        Use this screen as the template for new screens
+      </button>
+      <span className="hint" role="status">
+        {note ? <strong className={note.warn ? 'hint--warn' : undefined}>{note.text}</strong> : null}{' '}
+        A screen signed in for the first time takes this screen&rsquo;s own settings (what plays behind the names,
+        the chime, motion, confetti and the like) wherever it has none of its own.
+        {sync.template?.savedAt ? ` Last saved ${whenWords(sync.template.savedAt)}.` : ' None saved yet.'}
       </span>
     </div>
   );

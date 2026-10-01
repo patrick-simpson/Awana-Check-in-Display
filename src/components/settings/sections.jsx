@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSync } from '../../hooks/useSync.js';
 import { geocodeLocation } from '../../lib/weather.js';
 import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle } from '../../lib/calendarLogic.js';
 import { skinOptions } from '../../lib/skins.js';
@@ -11,7 +12,8 @@ import CheckoutBoard from '../CheckoutBoard.jsx';
 import { DESKTOP_APP_DOWNLOAD_URL, DESKTOP_APP_GUIDE_URL } from '../../lib/constants.js';
 import { phaseWords } from '../../lib/settingsSections.js';
 import {
-  DisplayKeyField, DisplayLoginField, MilestoneListField, PanelCard, PptxUploadField, PublishTokenField,
+  ChangePassphraseField, DisplayKeyField, DisplayLoginField, MilestoneListField, PanelCard, PptxUploadField,
+  PublishTokenField, SyncSignInField, TemplateField,
   Toggle, VideoUploadField,
 } from './fields.jsx';
 
@@ -57,6 +59,16 @@ export function statusSentence(status, keyed) {
   }[status] || status;
 }
 
+/** "just now", "12 min ago", "3 h ago", "2 days ago". @param {string} iso */
+function ago(iso) {
+  const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} min ago`;
+  const h = Math.round(min / 60);
+  if (h < 48) return `${h} h ago`;
+  return `${Math.round(h / 24)} days ago`;
+}
+
 // Live summary of what the calendar logic resolves to right now, so a
 // leader can sanity-check the feed without waiting for club night.
 export function calendarPreview(calendar) {
@@ -67,7 +79,10 @@ export function calendarPreview(calendar) {
   }
   const info = deriveClubInfo(events, localDateStr());
   const parts = [`${events.length} events loaded`];
-  if (source === 'feed' && generatedAt) {
+  if (source === 'sync') {
+    const checked = calendar.checkedAt || generatedAt;
+    parts[0] += checked ? ` (read from the church calendar ${ago(checked)})` : ' (from the sync service)';
+  } else if (source === 'feed' && generatedAt) {
     const days = Math.max(0, Math.round((Date.now() - Date.parse(generatedAt)) / 86400000));
     parts[0] += days === 0 ? ' (updated today)' : ` (updated ${days}d ago)`;
   } else if (source === 'proxy') {
@@ -126,11 +141,43 @@ function slideSyncLines({ syncedDeck, slidesStatus, following, hasKey, nowAt }) 
   return { statusLine, hintLine };
 }
 
+/**
+ * "Refresh calendar now", saying what happened. Signed in to the sync
+ * service it reads the church calendar right now and every screen follows;
+ * otherwise it can only re-read the copies this screen reaches (the site's
+ * nightly feed), and says so instead of looking like it did nothing.
+ */
+function CalendarRefresh({ calendar }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState(/** @type {{text: string, warn?: boolean} | null} */ (null));
+  const run = async () => {
+    setBusy(true);
+    setNote(null);
+    const res = await calendar.refresh();
+    setBusy(false);
+    if (!res?.ok) { setNote({ warn: true, text: res?.message || 'The calendar could not be refreshed.' }); return; }
+    if (res.viaSync) {
+      setNote({ text: res.changed ? 'Read the church calendar: it changed, and every screen is updating now.' : 'Read the church calendar: nothing has changed.' });
+    } else {
+      setNote({ text: 'Checked again for the newest copy this screen can reach. Sign this screen in with the passphrase (Setup) to read the church calendar right now.' });
+    }
+  };
+  return (
+    <div className="field">
+      <button type="button" className="ghost small section-jump" disabled={busy} onClick={run}>
+        {busy ? 'Reading the calendar…' : 'Refresh calendar now'}
+      </button>
+      {note && <span className={`hint${note.warn ? ' hint--warn' : ''}`} role="status">{note.text}</span>}
+    </div>
+  );
+}
+
 export function StatusSection({
   status, nameStatus, keyed, displayKey, login, lastEventAt, openedAt, phase, scheduleSource,
   calendar, calendarEnabled, opsFailures, layerFaults, remoteConfigError, wakeLockStatus, demoActive,
   syncedDeck, slidesStatus, following, build, goTo, onReload,
 }) {
+  const syncState = useSync();
   const realtime = {
     connected: 'connected',
     connecting: 'connecting…',
@@ -221,7 +268,9 @@ export function StatusSection({
         <p className={`status-sentence ${status}`}><span className="dot" />{statusSentence(status, keyed)}</p>
         <div className="hint conn-summary">
           <div><strong>Realtime:</strong> {realtime} · last check-in {lastSeen}</div>
-          <div><strong>Display login:</strong> {loginLine}</div>
+          {syncState.url
+            ? <div><strong>Sync service:</strong> {syncState.signedIn ? `signed in${syncState.lastSyncAt ? `, synced ${new Date(syncState.lastSyncAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : ''}` : (syncState.phase === 'expired' ? 'signed out: the passphrase was changed, type the new one under Setup' : 'not signed in: type the passphrase under Setup')}</div>
+            : <div><strong>Display login:</strong> {loginLine}</div>}
           {status !== 'off' && <div><strong>Names:</strong> {namesLine}</div>}
         </div>
         {needsSetup && (
@@ -241,9 +290,7 @@ export function StatusSection({
           {sync.hintLine && <div><strong>{sync.hintLine}</strong></div>}
         </div>
         {calendarEnabled && calendar?.refresh ? (
-          <button type="button" className="ghost small section-jump" onClick={() => calendar.refresh()}>
-            Refresh calendar now
-          </button>
+          <CalendarRefresh calendar={calendar} />
         ) : null}
       </PanelCard>
 
@@ -843,27 +890,29 @@ export function LookSection({ form, set }) {
 // ── Setup ─────────────────────────────────────────────────────────────────
 
 /** "rev 4, 7:35 PM" for a shared layer, or what is true when there is none. */
-function sharedLine(shared) {
+function sharedLine(shared, viaSync = false) {
+  const home = viaSync ? 'the sync service' : 'the print server';
   if (!shared) return 'No shared settings have reached this screen yet.';
-  if (shared.local && !shared.publishedAt) return 'A change made here has not reached the print server yet.';
+  if (shared.local && !shared.publishedAt) return `A change made here has not reached ${home} yet.`;
   const when = shared.publishedAt
     ? new Date(shared.publishedAt).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })
     : '';
-  const tail = shared.local ? ' A newer change made here has not reached the print server yet.' : '';
+  const tail = shared.local ? ` A newer change made here has not reached ${home} yet.` : '';
   return `Following update ${shared.rev}${when ? `, sent ${when}` : ''}.${tail}`;
 }
 
-function SharedSettingsCard({ form, set, shared, shareStatus, onShareNow }) {
+function SharedSettingsCard({ form, set, shared, shareStatus, onShareNow, viaSync }) {
   const following = form.followSharedSettings !== false;
+  const from = viaSync ? 'any signed-in screen' : 'the check-in computer';
   return (
     <PanelCard title="Shared settings" tab="var(--brand-blue)" scope="screen">
       <Toggle
         checked={following}
         onChange={set('followSharedSettings')}
         title="Follow the shared settings"
-        hint="Settings tagged EVERY SCREEN (banner times, celebrations, the pickup board, the look, the calendar and weather) come from the check-in computer, and a change made there reaches every screen. Turn off to keep this one screen on its own values. Settings tagged THIS SCREEN never travel."
+        hint={`Settings tagged EVERY SCREEN (banner times, celebrations, the pickup board, the look, the calendar and weather) come from ${from}, and a change made there reaches every screen. Turn off to keep this one screen on its own values. Settings tagged THIS SCREEN never travel.`}
       />
-      <p className="hint">{following ? sharedLine(shared) : 'This screen keeps its own values for everything.'}</p>
+      <p className="hint">{following ? sharedLine(shared, viaSync) : 'This screen keeps its own values for everything.'}</p>
       {shareStatus?.state === 'failed' && <p className="hint hint--warn" role="status">{shareStatus.message}</p>}
       {following && onShareNow && (
         <div className="field">
@@ -871,8 +920,9 @@ function SharedSettingsCard({ form, set, shared, shareStatus, onShareNow }) {
             Send this screen&rsquo;s shared settings to every screen
           </button>
           <span className="hint">
-            Works on the check-in computer, while the printer app is running. Every other screen then takes these
-            values, the next time it hears from the print server (within 5 minutes, or at once if it is on).
+            {viaSync
+              ? 'Every signed-in screen takes these values within seconds (a screen that is off, when it next starts).'
+              : 'Works on the check-in computer, while the printer app is running. Every other screen then takes these values, the next time it hears from the print server (within 5 minutes, or at once if it is on).'}
           </span>
         </div>
       )}
@@ -888,11 +938,21 @@ export function SetupSection({
   // The by-hand fields fold away behind the login — unless they are the
   // fix: no Pusher connection, or no secure crypto.
   const [advancedOpen, setAdvancedOpen] = useState(() => status === 'off' || status === 'disconnected' || !secure);
+  // Once the site names a sync service, the passphrase signs in through it;
+  // until then the print server's display login, exactly as before.
+  const syncState = useSync();
+  const viaSync = Boolean(syncState.url);
 
   return (
     <>
       <PanelCard title="Connect this screen" scope="screen">
-        <DisplayLoginField status={status} secure={secure} login={login} />
+        {viaSync ? (
+          <>
+            <SyncSignInField secure={secure} />
+            <TemplateField />
+            <ChangePassphraseField />
+          </>
+        ) : <DisplayLoginField status={status} secure={secure} login={login} />}
         <details
           className="advanced-fields"
           open={advancedOpen}
@@ -921,10 +981,15 @@ export function SetupSection({
         </details>
       </PanelCard>
 
-      <SharedSettingsCard form={form} set={set} shared={shared} shareStatus={shareStatus} onShareNow={onShareNow} />
+      <SharedSettingsCard
+        form={form} set={set} shared={shared} shareStatus={shareStatus} onShareNow={onShareNow}
+        viaSync={viaSync && syncState.signedIn}
+      />
 
       <PanelCard title="Publishing slides" tab="var(--brand-journey)" scope="screen">
-        <PublishTokenField />
+        {viaSync && syncState.signedIn
+          ? <p className="hint">Signed in: Publish in the slide editor sends the deck to every screen from here. No token needed.</p>
+          : <PublishTokenField />}
         {syncedDeck && (
           <div className="field">
             <span className="hint">This screen holds a received deck (rev {syncedDeck.deckRev}).</span>

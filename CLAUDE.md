@@ -1293,6 +1293,63 @@ confetti, wake lock and connection sticker, simplified mode, the Pusher keys,
   it, and a shared change in Settings reaches the print server's URL with the
   token.
 
+## The sync service (`worker/`, one passphrase for everything)
+
+Owner, 2026-10-01: "type kennebec and have it sync everything up", without the
+check-in laptop on. A Cloudflare Worker with ONE Durable Object
+(`worker/src/sync.js` is all the behaviour, `index.js` only wiring) is the home
+of the shared settings, the published deck, the "new screen" template,
+Journey's room settings and the church calendar. `worker/README.md` is the
+setup guide and the API. The owner's calls:
+
+- **Anyone with the passphrase may read and change everything** (choice B).
+  So the word is the one lock, and it is checked ONLINE only, with guess limits
+  (`IP_MAX_FAILS` / `GLOBAL_MAX_FAILS`); the service stores a salted HMAC.
+  `INITIAL_PASSPHRASE` (GitHub secret `SYNC_PASSPHRASE`) counts only the first
+  time; changing it (Settings → Setup) needs the current word, signs every
+  screen out and replaces the display key.
+- **The Worker is the one home** (choice A): signed in, Settings and the slide
+  editor publish to it (`publishViaSync`), it seals the same `settings` /
+  `slides` frames (contract v5 / v6) and publishes them with the Pusher REST
+  API. Check-ins never pass through it.
+- **Found by `shared/sync.json`** (`{url}`), which `deploy-worker.yml` writes the
+  first time it deploys. `url: ""` means no service yet: every screen keeps the
+  print server's display login exactly as before (the Setup card and the
+  projector's menu switch on `useSync().url`).
+- **The session is a secret** in its own slot (`awanaSyncSession.v1`), like the
+  display key: never config, an export or a URL (`syncService.test.js`).
+- **Nothing it returns is trusted as-is.** `/v1/state` is turned into a
+  `settings` payload and a one-chunk `slides` payload (`wirePayloads`) and goes
+  through `dispatchEvent`, the same sanitizers as a Pusher frame
+  (`useSyncDriver` in App). The template passes `sanitizeTemplate`, the
+  calendar `sanitizeFeed`. `src/lib/syncSpecs.js` (the template and Journey
+  allowlists) is shared byte for byte with the Worker, which imports it.
+- **The template** (`TEMPLATE_SPEC`, per-screen keys only, never Pusher keys,
+  panic mode or secrets) is applied at sign-in only to keys the screen has no
+  override for (`templatePatch`), so signing an existing screen in never undoes
+  a choice made on it. Settings → Setup → "Use this screen as the template".
+- **Staying in sync:** a signed-in screen fetches `/v1/state` at start, every
+  `SYNC_POLL_MS` and on `online`; a 401 means the word changed (phase
+  `expired`, the session is dropped, names keep working on the old key until the
+  laptop seals with the new one). The doorbell `changed` `{what}` on
+  `awana-sync` (bound in `useSocket.js` beside `provision`, never through
+  dispatchEvent) refetches the template or the calendar.
+- **The calendar** (`useCalendar` source `sync`, first in line): the Worker reads
+  the church page itself (linkedom + the same `calendarParse.js`), every six
+  hours and on "Refresh calendar now", which now says what happened. Not signed
+  in, Refresh re-reads the copies the screen can reach and says so. That button
+  used to re-fetch `calendar-feed.json`, which only changes when the nightly
+  Action runs, so it never visibly did anything.
+- **The projector** gets it through `useDisplayLogin`, which signs in through
+  the Worker when one exists (`template: false`) and reports it in the old
+  words, so `QuickNav` and the setup note barely changed and the isolation
+  allowlist did not grow.
+- **Gates:** the Worker's tests run in `deploy-worker.yml`
+  (`npx vitest run --config worker/vitest.config.js`), not the site's deploy
+  gate (the root vitest excludes `worker/**`; the root lint covers it). Until
+  `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` exist that workflow tests and
+  stops, green.
+
 ## Tonight counter: the printer's tally is the source of truth
 
 The corner "Tonight" chip used to run ABOVE the check-in desk's number all

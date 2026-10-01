@@ -22,6 +22,7 @@ import { collectGarbage, getVideo, makeVideoId, putVideo } from '../lib/videoSto
 import { localDateStr } from '../lib/calendarLogic.js';
 import { publishDeck } from '../lib/publishDeck.js';
 import { loadPublishToken } from '../lib/publishToken.js';
+import { publishViaSync, useSync } from '../hooks/useSync.js';
 import CornerTab from './brand/CornerTab.jsx';
 import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
 
@@ -79,7 +80,11 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
   const [publishState, setPublishState] = useState({ phase: 'idle', message: '', deckRev: null });
   // Read once at open: with a token this machine can publish, so Publish is
   // the loud button; without one it can only fail, so Save leads.
-  const [hasToken] = useState(() => Boolean(loadPublishToken()));
+  // Signed in to the sync service, any screen can publish.
+  const sync = useSync();
+  const viaSync = Boolean(sync.url && sync.signedIn);
+  const [hadToken] = useState(() => Boolean(loadPublishToken()));
+  const hasToken = viaSync || hadToken;
   const fileRef = useRef(null);
   const videoFileRef = useRef(null);
   const cardRefs = useRef({});
@@ -244,7 +249,9 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
     onChange({ manualSlides: next });
     gcAgainst(next);
     setPublishState({ phase: 'busy', message: 'Publishing…', deckRev: null });
-    const result = await publishDeck(next, loadPublishToken());
+    const result = viaSync
+      ? await publishViaSync('slides', next)
+      : await publishDeck(next, loadPublishToken());
     if (result.ok) {
       setPublishState({
         phase: 'ok',
@@ -256,7 +263,7 @@ export default function SlideEditorPanel({ config, syncedDeck, onChange, onClose
       // problem (the dashboard needs none). A deck the server rejected as
       // too large fails identically through the dashboard, so say nothing
       // extra there — the server's message already says what to shorten.
-      const fallback = result.reason === 'auth'
+      const fallback = result.reason === 'auth' && !viaSync
         ? ' This machine has no valid publish token — log in under Settings → Setup → Connect this screen, or paste a token under Settings → Setup → Publishing slides. Or press Export and paste the file into the print-server dashboard → Lobby Slides → Publish.'
         : '';
       setPublishState({ phase: 'err', message: `${result.message}${fallback}`, deckRev: null });

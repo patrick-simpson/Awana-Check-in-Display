@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { parseCalendarHtml, sanitizeEvents, sanitizeFeed } from '../lib/calendarParse.js';
 import { MIN_CLUB_EVENTS } from '../lib/constants.js';
+import { resolveSyncUrl } from '../lib/syncService.js';
+import { onSyncDoorbell, refreshCalendarViaSync, useSync } from './useSync.js';
 
 // Layers of "the screen must never go calendar-blind":
+//   0. the sync service's copy (worker/), read from the church page on demand
+//      ("Refresh calendar now") and every six hours; public, so a screen not
+//      yet signed in still has it
 //   1. calendar-feed.json — built nightly by the GitHub Action and
 //      shipped with the site (same-origin, no CORS, the normal path)
 //   2. best-effort direct fetch of the calendar page (usually
@@ -45,6 +50,21 @@ async function fetchFeed() {
   }
 }
 
+async function fetchSynced(base) {
+  if (!base) return null;
+  try {
+    const res = await fetch(`${base}/v1/calendar`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const raw = await res.json();
+    const feed = sanitizeFeed(raw);
+    if (!feed.events.length) return null;
+    const checkedAt = typeof raw?.checkedAt === 'string' && Number.isFinite(Date.parse(raw.checkedAt)) ? raw.checkedAt : null;
+    return { ...feed, checkedAt };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchDirect(calendarUrl) {
   if (!calendarUrl) return null;
   try {
@@ -59,60 +79,95 @@ async function fetchDirect(calendarUrl) {
 
 /**
  * The club-year calendar, from the freshest source available.
- * Returns { events, source, generatedAt, refresh } — events is [] when
+ * Returns { events, source, generatedAt, checkedAt, refresh } — events is [] when
  * the feature is off or nothing loads; callers just render no slides.
  */
 export function useCalendar(config) {
-  const [state, setState] = useState({ events: [], source: 'none', generatedAt: null });
-  const busy = useRef(false);
+  const [state, setState] = useState({ events: [], source: 'none', generatedAt: null, checkedAt: null });
+  const busy = useRef(/** @type {Promise<string> | null} */ (null));
+  const sync = useSync();
 
   const { calendarEnabled, calendarUrl } = config;
 
-  const load = useCallback(async () => {
-    if (!calendarEnabled || busy.current) return;
-    busy.current = true;
-    try {
+  // Resolves to the source it settled on ('sync', 'feed', 'direct', 'cache',
+  // 'none'); a call while one is running waits for that one instead of being
+  // silently dropped (which is what made Refresh look dead).
+  const load = useCallback(() => {
+    if (!calendarEnabled) return Promise.resolve('none');
+    if (busy.current) return busy.current;
+    busy.current = (async () => {
+      const base = sync.url ?? await resolveSyncUrl();
+      const synced = await fetchSynced(base);
+      const syncedFresh = synced
+        && Date.now() - Date.parse(synced.checkedAt || synced.generatedAt || '') < FEED_STALE_MS;
+      if (synced && syncedFresh) {
+        setState({ events: synced.events, source: 'sync', generatedAt: synced.generatedAt, checkedAt: synced.checkedAt });
+        return 'sync';
+      }
+
       const feed = await fetchFeed();
       const feedFresh =
         feed?.generatedAt && Date.now() - Date.parse(feed.generatedAt) < FEED_STALE_MS;
       if (feed && feedFresh) {
-        setState({ events: feed.events, source: 'feed', generatedAt: feed.generatedAt });
-        return;
+        setState({ events: feed.events, source: 'feed', generatedAt: feed.generatedAt, checkedAt: null });
+        return 'feed';
       }
 
       const scraped = await fetchDirect(calendarUrl);
       if (scraped) {
         saveCache(scraped);
-        setState({ events: scraped, source: 'direct', generatedAt: new Date().toISOString() });
-        return;
+        setState({ events: scraped, source: 'direct', generatedAt: new Date().toISOString(), checkedAt: null });
+        return 'direct';
       }
 
       const cached = loadCache();
       if (cached) {
-        setState({ events: cached, source: 'cache', generatedAt: null });
-        return;
+        setState({ events: cached, source: 'cache', generatedAt: null, checkedAt: null });
+        return 'cache';
       }
 
-      if (feed) {
-        // Stale, but real data — far better than a blank club night.
-        setState({ events: feed.events, source: 'feed', generatedAt: feed.generatedAt });
+      // Stale, but real data — far better than a blank club night.
+      if (synced) {
+        setState({ events: synced.events, source: 'sync', generatedAt: synced.generatedAt, checkedAt: synced.checkedAt });
+        return 'sync';
       }
-    } finally {
-      busy.current = false;
-    }
-  }, [calendarEnabled, calendarUrl]);
+      if (feed) {
+        setState({ events: feed.events, source: 'feed', generatedAt: feed.generatedAt, checkedAt: null });
+        return 'feed';
+      }
+      return 'none';
+    })().finally(() => { busy.current = null; });
+    return busy.current;
+  }, [calendarEnabled, calendarUrl, sync.url]);
 
   useEffect(() => {
     if (!calendarEnabled) return undefined;
     load();
     const timer = setInterval(load, RECHECK_MS);
-    return () => clearInterval(timer);
+    // The sync service rings when the church calendar changed.
+    const off = onSyncDoorbell((what) => { if (what === 'calendar') load(); });
+    return () => { clearInterval(timer); off(); };
   }, [calendarEnabled, load]);
+
+  /**
+   * "Refresh calendar now": signed in to the sync service, it reads the
+   * church page right now (and every screen follows); otherwise it re-reads
+   * the copies this screen can reach. Resolves to what happened, in words
+   * Settings can show.
+   * @returns {Promise<{ok: boolean, changed?: boolean, message?: string, source: string}>}
+   */
+  const refresh = useCallback(async () => {
+    let remote = await refreshCalendarViaSync();
+    if (!remote.ok && remote.message === 'not-signed-in') remote = null;
+    const source = await load();
+    if (remote && !remote.ok) return { ok: false, message: remote.message, source };
+    return { ok: true, changed: remote ? Boolean(remote.changed) : undefined, viaSync: Boolean(remote), source };
+  }, [load]);
 
   // Disabled → an empty view of whatever was loaded, without touching
   // state from inside an effect.
   if (!calendarEnabled) {
-    return { events: [], source: 'none', generatedAt: null, refresh: load };
+    return { events: [], source: 'none', generatedAt: null, checkedAt: null, refresh };
   }
-  return { ...state, refresh: load };
+  return { ...state, refresh };
 }

@@ -66,9 +66,10 @@ afterEach(async () => {
 });
 
 describe('the provision channel', () => {
-  it('subscribes to the contract channel AND the provision cache channel', () => {
+  it('subscribes to the contract channel, the provision cache channel and the sync doorbell', () => {
     setup({});
-    expect(subscribed).toEqual(['awana-channel', login.PROVISION_CHANNEL]);
+    expect(subscribed).toEqual(['awana-channel', login.PROVISION_CHANNEL, 'awana-sync']);
+    expect(channels['awana-sync'].changed).toBeTypeOf('function');
     expect(channels[login.PROVISION_CHANNEL][login.PROVISION_EVENT]).toBeTypeOf('function');
     expect(channels[login.PROVISION_CHANNEL]['pusher:cache_miss']).toBeTypeOf('function');
   });
