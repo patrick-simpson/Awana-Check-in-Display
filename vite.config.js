@@ -145,7 +145,7 @@ export default defineConfig({
     // desktop app's tests run in its own pipeline (build-desktop.yml), so a
     // desktop TEST can never block a site redeploy (the root lint still
     // covers desktop/).
-    exclude: [...configDefaults.exclude, 'e2e/**', 'desktop/**'],
+    exclude: [...configDefaults.exclude, 'e2e/**', 'desktop/**', 'worker/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'html', 'lcov'],
