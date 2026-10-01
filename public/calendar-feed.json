@@ -1,14 +1,21 @@
 {
   "version": 1,
-  "generatedAt": "2026-10-01T15:28:34.760Z",
+  "generatedAt": "2026-09-24T13:34:40.993Z",
   "sourceUrl": "https://kvbchurch.twotimtwo.com/calendar/index",
   "events": [
     {
+      "date": "2026-09-30",
+      "kind": "club",
+      "title": "Awana meeting (Making Bracelets)",
+      "isCancelled": false,
+      "isSpecial": true
+    },
+    {
       "date": "2026-10-07",
       "kind": "club",
-      "title": "Awana meeting",
+      "title": "Awana meeting (Making Bracelets)",
       "isCancelled": false,
-      "isSpecial": false
+      "isSpecial": true
     },
     {
       "date": "2026-10-14",
