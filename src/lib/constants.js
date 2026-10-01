@@ -126,3 +126,7 @@ export const BUILD_QUIET_MS = 5000;
 // links both. The fixed asset name keeps the download link permanent.
 export const DESKTOP_APP_DOWNLOAD_URL = 'https://github.com/patrick-simpson/Awana-Check-in-Display/releases/latest/download/Awana-Lobby-Display-Setup.exe';
 export const DESKTOP_APP_GUIDE_URL = 'https://github.com/patrick-simpson/Awana-Check-in-Display/blob/main/desktop/README.md';
+
+// How long Settings → Pickup board → "Show a demo on this TV" holds a sample
+// board on this screen (owner, 2026-10-01: about 20 seconds).
+export const BOARD_DEMO_MS = 20_000;

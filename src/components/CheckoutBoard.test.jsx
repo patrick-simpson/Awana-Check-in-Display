@@ -26,19 +26,39 @@ describe('CheckoutBoard', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('names each child as a chip in their club\'s colour, with the honest foot', () => {
+  it('names each child as a chip in their club\'s colour, one column per club, with the honest foot', () => {
     const { container } = still(<CheckoutBoard decision={{ state: 'names', ageMin: 3 }} checkout={checkout} />);
     const board = container.querySelector('.checkout-board.names');
     expect(board.querySelector('.checkout-title').textContent).toBe('Still to be picked up');
-    const sparks = [...board.querySelectorAll('.checkout-club')].find((li) => li.textContent.includes('Sparks'));
+    const columns = [...board.querySelectorAll('.checkout-column')];
+    // Youngest club first, as the clubs stand: Sparks before T&T.
+    expect(columns.map((c) => c.querySelector('.checkout-column__mark').getAttribute('alt'))).toEqual(['Sparks', 'T&T']);
+    expect(board.style.getPropertyValue('--columns')).toBe('2');
+    const [sparks] = columns;
     expect(sparks.style.getPropertyValue('--club')).toBe(getClubPalette('Sparks').primary);
+    expect(sparks.querySelector('.checkout-column__count').textContent).toBe('2 waiting');
     expect([...sparks.querySelectorAll('.checkout-name__chip')].map((c) => c.textContent)).toEqual(['Demo Kid', 'Sample Star']);
-    // Still reads as the old list, separators and all.
+    // Still reads as a list, separators and all.
     expect(sparks.querySelector('.checkout-names').textContent).toBe('Demo Kid · Sample Star');
     const foot = board.querySelector('.checkout-foot');
     expect(foot.querySelector('.checkout-count').textContent).toBe('3');
     expect(foot.textContent).toBe('3 not checked out yet · 43 labels printed tonight · updated 3 min ago');
     expect(board.textContent).not.toMatch(/still in the building/i);
+    expect(board.querySelector('.checkout-demo')).toBeNull();
+  });
+
+  it('a club the clubs table does not know still gets a column, by name', () => {
+    const odd = { ...checkout, entries: [...checkout.entries, { firstName: 'Visitor', club: 'Guests' }] };
+    const { container } = still(<CheckoutBoard decision={{ state: 'names', ageMin: 0 }} checkout={odd} />);
+    const last = [...container.querySelectorAll('.checkout-column')].at(-1);
+    expect(last.querySelector('.checkout-column__name').textContent).toBe('Guests');
+  });
+
+  it('a demo says so on the card and in the foot', () => {
+    const { container } = still(<CheckoutBoard decision={{ state: 'names', ageMin: 30 }} checkout={checkout} demo />);
+    expect(container.querySelector('.checkout-demo').textContent).toBe('Demo · sample names');
+    expect(container.querySelector('.checkout-foot').textContent).toMatch(/a demo, not real children$/);
+    expect(container.querySelector('.checkout-foot').textContent).not.toMatch(/updated/);
   });
 
   it('names nobody when the decision is anonymous', () => {

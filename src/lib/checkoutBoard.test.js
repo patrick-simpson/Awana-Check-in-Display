@@ -5,8 +5,14 @@ import {
   BOARD_HIDDEN,
   BOARD_NAMES,
   BOARD_STALE,
+  EMPTY_HOLD_MS,
   decideBoard,
+  demoCheckout,
   groupByClub,
+  inPickupWindow,
+  parseHHMM,
+  pickupNow,
+  stillHereCount,
 } from './checkoutBoard.js';
 
 // These are safeguarding assertions, not UI polish.
@@ -26,7 +32,6 @@ const base = {
   mode: 'always',
   namesAbove: 3,
   staleMin: 8,
-  phase: 'pickup',
   now: NOW,
 };
 const payload = (n, atOffsetMin = 0, printed = 43) => ({
@@ -119,27 +124,104 @@ describe('going quiet shows as age, not as a frozen list', () => {
   });
 });
 
-describe('pickup mode restricts it to the part of the evening it is for', () => {
-  it('is hidden during arrival and the lesson', () => {
-    for (const phase of ['arrival', 'opening', 'handbook', 'gametime', 'lesson']) {
-      const d = decideBoard({ ...base, mode: 'pickup', phase, checkout: payload(10) });
-      expect(d.state, phase).toBe(BOARD_HIDDEN);
+describe('pickup mode restricts it to the pickup window the church sets', () => {
+  // Local wall-clock times, as the screen reads them (a Wednesday).
+  const at = (h, m) => new Date(2026, 9, 7, h, m).getTime();
+  const pickupBase = (now, extra = {}) => ({ ...base, mode: 'pickup', now, checkout: { ...payload(10), at: now }, ...extra });
+
+  it('is hidden before the window: during arrival, the lesson and game time', () => {
+    for (const [h, m] of [[18, 0], [18, 40], [19, 29], [19, 34]]) {
+      expect(decideBoard(pickupBase(at(h, m))).state, `${h}:${m}`).toBe(BOARD_HIDDEN);
     }
   });
 
-  it('is shown through closing, pickup and after the program ends', () => {
-    // Generous at the tail on purpose: pickup runs past the schedule's end, and a
-    // board that vanished at "off" would disappear exactly when the last few
-    // children are still waiting.
-    for (const phase of ['closing', 'pickup', 'dismissal', 'after', 'off']) {
-      const d = decideBoard({ ...base, mode: 'pickup', phase, checkout: payload(10) });
-      expect(d.state, phase).toBe(BOARD_NAMES);
+  it('is up from 7:35 pm by default — the old phase rule took it DOWN at 7:35', () => {
+    for (const [h, m] of [[19, 35], [19, 50], [20, 15], [20, 29]]) {
+      expect(decideBoard(pickupBase(at(h, m))).state, `${h}:${m}`).toBe(BOARD_NAMES);
     }
   });
 
-  it('always mode ignores the phase', () => {
-    expect(decideBoard({ ...base, mode: 'always', phase: 'handbook', checkout: payload(10) }).state)
+  it('is gone by the end of the window, whatever the list says', () => {
+    expect(decideBoard(pickupBase(at(20, 30))).state).toBe(BOARD_HIDDEN);
+    expect(decideBoard(pickupBase(at(21, 0))).reason).toMatch(/outside the pickup window/);
+  });
+
+  it('follows the times set in Settings, including a window past midnight', () => {
+    expect(decideBoard(pickupBase(at(19, 10), { from: '19:00', until: '19:30' })).state).toBe(BOARD_NAMES);
+    expect(decideBoard(pickupBase(at(19, 40), { from: '19:00', until: '19:30' })).state).toBe(BOARD_HIDDEN);
+    expect(inPickupWindow(at(23, 50), '23:00', '00:30')).toBe(true);
+    expect(inPickupWindow(at(0, 10), '23:00', '00:30')).toBe(true);
+    expect(inPickupWindow(at(1, 0), '23:00', '00:30')).toBe(false);
+    expect(inPickupWindow(at(19, 40), '19:00', '19:00')).toBe(false);
+    // A malformed time falls back to the default.
+    expect(inPickupWindow(at(19, 40), 'soon', 'later')).toBe(true);
+  });
+
+  it('once the list empties it says so for a minute, then steps away', () => {
+    const now = at(20, 5);
+    const empty = { ...base, mode: 'pickup', now, checkout: { ...payload(0), at: now } };
+    expect(decideBoard({ ...empty, emptySince: null }).state).toBe(BOARD_EMPTY);
+    expect(decideBoard({ ...empty, emptySince: now - EMPTY_HOLD_MS + 1000 }).state).toBe(BOARD_EMPTY);
+    const gone = decideBoard({ ...empty, emptySince: now - EMPTY_HOLD_MS });
+    expect(gone.state).toBe(BOARD_HIDDEN);
+    expect(gone.reason).toMatch(/everyone has been checked out/);
+  });
+
+  it('always mode ignores the window, and keeps its empty card', () => {
+    expect(decideBoard({ ...base, mode: 'always', now: at(18, 30), checkout: { ...payload(10), at: at(18, 30) } }).state)
       .toBe(BOARD_NAMES);
+    const now = at(20, 5);
+    expect(decideBoard({ ...base, mode: 'always', now, checkout: { ...payload(0), at: now }, emptySince: now - 10 * EMPTY_HOLD_MS }).state)
+      .toBe(BOARD_EMPTY);
+  });
+
+  it('a demo shows on any mode and clock, and still withholds names when told to', () => {
+    const now = at(14, 0);
+    const demo = { ...base, mode: 'off', now, demo: true };
+    expect(decideBoard({ ...demo, checkout: { ...payload(10), at: now } }).state).toBe(BOARD_NAMES);
+    expect(decideBoard({ ...demo, namesAbove: 20, checkout: { ...payload(10), at: now } }).state).toBe(BOARD_ANONYMOUS);
+    expect(decideBoard({ ...demo, checkout: null }).state).toBe(BOARD_HIDDEN);
+  });
+
+  it('pickupNow: the window for either mode that is on, always for a demo', () => {
+    expect(pickupNow({ mode: 'pickup', now: at(19, 40) })).toBe(true);
+    expect(pickupNow({ mode: 'always', now: at(19, 40) })).toBe(true);
+    expect(pickupNow({ mode: 'always', now: at(18, 40) })).toBe(false);
+    expect(pickupNow({ mode: 'off', now: at(19, 40) })).toBe(false);
+    expect(pickupNow({ mode: 'off', now: at(9, 0), demo: true })).toBe(true);
+  });
+
+  it('parseHHMM reads 24-hour times only', () => {
+    expect(parseHHMM('19:35')).toBe(19 * 60 + 35);
+    expect(parseHHMM('00:00')).toBe(0);
+    for (const bad of ['7:35', '24:00', '19:60', '', null, 1935]) expect(parseHHMM(bad)).toBeNull();
+  });
+});
+
+describe('the corner counts down only what the board itself would say', () => {
+  const names = { state: BOARD_NAMES };
+  it('counts the list while the board names children, in pickup time', () => {
+    expect(stillHereCount(names, payload(12), true)).toBe(12);
+  });
+  it('never outside pickup time', () => {
+    expect(stillHereCount(names, payload(12), false)).toBeNull();
+  });
+  it('never a small number the board withholds, and never from a stale or empty board', () => {
+    for (const state of [BOARD_ANONYMOUS, BOARD_STALE, BOARD_EMPTY, BOARD_HIDDEN]) {
+      expect(stillHereCount({ state }, payload(2), true), state).toBeNull();
+    }
+    expect(stillHereCount(names, null, true)).toBeNull();
+  });
+});
+
+describe('the demo board', () => {
+  it('fills every club with made-up names, deterministically', () => {
+    const clubs = ['Puggles', 'Cubbies', 'Sparks', 'T&T', 'Trek', 'Journey'];
+    const a = demoCheckout(clubs, ['A', 'B', 'C'], 5);
+    expect(a.at).toBe(5);
+    expect(new Set(a.entries.map((e) => e.club))).toEqual(new Set(clubs));
+    expect(a.entries.length).toBe(17);
+    expect(demoCheckout(clubs, ['A', 'B', 'C'], 5)).toEqual(a);
   });
 });
 
@@ -157,6 +239,10 @@ describe('grouping is deterministic', () => {
       { club: 'Other', names: ['Cal'] },
       { club: 'T&T', names: ['Ben'] },
     ]);
+  });
+
+  it('with an order, clubs stand in it (youngest to oldest) and the rest come after', () => {
+    expect(groupByClub(entries, ['Puggles', 't&t', 'Sparks']).map((g) => g.club)).toEqual(['T&T', 'Sparks', 'Other']);
   });
 
   it('produces the same order every time — the wall must not reshuffle', () => {

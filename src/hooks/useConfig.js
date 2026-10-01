@@ -13,6 +13,7 @@ const STORAGE_KEY = 'awanaConfig.v1';
 // produce NaN timers or a broken screen on club night.
 const isBool = (v) => typeof v === 'boolean';
 const isString = (v) => typeof v === 'string';
+const isHHMM = (v) => typeof v === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 const numberBetween = (min, max) => (v) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 
 const VALIDATORS = {
@@ -55,6 +56,9 @@ const VALIDATORS = {
   checkoutBoardMode: (v) => ['off', 'pickup', 'always'].includes(v),
   checkoutBoardNamesAbove: numberBetween(0, 200),
   checkoutBoardStaleMin: numberBetween(1, 120),
+  checkoutBoardFrom: isHHMM,
+  checkoutBoardUntil: isHHMM,
+  cornerStillHere: isBool,
   // Reads the one skin table rather than repeating its ids — adding a season
   // used to mean editing this list, skins.js, the Settings dropdown and the CSS.
   nightTheme: (v) => NIGHT_THEME_VALUES.includes(v),

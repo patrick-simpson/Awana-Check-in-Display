@@ -352,24 +352,6 @@ test('a check-in washes the background in the arriving club’s color, then clea
 // decision; these check what the real page PAINTS: stacking, the slide copy's
 // computed opacity, and a club mark staying inside its slot.
 
-/** Pin the schedule's phase: one window of `kind` around now, today. */
-async function pinPhase(page, kind) {
-  await page.addInitScript((k) => {
-    const pad = (n) => String(n).padStart(2, '0');
-    const d = new Date();
-    const hm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
-    const mins = d.getHours() * 60 + d.getMinutes();
-    localStorage.setItem('awanaSchedule.v1', JSON.stringify({
-      fetchedAt: d.toISOString(),
-      raw: {
-        meeting: { day: d.getDay() },
-        windows: [{ start: hm(Math.max(0, mins - 60)), end: hm(Math.min(1439, mins + 60)), kind: k }],
-        specialDates: {},
-      },
-    }));
-  }, kind);
-}
-
 const TYPED_DECK = [{ id: 's_1', type: 'text', eyebrow: 'This week', text: 'Bring your handbook', theme: 'sky' }];
 const copyOpacity = (page) => page.locator('.manual-slideshow .manual-slide-copy').evaluate((el) => Number(getComputedStyle(el).opacity));
 
@@ -406,9 +388,9 @@ test('a critical notice stays on top of a check-in, and the slide copy steps asi
 });
 
 test('at pickup time the pickup list takes the middle and the slide copy steps aside', async ({ page }) => {
-  const config = { backgroundSource: 'manual', calendarEnabled: false, seasonPromos: false, manualSlides: TYPED_DECK, checkoutBoardMode: 'always', sharedScheduleUrl: '' };
+  // A pickup window open all day (Settings → Pickup board).
+  const config = { backgroundSource: 'manual', calendarEnabled: false, seasonPromos: false, manualSlides: TYPED_DECK, checkoutBoardMode: 'always', checkoutBoardFrom: '00:00', checkoutBoardUntil: '23:59', sharedScheduleUrl: '' };
   await page.addInitScript((c) => localStorage.setItem('awanaConfig.v1', JSON.stringify(c)), config);
-  await pinPhase(page, 'shutdown');
   await goSignage(page);
   await openDebug(page);
   await page.getByRole('button', { name: /Still-here board: 9 children/ }).click();
@@ -419,9 +401,9 @@ test('at pickup time the pickup list takes the middle and the slide copy steps a
 });
 
 test('during the program an "always" board sits at the foot and the slides keep showing', async ({ page }) => {
-  const config = { backgroundSource: 'manual', calendarEnabled: false, seasonPromos: false, manualSlides: TYPED_DECK, checkoutBoardMode: 'always', sharedScheduleUrl: '' };
+  // A pickup window that never opens (it starts and ends at the same minute).
+  const config = { backgroundSource: 'manual', calendarEnabled: false, seasonPromos: false, manualSlides: TYPED_DECK, checkoutBoardMode: 'always', checkoutBoardFrom: '00:00', checkoutBoardUntil: '00:00', sharedScheduleUrl: '' };
   await page.addInitScript((c) => localStorage.setItem('awanaConfig.v1', JSON.stringify(c)), config);
-  await pinPhase(page, 'game');
   await goSignage(page);
   await openDebug(page);
   await page.getByRole('button', { name: /Still-here board: 9 children/ }).click();

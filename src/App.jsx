@@ -35,7 +35,9 @@ import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calenda
 import { buildPromoSlot } from './lib/promos.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } from './lib/confetti.js';
 import { resolveSkin, sceneForSkin, SKIN_TABLE } from './lib/skins.js';
-import { BOARD_HIDDEN, decideBoard } from './lib/checkoutBoard.js';
+import { BOARD_HIDDEN, decideBoard, demoCheckout, pickupNow, stillHereCount } from './lib/checkoutBoard.js';
+import { SAMPLE_BOARD_NAMES } from './lib/demoNames.js';
+import { getAllClubs } from './lib/clubs.js';
 import { OVERLAY, lobbyRoom, setupUp } from './lib/overlayFit.js';
 import { STINGER_SEC, holdThenLand } from './lib/lobbyMotion.js';
 import { squishLand, withSquish } from './lib/squish.js';
@@ -61,7 +63,7 @@ import { useWatchdogReload } from './hooks/useWatchdogReload.js';
 import { useBuildReload } from './hooks/useBuildReload.js';
 import { useTallerThan } from './hooks/useTallerThan.js';
 import { isEmbedded } from './lib/embed.js';
-import { BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, SETUP_CARD_QUIET_MS } from './lib/constants.js';
+import { BOARD_DEMO_MS, BUILD_QUIET_MS, COUNTS_WITHOUT_NAMES_MS, DROPPED_GRACE_MS, EMBED_FULLSCREEN_MESSAGE, GEAR_IDLE_MS, LAYER_FAULT_SHOW_MS, MILESTONE_TOAST_MS, OPS_FAILURES_MAX, SETUP_CARD_QUIET_MS } from './lib/constants.js';
 
 // Read once — the URL can't change without a full page load.
 const FLAGS = parseUrlFlags();
@@ -190,15 +192,53 @@ export default function App() {
     return () => clearInterval(t);
   }, [checkout]);   // re-stamp on new data so a fresh board is never shown as aged
 
+  // When this screen first saw the list empty: in pickup mode the board says
+  // "Everyone has been checked out" for a minute from then, and steps away.
+  // Stamped where the payload lands (handleCheckout), not from an effect.
+  const [emptySince, setEmptySince] = useState(/** @type {number | null} */ (null));
+  const handleCheckout = useCallback((payload) => {
+    setCheckout(payload);
+    const empty = Array.isArray(payload?.entries) && payload.entries.length === 0;
+    setEmptySince((was) => (empty ? (was ?? Date.now()) : null));
+  }, []);
+
+  // Settings → Pickup board → "Show a demo on this TV": a sample board for
+  // BOARD_DEMO_MS on this screen only, whatever the mode and the clock. It
+  // never touches the real checkout data, and the naming rule still applies.
+  const [boardDemoAt, setBoardDemoAt] = useState(/** @type {number | null} */ (null));
+  useEffect(() => {
+    if (boardDemoAt == null) return undefined;
+    const t = setTimeout(() => setBoardDemoAt(null), BOARD_DEMO_MS);
+    return () => clearTimeout(t);
+  }, [boardDemoAt]);
+  const boardDemo = boardDemoAt != null;
+  const boardData = useMemo(
+    () => (boardDemo ? demoCheckout(getAllClubs(), SAMPLE_BOARD_NAMES, boardDemoAt) : checkout),
+    [boardDemo, boardDemoAt, checkout],
+  );
+
   const boardDecision = useMemo(() => decideBoard({
-    checkout,
+    checkout: boardData,
     mode: config.checkoutBoardMode,
     namesAbove: config.checkoutBoardNamesAbove,
     staleMin: config.checkoutBoardStaleMin,
-    phase,
+    from: config.checkoutBoardFrom,
+    until: config.checkoutBoardUntil,
+    emptySince,
+    demo: boardDemo,
     now: boardNow,
-  }), [checkout, config.checkoutBoardMode, config.checkoutBoardNamesAbove,
-    config.checkoutBoardStaleMin, phase, boardNow]);
+  }), [boardData, config.checkoutBoardMode, config.checkoutBoardNamesAbove,
+    config.checkoutBoardStaleMin, config.checkoutBoardFrom, config.checkoutBoardUntil,
+    emptySince, boardDemo, boardNow]);
+  // Is the room being picked up: the board then takes the middle, and the
+  // corner counter counts down (checkoutBoard.js pickupNow).
+  const pickup = pickupNow({
+    mode: config.checkoutBoardMode,
+    now: boardNow,
+    from: config.checkoutBoardFrom,
+    until: config.checkoutBoardUntil,
+    demo: boardDemo,
+  });
 
   // Church-authored announcements (#onNotice): latest one wins, same as
   // the tally/ops widgets. NoticeBanner picks its presentation from `level`;
@@ -221,7 +261,7 @@ export default function App() {
     overlay: FLAGS.overlay,
     criticalLive: noticeUp && notice?.level === 'critical',
     boardState: boardDecision.state,
-    phase,
+    pickup,
     checkInUp: currentEvent != null,
   });
 
@@ -378,6 +418,7 @@ export default function App() {
   // Church-authored announcements (#onNotice): the state lives above, beside
   // the room rules it feeds.
   const handleNotice = useCallback((payload) => setNotice(payload), []);
+  const clearNotice = useCallback(() => setNotice(null), []);
 
   // Every live check-in — real or simulated — plays a banner and bumps
   // tonight's tally. Once the ceremony starts, live banners switch to
@@ -470,10 +511,10 @@ export default function App() {
     onTally: handleTally,
     onTonight: handleTonight,
     onNotice: handleNotice,
-    onCheckout: setCheckout,
+    onCheckout: handleCheckout,
     onBirthdays: setBirthdays,
     onSlides,
-  }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice, onSlides]);
+  }), [handleCheckIn, handleRecap, recordOps, handleTally, handleTonight, handleNotice, handleCheckout, onSlides]);
 
   const { status, lastEventAt, lastCheckinAt, retry, nameStatus, slidesStatus, hasDisplayKey } = useSocket(socketHandlers);
 
@@ -505,6 +546,11 @@ export default function App() {
   // of the session: a training run must never be mistakable for real check-ins,
   // and "the badge quietly disappeared" is exactly how that mistake happens.
   const [demoActive, setDemoActive] = useState(false);
+  const startBoardDemo = useCallback(() => {
+    setDemoActive(true);
+    setBoardDemoAt(Date.now());
+    setBoardNow(Date.now());
+  }, []);
   const simulate = useCallback((event, payload, meta) => {
     setDemoActive(true);
     return simulateEvent(event, payload, socketHandlers, meta);
@@ -802,6 +848,11 @@ export default function App() {
     {
       clock: config.showClock === true,
       tally: config.showTally ? count : 0,
+      // During pickup, while the board names children, the tally's slot
+      // counts down how many are not checked out yet (cornerInfo.js).
+      stillHere: config.showTally && config.cornerStillHere !== false
+        ? stillHereCount(boardDecision, boardData, pickup)
+        : null,
       weather: showWeatherChip && !stickerTall ? weather : null,
       correction: config.showTally ? tallySync : null,
     },
@@ -1181,7 +1232,7 @@ export default function App() {
           pure decideBoard(); see src/lib/checkoutBoard.js for why it is gated. */}
       {room.board && (
         <ErrorBoundary label="checkout-board" eventKey={boardNow} onError={() => recordLayerFault('pickup board')}>
-          <CheckoutBoard decision={boardDecision} checkout={checkout} calm={config.panicMode === true} placement={room.board} />
+          <CheckoutBoard decision={boardDecision} checkout={boardData} calm={config.panicMode === true} placement={room.board} demo={boardDemo} />
         </ErrorBoundary>
       )}
 
@@ -1381,6 +1432,12 @@ export default function App() {
               setSlideEditorOpen(true);
             }}
             onOpenDebug={() => { setSettingsOpen(false); setDebugOpen(true); }}
+            onBoardDemo={() => {
+              // A rehearsal on this screen: the demo badge stays up until reload,
+              // like every other simulated thing.
+              startBoardDemo();
+              setSettingsOpen(false);
+            }}
           />
         </ErrorBoundary>
       )}
@@ -1414,7 +1471,7 @@ export default function App() {
             onSimulateBirthdays={(p) => simulate('birthdays', p)}
             onSimulateTonight={(p) => simulate('tonight', p)}
             onSimulateNotice={(p) => simulate('notice', p)}
-            onClearNotice={() => setNotice(null)}
+            onClearNotice={clearNotice}
             onClose={() => setDebugOpen(false)}
             status={status}
             lastEventAt={lastEventAt}

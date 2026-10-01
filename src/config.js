@@ -249,6 +249,20 @@ const config = {
   // and must show as an AGE rather than as a silently frozen list.
   checkoutBoardStaleMin: 8,
 
+  // 'pickup' mode's window, local 24-hour "HH:MM" (owner, 2026-10-01): the
+  // board comes up at checkoutBoardFrom, stays until the list empties (then
+  // says "Everyone has been checked out" for a minute and steps away), and is
+  // gone by checkoutBoardUntil whatever the list says. Also when the corner
+  // counter counts down and an "always" board takes the middle of the room.
+  checkoutBoardFrom: '19:35',
+  checkoutBoardUntil: '20:30',
+
+  // During that window, while the board is naming children, the corner's
+  // "Tonight" counter switches to how many are not checked out yet and counts
+  // down as they are. Never while the board withholds names (a small number on
+  // a public wall singles children out), and never from a stale list.
+  cornerStillHere: true,
+
   // Themed night skin: 'none' | 'auto' | a skin id. The ids live in ONE
   // place — SKIN_TABLE in src/lib/skins.js — which also carries each
   // skin's accent colors, its scene theme, and the calendar-title

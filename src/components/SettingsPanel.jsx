@@ -5,6 +5,7 @@ import { sanitizeMilestoneList } from '../lib/milestones.js';
 import { NIGHT_THEME_VALUES } from '../lib/skins.js';
 import { SAMPLE_NAMES, pick } from '../lib/demoNames.js';
 import { localDateStr } from '../lib/calendarLogic.js';
+import { PICKUP_FROM, PICKUP_UNTIL, parseHHMM } from '../lib/checkoutBoard.js';
 import { useDisplayKey } from '../hooks/useDisplayKey.js';
 import { useDisplayLogin } from '../hooks/useDisplayLogin.js';
 import { pageBuild } from '../lib/buildReload.js';
@@ -59,6 +60,9 @@ export function seedForm(c) {
     checkoutBoardMode: ['pickup', 'always'].includes(c.checkoutBoardMode) ? c.checkoutBoardMode : 'off',
     checkoutBoardNamesAbove: c.checkoutBoardNamesAbove ?? 3,
     checkoutBoardStaleMin: c.checkoutBoardStaleMin ?? 8,
+    checkoutBoardFrom: parseHHMM(c.checkoutBoardFrom) == null ? PICKUP_FROM : c.checkoutBoardFrom,
+    checkoutBoardUntil: parseHHMM(c.checkoutBoardUntil) == null ? PICKUP_UNTIL : c.checkoutBoardUntil,
+    cornerStillHere: c.cornerStillHere !== false,
     milestoneEvery: c.milestoneEvery ?? 25,
     // Threshold LISTS (#358) — seeded through the same sanitizer the config
     // validator uses, so an old saved list is repaired, never silently reset.
@@ -93,6 +97,8 @@ export function normalize(f) {
     clubMilestoneEvery: clamp(Math.round(f.clubMilestoneEvery) || 0, 0, 1000),
     checkoutBoardNamesAbove: clamp(Math.round(f.checkoutBoardNamesAbove) || 0, 0, 200),
     checkoutBoardStaleMin: clamp(Math.round(f.checkoutBoardStaleMin) || 8, 1, 120),
+    checkoutBoardFrom: parseHHMM(f.checkoutBoardFrom) == null ? PICKUP_FROM : f.checkoutBoardFrom,
+    checkoutBoardUntil: parseHHMM(f.checkoutBoardUntil) == null ? PICKUP_UNTIL : f.checkoutBoardUntil,
     calendarUrl: f.calendarUrl.trim(),
     calendarWelcomeText: f.calendarWelcomeText.trim().slice(0, 80) || 'Welcome to Awana!',
     weatherLocationName: f.weatherLocationName.trim().slice(0, 80),
@@ -120,7 +126,7 @@ export default function SettingsPanel({
   config, savedConfig, overrides, status, nameStatus, demoActive, lastEventAt, calendar, phase, scheduleSource,
   opsFailures, remoteConfigError, wakeLockStatus, layerFaults,
   initialTab = null, onTabChange,
-  onChange, onReplace, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug,
+  onChange, onReplace, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug, onBoardDemo,
   syncedDeck, slidesStatus, onForgetSyncedDeck,
 }) {
   const stored = savedConfig ?? config;
@@ -376,7 +382,7 @@ export default function SettingsPanel({
   } else if (section === 'celebrations') {
     body = <CelebrationsSection {...props} />;
   } else if (section === 'pickup') {
-    body = <PickupSection {...props} />;
+    body = <PickupSection {...props} onBoardDemo={onBoardDemo ? () => { flush(); onBoardDemo(); } : null} />;
   } else if (section === 'look') {
     body = <LookSection {...props} />;
   } else {

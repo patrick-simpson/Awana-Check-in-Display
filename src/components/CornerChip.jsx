@@ -16,8 +16,10 @@ import WeatherGlyph from './WeatherGlyph.jsx';
  * on the brand's curve, a beat after the slide), and the previous one lifts
  * away. Hidden (a slide that holds check-ins) it simply leaves. A note (the
  * tally's "synced with the check-in desk") is part of the frozen snapshot, so
- * it stays with the number it explains; `showNote` is the Settings opt-out,
- * applied at render so turning it off hides one already up. The weather
+ * it stays with the number it explains; `showNote` is the Settings opt-out for
+ * that correction note only, applied at render so turning it off hides one
+ * already up. The pickup count's "not checked out yet" always shows: it is
+ * what the number means. The weather
  * carries its sky doodle (WeatherGlyph) at the head of its value block.
  *
  * @param {{
@@ -61,7 +63,7 @@ export default function CornerChip({ item, corner, loads, hidden = false, showNo
             size={size}
             icon={item.glyph ? <WeatherGlyph kind={item.glyph} /> : null}
           />
-          {showNote && item.note && <span className="corner-chip__note">{item.note}</span>}
+          {item.note && (showNote || !item.correction) && <span className="corner-chip__note">{item.note}</span>}
         </M.div>
       )}
     </AnimatePresence>

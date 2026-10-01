@@ -2,15 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
-  NAME_CHIP_CLEAR, NAME_CHIP_TEXT, OVERLAY, PICKUP_TIME, balanceLines, bandRoom, bandTop, boardPlacement, boardRowsHeight,
+  NAME_CHIP_CLEAR, NAME_CHIP_TEXT, OVERLAY, balanceLines, fitColumns, bandRoom, bandTop, boardPlacement, boardRowsHeight,
   fitBoard, fitParagraph, fitShout, lobbyRoom, nameChipSeat, plateChrome, setupUp, wrapLines,
 } from './overlayFit.js';
 import { LAYOUT } from './lobbyFrame.js';
 import { PLATE, SHOUT_BOX } from './brand.js';
 import {
-  BOARD_ANONYMOUS, BOARD_EMPTY, BOARD_HIDDEN, BOARD_NAMES, BOARD_STALE, PICKUP_PHASES,
+  BOARD_ANONYMOUS, BOARD_EMPTY, BOARD_HIDDEN, BOARD_NAMES, BOARD_STALE,
 } from './checkoutBoard.js';
-import { PHASES } from './schedule.js';
 
 const css = readFileSync(resolve(__dirname, '../styles/app.css'), 'utf8');
 
@@ -112,47 +111,42 @@ describe('the step-plate label size', () => {
 describe('who holds which part of the room', () => {
   const live = [BOARD_NAMES, BOARD_ANONYMOUS];
   it('the board takes the middle only for a live list at pickup time', () => {
-    for (const phase of PHASES) {
+    for (const pickup of [true, false]) {
       for (const state of live) {
-        expect(boardPlacement(state, phase)).toBe(PICKUP_TIME.has(phase) ? 'centre' : 'foot');
+        expect(boardPlacement(state, pickup)).toBe(pickup ? 'centre' : 'foot');
       }
       // A stale or empty board is never the room's focus: it has nothing live to list.
-      expect(boardPlacement(BOARD_STALE, phase)).toBe('foot');
-      expect(boardPlacement(BOARD_EMPTY, phase)).toBe('foot');
-      expect(boardPlacement(BOARD_HIDDEN, phase)).toBeNull();
+      expect(boardPlacement(BOARD_STALE, pickup)).toBe('foot');
+      expect(boardPlacement(BOARD_EMPTY, pickup)).toBe('foot');
+      expect(boardPlacement(BOARD_HIDDEN, pickup)).toBeNull();
     }
-    // The program and the arrivals before it are never pickup time; the
-    // schedule's own after-program phase is, and so is decideBoard's window.
-    for (const phase of ['countdown', 'ceremony', 'game-time']) expect(PICKUP_TIME.has(phase)).toBe(false);
-    expect(PICKUP_TIME.has('shutdown')).toBe(true);
-    for (const phase of PICKUP_PHASES) expect(PICKUP_TIME.has(phase)).toBe(true);
   });
 
   it('a stale board on a non-club day sits at the foot and leaves the slides alone', () => {
-    const room = lobbyRoom({ boardState: BOARD_STALE, phase: 'off' });
+    const room = lobbyRoom({ boardState: BOARD_STALE, pickup: false });
     expect(room).toMatchObject({ board: 'foot', copyAside: false, critical: null });
   });
 
   it('a critical notice takes the middle, unless the pickup board holds it', () => {
-    expect(lobbyRoom({ criticalLive: true, boardState: BOARD_HIDDEN, phase: 'game-time' }))
+    expect(lobbyRoom({ criticalLive: true, boardState: BOARD_HIDDEN, pickup: false }))
       .toEqual({ board: null, critical: 'centre', copyAside: true, holdCelebrations: false, toastBelow: false });
     // Beside a board at the foot, the middle is still the notice's.
-    expect(lobbyRoom({ criticalLive: true, boardState: BOARD_STALE, phase: 'off' }))
+    expect(lobbyRoom({ criticalLive: true, boardState: BOARD_STALE, pickup: false }))
       .toMatchObject({ board: 'foot', critical: 'centre', copyAside: true, holdCelebrations: false });
     // Over the pickup list it keeps to the band, both stay whole, and the
     // celebrations wait: the band is taken and the board is right below it.
-    expect(lobbyRoom({ criticalLive: true, boardState: BOARD_NAMES, phase: 'shutdown' }))
+    expect(lobbyRoom({ criticalLive: true, boardState: BOARD_NAMES, pickup: true }))
       .toEqual({ board: 'centre', critical: 'band', copyAside: true, holdCelebrations: true, toastBelow: false });
   });
 
   it('on an OBS feed there is no board and the alert keeps to the band, with a toast below it', () => {
-    expect(lobbyRoom({ overlay: true, criticalLive: true, boardState: BOARD_NAMES, phase: 'shutdown' }))
+    expect(lobbyRoom({ overlay: true, criticalLive: true, boardState: BOARD_NAMES, pickup: true }))
       .toEqual({ board: null, critical: 'band', copyAside: false, holdCelebrations: false, toastBelow: true });
-    expect(lobbyRoom({ overlay: true, boardState: BOARD_NAMES, phase: 'shutdown' }).critical).toBeNull();
+    expect(lobbyRoom({ overlay: true, boardState: BOARD_NAMES, pickup: true }).critical).toBeNull();
   });
 
   it('a name at the door outranks the pickup list', () => {
-    expect(lobbyRoom({ checkInUp: true, boardState: BOARD_NAMES, phase: 'shutdown' }))
+    expect(lobbyRoom({ checkInUp: true, boardState: BOARD_NAMES, pickup: true }))
       .toMatchObject({ board: null, copyAside: false });
   });
 
@@ -161,18 +155,18 @@ describe('who holds which part of the room', () => {
   // jump over the WELCOME kicker for the run and back), and the celebrations
   // keep waiting, so no toast comes up only to be hidden when the run ends.
   it('a check-in run at pickup time leaves a critical notice in the band', () => {
-    const before = lobbyRoom({ criticalLive: true, boardState: BOARD_NAMES, phase: 'shutdown' });
-    const during = lobbyRoom({ criticalLive: true, checkInUp: true, boardState: BOARD_NAMES, phase: 'shutdown' });
+    const before = lobbyRoom({ criticalLive: true, boardState: BOARD_NAMES, pickup: true });
+    const during = lobbyRoom({ criticalLive: true, checkInUp: true, boardState: BOARD_NAMES, pickup: true });
     expect(before).toMatchObject({ board: 'centre', critical: 'band', holdCelebrations: true });
     expect(during).toEqual({ board: null, critical: 'band', copyAside: false, holdCelebrations: true, toastBelow: false });
     // With no board seated, a run changes nothing about the notice either.
-    expect(lobbyRoom({ criticalLive: true, checkInUp: true, boardState: BOARD_HIDDEN, phase: 'game-time' }).critical)
-      .toBe(lobbyRoom({ criticalLive: true, boardState: BOARD_HIDDEN, phase: 'game-time' }).critical);
+    expect(lobbyRoom({ criticalLive: true, checkInUp: true, boardState: BOARD_HIDDEN, pickup: false }).critical)
+      .toBe(lobbyRoom({ criticalLive: true, boardState: BOARD_HIDDEN, pickup: false }).critical);
   });
 });
 
 describe('the first-run card\'s seat (setupUp)', () => {
-  const room = (over = {}) => lobbyRoom({ boardState: BOARD_HIDDEN, phase: 'off', ...over });
+  const room = (over = {}) => lobbyRoom({ boardState: BOARD_HIDDEN, pickup: false, ...over });
 
   it('is up on an ordinary lobby, and only while the screen is still due for setup', () => {
     expect(setupUp({ due: true, room: room() })).toBe(true);
@@ -193,9 +187,9 @@ describe('the first-run card\'s seat (setupUp)', () => {
   it('gives way to whatever holds the middle or the foot of the room', () => {
     // A critical notice in the middle, the pickup list in the middle at pickup time ...
     expect(setupUp({ due: true, room: room({ criticalLive: true }) })).toBe(false);
-    expect(setupUp({ due: true, room: room({ boardState: BOARD_NAMES, phase: 'shutdown' }) })).toBe(false);
+    expect(setupUp({ due: true, room: room({ boardState: BOARD_NAMES, pickup: true }) })).toBe(false);
     // ... the board's one-line card at the foot, in the strip the card would take ...
-    expect(setupUp({ due: true, room: room({ boardState: BOARD_STALE, phase: 'game-time' }) })).toBe(false);
+    expect(setupUp({ due: true, room: room({ boardState: BOARD_STALE, pickup: false }) })).toBe(false);
     // ... and the tonight strip on the waves there, while it has counts to show.
     expect(setupUp({ due: true, ticker: true, room: room() })).toBe(false);
     expect(setupUp({ due: true, ticker: false, room: room() })).toBe(true);
@@ -205,7 +199,7 @@ describe('the first-run card\'s seat (setupUp)', () => {
     // On an OBS feed the notice always keeps to the band (the card is never
     // there anyway); over a live pickup list it does too, and the list still
     // holds the room, so the card waits for the list, not for the notice.
-    const overList = room({ criticalLive: true, boardState: BOARD_NAMES, phase: 'shutdown' });
+    const overList = room({ criticalLive: true, boardState: BOARD_NAMES, pickup: true });
     expect(overList.critical).toBe('band');
     expect(overList.board).toBe('centre');
     expect(setupUp({ due: true, room: overList })).toBe(false);
@@ -442,5 +436,44 @@ describe('a name chip\'s seat (nameChipSeat)', () => {
   it('never drops a name so far that its comma and shadow reach the bottom', () => {
     expect(nameChipSeat(of('both'))).toBeGreaterThan(0);
     expect(inkBottom('both')).toBeLessThanOrEqual(height - NAME_CHIP_CLEAR + 1e-9);
+  });
+});
+
+describe('the pickup board columns (fitColumns)', () => {
+  // A fixed-width face: every character 0.6em, so the arithmetic is plain.
+  const mono = (text) => text.length * 0.6;
+  const box = { width: 65.4, height: 23.6, head: 6, gap: 1.2, max: 2.6, min: 1 };
+  const club = (name, n) => ({ club: name, names: Array.from({ length: n }, (_, i) => `Kid${String(i).padStart(2, '0')}`) });
+
+  it('a few names per club take the largest size, one column each', () => {
+    const fit = fitColumns([club('Sparks', 3), club('T&T', 2)], box, mono);
+    expect(fit).toEqual({ size: 2.6, split: [1, 1], fits: true });
+  });
+
+  it('more clubs or longer names step the size down until the widest fits its column', () => {
+    const six = ['Puggles', 'Cubbies', 'Sparks', 'T&T', 'Trek', 'Journey'].map((n) => club(n, 3));
+    const fit = fitColumns(six, box, mono);
+    expect(fit.fits).toBe(true);
+    const colW = (box.width - box.gap * 5) / 6;
+    expect(mono('Kid00') * NAME_CHIP_TEXT * fit.size + 1.3 * fit.size).toBeLessThanOrEqual(colW + 1e-9);
+    expect(fit.size).toBeLessThan(2.6);
+  });
+
+  it('a long club splits into side-by-side sub-columns before it shrinks to nothing', () => {
+    const fit = fitColumns([club('Sparks', 24), club('T&T', 2)], box, mono);
+    expect(fit.fits).toBe(true);
+    expect(fit.split[0]).toBeGreaterThan(1);
+    expect(fit.split[1]).toBe(1);
+    // Every sub-column's rows fit under the head.
+    const rowsFit = Math.floor((box.height - box.head + 0.4 * fit.size) / (2.15 * fit.size));
+    expect(Math.ceil(24 / fit.split[0])).toBeLessThanOrEqual(rowsFit);
+  });
+
+  it('says when even the smallest size cannot hold a huge board', () => {
+    const huge = ['Puggles', 'Cubbies', 'Sparks', 'T&T', 'Trek', 'Journey'].map((n) => club(n, 60));
+    const fit = fitColumns(huge, box, mono);
+    expect(fit.fits).toBe(false);
+    expect(fit.size).toBe(1);
+    expect(fit.split.every((n) => n <= 3)).toBe(true);
   });
 });

@@ -253,26 +253,29 @@
   /* --------------------------------------------------------------------------
      4. THE PICK-UP BOARD (CheckoutBoard.jsx)
      -------------------------------------------------------------------------- */
+  /* The real board is the kit's white card: a wavy blue corner tab, one
+     column per club (its plate, "N waiting", then its names as chips in the
+     club's colour), and the honest foot. Plates and chips use each club's
+     deep shade here so the mock's small print stays AA at mock size. */
   .cid-board {
-    position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: max-content; max-width: 84%;
-    padding: 3.2cqi 4.4cqi 2.2cqi; background: var(--cid-sticker);
-    border: max(.4cqi, 1.5px) solid var(--cid-edge); border-radius: 2.2cqi;
-    outline: max(.25cqi, 1px) solid rgba(255, 246, 227, .3); outline-offset: max(.4cqi, 1.5px);
-    box-shadow: 0 1.4cqi 5cqi rgba(20, 26, 40, .4); text-align: center; color: #fff;
+    position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 74%;
+    padding: 5.4cqi 2.6cqi 2cqi; background: #fff; color: #1d2433;
+    border-radius: 1.6cqi; box-shadow: .6cqi .6cqi 0 #4C72B8; text-align: left; overflow: hidden;
   }
-  .cid-board--line { top: auto; bottom: 30%; translate: -50% 0; max-width: 76%; padding: 2cqi 3.4cqi; border-radius: 4cqi; }
+  .cid-board--line { top: auto; bottom: 30%; translate: -50% 0; width: auto; max-width: 70%; padding: 4.8cqi 3cqi 2cqi; }
   .cid-board__tab {
-    position: absolute; top: 0; left: 2.2cqi; translate: 0 -62%; padding: .2em .6em .25em;
-    font: 900 max(1.75cqi, var(--cid-min))/1.1 var(--cid-label); letter-spacing: .12em; text-transform: uppercase; color: #fff; white-space: nowrap;
-    background: #b54b12 linear-gradient(135deg, #d9651b 0%, #b54b12 100%); border-radius: .5em; transform: rotate(-2deg);
-    box-shadow: 0 .3cqi 1cqi rgba(20, 26, 40, .35);
+    position: absolute; top: 0; left: 0; padding: 1cqi 5cqi 1.1cqi 2.6cqi;
+    font: 400 max(1.75cqi, var(--cid-min))/1 var(--cid-label); letter-spacing: .12em; text-transform: uppercase; color: #fff; white-space: nowrap;
+    background: #4C72B8; border-bottom-right-radius: 4cqi 3cqi;
   }
-  .cid-board__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1cqi; }
-  .cid-board__rows li { display: flex; align-items: baseline; justify-content: center; gap: 2cqi; }
-  .cid-board__club { font: 900 max(1.9cqi, var(--cid-min))/1 var(--cid-label); letter-spacing: .1em; text-transform: uppercase; min-width: 8ch; text-align: right; }
-  .cid-board__names { font: 400 max(3.2cqi * var(--cid-fit), var(--cid-min))/1.25 var(--cid-shout); text-align: left; min-width: 20ch; }
-  .cid-board__foot { margin: 1.8cqi 0 0; font: 500 max(1.9cqi, var(--cid-min) + 1px)/1.3 var(--cid-read); color: rgba(255, 255, 255, .78); }
-  .cid-board__line { margin: 0; font: 700 max(2.6cqi, var(--cid-min))/1.3 var(--cid-read); max-width: 46ch; }
+  .cid-board__cols { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.6cqi; align-items: start; }
+  .cid-board__col { display: grid; gap: .8cqi; justify-items: start; }
+  .cid-board__plate { justify-self: stretch; display: grid; justify-items: center; gap: .3cqi; padding: .9cqi .6cqi; border-radius: 1cqi; background: var(--club); color: #fff; }
+  .cid-board__club { font: 400 max(2.2cqi, var(--cid-min))/1 var(--cid-label); letter-spacing: .08em; text-transform: uppercase; }
+  .cid-board__count { font: 400 max(1.5cqi, var(--cid-min))/1 var(--cid-label); letter-spacing: .08em; text-transform: uppercase; }
+  .cid-board__name { padding: .35em .7em .3em; border-radius: 999px; background: var(--club); color: #fff; font: 400 max(2.4cqi * var(--cid-fit), var(--cid-min))/1 var(--cid-shout); white-space: nowrap; }
+  .cid-board__foot { margin: 1.6cqi 0 0; font: 600 max(1.8cqi, var(--cid-min) + 1px)/1.3 var(--cid-read); color: #4b5058; }
+  .cid-board__line { margin: 0; font: 800 max(2.4cqi, var(--cid-min))/1.3 var(--cid-read); max-width: 46ch; color: #1d2433; }
 
   /* --------------------------------------------------------------------------
      5. PROJECTOR RECREATIONS (src/presentation/): pure black, glowing type
@@ -917,15 +920,15 @@
             <span class="fam-card__tag">Off by default</span>
           </div>
           <div>
-            <p class="cid-sub__text">Some churches want a quiet list near the end of the night showing which children haven’t been checked out yet, so a volunteer can see at a glance whose pickup hasn’t been recorded. It stays off until a church turns it on.</p>
-            <p class="cid-sub__text">When it is on, it is most careful at exactly the moment that matters: when only a few children are left.</p>
+            <p class="cid-sub__text">Some churches want a list at pickup time showing which children haven’t been checked out yet, one column per club, so a parent or volunteer can see at a glance whose pickup hasn’t been recorded. It stays off until a church turns it on.</p>
+            <p class="cid-sub__text">It comes up at a time the church sets (7:35 pm unless changed), says so once everyone has been checked out, and is gone by a second time. While it lists names, the corner counter can count down as children are checked out. It is most careful at exactly the moment that matters: when only a few children are left.</p>
           </div>
         </div>
 
         <div class="cid-pair">
           <figure class="fam-frame fam-frame--tv">
             <div class="fam-frame__stage">
-              <div class="fam-frame__screen cid-scr" role="img" aria-label="Recreation of the pick-up board on the lobby TV, a dark sticker on a pale-blue sky titled Still to be picked up. Grouped by club: Sparks, Eli, Micah and Nora; Cubbies, Ava and Leo; T and T, Grace and Noah. The last line reads 7 not checked out yet, updated 2 minutes ago. A stepped sticker in the corner shows the time, Right now, 8:05.">
+              <div class="fam-frame__screen cid-scr" role="img" aria-label="Recreation of the pick-up board on the lobby TV, a white card on a pale-blue sky titled Still to be picked up, with one column per club. Cubbies, 2 waiting: Ava and Leo. Sparks, 3 waiting: Eli, Micah and Nora. T and T, 2 waiting: Grace and Noah. The last line reads 7 not checked out yet, updated 2 minutes ago. A stepped sticker in the corner shows the time, Right now, 8:05.">
                 <div aria-hidden="true">
                   <span class="cid-blob cid-blob--a"></span><span class="cid-blob cid-blob--b"></span>
                   <svg class="cid-dz" style="left:6%;top:14%;width:7cqi;height:3.5cqi" viewBox="0 0 40 20"><use href="#i-dz-arc"/></svg>
@@ -935,20 +938,20 @@
                 <div class="cid-corner cid-corner--bottom" aria-hidden="true"><svg class="cid-step" viewBox="-0.04 -0.04 4.913 2.570" style="width:4.913em;height:2.570em"><path class="cid-step__plate" d="M0.575,0 L3.638,0 A0.575,0.575 0 0 1 4.213,0.575 L4.213,1.05 L4.713,1.05 L4.713,2.04 A0.39,0.39 0 0 1 4.323,2.43 L1.11,2.43 A0.27,0.27 0 0 1 0.84,2.16 L0.84,1.15 L0.575,1.15 A0.575,0.575 0 0 1 0,0.575 A0.575,0.575 0 0 1 0.575,0 Z" transform="translate(0.12 0.07)"/><path class="cid-step__line" d="M0.575,0 L3.638,0 A0.575,0.575 0 0 1 4.213,0.575 L4.213,1.05 L4.713,1.05 L4.713,2.04 A0.39,0.39 0 0 1 4.323,2.43 L1.11,2.43 A0.27,0.27 0 0 1 0.84,2.16 L0.84,1.15 L0.575,1.15 A0.575,0.575 0 0 1 0,0.575 A0.575,0.575 0 0 1 0.575,0 Z"/><text x="2.107" y="0.595" font-size="0.59" textLength="3.373" lengthAdjust="spacingAndGlyphs">RIGHT NOW</text><text x="2.777" y="1.770" font-size="1.06" textLength="2.238" lengthAdjust="spacingAndGlyphs">8:05</text></svg></div>
                 <div class="cid-board" aria-hidden="true">
                   <span class="cid-board__tab">Still to be picked up</span>
-                  <ul class="cid-board__rows">
-                    <li><span class="cid-board__club" style="color:#fddacf">Sparks</span><span class="cid-board__names">Eli · Micah · Nora</span></li>
-                    <li><span class="cid-board__club" style="color:#c4ddf3">Cubbies</span><span class="cid-board__names">Ava · Leo</span></li>
-                    <li><span class="cid-board__club" style="color:#d0e9d5">T&amp;T</span><span class="cid-board__names">Grace · Noah</span></li>
+                  <ul class="cid-board__cols">
+                    <li class="cid-board__col" style="--club:#2F4F8A"><span class="cid-board__plate"><span class="cid-board__club">Cubbies</span><span class="cid-board__count">2 waiting</span></span><span class="cid-board__name">Ava</span><span class="cid-board__name">Leo</span></li>
+                    <li class="cid-board__col" style="--club:#B82B32"><span class="cid-board__plate"><span class="cid-board__club">Sparks</span><span class="cid-board__count">3 waiting</span></span><span class="cid-board__name">Eli</span><span class="cid-board__name">Micah</span><span class="cid-board__name">Nora</span></li>
+                    <li class="cid-board__col" style="--club:#2F7A47"><span class="cid-board__plate"><span class="cid-board__club">T&amp;T</span><span class="cid-board__count">2 waiting</span></span><span class="cid-board__name">Grace</span><span class="cid-board__name">Noah</span></li>
                   </ul>
                   <p class="cid-board__foot">7 not checked out yet · updated 2 min ago</p>
                 </div>
               </div>
             </div>
-            <figcaption class="fam-frame__caption"><b>Fig. 7</b> With plenty of children still waiting, first names are grouped by club, and the last line says “not checked out yet.”<span class="fam-frame__recreated">Recreated for illustration. Names are examples.</span></figcaption>
+            <figcaption class="fam-frame__caption"><b>Fig. 7</b> With plenty of children still waiting, first names stand in a column under their club, and the last line says “not checked out yet.”<span class="fam-frame__recreated">Recreated for illustration. Names are examples.</span></figcaption>
           </figure>
           <figure class="fam-frame fam-frame--tv">
             <div class="fam-frame__stage">
-              <div class="fam-frame__screen cid-scr" role="img" aria-label="Recreation of the same board once three or fewer children are left. A single dark strip titled Still to be picked up shows no names and no number, only: Almost everyone has been picked up. Please see the check-in desk. The corner sticker shows Right now, 8:05.">
+              <div class="fam-frame__screen cid-scr" role="img" aria-label="Recreation of the same board once three or fewer children are left. A white card titled Still to be picked up shows no names and no number, only: Almost everyone has been picked up. Please see the check-in desk. The corner sticker shows Right now, 8:05.">
                 <div aria-hidden="true">
                   <span class="cid-blob cid-blob--a"></span><span class="cid-blob cid-blob--b"></span>
                   <svg class="cid-dz" style="left:6%;top:14%;width:7cqi;height:3.5cqi" viewBox="0 0 40 20"><use href="#i-dz-arc"/></svg>
@@ -969,8 +972,8 @@
         <aside class="fam-safeguard" aria-labelledby="sg-board">
           <div class="fam-safeguard__head"><svg aria-hidden="true"><use href="#i-shield"/></svg><h4 class="fam-safeguard__title" id="sg-board">How the pick-up board is kept safe</h4></div>
           <ul class="fam-safeguard__list">
-            <li><span class="fam-safeguard__check"><svg aria-hidden="true"><use href="#i-check"/></svg></span><div><b>Off until a church turns it on</b><span>It takes a deliberate choice in Settings, and it can be limited to the end of the evening only. With no pick-up information yet, it shows nothing at all.</span></div></li>
-            <li><span class="fam-safeguard__check"><svg aria-hidden="true"><use href="#i-check"/></svg></span><div><b>Stops naming anyone when only a few are left</b><span>At three children or fewer by default, it names no one and points people to the check-in desk. Two names late in the evening would single out two specific children.</span></div></li>
+            <li><span class="fam-safeguard__check"><svg aria-hidden="true"><use href="#i-check"/></svg></span><div><b>Off until a church turns it on</b><span>It takes a deliberate choice in Settings, and it can be limited to a pickup time the church sets. With no pick-up information yet, it shows nothing at all.</span></div></li>
+            <li><span class="fam-safeguard__check"><svg aria-hidden="true"><use href="#i-check"/></svg></span><div><b>Stops naming anyone when only a few are left</b><span>At three children or fewer by default, it names no one, gives no number (the corner counter stops counting too) and points people to the check-in desk. Two names late in the evening would single out two specific children.</span></div></li>
             <li><span class="fam-safeguard__check"><svg aria-hidden="true"><use href="#i-check"/></svg></span><div><b>First names only, always</b><span>A first name under each club, and nothing else. No last names, allergies or contact details ever reach a screen.</span></div></li>
             <li><span class="fam-safeguard__check"><svg aria-hidden="true"><use href="#i-check"/></svg></span><div><b>“Not checked out yet,” never “still in the building”</b><span>It shows what volunteers recorded at the desk, not a headcount, and every line says so. If the list stops updating, the board says that too.</span></div></li>
           </ul>

@@ -27,19 +27,15 @@ const App = (await import('./App.jsx')).default;
 const cfg = await import('./hooks/useConfig.js');
 
 const pad = (n) => String(n).padStart(2, '0');
-/** A shared-schedule cache whose one window, of `kind`, is on right now. */
-function seedPhase(kind) {
+// The pickup window (Settings → Pickup board) around the real clock: open
+// (half an hour either side of now) or shut (starting an hour from now).
+function pickupWindow(open) {
   const d = new Date();
-  const hm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
   const mins = d.getHours() * 60 + d.getMinutes();
-  localStorage.setItem('awanaSchedule.v1', JSON.stringify({
-    fetchedAt: d.toISOString(),
-    raw: {
-      meeting: { day: d.getDay() },
-      windows: [{ start: hm(Math.max(0, mins - 60)), end: hm(Math.min(1439, mins + 60)), kind }],
-      specialDates: {},
-    },
-  }));
+  const hm = (m) => { const w = ((m % 1440) + 1440) % 1440; return `${pad(Math.floor(w / 60))}:${pad(w % 60)}`; };
+  return open
+    ? { checkoutBoardFrom: hm(mins - 30), checkoutBoardUntil: hm(mins + 30) }
+    : { checkoutBoardFrom: hm(mins + 60), checkoutBoardUntil: hm(mins + 120) };
 }
 
 function setup(config = {}) {
@@ -95,8 +91,7 @@ describe('the room rules, wired up', () => {
   });
 
   it('at pickup time a live list takes the middle; during the program it waits at the foot beside the slides', async () => {
-    seedPhase('shutdown');
-    setup({ checkoutBoardMode: 'always' });
+    setup({ checkoutBoardMode: 'always', ...pickupWindow(true) });
     const pickup = await mount();
     await act(async () => { bound.checkout({ entries: kids(9), printed: 40, at: Date.now() }); });
     expect(has(pickup.container, 'board-up')).toBe(true);
@@ -105,8 +100,7 @@ describe('the room rules, wired up', () => {
     cleanup();
 
     bound = {};
-    seedPhase('game');
-    setup({ checkoutBoardMode: 'always' });
+    setup({ checkoutBoardMode: 'always', ...pickupWindow(false) });
     const program = await mount();
     await act(async () => { bound.checkout({ entries: kids(9), printed: 40, at: Date.now() }); });
     expect(has(program.container, 'board-up')).toBe(false);
@@ -115,8 +109,7 @@ describe('the room rules, wired up', () => {
   });
 
   it('a stale board never blanks the slides, even in the pickup window', async () => {
-    seedPhase('shutdown');
-    setup({ checkoutBoardMode: 'always' });
+    setup({ checkoutBoardMode: 'always', ...pickupWindow(true) });
     const { container } = await mount();
     await act(async () => { bound.checkout({ entries: kids(9), printed: 40, at: Date.now() - 26 * 3600 * 1000 }); });
     expect(container.querySelector('.checkout-board.stale.checkout-board--foot')).not.toBeNull();
@@ -124,8 +117,7 @@ describe('the room rules, wired up', () => {
   });
 
   it('over the pickup list a critical notice keeps to the band, and both stay whole', async () => {
-    seedPhase('shutdown');
-    setup({ checkoutBoardMode: 'always' });
+    setup({ checkoutBoardMode: 'always', ...pickupWindow(true) });
     const { container } = await mount();
     await act(async () => { bound.checkout({ entries: kids(12), printed: 40, at: Date.now() }); });
     await act(async () => { bound.notice({ level: 'critical', message: 'SEVERE WEATHER: everyone stays inside', at: Date.now() }); });
@@ -136,8 +128,7 @@ describe('the room rules, wired up', () => {
   });
 
   it('with a critical notice over the pickup list, celebrations wait for the band', async () => {
-    seedPhase('shutdown');
-    setup({ checkoutBoardMode: 'always' });
+    setup({ checkoutBoardMode: 'always', ...pickupWindow(true) });
     const { container } = await mount();
     await act(async () => { bound.checkout({ entries: kids(12), printed: 40, at: Date.now() }); });
     await act(async () => { bound.notice({ level: 'critical', message: 'SEVERE WEATHER: everyone stays inside', at: Date.now() }); });
@@ -230,8 +221,7 @@ describe('the first-run card\'s seat', () => {
   });
 
   it('waits behind a pickup list, and behind the board\'s one-line card at the foot', async () => {
-    seedPhase('shutdown');
-    setup({ checkoutBoardMode: 'always' });
+    setup({ checkoutBoardMode: 'always', ...pickupWindow(true) });
     const list = await mount();
     expect(card(list.container)).not.toBeNull();
     await act(async () => { bound.checkout({ entries: kids(9), printed: 40, at: Date.now() }); });
@@ -240,8 +230,7 @@ describe('the first-run card\'s seat', () => {
     cleanup();
 
     bound = {};
-    seedPhase('game');
-    setup({ checkoutBoardMode: 'always' });
+    setup({ checkoutBoardMode: 'always', ...pickupWindow(false) });
     const foot = await mount();
     expect(card(foot.container)).not.toBeNull();
     await act(async () => { bound.checkout({ entries: kids(9), printed: 40, at: Date.now() }); });

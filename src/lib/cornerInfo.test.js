@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cornerIds, nextCornerId, snapshotCorner, TALLY_SYNC_NOTE } from './cornerInfo.js';
+import { cornerIds, nextCornerId, snapshotCorner, STILL_HERE_NOTE, TALLY_SYNC_NOTE } from './cornerInfo.js';
 
 const src = (extra = {}) => ({ clock: true, tally: 23, weather: { temp: 58.4, code: 3, isDay: true }, ...extra });
 
@@ -71,5 +71,26 @@ describe('snapshotCorner', () => {
 
   it('has nothing to show for weather with no reading', () => {
     expect(snapshotCorner('weather', src({ weather: null }), at)).toBeNull();
+  });
+});
+
+describe('the pickup count down (stillHere)', () => {
+  const src = (stillHere, tally = 80) => ({ clock: true, tally, weather: null, stillHere });
+
+  it('takes the tally slot while there is a count, even before any check-in tonight', () => {
+    expect(cornerIds(src(12))).toEqual(['clock', 'tally']);
+    expect(cornerIds(src(12, 0))).toEqual(['clock', 'tally']);
+    expect(cornerIds(src(null, 0))).toEqual(['clock']);
+  });
+
+  it('reads PICKUP over the number, with what it means underneath — never a headcount', () => {
+    const s = snapshotCorner('tally', src(12), Date.now());
+    expect(s).toMatchObject({ label: 'Pickup', value: '12', note: STILL_HERE_NOTE, corner: 'bottom', correction: null });
+    expect(s.spoken).toBe('12 not checked out yet');
+    expect(`${s.label} ${s.note} ${s.spoken}`).not.toMatch(/building|still here/i);
+  });
+
+  it('goes back to tonight’s count when there is none', () => {
+    expect(snapshotCorner('tally', src(null), Date.now())).toMatchObject({ label: 'Tonight', value: '80' });
   });
 });

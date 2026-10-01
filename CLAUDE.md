@@ -1703,3 +1703,32 @@ rendering rules are part of the privacy design, not styling:
   out yet", never "still in the building".
 - All of that judgement lives in the pure `decideBoard()` in
   `src/lib/checkoutBoard.js` so it can be tested exhaustively.
+- **'pickup' mode is a time window the church sets** (owner, 2026-10-01:
+  `checkoutBoardFrom` / `checkoutBoardUntil`, local "HH:MM", default 7:35 to
+  8:30 pm; `inPickupWindow`, which also handles a window past midnight). It
+  used to follow the schedule's phases, and the set it allowed left out
+  `shutdown`, so the board went DOWN at 7:35 as families arrived. Inside the
+  window it stays until the list empties, says "Everyone has been checked
+  out" for `EMPTY_HOLD_MS` (one minute, from `emptySince`, which App stamps
+  where the payload lands), then steps away; by `checkoutBoardUntil` it is
+  gone whatever the list says. `pickupNow()` is the same window for either
+  mode that is on: it is when a live list takes the middle (`boardPlacement`,
+  `lobbyRoom({ pickup })`) and when the corner counts down.
+- **The corner counts down only what the board itself says**
+  (`stillHereCount`, `cornerStillHere`, on by default): in the window, while
+  the board is NAMING children, the tally's slot reads PICKUP over the number
+  with "not checked out yet" under it (`STILL_HERE_NOTE`, shown even when the
+  correction note is switched off). Never while the board is anonymous (an
+  exact small number on a public wall singles children out), never from a
+  stale, empty or switched-off board; tonight's count comes back.
+- **One column per club** (`fitColumns` in `overlayFit.js`, youngest club
+  first by `getAllClubs()`): the club's plate (white mark, "N waiting"), then
+  its names as chips, alphabetical; a long club splits into up to three
+  sub-columns before the size steps down. `e2e/pickup-board.spec.js` checks
+  every chip stays inside its column and the card at three sizes.
+- **The demo** (Settings → Pickup board): a live preview on sample names
+  (`demoCheckout`, `SAMPLE_BOARD_NAMES`, obviously made-up), and "Show a demo
+  on this TV", `BOARD_DEMO_MS` (20 s) on this screen only, with the demo
+  badge and a "Demo · sample names" tag on the card. `decideBoard`'s `demo`
+  bypasses the mode and the clock, never the naming rule, and never touches
+  the real checkout data.

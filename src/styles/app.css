@@ -3345,30 +3345,87 @@ input:focus-visible {
   font-size: calc(1.89 * var(--u));
 }
 
-.checkout-clubs {
+/* The list: one column per club (CheckoutBoard's fitColumns), youngest to
+   oldest. Each is headed by the club's plate, its white mark over "N
+   waiting" on the club's colour, then its names one chip per row,
+   alphabetical; a long club splits into --split sub-columns. The card takes
+   its full width when it lists, so the columns have the room. */
+.checkout-board:has(.checkout-columns) { width: calc(70 * var(--u)); }
+.checkout-columns {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: calc(0.7 * var(--name-size));
+  display: grid;
+  grid-template-columns: repeat(var(--columns, 1), minmax(0, 1fr));
+  gap: calc(1.2 * var(--u));
+  align-items: start;
   font-size: var(--name-size);
 }
-.checkout-club {
+.checkout-column {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45em;
+  flex-direction: column;
+  gap: 0.4em;
+  min-width: 0;
 }
-.checkout-club-name {
-  padding: 0 0.55em 0 0;
+.checkout-column__head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(0.35 * var(--u));
+  height: calc(5.4 * var(--u));
+  margin-bottom: calc(0.6 * var(--u) - 0.4em);
+  padding: calc(0.45 * var(--u)) calc(0.6 * var(--u));
+  border-radius: calc(0.8 * var(--u));
+  background: var(--club);
+  box-shadow: calc(0.25 * var(--u)) calc(0.25 * var(--u)) 0 var(--club-deep);
+  color: #fff;
+}
+.checkout-column__mark {
+  display: block;
+  max-width: 100%;
+  height: calc(2.6 * var(--u));
+  object-fit: contain;
+  user-select: none;
+}
+.checkout-column__name {
   font-family: var(--font-condensed);
-  font-size: 0.62em;
+  font-size: calc(1.6 * var(--u));
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.checkout-column__count {
+  font-family: var(--font-condensed);
+  font-size: calc(1.15 * var(--u));
   letter-spacing: 0.08em;
   line-height: 1;
   text-transform: uppercase;
-  color: var(--club-deep);
+  white-space: nowrap;
 }
+.checkout-column .checkout-names {
+  display: grid;
+  grid-template-columns: repeat(var(--split, 1), minmax(0, 1fr));
+  gap: 0.4em 0.5em;
+  justify-items: start;
+}
+.checkout-column .checkout-name { min-width: 0; max-width: 100%; }
+.checkout-column .checkout-name__chip { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.checkout-demo {
+  position: absolute;
+  top: calc(1 * var(--u));
+  right: calc(1.4 * var(--u));
+  padding: calc(0.3 * var(--u)) calc(0.8 * var(--u));
+  border-radius: 999px;
+  background: var(--brand-hot);
+  color: #fff;
+  font-family: var(--font-condensed);
+  font-size: calc(1.1 * var(--u));
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.checkout-board--foot .checkout-demo { position: static; flex: none; }
 .checkout-names {
   display: contents;
 }
@@ -3976,3 +4033,20 @@ details.advanced-fields > .hint { display: block; margin-bottom: 0.9rem; }
   .panel--settings .actions .settings-live { display: none; }
   .panel--settings .actions > * { flex: 1 1 0; }
 }
+
+/* Settings → Pickup board: two times side by side, and the live preview, a
+   16:9 frame whose --u is 1% of its own width, so the board inside draws at
+   exactly its TV proportions. */
+.panel .field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
+.board-preview {
+  position: relative;
+  container-type: inline-size;
+  --u: 1cqw;
+  aspect-ratio: 16 / 9;
+  margin: 0.2rem 0 0.7rem;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--brand-cloud);
+  border: 1.5px solid var(--panel-card-line);
+}
+.board-preview .checkout-region { pointer-events: none; }

@@ -666,3 +666,56 @@ describe('Setup: tools', () => {
     }
   });
 });
+
+describe('Pickup board', () => {
+  const open = (extra = {}) => {
+    const props = { ...happyProps(), initialTab: 'pickup', onBoardDemo: vi.fn(), ...extra };
+    props.config = { ...defaults, audioMuted: true, checkoutBoardMode: 'pickup' };
+    render(<SettingsPanel {...props} />);
+    return props;
+  };
+
+  it('shows the pickup window, 7:35 to 8:30 pm unless changed, and applies a new time when the field is left', () => {
+    const props = open();
+    const from = screen.getByLabelText('Show from');
+    expect(from.value).toBe('19:35');
+    expect(screen.getByLabelText('Hide after').value).toBe('20:30');
+    typeAndLeave(from, '19:45');
+    expect(props.onChange).toHaveBeenLastCalledWith({ checkoutBoardFrom: '19:45' });
+    // A cleared time falls back to the default rather than writing junk.
+    typeAndLeave(from, '');
+    expect(props.onChange).toHaveBeenLastCalledWith({ checkoutBoardFrom: '19:35' });
+  });
+
+  it('the corner countdown is on by default and a switch away', () => {
+    const props = open();
+    const box = screen.getByRole('checkbox', { name: 'Count down in the corner during pickup' });
+    expect(box.checked).toBe(true);
+    fireEvent.click(box);
+    expect(props.onChange).toHaveBeenCalledWith({ cornerStillHere: false });
+  });
+
+  it('previews the columns on sample names, and follows the naming guard as it changes', () => {
+    open();
+    const preview = screen.getByRole('img', { name: /preview of the pickup board/ });
+    expect(preview.querySelectorAll('.checkout-column').length).toBe(6);
+    expect(preview.querySelector('.checkout-demo')).toBeTruthy();
+    expect(preview.textContent).toMatch(/Sample Sam/);
+    fireEvent.change(screen.getByLabelText('Stop showing names at or below'), { target: { value: '50' } });
+    expect(preview.querySelector('.checkout-column')).toBeNull();
+    expect(preview.textContent).toMatch(/Almost everyone has been picked up/);
+  });
+
+  it('Show a demo on this TV hands over to the screen', () => {
+    const props = open();
+    fireEvent.click(screen.getByRole('button', { name: /Show a demo on this TV/ }));
+    expect(props.onBoardDemo).toHaveBeenCalled();
+  });
+
+  it('with the board off only the mode is asked, but the preview still shows what it would look like', () => {
+    const props = { ...happyProps(), initialTab: 'pickup' };
+    render(<SettingsPanel {...props} />);
+    expect(screen.queryByLabelText('Show from')).toBeNull();
+    expect(screen.getByRole('img', { name: /preview of the pickup board/ })).toBeTruthy();
+  });
+});

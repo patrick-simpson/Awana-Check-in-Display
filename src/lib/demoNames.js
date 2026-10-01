@@ -20,6 +20,18 @@
 export const SAMPLE_NAMES = ['Test Kid', 'Demo Kid', 'Sample Star', 'Pretend Pal', 'Practice Run'];
 
 /**
+ * Enough obviously made-up first names to fill a demo pickup board (Settings
+ * → Pickup board), no two alike, so the columns read like a real night
+ * without ever looking like real children.
+ * @type {ReadonlyArray<string>}
+ */
+export const SAMPLE_BOARD_NAMES = [
+  'Sample Sam', 'Demo Dana', 'Test Tess', 'Pretend Pat', 'Practice Pia', 'Example Eli',
+  'Sample Sky', 'Demo Drew', 'Test Toby', 'Pretend Pip', 'Practice Max', 'Example Ava',
+  'Sample Lou', 'Demo Kit', 'Test Jo', 'Pretend Bo', 'Practice Cy', 'Example Mo',
+];
+
+/**
  * Pick a random member of a list.
  * @template T
  * @param {ReadonlyArray<T>} list

@@ -10,7 +10,7 @@
 
 import { SHOUT_BOX } from './brand.js';
 import { measureText } from './lobbyFrame.js';
-import { BOARD_ANONYMOUS, BOARD_EMPTY, BOARD_NAMES, BOARD_STALE, PICKUP_PHASES } from './checkoutBoard.js';
+import { BOARD_ANONYMOUS, BOARD_EMPTY, BOARD_NAMES, BOARD_STALE } from './checkoutBoard.js';
 
 /** @typedef {import('./lobbyFrame.js').Face} Face */
 /** @typedef {(text: string, face: Face) => number} Measure */
@@ -104,21 +104,14 @@ export function plateChrome(label) {
 /* ── Who holds which part of the room ────────────────────────────── */
 
 /**
- * The phases in which the room is being picked up: decideBoard's pickup
- * window, plus the schedule's own post-program 'shutdown' (19:35 to
- * midnight on the default schedule, which is when families actually come
- * to the door).
- */
-export const PICKUP_TIME = new Set([...PICKUP_PHASES, 'shutdown']);
-
-/**
  * Where the pickup board goes, given the decision decideBoard made (that
  * decision, what it may show and whether it may name anyone, is not this
  * function's business; this only decides WHERE and how much room it takes).
  *
  *  - 'centre': it is the room's focus: a live list (names, or the
- *    anonymous "almost everyone") during pickup time. It takes the middle
- *    and the slide copy steps aside.
+ *    anonymous "almost everyone") while the room is being picked up (the
+ *    pickup window, checkoutBoard.js pickupNow). It takes the middle and the
+ *    slide copy steps aside.
  *  - 'foot': it is on, but the room is not being picked up (an "always"
  *    board during the program), or it has nothing live to list (stale,
  *    empty). A one-line card in the foot beside the slides, which keep
@@ -126,12 +119,12 @@ export const PICKUP_TIME = new Set([...PICKUP_PHASES, 'shutdown']);
  *  - null: hidden.
  *
  * @param {string | undefined} state  the BoardDecision's state
- * @param {string | undefined} phase  the schedule's phase
+ * @param {boolean} pickup  whether the room is being picked up right now
  * @returns {'centre' | 'foot' | null}
  */
-export function boardPlacement(state, phase) {
+export function boardPlacement(state, pickup) {
   if (state === BOARD_NAMES || state === BOARD_ANONYMOUS) {
-    return PICKUP_TIME.has(String(phase)) ? 'centre' : 'foot';
+    return pickup ? 'centre' : 'foot';
   }
   if (state === BOARD_STALE || state === BOARD_EMPTY) return 'foot';
   return null;
@@ -156,17 +149,17 @@ export function boardPlacement(state, phase) {
  *   overlay?: boolean,
  *   criticalLive?: boolean,
  *   boardState?: string,
- *   phase?: string,
+ *   pickup?: boolean,
  *   checkInUp?: boolean,
  * }} s
  */
-export function lobbyRoom({ overlay = false, criticalLive = false, boardState, phase, checkInUp = false }) {
+export function lobbyRoom({ overlay = false, criticalLive = false, boardState, pickup = false, checkInUp = false }) {
   // Where the board sits, whether or not a check-in run is hiding it right
   // now. The notice's seat and the celebration hold follow the SEAT, so a late
   // arrival at pickup time does not throw a band notice into the middle for
   // the length of the run (and over the WELCOME kicker), nor let a queued
   // toast up only to hide it again when the run ends.
-  const seat = overlay ? null : boardPlacement(boardState, phase);
+  const seat = overlay ? null : boardPlacement(boardState, pickup);
   const board = checkInUp ? null : seat;
   /** @type {'centre' | 'band' | null} */
   const critical = !criticalLive ? null : overlay || seat === 'centre' ? 'band' : 'centre';
@@ -491,4 +484,48 @@ export function fitBoard(groups, { width, height, max, min, step = 0.05 }, measu
     if (boardRowsHeight(groups, s, width, measure) <= height) return { size: Number(s.toFixed(3)), fits: true };
   }
   return { size: min, fits: false };
+}
+
+/**
+ * The pickup board's columns, one per club with children waiting: the largest
+ * name size (on `step`) at which every column fits `height` under its `head`,
+ * each name one chip on a row of its own, alphabetical. A club with more names
+ * than one column holds at that size splits into two (then three) side by side
+ * inside its column, which needs the room for its widest name in each; the
+ * size steps down until every column fits, or stops at `min` with
+ * `fits: false`. Returns the size and how many sub-columns each club takes.
+ * Chip widths are the name in Paytone One at NAME_CHIP_TEXT x the size plus
+ * 1.3 of padding, as boardRowsHeight models them; rows are 1.75 tall with a
+ * 0.4 gap.
+ *
+ * @param {{ club: string, names: string[] }[]} groups
+ * @param {{ width: number, height: number, head: number, gap: number, max: number, min: number, step?: number }} box
+ * @param {Measure} [measure]
+ * @returns {{ size: number, split: number[], fits: boolean }}
+ */
+export function fitColumns(groups, { width, height, head, gap, max, min, step = 0.05 }, measure = measureText) {
+  const n = Math.max(1, groups.length);
+  const colW = (width - gap * (n - 1)) / n;
+  const widest = groups.map((g) => Math.max(0, ...g.names.map((name) => measure(name, 'shout') * NAME_CHIP_TEXT)));
+  /** @param {number} s */
+  const tryAt = (s) => {
+    const rowH = 1.75 * s;
+    const rowGap = 0.4 * s;
+    const rowsFit = Math.max(1, Math.floor((height - head + rowGap) / (rowH + rowGap)));
+    const split = [];
+    for (let i = 0; i < groups.length; i += 1) {
+      const sub = Math.ceil(groups[i].names.length / rowsFit);
+      const subW = (colW - 0.5 * s * (sub - 1)) / sub;
+      if (sub > 3 || widest[i] * s + 1.3 * s > subW) return null;
+      split.push(sub);
+    }
+    return split;
+  };
+  for (let s = max; s >= min - 1e-9; s = Number((s - step).toFixed(3))) {
+    const split = tryAt(s);
+    if (split) return { size: Number(s.toFixed(3)), split, fits: true };
+  }
+  const rowH = 1.75 * min;
+  const rowsFit = Math.max(1, Math.floor((height - head + 0.4 * min) / (rowH + 0.4 * min)));
+  return { size: min, split: groups.map((g) => Math.min(3, Math.ceil(g.names.length / rowsFit))), fits: false };
 }

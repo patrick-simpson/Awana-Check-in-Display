@@ -43,7 +43,13 @@ export function formatClock(ms) {
  *   tally: number,
  *   weather: { temp: number, code: number, isDay?: boolean, units?: string } | null,
  *   correction?: object | null,
+ *   stillHere?: number | null,
  * }} CornerSource
+ *
+ * `stillHere` (owner, 2026-10-01) is how many children are not checked out
+ * yet, during pickup, while the board is naming them (checkoutBoard.js
+ * stillHereCount): then the tally's slot counts DOWN instead, under the
+ * label PICKUP. null the rest of the time, when the slot is tonight's count.
  *
  * `glyph` is the weather's sky doodle (weatherPresentation's icon), frozen
  * with the rest of the snapshot so the doodle and the words always agree.
@@ -57,6 +63,12 @@ export function formatClock(ms) {
 /** Under the tally when it carries a correction (#351). */
 export const TALLY_SYNC_NOTE = 'synced with the check-in desk';
 
+/** Under the pickup count: what the number is, and never "in the building". */
+export const STILL_HERE_NOTE = 'not checked out yet';
+
+/** @param {CornerSource} src */
+const counting = (src) => typeof src.stillHere === 'number' && Number.isFinite(src.stillHere);
+
 /**
  * The items that have something to say right now, in rotation order. The
  * tally waits for the night's first check-in, and the weather for a reading:
@@ -68,7 +80,7 @@ export function cornerIds(src) {
   /** @type {CornerId[]} */
   const ids = [];
   if (src.clock) ids.push('clock');
-  if (Number.isFinite(src.tally) && src.tally > 0) ids.push('tally');
+  if (counting(src) || (Number.isFinite(src.tally) && src.tally > 0)) ids.push('tally');
   if (src.weather && Number.isFinite(src.weather.temp)) ids.push('weather');
   return ids;
 }
@@ -99,6 +111,18 @@ export function snapshotCorner(id, src, now) {
   if (id === 'clock') {
     const { time, meridiem } = formatClock(now);
     return { id, label: 'Right now', value: time, spoken: `The time is ${time} ${meridiem}`, corner: 'bottom' };
+  }
+  if (id === 'tally' && counting(src)) {
+    const n = Math.max(0, Math.round(/** @type {number} */ (src.stillHere)));
+    return {
+      id,
+      label: 'Pickup',
+      value: String(n),
+      spoken: `${n} not checked out yet`,
+      corner: 'bottom',
+      note: STILL_HERE_NOTE,
+      correction: null,
+    };
   }
   if (id === 'tally') {
     const n = Math.max(0, Math.round(src.tally));

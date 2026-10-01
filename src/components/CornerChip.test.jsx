@@ -28,6 +28,7 @@ describe('CornerChip', () => {
   it('shows the note its snapshot carries, unless Settings turned notes off', async () => {
     const tally = {
       id: 'tally', label: 'Tonight', value: '78', spoken: '78 checked in tonight', corner: 'bottom', note: 'synced',
+      correction: { from: 75, to: 78 },
     };
     const { container, rerender } = render(still(<CornerChip item={tally} corner="bottom" loads={1} />));
     expect(container.querySelector('.corner-chip__note').textContent).toBe('synced');
@@ -37,6 +38,16 @@ describe('CornerChip', () => {
     // A snapshot with no note has none, whatever the setting.
     rerender(still(<CornerChip item={clock} corner="bottom" loads={2} />));
     await waitFor(() => expect(container.querySelector('.corner-chip__note')).toBeNull());
+  });
+
+  it("the pickup count always says what it is: the setting only hides a correction's note", () => {
+    const pickup = {
+      id: 'tally', label: 'Pickup', value: '12', spoken: '12 not checked out yet', corner: 'bottom',
+      note: 'not checked out yet', correction: null,
+    };
+    const { container } = render(still(<CornerChip item={pickup} corner="bottom" loads={1} showNote={false} />));
+    expect(container.querySelector('.corner-chip__note').textContent).toBe('not checked out yet');
+    expect(container.textContent).toContain('PICKUP');
   });
 });
 
