@@ -62,10 +62,13 @@ service, deploys it, sets its secrets, and writes its address into
 
 ### 5. Sign in the check-in laptop FIRST
 
-Open the printer app and sign in with the passphrase (Display login). The
-laptop hands the service the encryption key it already uses, so screens that
-were set up before keep reading names. Then sign in every other screen with
-the same word.
+Make sure the printer app is 6.21.0 or newer (it updates itself). Open its
+dashboard → **Settings** → **Sync service** (it appears once step 4 has
+finished), type the passphrase and press **Sign in**. The laptop hands the
+service the encryption key it already uses, so screens that were set up
+before keep reading names. Then sign in every other screen with the same word
+(lobby TV: Settings → Setup → Connect this screen; projector: Display
+Settings; Journey: Settings → Sync).
 
 ## Changing the passphrase
 
