@@ -131,8 +131,16 @@ async function holdCancel(page) {
   const box = await cancel.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
-  await page.waitForTimeout(250);
-  const held = await cancel.evaluate((el) => ({ scale: getComputedStyle(el).scale, translate: getComputedStyle(el).translate }));
+  // Read the press once it has settled: two equal readings 100 ms apart (a
+  // fixed wait read a squash still in flight on a loaded machine).
+  const read = () => cancel.evaluate((el) => ({ scale: getComputedStyle(el).scale, translate: getComputedStyle(el).translate }));
+  let held = await read();
+  for (let i = 0; i < 20; i += 1) {
+    await page.waitForTimeout(100);
+    const next = await read();
+    if (JSON.stringify(next) === JSON.stringify(held)) break;
+    held = next;
+  }
   const panel = await dialog.boundingBox();
   return {
     cancel,
