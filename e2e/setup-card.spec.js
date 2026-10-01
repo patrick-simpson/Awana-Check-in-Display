@@ -5,7 +5,7 @@ import { expect, test } from './pastFlagship.js';
 //
 // It used to stand in the bottom-left corner: 25u square on the lobby, 23rem
 // on the projector. On the lobby that is inside the copy's own box at every
-// size (it hid the start of "(MAKING BRACELETS)" at 720p and the chip row at
+// size (it hid the start of a long calendar title at 720p and the chip row at
 // 1080p); on the projector a corner of a centred, full-width layout is never
 // free (it covered the left of the upcoming-nights list at 720p and the
 // coming-up chips at 1080p). Both are strips in the bottom band now, the zone
@@ -27,7 +27,7 @@ const overlaps = (a, b) => a.left < b.right - 0.5 && a.right > b.left + 0.5 && a
 
 const LOBBY = {
   // Three shouted rows at 720p: the tallest a shout gets, and the widest.
-  shout: { eyebrow: 'Next club night', text: 'AWANA MEETING (MAKING BRACELETS)' },
+  shout: { eyebrow: 'Next club night', text: 'AWANA MEETING (MAKING BOOKMARKS)' },
   // The read layout: a paragraph that runs all the way down to 45u.
   read: {
     eyebrow: 'Please read',
@@ -181,8 +181,8 @@ const day = (weeks) => {
 };
 // The feed's own long run: three long names, two of them specials.
 const NIGHTS = [
-  'Awana meeting (Making Bracelets)',
-  'Awana meeting (Making Bracelets)',
+  'Awana meeting (Making Bookmarks)',
+  'Awana meeting (Making Bookmarks)',
   'Bring a Friend Night - Posters due',
   'Parents Night - Poster voting',
   'Awana meeting',
@@ -294,8 +294,6 @@ const WALLS = [
   ['the countdown', { now: '2026-09-15T18:30:00' }, [[1280, 720], [1920, 1080]]],
   // Game time: the club's waves and the game clock (the mascots are art, and are not content).
   ['game time', { now: '2026-09-16T18:20:00' }, [[1280, 720], [1920, 1080]]],
-  // Bracelet Time on a bracelet night: the step card, its rail, chip and caption.
-  ['bracelet time', { now: '2026-09-30T18:07:15' }, [[1280, 720], [1920, 1080]]],
   // The closing deck's Upcoming Awana Nights, packed to its 51.75u limit: the tightest fit on any wall.
   ['the upcoming-nights list, packed', { now: '2026-09-16T19:31:00', coming: true }, SIZES],
 ];

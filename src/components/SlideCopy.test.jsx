@@ -6,7 +6,7 @@ import { READ, SHOUT, bidiIsolates, fitFrame } from '../lib/lobbyFrame.js';
 
 afterEach(cleanup);
 
-const FRAME = { kicker: 'Next club night', headline: 'Making Bracelets', sub: 'Bring a friend', chip: { label: 'WED', value: 'SEP 30' }, textSize: 'auto' };
+const FRAME = { kicker: 'Next club night', headline: 'Making Bookmarks', sub: 'Bring a friend', chip: { label: 'WED', value: 'SEP 30' }, textSize: 'auto' };
 const pieces = (c) => [...c.querySelectorAll('.lobby-kicker, .lobby-word, .lobby-sub, .lobby-chip')];
 const atRest = (el) => (el.style.opacity === '' || el.style.opacity === '1') && (el.style.transform === '' || el.style.transform === 'none');
 
@@ -14,9 +14,9 @@ describe('SlideCopy', () => {
   it('sets the kicker, the headline word by word, the supporting line and the chip', () => {
     const { container } = render(<SlideCopy frame={FRAME} still />);
     expect(container.querySelector('.lobby-kicker').textContent).toBe('Next club night');
-    expect([...container.querySelectorAll('.lobby-word')].map((w) => w.textContent)).toEqual(['Making', 'Bracelets']);
+    expect([...container.querySelectorAll('.lobby-word')].map((w) => w.textContent)).toEqual(['Making', 'Bookmarks']);
     // The line break is a <br>, and the words still read as one sentence.
-    expect(container.querySelector('.lobby-headline').textContent).toBe('Making Bracelets');
+    expect(container.querySelector('.lobby-headline').textContent).toBe('Making Bookmarks');
     expect(container.querySelector('.lobby-headline br')).not.toBeNull();
     expect(container.querySelector('.lobby-sub').textContent).toBe('Bring a friend');
     expect(container.querySelector('.lobby-chip [role="img"]').getAttribute('aria-label')).toBe('WED SEP 30');
@@ -190,7 +190,7 @@ describe('SlideCopy', () => {
   });
 
   it('a headline in one direction has no runs', () => {
-    for (const headline of ['Making Bracelets', 'ברוכים הבאים לאוואנה']) {
+    for (const headline of ['Making Bookmarks', 'ברוכים הבאים לאוואנה']) {
       const { container, unmount } = render(<SlideCopy frame={{ ...FRAME, headline }} still />);
       expect(container.querySelector('bdi')).toBeNull();
       unmount();

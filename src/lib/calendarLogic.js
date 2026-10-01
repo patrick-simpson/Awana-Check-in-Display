@@ -163,7 +163,7 @@ const check = (theme, textSize) => ({
 
 // `frame` is how the lobby lays the slide out (src/lib/lobbyFrame.js): the
 // same words, with the date moved out of the sentence and onto the stepped
-// chip under the headline (NEXT CLUB NIGHT / MAKING BRACELETS / WED SEP 30).
+// chip under the headline (NEXT CLUB NIGHT / MAKING BOOKMARKS / WED SEP 30).
 // `text` and `subtext` stay the whole sentence, so nothing that reads them
 // changes; only the lobby's frame reads `frame`.
 function slide(id, { eyebrow = '', text, subtext = '', theme = 'sky', textSize = 'auto', frame }) {

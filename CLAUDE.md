@@ -441,24 +441,22 @@ Display's `about.html`) that share one design system. Rules:
 
 ## Season promo slides (fall 2026)
 
-Five hardcoded promos in the lobby signage's background rotation, each a
+Four hardcoded promos in the lobby signage's background rotation, each a
 **15 second showreel**: a full motion-design sequence that ends on its own
 finished poster. Three recreate the church's printed fall posters (the
 DEFEND **poster contest**, **BARF Night**, and **Parents' Night**); the
-fourth is one the printer never made, the **slime cut of BARF Night**; the
-fifth, for one week only, is the **salvation bracelets for kids in
-Uganda** (Wed, Sept 30).
+fourth is one the printer never made, the **slime cut of BARF Night**.
 Owner's brief (2026-09-28): go all out, like a motion designer's showreel;
 stay on-brand with each printed poster's palette and imagery; spectacle
 wins over readability, but every fact lands on the end card. Signage only
 (`index.html`); the projector and Journey never see them.
 
-- `src/lib/promos.js` is the pure half: `SEASON_PROMOS` (the five
+- `src/lib/promos.js` is the pure half: `SEASON_PROMOS` (the four
   descriptors), `nightsUntil()` / `countdownLabel()` (the live "3 club
   nights left" → "Next club night" → "Tonight!" counter) and
   `buildPromoSlot()`. The art is one file per poster under
   `src/components/promos/` (`ContestPromo`, `FriendPromo`,
-  `BarfEpicPromo`, `ParentsPromo`, `BraceletsPromo`), each with its own stylesheet in
+  `BarfEpicPromo`, `ParentsPromo`), each with its own stylesheet in
   `src/styles/promos/` (@imported at the top of `app.css`) and its own
   test. `src/components/PromoSlide.jsx` is only the index: it maps `kind`
   to a poster, gathers each poster's exported `DETAILS` table into
@@ -481,13 +479,9 @@ wins over readability, but every fact lands on the end card. Signage only
   one each lap (`step % length` is the position, `step / length` is the
   lap — both derived from one counter so `advance` stays a pure state
   updater). The slot's key stays `slide.id`, so it remounts each visit
-  and every entrance animation plays from the top. A descriptor marked
-  `featured: true` (the bracelets, a three-day promo) takes every other
-  lap: `buildPromoSlot()` weaves the list as [F, a, F, b, ...], so the
-  slideshow needs no change and a featured promo never plays twice in a
-  row.
+  and every entrance animation plays from the top.
 - **The hold belongs to the POSTER, not the slot.** Each descriptor
-  carries its own `durationSec` (15 for all five today; `PROMO_DURATION_SEC`
+  carries its own `durationSec` (15 for all four today; `PROMO_DURATION_SEC`
   is the slot's fallback and the clock every beat sheet is written
   against, re-exported as `SHOWREEL_SEC`), `buildPromoSlot()` copies it
   onto every slot entry, and `ManualSlideshow` hands `slideDurationMs` the
@@ -554,34 +548,6 @@ wins over readability, but every fact lands on the end card. Signage only
     and the title assembles letter by letter.
     Its cream ground needs a warm vignette and a multiply grain, or the
     corners go grey.
-  - **Salvation bracelets** (dark, then the printed lavender / cream /
-    gold): the gospel one bead at a time. A black cord draws across the
-    dark, then six beads fall onto it in gospel order, each flooding the
-    screen in its colour out of the bead itself with its truth slammed
-    above the cord, in the bracelet kit's own words (SIN, BLOOD, PURITY,
-    BAPTISM, GROWTH, HEAVEN; owner's order and wording, 2026-09-28), each
-    with its effect (the thud and dust, a cross of light, glints, ripples,
-    vines, rays); a word lands only once its colour has reached it, and
-    the last word is gone before it does. The cord morphs into the loop (same four cubic segments, so `d`
-    interpolates), the knot cinches, the poster floods out of the knot,
-    and a dotted flight line runs east from a pin on Waterville, Maine
-    (where the club meets) to Uganda, both hand drawn from the real
-    borders, smoothed, each on its own little map (no people drawn, by
-    choice). The stage is one 1600x900 SVG; the full-bleed layers overscan 3% so the
-    shake never shows an edge. Three rules, each learned from a real screen
-    (owner's phone recording, 2026-09-28): (1) every colour is a SMALL
-    solid disc the GPU scales up (`discScale()` covers 16:9 to an upright
-    phone), never a full-screen clip-path wipe, which a phone could not
-    raster in time and composited as stale rectangles of earlier colours;
-    (2) no colour ever switches itself off mid-sequence, they all clear
-    together at `T_GONE`, well after the poster's own disc; (3) the discs,
-    word layers, words and the end card's copy gate all carry one
-    `onUpdate` (`SAME_CLOCK`), which keeps framer-motion from handing their
-    opacity to the browser's animation engine, so they share the JS frame
-    loop with the SVG beads and a slow screen slows down together instead of
-    showing a colour or a word before its bead. The kicker chip reads
-    "This week" / "Tonight!", and the mark is the white knockout
-    (`Wordmark`'s `src`).
 - **Copy lives next to its art.** Each poster exports its `DETAILS`
   (`default`, `tonight`, and `afterContest` for Parents' Night; tonight
   wins), and its test pins that copy, the fixed end-card facts for every
@@ -1013,9 +979,9 @@ house waves, and who holds which part of the room is one pure function,
   never allowed to blank the lobby (it stays up until data or a reload
   clears it, and a visible board still counts as busy for the self-updater).
 - **The first-run card has the foot too** (`OVERLAY.setup`, `setupUp()`,
-  `.panel.setup-card`; live smoke check 2026-09-29: it hid "(MAKING
-  BRACELETS)" at 720p and the chip row at 1080p). A corner is never free on
-  the lobby: parked above the gear it was 25u square, inside the copy's own
+  `.panel.setup-card`; live smoke check 2026-09-29: it hid the start
+  of a long calendar title at 720p and the chip row at 1080p). A corner is
+  never free on the lobby: parked above the gear it was 25u square, inside the copy's own
   box at every size. It is a strip now, in the one zone nothing on a slide
   reaches: under the copy's lowest line (45u, `LAYOUT.safeBottom`), from a
   gap past the gear to a gap short of the corner chip (~82u), on the chip's
@@ -1461,11 +1427,11 @@ type, the club colours and marks, the stepped chip and the edge waves.
 
 ### The projector on phones and tablets (touch)
 
-Owner, 2026-09-30: "I want this website to fully work on mobile. I tested it
-out and couldn't push B." The page was built for the projector PC, a mouse and
-a keyboard: the menu opened on hover, the Bracelet Time controls on B, and a
-finger has neither. The projector PC runs this page every club night, so the
-rule for all of it is that **the desktop does not change at all**.
+Owner, 2026-09-30: "I want this website to fully work on mobile." The page was
+built for the projector PC, a mouse and a keyboard: the menu opened on hover, a
+slide changed on an arrow key, and a finger has neither. The projector PC runs
+this page every club night, so the rule for all of it is that **the desktop
+does not change at all**.
 
 - **One question, the primary pointer's, never the width.**
   `lib/touch.js` has `TOUCH_QUERY` (`(hover: none) and (pointer: coarse)`)
@@ -1479,7 +1445,7 @@ rule for all of it is that **the desktop does not change at all**.
   anything but those blocks follows the first one. A touch rule overrides a
   rule above it or sets a custom property that defaults to today's value
   (so the desktop computes the same style), never edits one. The proof is
-  the desktop suites, unchanged (countdown-modes, bracelets, setup-card, the
+  the desktop suites, unchanged (countdown-modes, setup-card, the
   countdown visual baselines), and a pixel comparison with main's build.
 - **The menu (`views/TouchMenu.jsx`) replaces QuickNav on touch**, it is not
   QuickNav made visible: App renders one or the other, so a touch page has no
@@ -1492,9 +1458,9 @@ rule for all of it is that **the desktop does not change at all**.
   phone's Go key submits, never capitalised or autocorrected) and writes the
   tooltips out as hints. **The desktop branch is the old markup verbatim**:
   keep editing both when the menu grows an item. A pick that changes the wall
-  closes the sheet; settings leave it open. The sheet owns the keyboard like
-  the bracelet panel (a key typed in it stops at the sheet, any other key is
-  stopped in the window's capture phase, Escape closes it), because a
+  closes the sheet; settings leave it open. The sheet owns the keyboard
+  (a key typed in it stops at the sheet, any other key is stopped in the
+  window's capture phase, Escape closes it), because a
   tablet's keyboard would otherwise skip the countdown from a passphrase
   field. Where the browser can put a page in full screen (Android, iPadOS;
   iPhone Safari cannot, and there the row is not offered) the sheet has a
@@ -1505,17 +1471,6 @@ rule for all of it is that **the desktop does not change at all**.
   the fix its tooltip gives on the PC. The wall's top-right pieces (the
   pledge clock, the CHECKED IN chips) stop short of the button
   (`--pj-menu-room`).
-- **Bracelet Time by tap.** The sheet's Bracelet Time section carries the
-  "Show Bracelet Time now" switch every night and, on a bracelet night (or
-  while that switch is on), a "Bracelet Time controls" row (no "(B)"),
-  exactly as QuickNav carries them, and the row
-  opens the same `BraceletPanel`, which the touch block turns into a bottom
-  sheet under a 56px strip of the dimmed wall (a tap there closes it: a phone
-  snaps a tap a few pixels off the sheet onto the sheet, so a thinner strip
-  never closed it), its own scroll, `100dvh`-safe, safe-area insets. Its words
-  are touch words (tap ✕ or outside, tap once to arm the sound, the held step
-  named in words since its tooltip cannot be read, "this device"), and it
-  keeps owning the keyboard exactly as on the PC.
 - **A slide deck by finger** (`SlideshowView`). The wall is the clicker: a
   swipe left is Next and right is Prev, a tap in the left 30% is Prev and
   anywhere else Next (`slideGesture` in `lib/touch.js`, pure, with its
@@ -1568,11 +1523,10 @@ rule for all of it is that **the desktop does not change at all**.
   on the same unit (`--u: min(1vw, 0.5625svh)`, 177.78u tall), so every width
   fit in the components holds unchanged; only heights and sizes move: the
   type tokens, custom properties the components fall back from
-  (`--pj-mark-*`, `--pj-countdown-*`, `--pj-event-*`, `--pj-game-*`,
-  `--pj-bracelet-*`, each defaulting to the PC's inline value), and portrait
-  tables picked with `usePortrait` (`COMING_UP_PORTRAIT`,
-  `PLEDGE_FIT_PORTRAIT`, `THEME_CHIP_PORTRAIT`, the headline fits, game
-  time's `PORTRAIT`, Bracelet Time's `BIRTHDAY_MAX_U_PORTRAIT`), which
+  (`--pj-mark-*`, `--pj-countdown-*`, `--pj-event-*`, `--pj-game-*`, each
+  defaulting to the PC's inline value), and portrait tables picked with
+  `usePortrait` (`COMING_UP_PORTRAIT`, `PLEDGE_FIT_PORTRAIT`,
+  `THEME_CHIP_PORTRAIT`, the headline fits, game time's `PORTRAIT`), which
   `src/presentation/portrait.test.js` pins to the block. The top 16u is the
   mark's and the menu's (the pledge clock stands centred between them); the
   bottom is the controls' and the setup note's, so a slide's words end by
@@ -1580,11 +1534,7 @@ rule for all of it is that **the desktop does not change at all**.
   size instead of shrinking to one line, and the doodles keep a full-width
   band clear (`PORTRAIT_CLEAR` in `SparkleDoodles.jsx`, 10% to 76% of the
   height) instead of the wall's centred box, since the words run the frame's
-  width (the box's side strips landed on the pledge). Bracelet Time stacks: the kicker,
-  the rail, the STEP chip and the corner on one row, the art the frame's full
-  width (one SVG, it scales with its box), the title and words below; the full
-  instructions become a list (each step's picture beside its words) and the
-  handout fills the column, with the corner under both. A phone on its side
+  width (the box's side strips landed on the pledge). A phone on its side
   keeps the 16:9 wall; both use the small viewport (`svh`), because this page
   never scrolls the browser's toolbars away.
 - **Sound needs a tap.** WebKit plays a page's audio only from a context made
@@ -1592,7 +1542,7 @@ rule for all of it is that **the desktop does not change at all**.
   context on every tap (`unlockStingers`, only once they are armed), and the
   sheet's switch wakes it in the tap that arms them.
 - Tests: `lib/touch.test.js`, `views/TouchMenu.test.jsx`,
-  `views/BraceletPanel.test.jsx`, `views/SlideshowView.touch.test.jsx`,
+  `views/SlideshowView.touch.test.jsx`,
   `views/CountdownView.touch.test.jsx`, `views/ShutdownView.touch.test.jsx`,
   `components/SetupChecklist.touch.test.jsx`, `portrait.test.js`,
   `components/SparkleDoodles.test.jsx`,
@@ -1605,191 +1555,13 @@ rule for all of it is that **the desktop does not change at all**.
   hidden control, the countdown's two-tap skip, the shutdown's Start Over
   (and taps on its words that restart nothing), Stay at 44px, the setup
   note (inside the screen, never overflowing, 14px type or more, covering no
-  word or chip of the countdown, game time, Bracelet Time or the opening
-  deck, its Set up opening Display Settings; off the wall on a phone on its
-  side, the mark and the sheet's copy instead), every wall upright (a 9:16
+  word or chip of the countdown, game time or the opening deck, its Set up
+  opening Display Settings; off the wall on a phone on its side, the mark and
+  the sheet's copy instead), every wall upright (a 9:16
   frame at least 85% of the screen's height, its content spanning at least
   half of it, nothing off the screen or under the menu or the slide
   controls, no HTML type under 11px), the landscape phone's 16:9 wall, the opening
-  deck by tap zones and real swipes to games, Exit twice, and tonight's
-  Bracelet Time controls by tap.
-
-### Bracelet Time (the bracelet nights, fall 2026)
-
-Owner request 2026-09-30: on the two bracelet club nights the projector's
-T&T (18:05-18:30) and Sparks (18:30-19:00) game windows show how to make the
-salvation bracelet instead of a game clock; Puggles & Cubbies and every other
-night are untouched.
-
-- **Hardcoded, like the season promos.** `BRACELET_NIGHTS` and
-  `isBraceletWindow()` in `src/presentation/lib/bracelets.js` (a single-club
-  `tnt` or `sparks` game window on 2026-09-30 or 2026-10-07, the device's local
-  date). `shared/schedule.json` is NOT touched: a replacement window table
-  there would blank the evening on one typo, the lobby and the desktop app
-  read it too, and `parseWindow` silently drops unknown fields. The window
-  stays `kind: 'game'`, so `AppMode.GAME_TIME`, stateKey, QuickNav, the
-  watchdog, the opening deck's jump to T&T and `projectorIdle` all behave as
-  before; App.jsx picks `BraceletTimeView` inside GAME_TIME and stamps
-  `data-activity="bracelets"`. `BraceletBoundary` degrades a crash to plain
-  game time, never the Oops screen. After 2026-10-07 nothing matches and the
-  code is inert; next season means editing the date list.
-- **The cadence is pure** (`braceletFrame`): step 1 from the window's start
-  (never a full-screen title card: owner, 2026-09-30, "the countdown shouldn't
-  take up the whole screen with the ten second warning"; the ten seconds
-  before every showing, the first included, are the corner's BIG HOW-TO IN
-  chip and the chime), an EPIC how-to (`EPIC_SEC` 90) 10 s after the window opens and every
-  5 minutes, only if it ends before the TWO MINUTES warning
-  (`EPIC_CLEAR_OF_END_SEC`), then one step at a time, from step 1 after each
-  epic, each for its own slot (`STEP_SLOTS`: 9 s a bead step, 14 s step 7,
-  15 / 16 / 12 / 15 / 16 / 15 s the knot steps, 157 s a pass; the art's
-  `actionSec` plays each action at a child's pace, then holds the finished
-  picture at least 3 s). A step never starts in the last 4 s before a
-  showing, so the wall's first ten seconds are step 1 alone; a held step
-  replays on its own slot, the card staying up and only the picture dipping
-  into each replay. The epic's beats (`EPIC_BEATS`, still 90 s) put
-  the time where the hands work: 4.5 s a bead, 9.5 s the wraps, 10 s the
-  push, 4.5 s the X, which is only a look. The handout's words are
-  `BRACELET_STEPS` (7 bead steps, then the knot steps, whose chips read KNOT
-  STEP 1-6: "KNOT 3" read as a third knot right after step 7 tied two). The
-  cadence is anchored ONCE, when the wall appears (`useState` in
-  `BraceletTimeView`): the window's start, or the moment it was opened early
-  (the opening deck's last press, a QuickNav pick). Re-based at 6:05 instead,
-  an early wall cut its running epic off, chimed again and replayed it. A
-  "play it now" drops any scheduled showing it overlaps, so a press shortly
-  before one is never restarted by it; it plays on a wall kept up past its
-  end, and never carries into a later window.
-- **The corner** is one message at a time: a warning, else the how-to's
-  countdown, else "{Club} craft time / Ends ..."; on the step-by-step wall
-  that last one takes turns (`BIRTHDAY_TURN_SEC`) with this week's HAPPY
-  BIRTHDAY chip for the club on the wall, as game time shows it (no age). The
-  birthday and the CHECKED IN count only show while the corner is quiet (no
-  warning, no countdown, step-by-step display): wider than that, the flex row
-  pushed them over the kicker and the rail. In the full instructions the corner
-  rides the bottom-right on the waves, clear of the grid; on the handout
-  pages the sheet stands left of the corner's column (its padding-right), so
-  even LAST 30 SECONDS never lands on the printed page (`e2e/bracelets.spec.js`
-  measures both pages at three sizes).
-- **The chime** (`lib/chime.js`): a synthesized bell 10 s before each showing,
-  once per showing (`chimeOnce`). Browsers allow sound only after a gesture, so
-  App arms it on EVERY keydown and pointerdown; it never queues a sound on a
-  suspended context (that would blast later). The wall's own "BIG HOW-TO IN
-  0:09" corner chip carries the moment when the room cannot hear it.
-- **The controls** (`views/BraceletPanel.jsx`, B or QuickNav's "Bracelet Time
-  controls"): show step by step / the full instructions / the original handout
-  page 1 or 2 (`assets/bracelets/handout-*.jpg`, rendered from the church's
-  PDF, fetched when the wall appears so the service worker holds them through
-  a Wi-Fi drop); hold one step; the epic on/off and "play it now" (disabled
-  until Bracelet Time is on the wall); the chime on/off and a test; animations
-  off (still pictures, no epic, no drifting wave). Saved on that PC in
-  `awanaBraceletSettings.v1` until Reset (`lib/braceletSettings.js`); "play it
-  now" is never saved. **B and the QuickNav button exist on the bracelet
-  nights only** (`isBraceletNight`), or while "Show Bracelet Time now" is on:
-  B is every slide tool's black-screen key, and on any other night it does
-  nothing, exactly as before. B is ignored while
-  typing in a field. **While open, the panel owns the keyboard**: focus starts
-  on its first control and Tab stays inside it, B and Escape close it, and a
-  window capture-phase listener stops every key from reaching the wall's own
-  shortcuts (an Escape used to arm the slideshow's exit, a Space skipped the
-  countdown); a focused button still clicks, since that is the browser's
-  default action and not a listener.
-- **"Show Bracelet Time now"** (owner, 2026-09-30: the settings can force
-  the bracelet screen up any time): a switch in both menus (QuickNav and the
-  touch sheet, `BraceletForceToggle`), on every night. It puts Bracelet Time
-  on the wall at once, over whatever the schedule has (the countdown, the
-  opening deck, any window, the shutdown), until it is switched off or
-  midnight comes: `force` in `awanaBraceletSettings.v1` is the instant it went
-  on (the page's own clock, so `?now=` works), and `braceletForced()` is true
-  only on that local date, so a switch left on never takes next week's
-  opening or pledges, and a reload keeps it all evening. In a T&T or Sparks
-  game window (`isBraceletClubWindow`, any date) it keeps that window's club,
-  end time and warnings; anywhere else it is T&T (the owner's call) in
-  `forcedBraceletWindow()`, from the switch to midnight, with no end time
-  (the corner reads T&T / CRAFT TIME, as it does on a wall kept up past its
-  window's end) and its epics every five minutes from the switch. App keys the
-  forced wall by its club, so it stays up through a schedule change and
-  crossfades only when the club changes, stamps `data-forced="bracelets"`
-  (`data-mode` reads game-time), puts the mark in its game-time place, and
-  counts the page busy for the self-updater while it is on. Reset in the
-  controls switches it off too.
-- **The art** is `components/bracelet/` + `lib/braceletArt.js`: pure scene
-  functions of (step, progress) drawn by one requestAnimationFrame clock that
-  reads `currentTime()`, so `?now=`/`&freeze=1` land on any frame, white
-  cartoon glove hands, every cord and bead keylined in white so black reads on
-  the black wall, the bead palette pinned to the lobby poster's `BEADS`.
-  The knot close-up is the child's own left hand from above, pointer to the
-  right, never a mirror image: mirrored, it put the yellow side on top at
-  the X, against knot 1's "left over right", and hid the bottom string,
-  which must lie ALONG the finger in view (wraps round the finger alone knot
-  only the top string, and the bracelet never closes). The hands keep the
-  handout's roles: the left thumb and middle finger pinch the loops, the
-  right hand pushes the end through. Step 7 ties each end's knot where the
-  room can see it (a loop, the end down through it, a pull; the loop cinches
-  and slides snug against its clear bead), and a knot is a bead-sized lump
-  of cord with its turns showing, never a ring with a strand through it,
-  which reads as a "no" sign; for the same reason nothing rings knot step
-  3's gold X, even in passing (two pops light it; a test pins it). The top
-  string's end glints gold only while it is out of the hand (the wraps, the
-  threading, the pull), never as a crescent behind the resting pinch. A hand that goes at a step's start (the
-  pointer, step 7's holding fist) draws back sideways toward where it will
-  come from and fades out inside the stage (`pointerLeaves`, `leaving`),
-  never down: the stage's lower edge is mid-screen on the wall, just above
-  the words, and a hand sinking through it was sliced flat there and drawn
-  on the epic's caption. A hand that changes pose keeps its palm in place
-  and dissolves over, never through (`crossfade`: the new pose fades in
-  over the old one, which stays whole, then the old fades out under it), so
-  it never turns see-through grey. The jump detector lets a hand fade out
-  where it is and come back elsewhere, never pop or blink. Nothing enters from behind
-  the step's chip, which covers the stage's left edge in the loop: knot 2's
-  finger slides in from inside the stage (`FINGER_SLIDE`, pinned by a test). Low power (`useLowPower`: `?vr=1`, OS
-  reduced motion, the QuickNav toggle), "animations off" and the overview
-  draw each step's still (`stillP`): its finished picture, except knot
-  steps 1, 4 and 5, which stop mid-move with their arrow up (the X just
-  made, the left end over the right and the fists apart, the finger half
-  out, the end in the tunnel), since their
-  finished pictures show no direction. The loop frames each step with its
-  own camera (`stepFrame(i, p)`, look-at keys through the epic's clamp): a
-  bead step a little closer on the whole row, then in on the new bead and
-  its pointing hand once it has landed; the knot steps closer on the knot;
-  knot 6 in on the cinch. The stills and the overview's thumbnails use the
-  same framing (`stillFrame`), except step 7's still, which comes in on its
-  finished row (clear beads and knots as big as the bead steps' beside it,
-  the open hands out of the frame); the overview's chips are 1.7u, so its
-  pictures lead, and its two pages turn over through black every 20 s; and
-  the safe-area tests measure the framed picture. The epic has its own
-  camera (`CAMERA_KEYS`, look-at keys eased by smoothstep, cutting only where
-  the picture itself cuts: the bead table after the intro, the close-up after
-  knot 1, the finale): each bead flies in on the whole row, the camera pushes
-  in on it as it lands and pulls back for the next; knot 1 comes in on its X
-  and the close-up opens with its own X on the same spot of the screen (a
-  match cut, `KNOT1_X` / `MATCH_AT`: knot 1's U is shallow enough that both
-  frames hold every hand, bead and knot); the close-up never goes closer than
-  `KNOT_ZOOM`, so the bracelet hanging below it stays whole, and pans with
-  the work instead; knot 6 pushes in on the cinch and jolts once as the wraps
-  bite (`SHAKE`, still again before its finished picture). Its tests hold it
-  to a gentle move each quarter second and every resting hand, bead, knot,
-  counter and arrow inside the safe box through it. From one step to the
-  next the card itself stays up (the kicker and the rail never blink; the
-  chip, the caption and, when it changes, the kicker crossfade), and the
-  stage plays straight on through the row's steps 1-8 and the close-up's
-  9-13, each step opening on the picture and the framing the last one
-  ended on; where the picture itself changes (into the close-up, and back
-  to step 1) the old one goes before the new one comes, never a double
-  exposure (`useStageClock` reads a new start in the same render: read a
-  frame late, it drew the next step finished). The epic's caption (the step's title
-  and its full words) stands on a line above the waves and grows upward;
-  `e2e/bracelets.spec.js` measures its clearance at three sizes. It and the
-  rail read the stage's own clock (`useEpicStep`), not the page's
-  one-second tick, so they turn over in the same frame as the art.
-- **Deploy timing:** the projector reloads itself only while idle (before
-  5:30 pm on a club night), so a change to this must be live by about 5:15 pm
-  on the night, or someone presses F5 on the projector.
-- Tests: `lib/bracelets.test.js`, `lib/braceletSettings.test.js`,
-  `lib/braceletArt.test.js`, `components/bracelet/*.test.jsx`,
-  `views/BraceletTimeView.test.jsx` (the wall's choices with the art stubbed:
-  bodies, the corner, the chime, an early start, birthdays), and
-  `e2e/bracelets.spec.js` (both nights, the untouched windows and weeks, the
-  step order, the countdown, the warning, the controls and their keyboard, B
-  on another night), plus a Bracelet Time wall in `e2e/setup-card.spec.js`.
+  deck by tap zones and real swipes to games, and Exit twice.
 
 ## Privacy invariant — DO NOT relax
 

@@ -373,7 +373,7 @@ describe('ManualSlideshow on the lobby scene (rebrand stage 4b)', () => {
 
   const sky = [
     { id: 's_1', eyebrow: 'This week', text: 'Bring your handbook', theme: 'sky', durationSec: 0 },
-    { id: 's_2', eyebrow: 'Next club night', text: 'Making bracelets', theme: 'sky', durationSec: 0 },
+    { id: 's_2', eyebrow: 'Next club night', text: 'Making bookmarks', theme: 'sky', durationSec: 0 },
   ];
   const held = { id: 's_h', eyebrow: 'Important', text: 'Pick-up is at the gym doors', theme: 'sky', durationSec: 5, holdCheckIns: true };
   const promo = { id: 'season_promo', type: 'promo', durationSec: 8, promos: [{ id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', tonight: false, countdown: '3 club nights left', afterContest: false }] };
@@ -395,7 +395,7 @@ describe('ManualSlideshow on the lobby scene (rebrand stage 4b)', () => {
     expect(container.querySelector('.catalog-scene')).toBe(scene);
     expect(container.querySelector('.lobby-field')).toBe(field);
     expect(container.querySelector('.lobby-tab')).toBe(tab);
-    expect(shows('Making bracelets')).toBe(true);
+    expect(shows('Making bookmarks')).toBe(true);
   });
 
   it('the incoming words wait, invisible, while the outgoing ones lift away', () => {
@@ -455,7 +455,7 @@ describe('ManualSlideshow on the lobby scene (rebrand stage 4b)', () => {
     );
     act(() => vi.advanceTimersByTime(5000));
     expect(container.querySelectorAll('.lobby-copy')).toHaveLength(1);
-    expect(headlines()).toEqual(['Making bracelets']);
+    expect(headlines()).toEqual(['Making bookmarks']);
   });
 });
 

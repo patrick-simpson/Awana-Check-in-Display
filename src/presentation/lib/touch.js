@@ -2,11 +2,11 @@
 import { useSyncExternalStore } from 'react';
 
 // Touch-first devices (phones and tablets) on the projector page (owner,
-// 2026-09-30: "I want this website to fully work on mobile ... couldn't push
-// B"). The page was built for the projector PC, a mouse and a keyboard: the
-// operator menu opens on hover, the Bracelet Time controls on B, a slide
-// changes on an arrow key. A phone has none of those, so every touch
-// behaviour asks this one question, and the desktop keeps exactly what it had.
+// 2026-09-30: "I want this website to fully work on mobile"). The page was
+// built for the projector PC, a mouse and a keyboard: the operator menu opens
+// on hover, a slide changes on an arrow key. A phone has neither, so every
+// touch behaviour asks this one question, and the desktop keeps exactly what
+// it had.
 //
 // The question is the PRIMARY pointer's, never the window's width: a phone in
 // landscape is as wide as a small laptop, and the projector PC's window can be

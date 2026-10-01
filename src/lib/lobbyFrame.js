@@ -607,7 +607,7 @@ export function bidiIsolates(tokens) {
 /**
  * Split one paragraph into exactly `k` lines so the longest is as short as
  * possible (the balanced break a poster setter would make: MAKING /
- * BRACELETS, BRING YOUR / HANDBOOK). Never inside a token.
+ * BOOKMARKS, BRING YOUR / HANDBOOK). Never inside a token.
  * @param {number[]} widths each token's width
  * @param {number | number[]} gaps the gap before each token (a space, or 0 for a token that joins), or one width for every gap
  * @param {number} k

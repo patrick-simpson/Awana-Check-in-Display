@@ -25,7 +25,7 @@ const NOW = new Date('2026-09-30T18:07:15');
 const STATE = { mode: 'COUNTDOWN', target: new Date('2026-10-07T18:00:00') };
 
 /** TouchMenu with App's open state around it, and spies for every pick. */
-function Harness({ onSelect, onResume, onBracelets, isOverride = false, displayOpen = false }) {
+function Harness({ onSelect, onResume, isOverride = false, displayOpen = false }) {
   const [open, setOpen] = useState(false);
   return (
     <TouchMenu
@@ -35,7 +35,6 @@ function Harness({ onSelect, onResume, onBracelets, isOverride = false, displayO
       onSelect={onSelect}
       onResume={onResume}
       socketStatus="off"
-      onBracelets={onBracelets}
       open={open}
       displayOpen={displayOpen}
       onOpen={() => setOpen(true)}
@@ -96,22 +95,6 @@ describe('the touch menu', () => {
     openMenu();
     fireEvent.click(within(sheet()).getByRole('button', { name: 'Resume Schedule' }));
     expect(onResume).toHaveBeenCalledTimes(1);
-    expect(sheet()).toBeNull();
-  });
-
-  it('has a Bracelet Time controls row only on a bracelet night, and it opens the panel', () => {
-    const { unmount } = render(<Harness onSelect={vi.fn()} onResume={vi.fn()} />);
-    openMenu();
-    expect(within(sheet()).queryByRole('button', { name: /Bracelet Time controls/ })).toBeNull();
-    unmount();
-    const onBracelets = vi.fn();
-    render(<Harness onSelect={vi.fn()} onResume={vi.fn()} onBracelets={onBracelets} />);
-    openMenu();
-    const row = within(sheet()).getByRole('button', { name: 'Bracelet Time controls' });
-    // No "(B)": a phone has no B key to offer.
-    expect(row.textContent).not.toMatch(/\(B\)/);
-    fireEvent.click(row);
-    expect(onBracelets).toHaveBeenCalledTimes(1);
     expect(sheet()).toBeNull();
   });
 

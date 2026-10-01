@@ -9,10 +9,10 @@ import { SLIDE_THEMES, MAX_TEXT } from './slides.js';
 import { buildCalendarSlides, deriveClubInfo } from './calendarLogic.js';
 
 // A deterministic stand-in for the canvas, close to the real faces: Paytone
-// One's caps run ~0.63em a letter (MAKING BRACELETS measures 9.755em in it,
-// Galindo's was 10.94em), Figtree ~0.55em, Londrina ~0.42em; an ideograph is
-// a full em in any face. Ink (how far marks reach) is the fit's own estimate
-// from the marks, markExtents, which is what measureInk falls back to here.
+// One's caps run ~0.63em a letter (Galindo's ran about 12% wider), Figtree
+// ~0.55em, Londrina ~0.42em; an ideograph is a full em in any face. Ink (how
+// far marks reach) is the fit's own estimate from the marks, markExtents,
+// which is what measureInk falls back to here.
 const PER = { shout: 0.63, read: 0.55, label: 0.42, body: 0.52 };
 const IDEO = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u3000-\u303F\uFF01-\uFF60]/u;
 const measure = (text, face) => [...text].reduce((w, ch) => w + (ch === ' ' ? 0.28 : IDEO.test(ch) ? 1 : PER[face]), 0);
@@ -62,10 +62,10 @@ describe('slideFrame', () => {
 
   it('keeps a calendar slide\'s own frame: the date moves to the chip, sized afresh', () => {
     const f = slideFrame({
-      eyebrow: 'Next club night', text: 'Making Bracelets — Wed, Sep 30', textSize: 'lg',
-      frame: { headline: 'Making Bracelets', chip: { label: 'WED', value: 'SEP 30' } },
+      eyebrow: 'Next club night', text: 'Making Bookmarks — Wed, Sep 30', textSize: 'lg',
+      frame: { headline: 'Making Bookmarks', chip: { label: 'WED', value: 'SEP 30' } },
     });
-    expect(f).toEqual({ kicker: 'Next club night', headline: 'Making Bracelets', sub: '', chip: { label: 'WED', value: 'SEP 30' }, textSize: 'auto' });
+    expect(f).toEqual({ kicker: 'Next club night', headline: 'Making Bookmarks', sub: '', chip: { label: 'WED', value: 'SEP 30' }, textSize: 'auto' });
   });
 
   it('carries the old subtext as the supporting line', () => {
@@ -123,7 +123,7 @@ describe('paragraphs, tokens and balanced breaks', () => {
       const { breaks } = balancedBreaks(words.map((w) => measure(w, 'shout')), 0.28, k);
       return breaks.map((b, i) => words.slice(b, breaks[i + 1]).join(' '));
     };
-    expect(split('MAKING BRACELETS', 2)).toEqual(['MAKING', 'BRACELETS']);
+    expect(split('MAKING BOOKMARKS', 2)).toEqual(['MAKING', 'BOOKMARKS']);
     expect(split('BRING YOUR HANDBOOK', 2)).toEqual(['BRING YOUR', 'HANDBOOK']);
     expect(split('PICK-UP IS AT THE GYM DOORS', 2)).toEqual(['PICK-UP IS AT', 'THE GYM DOORS']);
   });
@@ -137,8 +137,8 @@ describe('paragraphs, tokens and balanced breaks', () => {
 
 describe('fitFrame: the shouted headline', () => {
   it('sets the mockup\'s calendar slide exactly: two lines at its cap height (7.6u), chip under, all above the waves', () => {
-    const fit = fitFrame(frame({ kicker: 'Next club night', headline: 'Making Bracelets', chip: { label: 'WED', value: 'SEP 30' } }), measure);
-    expect(fit.headline).toMatchObject({ mode: 'shout', size: SHOUT.max, lines: ['Making', 'Bracelets'], starts: [0, 1] });
+    const fit = fitFrame(frame({ kicker: 'Next club night', headline: 'Making Bookmarks', chip: { label: 'WED', value: 'SEP 30' } }), measure);
+    expect(fit.headline).toMatchObject({ mode: 'shout', size: SHOUT.max, lines: ['Making', 'Bookmarks'], starts: [0, 1] });
     expect(fit.top).toBe(LAYOUT.top);
     expect(fit.kicker).toEqual({ text: 'Next club night', size: KICKER.size, lines: ['Next club night'], lineHeight: KICKER.lineHeight });
     expect(fit.chip).toMatchObject({ label: 'WED', value: 'SEP 30', size: CHIP.size });
@@ -151,7 +151,7 @@ describe('fitFrame: the shouted headline', () => {
   });
 
   it('prefers the mockup\'s measure, stepping down a little before running edge to edge', () => {
-    const fit = fitFrame(frame({ kicker: 'Mark your calendar', headline: 'Next week: Making Bracelets', chip: { label: 'WED', value: 'SEP 30' } }), measure);
+    const fit = fitFrame(frame({ kicker: 'Mark your calendar', headline: 'Next week: Making Bookmarks', chip: { label: 'WED', value: 'SEP 30' } }), measure);
     expect(fit.headline.mode).toBe('shout');
     for (const line of fit.headline.lines) expect(rowWidth(fit, line)).toBeLessThanOrEqual(LAYOUT.measure);
     expect(fit.headline.size).toBeGreaterThanOrEqual(SHOUT.measured);
@@ -333,7 +333,7 @@ describe('fitFrame: scripts that stack their marks', () => {
   });
 
   it('the scripts that keep their marks clear of the next row still shout: Latin, Vietnamese, Hebrew, Arabic, Chinese', () => {
-    for (const headline of ['Making bracelets', 'Chào mừng các em', 'ברוכים הבאים', 'مرحبا بكم', '欢迎来到俱乐部']) {
+    for (const headline of ['Making bookmarks', 'Chào mừng các em', 'ברוכים הבאים', 'مرحبا بكم', '欢迎来到俱乐部']) {
       expect(fitFrame(frame({ headline }), measure).headline.mode, headline).toBe('shout');
     }
   });
@@ -365,7 +365,7 @@ describe('fitFrame: the marks over and under the shout\'s capitals', () => {
   }
 
   it('plain caps take the plain pitch and the shadow\'s room, nothing more', () => {
-    for (const headline of ['Bring your handbook', 'Making Bracelets', 'The gym doors open at 6:15', 'Quiz night!']) {
+    for (const headline of ['Bring your handbook', 'Making Bookmarks', 'The gym doors open at 6:15', 'Quiz night!']) {
       const h = fitFrame(frame({ kicker: 'This week', headline }), measure).headline;
       expect(h.mode).toBe('shout');
       expect(h.lineHeight).toBe(SHOUT.lineHeight);
@@ -629,7 +629,7 @@ describe('fitFrame: the invariants, over many texts', () => {
 
   it('every calendar slide fits', () => {
     const club = (date, title = 'Awana', over = {}) => ({ date, kind: 'club', title, isCancelled: false, isSpecial: title !== 'Awana', ...over });
-    const info = deriveClubInfo([club('2026-09-23'), club('2026-09-30', 'Making Bracelets'), club('2026-10-07', 'Awana', { isCancelled: true }), club('2026-10-14')], '2026-09-28');
+    const info = deriveClubInfo([club('2026-09-23'), club('2026-09-30', 'Making Bookmarks'), club('2026-10-07', 'Awana', { isCancelled: true }), club('2026-10-14')], '2026-09-28');
     for (const s of buildCalendarSlides(info, {})) {
       const fit = fitFrame(slideFrame(s), measure);
       expect(fit.headline.mode).toBe('shout');

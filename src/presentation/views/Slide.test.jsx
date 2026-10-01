@@ -52,13 +52,14 @@ function layOut(container) {
 describe('the Upcoming Awana Nights slide', () => {
   afterEach(cleanup);
 
-  // The feed the church actually publishes (public/calendar-feed.json): most
-  // weeks carry a long special title, and a long title takes a row to
-  // itself. At a fixed 3.2u the fourth row fell off the bottom of the wall.
-  it('fits the church\'s real run of nights (three long names, two short) inside the wall', () => {
+  // A run of nights shaped like the feed the church publishes
+  // (public/calendar-feed.json): most weeks carry a long special title, and a
+  // long title takes a row to itself. At a fixed 3.2u the fourth row fell off
+  // the bottom of the wall.
+  it('fits a run of nights like the church\'s feed (three long names, two short) inside the wall', () => {
     const events = [
-      night('09-30', 'Awana meeting (Making Bracelets)', true),
-      night('10-07', 'Awana meeting (Making Bracelets)', true),
+      night('09-30', 'Awana meeting (Making Bookmarks)', true),
+      night('10-07', 'Awana meeting (Making Bookmarks)', true),
       night('10-14', 'Bring a Friend Night - Posters due'),
       night('10-21', 'Awana meeting'),
       night('10-28', 'Awana meeting'),

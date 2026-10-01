@@ -1,11 +1,11 @@
 import { devices, expect, test } from '@playwright/test';
 
 // The projector page on phones and tablets (owner, 2026-09-30: "I want this
-// website to fully work on mobile. I tested it out and couldn't push B").
+// website to fully work on mobile").
 // Everything a finger needs is gated on the primary pointer (src/presentation/
 // lib/touch.js), so these run in real touch contexts (isMobile + hasTouch,
 // Chromium's emulation, where `(hover: none) and (pointer: coarse)` is true)
-// and the desktop suites (countdown-modes, bracelets, setup-card, the visual
+// and the desktop suites (countdown-modes, setup-card, the visual
 // baselines) stay the proof that the projector PC's wall did not change.
 //
 // The device descriptors' own viewports are the visible area under the
@@ -27,7 +27,6 @@ const DEVICES = [
 
 const at = (now, extra = '') => `/countdown.html?now=${now}&freeze=1${extra}`;
 const TUESDAY = '2026-09-15T18:30:00';
-const BRACELETS = '2026-09-30T18:07:15';
 
 test.beforeEach(async ({ page }) => {
   await page.route(/open-meteo|pusher|twotimtwo/, (route) => route.abort());
@@ -352,7 +351,7 @@ for (const [name, use] of WALL_NOTE) {
   test.describe(`the setup note on ${name}`, () => {
     test.use(use);
 
-    for (const [wall, now] of [['the countdown', TUESDAY], ['game time', '2026-09-16T18:20:00'], ['Bracelet Time', BRACELETS], ['the opening deck', OPENING]]) {
+    for (const [wall, now] of [['the countdown', TUESDAY], ['game time', '2026-09-16T18:20:00'], ['the opening deck', OPENING]]) {
       test(`fits, covers nothing on ${wall}, and its buttons are a finger's size`, async ({ page }) => {
         await page.addInitScript(NO_KEY);
         await page.goto(at(now));
@@ -457,7 +456,7 @@ const wallLayout = (page) => page.evaluate(() => {
   }
   // The wall's pictures count with its words: the art, the club marks and
   // game time's mascots (the waves and sparkles are the room's, not content).
-  const art = '.pj-chip, [data-timer], .pj-bracelet__stage, .pj-bracelet__thumb, .pj-bracelet__handout img, .pj-game__marks img, .pj-game__character';
+  const art = '.pj-chip, [data-timer], .pj-game__marks img, .pj-game__character';
   for (const el of view.querySelectorAll(art)) {
     const r = el.getBoundingClientRect();
     if (r.width > 1 && !inChrome(el)) boxes.push({ name: el.getAttribute('aria-label') || el.className.baseVal || el.className, r });
@@ -477,24 +476,19 @@ const wallLayout = (page) => page.evaluate(() => {
 
 const UPRIGHT = DEVICES.filter(([name]) => !/landscape/.test(name));
 const TALL_WALLS = [
-  ['the countdown, with four special nights', TUESDAY, 0, null],
-  ['the Pledge of Allegiance', OPENING, 1, null],
-  ['the Awana Pledge', OPENING, 2, null],
-  ['game time', '2026-09-16T18:20:00', 0, null],
-  ['Upcoming Awana Nights', '2026-09-16T19:31:00', 1, null],
-  ['Bracelet Time\'s step card', BRACELETS, 0, null],
-  ['Bracelet Time\'s epic', '2026-09-30T18:05:40', 0, null],
-  ['Bracelet Time\'s full instructions', BRACELETS, 0, 'overview'],
-  ['Bracelet Time\'s handout', BRACELETS, 0, 'handout1'],
+  ['the countdown, with four special nights', TUESDAY, 0],
+  ['the Pledge of Allegiance', OPENING, 1],
+  ['the Awana Pledge', OPENING, 2],
+  ['game time', '2026-09-16T18:20:00', 0],
+  ['Upcoming Awana Nights', '2026-09-16T19:31:00', 1],
 ];
 
 for (const [name, use] of UPRIGHT) {
   test.describe(`upright on ${name}`, () => {
     test.use(use);
 
-    for (const [wall, now, nexts, display] of TALL_WALLS) {
+    for (const [wall, now, nexts] of TALL_WALLS) {
       test(`${wall}: a tall frame, filled at least half, nothing off the screen or under the controls`, async ({ page }) => {
-        if (display) await page.addInitScript((d) => localStorage.setItem('awanaBraceletSettings.v1', JSON.stringify({ display: d })), display);
         await page.route('**/calendar-feed.json', specialFeed);
         await page.goto(at(now));
         await expect(page.locator('[data-mode]')).toBeVisible();
@@ -530,71 +524,5 @@ test.describe('a phone on its side keeps the wall', () => {
     const vh = page.viewportSize().height;
     expect(f.height).toBeLessThanOrEqual(vh + 0.5);
     expect(f.height).toBeGreaterThanOrEqual(vh * 0.97);
-  });
-});
-
-/* ── Bracelet Time by tap (tonight, 2026-09-30, and Oct 7) ─────────────── */
-
-for (const [name, use] of [DEVICES[0], DEVICES[1], DEVICES[3]]) {
-  test.describe(`Bracelet Time on ${name}`, () => {
-    test.use(use);
-
-    test('the controls open from the menu, a held step can be chosen, and Reset goes back, all by tap', async ({ page }) => {
-      await page.goto(at(BRACELETS));
-      await expect(page.locator('[data-bracelet-step]')).toHaveAttribute('data-bracelet-step', '4');
-      await menuButton(page).tap();
-      await sheet(page).getByRole('button', { name: 'Bracelet Time controls' }).tap();
-      await expect(sheet(page)).toHaveCount(0);
-      const panel = page.getByRole('dialog', { name: 'Bracelet Time controls' });
-      await expect(panel).toBeVisible();
-      await expect(panel.getByText(/Tap ✕ or anywhere outside this panel/)).toBeVisible();
-      await expect(panel.getByText(/B opens and closes/)).toHaveCount(0);
-      // A bottom sheet on the screen, with its own scroll, every control a finger's size.
-      const box = await panel.boundingBox();
-      const vp = page.viewportSize();
-      expect(box.y).toBeGreaterThanOrEqual(0);
-      expect(box.y + box.height).toBeLessThanOrEqual(vp.height + 0.5);
-      expect(box.x).toBeGreaterThanOrEqual(0);
-      expect(box.x + box.width).toBeLessThanOrEqual(vp.width + 0.5);
-      await expectAllTargets(panel);
-
-      await panel.getByRole('button', { name: 'K2' }).tap();
-      await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'hold');
-      await expect(page.locator('[data-bracelet-step]')).toHaveAttribute('data-bracelet-step', '9');
-      await expect(panel.getByText(/Holding knot 2:/)).toBeVisible();
-      await panel.getByRole('button', { name: 'Full instructions' }).tap();
-      await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'overview');
-      await panel.getByRole('button', { name: 'Reset' }).tap();
-      await expect(page.locator('[data-bracelet-phase]')).toHaveAttribute('data-bracelet-phase', 'steps');
-      await panel.getByRole('button', { name: 'Close' }).tap();
-      await expect(panel).toHaveCount(0);
-    });
-
-    test('a tap outside the controls closes them, and never reaches the wall under them', async ({ page }) => {
-      await page.goto(at(BRACELETS));
-      await menuButton(page).tap();
-      await sheet(page).getByRole('button', { name: 'Bracelet Time controls' }).tap();
-      const panel = page.getByRole('dialog', { name: 'Bracelet Time controls' });
-      await expect(panel).toBeVisible();
-      const box = await panel.boundingBox();
-      // The backdrop above the sheet (there is always some: the sheet stops short of the top).
-      await page.touchscreen.tap(Math.round(box.x + box.width / 2), Math.max(2, Math.round(box.y / 2)));
-      await expect(panel).toHaveCount(0);
-      await expect(page.locator('[data-mode="game-time"][data-activity="bracelets"]')).toBeVisible();
-      await expect(sheet(page)).toHaveCount(0);
-    });
-  });
-}
-
-test.describe('Bracelet Time on another night', () => {
-  test.use(DEVICES[0][1]);
-
-  test('the touch menu has no Bracelet Time controls row, only the switch that shows it now', async ({ page }) => {
-    await page.goto(at('2026-10-14T18:07:00'));
-    await expect(page.locator('[data-mode="game-time"]')).toBeVisible();
-    await menuButton(page).tap();
-    await expect(sheet(page)).toBeVisible();
-    await expect(sheet(page).getByRole('button', { name: 'Bracelet Time controls' })).toHaveCount(0);
-    await expectTarget(sheet(page).getByRole('switch', { name: /Show Bracelet Time now/ }), 'Show Bracelet Time now');
   });
 });

@@ -114,7 +114,7 @@ const piecesOf = (copy) => [...copy.querySelectorAll('.lobby-kicker, .lobby-word
 
 const sky = [
   { id: 's_1', eyebrow: 'This week', text: 'Bring your handbook', theme: 'sky', durationSec: 0 },
-  { id: 's_2', eyebrow: 'Next club night', text: 'Making bracelets', theme: 'sky', durationSec: 0 },
+  { id: 's_2', eyebrow: 'Next club night', text: 'Making bookmarks', theme: 'sky', durationSec: 0 },
 ];
 const held = { id: 's_h', eyebrow: 'Important', text: 'Pick-up is at the gym doors', theme: 'sky', durationSec: 5, holdCheckIns: true };
 const promo = { id: 'season_promo', type: 'promo', durationSec: 8, promos: [{ id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', tonight: false, countdown: '3 club nights left', afterContest: false }] };
@@ -154,7 +154,7 @@ describe('the hand-off, as wired', () => {
     expect(all).toHaveLength(2);
     const [outgoing, incoming] = [all.find((c) => !present(c)), all.find(present)];
     expect(outgoing.textContent).toContain('Bring your handbook');
-    expect(incoming.textContent).toContain('Making bracelets');
+    expect(incoming.textContent).toContain('Making bookmarks');
 
     const leaving = piecesOf(outgoing);
     expect(leaving).toHaveLength(4);

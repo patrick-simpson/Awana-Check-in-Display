@@ -7,9 +7,7 @@ import { setStingersEnabled, stingersEnabled, subscribeStingers, unlockStingers 
 import { clearBirthdays, useBirthdays } from '../hooks/useBirthdays.js';
 import { useEffectiveSchedule } from '../hooks/useEffectiveSchedule.js';
 import { lowPowerPreference, setLowPowerPreference, useLowPower } from '../hooks/useLowPower.js';
-import { braceletForced, getBraceletSettings, setBraceletForced, subscribeBraceletSettings } from '../lib/braceletSettings.js';
 import { useClockDrift } from '../hooks/useClockDrift.js';
-import { currentTime } from '../hooks/useClock.js';
 import { useConfig } from '../../hooks/useConfig.js';
 import { useDisplayLogin } from '../../hooks/useDisplayLogin.js';
 import { useDisplayKey } from '../../hooks/useDisplayKey.js';
@@ -30,7 +28,7 @@ import { GlassPanel } from '../components/GlassPanel.jsx';
  * `touch`); nothing of this hover panel is on a touch page at all, so its
  * invisible buttons can never catch a tap meant for the wall.
  */
-export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketStatus, onBracelets }) => {
+export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketStatus }) => {
   const skewMs = useClockDrift();
 
   return (
@@ -55,7 +53,6 @@ export const QuickNav = ({ now, state, isOverride, onSelect, onResume, socketSta
             onSelect={onSelect}
             onResume={onResume}
             socketStatus={socketStatus}
-            onBracelets={onBracelets}
           />
         </GlassPanel>
       </div>
@@ -68,17 +65,16 @@ export const CLOCK_DRIFT_HELP =
   "This device's clock disagrees with the web server — the countdown and schedule may be wrong. Fix the system clock / enable network time.";
 
 /**
- * The menu's items: the window jumps, Resume Schedule, "Show Bracelet Time
- * now" (every night) and the Bracelet Time controls (on a bracelet night, or
- * while that switch is on), Skip Weeks, the birthday roster, the
- * two switches and Display Settings. The hover panel above renders them as
- * they always were; `touch` renders the same items for the touch sheet
- * (TouchMenu.jsx): full-width rows at least 44px tall, the tooltips written
- * out as visible hints, 16px inputs (iOS zooms the page on a smaller one) in
- * real forms, so a phone keyboard's Go key submits. `displayOpen` opens
- * Display Settings from the start (the setup note's shortcut).
+ * The menu's items: the window jumps, Resume Schedule, Skip Weeks, the
+ * birthday roster, the two switches and Display Settings. The hover panel
+ * above renders them as they always were; `touch` renders the same items for
+ * the touch sheet (TouchMenu.jsx): full-width rows at least 44px tall, the
+ * tooltips written out as visible hints, 16px inputs (iOS zooms the page on a
+ * smaller one) in real forms, so a phone keyboard's Go key submits.
+ * `displayOpen` opens Display Settings from the start (the setup note's
+ * shortcut).
  */
-export const QuickNavItems = ({ now, state, isOverride, onSelect, onResume, socketStatus, onBracelets, touch = false, displayOpen = false }) => {
+export const QuickNavItems = ({ now, state, isOverride, onSelect, onResume, socketStatus, touch = false, displayOpen = false }) => {
   const activeKey = stateKey(state);
   const cfg = useEffectiveSchedule();
   const windows = windowsForDate(now, cfg) ?? cfg.windows;
@@ -110,17 +106,6 @@ export const QuickNavItems = ({ now, state, isOverride, onSelect, onResume, sock
             </button>
           )}
           {isOverride && <p className="pj-sheet__hint">A pick holds for 15 minutes, then the schedule takes over again.</p>}
-        </section>
-        <section className="pj-sheet__group" aria-label="Bracelet Time">
-          <BraceletForceToggle now={now} touch />
-          {onBracelets && (
-            <>
-              <button type="button" onClick={onBracelets} className="pj-sheet__action pj-sheet__action--sun">
-                Bracelet Time controls
-              </button>
-              <p className="pj-sheet__hint">Hold a step, show the full instructions or the handout, the epic and the chime.</p>
-            </>
-          )}
         </section>
         <SkipWeeks now={now} cfg={cfg} touch />
         <BirthdayStatus touch />
@@ -160,18 +145,6 @@ export const QuickNavItems = ({ now, state, isOverride, onSelect, onResume, sock
           Resume Schedule
         </button>
       )}
-      {onBracelets && (
-        <button
-          onClick={onBracelets}
-          className="mt-2 px-3 py-1.5 text-xs uppercase text-[var(--brand-sun)] hover:bg-[var(--brand-sun)]/15 rounded-lg transition-all border border-[var(--brand-sun)]/40 text-right"
-          style={{ fontFamily: 'var(--font-condensed)', fontWeight: 800, letterSpacing: '0.12em' }}
-        >
-          Bracelet Time controls (B)
-        </button>
-      )}
-      <div className="mt-1 flex flex-col" style={{ fontFamily: 'var(--font-condensed)', letterSpacing: '0.12em' }}>
-        <BraceletForceToggle now={now} />
-      </div>
       <SkipWeeks now={now} cfg={cfg} />
       <BirthdayStatus />
       <TogglesRow />
@@ -333,27 +306,6 @@ const SkipWeeks = ({ now, cfg, touch = false }) => {
 };
 
 const LOW_POWER_HINT = 'Hides particle / weather layers for weak hardware';
-const BRACELET_FORCE_HINT = 'Puts Bracelet Time on the wall now, any night, in T&T colors, until you switch it off. It switches itself off at midnight.';
-
-/**
- * "Show Bracelet Time now" (owner, 2026-09-30): the wall shows Bracelet Time
- * at once, over whatever the schedule has, until switched off or midnight
- * (lib/braceletSettings.js braceletForced). Saved on this device, so a reload
- * keeps it; stamped with the page's own clock, so ?now= time travel works.
- */
-const BraceletForceToggle = ({ now, touch = false }) => {
-  const settings = useSyncExternalStore(subscribeBraceletSettings, getBraceletSettings, getBraceletSettings);
-  const on = braceletForced(settings, now);
-  return (
-    <ToggleButton
-      touch={touch}
-      label="Show Bracelet Time now"
-      hint={BRACELET_FORCE_HINT}
-      on={on}
-      onToggle={() => setBraceletForced(!on, currentTime())}
-    />
-  );
-};
 const SOUNDS_HINT = 'Chimes at 1hr/30/10/5/1min — off by default';
 
 /** Low-power mode + countdown-stinger switches. */
