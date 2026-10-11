@@ -622,6 +622,21 @@ snowdrift. `src/lib/snowAlerts.js` is the pure half, `SnowAlertsPromo.jsx` +
   the finished card (`?lowPower=1`).
 - Settings → Slides → "Season promos" turns it off with the fall posters.
 
+## Previewing a promo (Settings → Slides → "Preview a promo")
+
+Owner request 2026-10-11: a way to watch each promo on demand. One button per
+entry in `PREVIEW_PROMOS` (`src/lib/promos.js`): the four fall posters, the snow
+slide, and the snow slide's snow-week version. `previewPromo(key, ...)` builds
+the same descriptor `buildPromoSlot` would, whatever the date (a past poster
+names its date instead of a count; the snow week names the next club night, or
+the coming Wednesday with no feed). App plays it as a full-screen
+`.lobby-preview` layer over the background (never `.promo-*`, which
+`promoFonts.test.js` reserves for poster faces) for the promo's own
+`durationSec`, then removes it; a click or Esc stops it early. While it is up it
+holds check-ins exactly like a real poster (`checkInsHeld`, `posterHeld`) and
+counts as busy for the self-updater. It is local to this screen: nothing is
+stored or published. `App.director.test.jsx` drives it end to end.
+
 ## The flagship welcome slide (first in every pass, except Wednesday club)
 
 Owner request 2026-09-29: one built-in slide, in the catalog's flagship

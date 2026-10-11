@@ -129,7 +129,7 @@ export default function SettingsPanel({
   config, savedConfig, overrides, status, nameStatus, demoActive, lastEventAt, calendar, phase, scheduleSource,
   opsFailures, remoteConfigError, wakeLockStatus, layerFaults,
   initialTab = null, onTabChange,
-  onChange, onReplace, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug, onBoardDemo,
+  onChange, onReplace, onReset, onClose, onTest, onResetTally, onOpenSlideEditor, onOpenDebug, onBoardDemo, onPreviewPromo,
   syncedDeck, slidesStatus, onForgetSyncedDeck,
   shared = null, shareStatus = null, onShare,
 }) {
@@ -392,6 +392,7 @@ export default function SettingsPanel({
         onEditSlides={() => { flush(); onOpenSlideEditor(); }}
         syncedDeck={syncedDeck}
         today={localDateStr()}
+        onPreviewPromo={onPreviewPromo ? (key) => { flush(); onPreviewPromo(key); } : null}
       />
     );
   } else if (section === 'screen') {

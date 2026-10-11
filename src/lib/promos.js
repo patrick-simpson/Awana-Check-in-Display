@@ -252,3 +252,89 @@ function withSnowAlerts(fall, outlook, afterContest) {
   }
   return out;
 }
+
+/**
+ * Settings → Slides → "Preview a promo": every promo this build knows, in the
+ * order the buttons list them, whether or not today's date would show it.
+ * The snow slide is there twice, once as an ordinary week and once as a
+ * snow week, because those read differently.
+ */
+export const PREVIEW_PROMOS = Object.freeze([
+  Object.freeze({ key: 'contest', label: 'Poster contest' }),
+  Object.freeze({ key: 'friend', label: 'BARF Night' }),
+  Object.freeze({ key: 'barfEpic', label: 'BARF Night: slime cut' }),
+  Object.freeze({ key: 'parents', label: 'Parents’ Night' }),
+  Object.freeze({ key: 'snowAlerts', label: 'Snow alerts' }),
+  Object.freeze({ key: 'snowAlertsStorm', label: 'Snow alerts: snow week' }),
+]);
+
+/**
+ * The descriptor a preview plays: the same shape buildPromoSlot() makes, so
+ * the poster draws exactly what the room would see. A fall poster counts down
+ * from the real calendar while its night is ahead, and names its date once it
+ * has passed (or with no feed). The snow week names the next club night, or
+ * the next Wednesday without a feed. Unknown keys give null.
+ *
+ * @param {string} key one of PREVIEW_PROMOS' keys
+ * @param {Array<any>|null|undefined} events
+ * @param {string} todayStr
+ * @param {Record<string, any>|null} [specialDates]
+ * @returns {PromoDescriptor|null}
+ */
+export function previewPromo(key, events, todayStr, specialDates = null) {
+  const today = showDate(todayStr) || todayStr;
+  const afterContest = today > CONTEST_DATE;
+  if (key === 'snowAlerts' || key === 'snowAlertsStorm') {
+    const storm = key === 'snowAlertsStorm';
+    const night = storm ? nextClubNightOrWednesday(events, today, specialDates) : '';
+    return {
+      id: 'promo_snow_alerts',
+      kind: 'snowAlerts',
+      eventDate: night,
+      tonight: false,
+      countdown: null,
+      afterContest,
+      durationSec: SNOW_ALERT_SEC,
+      snow: storm
+        ? { date: night, when: night === today ? 'tonight' : 'later', weekday: weekdayName(night), inches: 3 }
+        : null,
+    };
+  }
+  const p = SEASON_PROMOS.find((x) => x.kind === key);
+  if (!p) return null;
+  const ahead = today <= p.eventDate;
+  return {
+    id: p.id,
+    kind: p.kind,
+    eventDate: p.eventDate,
+    tonight: today === p.eventDate,
+    countdown: ahead
+      ? countdownLabel(nightsUntil(events, today, p.eventDate, specialDates), today, p.eventDate)
+      : formatLongDate(p.eventDate) || null,
+    afterContest,
+    durationSec: p.durationSec,
+  };
+}
+
+/** @param {string} dateStr */
+function weekdayName(dateStr) {
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'long' });
+}
+
+/**
+ * @param {Array<any>|null|undefined} events
+ * @param {string} today
+ * @param {Record<string, any>|null} specialDates
+ */
+function nextClubNightOrWednesday(events, today, specialDates) {
+  const next = clubNights(events, specialDates)
+    .filter((e) => !e.isCancelled && typeof e.date === 'string' && e.date >= today)
+    .map((e) => e.date)
+    .sort()[0];
+  if (next) return next;
+  const [y, m, d] = today.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + ((3 - date.getDay() + 7) % 7));
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}

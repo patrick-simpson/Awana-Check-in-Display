@@ -4074,3 +4074,41 @@ details.advanced-fields > .hint { display: block; margin-bottom: 0.9rem; }
   border: 1.5px solid var(--panel-card-line);
 }
 .board-preview .checkout-region { pointer-events: none; }
+
+/* ── Settings → Slides → "Preview a promo" ─────────────────────────────────
+   The poster over the slideshow on this TV (App.jsx), at the background's
+   own level so the status sticker, the flags and the WAITING chip stay on
+   top of it, as they do over a real promo. A click anywhere ends it. */
+.lobby-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+.lobby-preview__stop {
+  position: absolute;
+  z-index: 10;
+  left: 50%;
+  bottom: max(1.2vh, 10px);
+  translate: -50% 0;
+  padding: 0.45em 1.2em;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(3, 4, 4, 0.62);
+  color: #ffffff;
+  font-family: var(--font-condensed);
+  font-size: clamp(14px, min(1.5vw, 2.6vh), 26px);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+/* The buttons in Settings: one per promo, wrapping in rows. */
+.preview-promos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.3rem 0 0.4rem;
+}
+.preview-promos__hint { display: block; margin: 0 0 0.6rem; }

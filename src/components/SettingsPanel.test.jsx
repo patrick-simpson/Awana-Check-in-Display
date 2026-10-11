@@ -730,6 +730,19 @@ describe('Pickup board', () => {
   });
 });
 
+describe('Preview a promo', () => {
+  it('lists every promo, and a click hands that one to the screen', () => {
+    const props = { ...happyProps(), initialTab: 'slides', onPreviewPromo: vi.fn() };
+    render(<SettingsPanel {...props} />);
+    const names = ['Poster contest', 'BARF Night', 'BARF Night: slime cut', 'Parents’ Night', 'Snow alerts', 'Snow alerts: snow week'];
+    for (const n of names) expect(screen.getByRole('button', { name: n })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Snow alerts: snow week' }));
+    expect(props.onPreviewPromo).toHaveBeenCalledWith('snowAlertsStorm');
+    fireEvent.click(screen.getByRole('button', { name: 'Poster contest' }));
+    expect(props.onPreviewPromo).toHaveBeenLastCalledWith('contest');
+  });
+});
+
 describe('shared settings (contract v6)', () => {
   const open = (extra = {}) => {
     const props = { ...happyProps(), onShare: vi.fn(), ...extra };

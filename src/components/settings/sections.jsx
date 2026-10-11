@@ -5,7 +5,7 @@ import { deriveClubInfo, formatShortDate, isStoreNight, localDateStr, splitTitle
 import { skinOptions } from '../../lib/skins.js';
 import { getAllClubs, getClubPalette } from '../../lib/clubs.js';
 import { maskDisplayKey } from '../../lib/displayKey.js';
-import { SEASON_PROMOS } from '../../lib/promos.js';
+import { PREVIEW_PROMOS, SEASON_PROMOS } from '../../lib/promos.js';
 import { inSnowSeason } from '../../lib/snowAlerts.js';
 import { SAMPLE_BOARD_NAMES } from '../../lib/demoNames.js';
 import { decideBoard, demoCheckout } from '../../lib/checkoutBoard.js';
@@ -398,7 +398,7 @@ export function CheckinsSection({ form, set, update, onPreview }) {
 
 // ── Slides ────────────────────────────────────────────────────────────────
 
-export function SlidesSection({ form, set, update, slideCount, onEditSlides, syncedDeck, today }) {
+export function SlidesSection({ form, set, update, slideCount, onEditSlides, syncedDeck, today, onPreviewPromo }) {
   const n = slideCount;
   const typedLine = form.backgroundSource === 'manual'
     ? (n === 0
@@ -548,6 +548,22 @@ export function SlidesSection({ form, set, update, slideCount, onEditSlides, syn
           </div>
         </details>
       </PanelCard>
+
+      {onPreviewPromo && (
+        <PanelCard title="Preview a promo" tab="var(--brand-hot)" scope="screen">
+          <p className="hint preview-promos__hint">
+            Plays one promo full screen on this TV, start to finish, whatever the date. Names that arrive meanwhile
+            wait and then play in full, as they do for the real thing. Click the screen or press Esc to stop early.
+          </p>
+          <div className="preview-promos">
+            {PREVIEW_PROMOS.map((p) => (
+              <button key={p.key} type="button" className="secondary preview-promos__button" onClick={() => onPreviewPromo(p.key)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </PanelCard>
+      )}
     </>
   );
 }

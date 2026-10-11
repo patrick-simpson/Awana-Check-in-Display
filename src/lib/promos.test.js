@@ -8,6 +8,8 @@ import {
   countdownLabel,
   isPromoSlide,
   nightsUntil,
+  PREVIEW_PROMOS,
+  previewPromo,
 } from './promos.js';
 
 // The real fall-2026 Wednesdays, same shape the calendar feed delivers.
@@ -276,5 +278,39 @@ describe('buildPromoSlot with the snow-alerts slide', () => {
     expect(promoForLap(slot, 6, 3)?.kind).toBe('snowAlerts');
     expect(promoForLap(slot, 1, 1)?.kind).toBe('snowAlerts');
     expect(promoForLap(null, 0, 3)).toBeNull();
+  });
+});
+
+describe('previewPromo: Settings → Slides → Preview a promo', () => {
+  it('offers every poster and both snow versions', () => {
+    expect(PREVIEW_PROMOS.map((p) => p.key)).toEqual(['contest', 'friend', 'barfEpic', 'parents', 'snowAlerts', 'snowAlertsStorm']);
+    for (const p of PREVIEW_PROMOS) expect(previewPromo(p.key, season, '2026-10-01')).not.toBeNull();
+    expect(previewPromo('nope', season, '2026-10-01')).toBeNull();
+  });
+
+  it('counts a fall poster down from the real calendar while its night is ahead', () => {
+    const d = previewPromo('contest', season, '2026-10-01');
+    expect(d).toMatchObject({ id: 'promo_contest', kind: 'contest', eventDate: '2026-10-14', tonight: false, durationSec: 15 });
+    expect(d.countdown).toBe(countdownLabel(nightsUntil(season, '2026-10-01', '2026-10-14'), '2026-10-01', '2026-10-14'));
+    expect(previewPromo('friend', season, '2026-10-14')).toMatchObject({ tonight: true, countdown: 'Tonight!' });
+  });
+
+  it('plays a poster whose night has passed, naming its date instead of a count', () => {
+    const d = previewPromo('barfEpic', season, '2026-12-01');
+    expect(d.tonight).toBe(false);
+    expect(d.countdown).toMatch(/October/);
+    expect(d.countdown).not.toMatch(/left|Next|Tonight/);
+  });
+
+  it('the ordinary snow slide has no storm; the snow week names the next club night', () => {
+    expect(previewPromo('snowAlerts', season, '2026-10-01')).toMatchObject({ kind: 'snowAlerts', snow: null, durationSec: 20 });
+    expect(previewPromo('snowAlertsStorm', season, '2026-10-01').snow)
+      .toEqual({ date: '2026-10-07', when: 'later', weekday: 'Wednesday', inches: 3 });
+    expect(previewPromo('snowAlertsStorm', season, '2026-10-07').snow.when).toBe('tonight');
+  });
+
+  it('without a feed the snow week names the coming Wednesday', () => {
+    expect(previewPromo('snowAlertsStorm', null, '2026-12-04').snow).toMatchObject({ date: '2026-12-09', weekday: 'Wednesday' });
+    expect(previewPromo('snowAlertsStorm', [], '2026-12-09').snow).toMatchObject({ date: '2026-12-09', when: 'tonight' });
   });
 });
