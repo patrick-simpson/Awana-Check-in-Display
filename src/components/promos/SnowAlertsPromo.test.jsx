@@ -39,7 +39,7 @@ describe('SnowAlertsPromo', () => {
     expect([...container.querySelectorAll('.snow-alerts__word')].map((w) => w.textContent)).toEqual(['Sign', 'up', 'for', 'cancellation', 'texts']);
     // No line between the headline and the code (owner, 2026-10-11).
     expect(container.querySelector('.snow-alerts__body')).toBeNull();
-    expect(text(container, '.snow-alerts__scan-label')).toBe('Scan for the text');
+    expect(container.querySelector('.snow-alerts__scan-label')).toBeNull();
     expect(text(container, '.snow-alerts__url')).toBe('kvbchurch.org/alerts');
   });
 

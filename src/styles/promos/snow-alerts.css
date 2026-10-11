@@ -479,17 +479,10 @@
   width: 100%;
   height: 100%;
 }
-.snow-alerts__scan-label {
-  font-family: var(--font-condensed);
-  font-size: calc(var(--u) * 1.9);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--snow-sun);
-}
 .snow-alerts__url {
-  margin-top: calc(var(--u) * 0.4);
   font-family: var(--font-shout);
-  font-size: calc(var(--u) * 2.7);
+  /* The address stands alone beside the code (owner, 2026-10-11). */
+  font-size: calc(var(--u) * 3);
   line-height: 1;
   color: #ffffff;
   text-shadow: 0.08em 0.08em 0 var(--snow-ink);

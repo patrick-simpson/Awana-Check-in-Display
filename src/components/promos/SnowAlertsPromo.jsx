@@ -27,7 +27,7 @@ import { getWeatherType } from '../../lib/weather.js';
 //   4.2  the church's text arrives as a Messages notification and the phone
 //        BUZZES, rings running out of it (again at 10.0 and 15.5).
 //   5.2  the snowdrifts rise across the foot, burying the phone's base.
-//   5.8  the QR plate pops onto the drift, 6.2 the label and the address.
+//   5.8  the QR plate pops onto the drift, 6.3 the address.
 //        Everything is in place by 6.6 and HOLDS, still, to the end: 13+
 //        seconds for a parent to get a phone out and scan.
 //
@@ -175,7 +175,6 @@ const DRIFT_BACK = DRIFT(5.2);
 const DRIFT_MID = DRIFT(5.35);
 const DRIFT_FRONT = DRIFT(5.5);
 const PLATE = landsAt(5.8, 0.55, { opacity: [0, 1, 1], scale: [0.4, 1.07, 1], rotate: [-8, 1.5, 0] }, EASE_SLAM);
-const SCAN = landsAt(6.2, 0.5, { opacity: [0, 1], x: ['-1.2em', '0em'] }, EASE_OUT);
 const URL = landsAt(6.35, 0.55, { opacity: [0, 1], x: ['-0.6em', '0em'] }, EASE_OUT);
 
 /** Each headline word lands on its own beat, counted across both lines. */
@@ -361,7 +360,6 @@ export default function SnowAlertsPromo({ promo }) {
             </svg>
           </M.div>
           <div className="snow-alerts__where">
-            <M.div className="snow-alerts__scan-label" {...SCAN}>Scan for the text</M.div>
             <M.div className="snow-alerts__url" {...URL}>{ALERTS_SHORT}</M.div>
           </div>
         </div>
