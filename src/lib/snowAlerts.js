@@ -155,17 +155,20 @@ export function snowAlertCopy(outlook) {
 /**
  * The phone's sample text: the church's real cancellation message, word for
  * word (owner, 2026-10-11, with the apostrophe in "weeks’" put right), dated
- * the day the slide is on screen, and the lock screen's weekday to match. The
- * EXAMPLE TEXT tag on the phone is what says it is a sample.
+ * the day the slide is on screen, and the lock screen's date to match.
  *
  * @param {Date} now
- * @returns {{ weekday: string, text: string }}
+ * @returns {{ weekday: string, lockDate: string, text: string }}
  */
 export function sampleAlertText(now) {
   const yy = String(now.getFullYear() % 100).padStart(2, '0');
   const date = `${now.getMonth() + 1}/${now.getDate()}/${yy}`;
+  const wd = now.toLocaleDateString('en-US', { weekday: 'short' });
+  const mon = now.toLocaleDateString('en-US', { month: 'short' });
   return {
     weekday: now.toLocaleDateString('en-US', { weekday: 'long' }),
+    // The Pixel lock screen's date line: "Sun, Oct 11".
+    lockDate: `${wd}, ${mon} ${now.getDate()}`,
     text: `Awana has been cancelled on ${date} at KVBC. Clubbers should come prepared with both weeks’ sections next week.`,
   };
 }

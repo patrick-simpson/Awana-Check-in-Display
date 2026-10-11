@@ -605,11 +605,17 @@ snowdrift. `src/lib/snowAlerts.js` is the pure half, `SnowAlertsPromo.jsx` +
   "Tonight / Tomorrow / Wednesday looks snowy") in the hot colour. The
   headline is the owner's own words, SIGN UP FOR / CANCELLATION TEXTS, every
   week.
-- **The phone shows the church's real cancellation text** (`sampleAlertText`,
+- **The phone is a Pixel 11 Pro XL on the Android 17 lock screen** (owner,
+  2026-10-11): the body at its real 162.7 x 76.5 mm ratio, the glass at the
+  panel's 20:9, a centred punch hole, the lock key above the volume rocker, and
+  everything on the screen laid out in Android dp (`--dp`, the panel is 412dp
+  wide) at the "large" font scale (`--sp` = 1.3dp): status icons, the small
+  clock with date and weather, one expanded Messages conversation notification
+  (letter tile, badge, actions), the fingerprint mark and the two corner
+  shortcuts. It shows the church's real cancellation text (`sampleAlertText`,
   word for word but for the apostrophe in "weeks’"), dated the day the slide
-  airs, with the lock screen's weekday to match (owner, 2026-10-11, over the
-  risk of a real-looking date). The EXAMPLE TEXT tag is therefore the only
-  thing that says it is a sample: keep it.
+  airs, with the lock screen's date to match. There is no EXAMPLE TEXT tag any
+  more (the owner removed it, over the risk of a real-looking date).
 - **The QR is art, not code at runtime.** `alertsQr.js` holds the module matrix
   (version 3, error correction Q); `alertsQr.test.js` regenerates it with the
   `qrcode` dev dependency and fails on any difference, so change the URL there

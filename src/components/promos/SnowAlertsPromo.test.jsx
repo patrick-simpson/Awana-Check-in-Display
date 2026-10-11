@@ -59,16 +59,20 @@ describe('SnowAlertsPromo', () => {
     expect(qr.getAttribute('viewBox')).toBe(`-2 -2 ${alertsQrPath().size + 4} ${alertsQrPath().size + 4}`);
   });
 
-  it('shows the church’s real text on the phone, dated today, marked as an example', () => {
+  it('shows the church’s real text on the Pixel’s lock screen, dated today', () => {
     for (const p of [promo(), storm('tonight')]) {
       const { container } = mount(p);
       const now = new Date();
       const date = `${now.getMonth() + 1}/${now.getDate()}/${String(now.getFullYear() % 100).padStart(2, '0')}`;
-      expect(text(container, '.snow-alerts__tag')).toBe('Example text');
       expect(text(container, '.snow-alerts__note-body')).toBe(
         `Awana has been cancelled on ${date} at KVBC. Clubbers should come prepared with both weeks’ sections next week.`,
       );
-      expect(text(container, '.snow-alerts__day')).toBe(now.toLocaleDateString('en-US', { weekday: 'long' }));
+      expect(container.querySelector('.snow-alerts__date').textContent).toContain(
+        `${now.toLocaleDateString('en-US', { weekday: 'short' })}, ${now.toLocaleDateString('en-US', { month: 'short' })} ${now.getDate()}`,
+      );
+      expect(text(container, '.snow-alerts__sender')).toBe('KVBC');
+      // No disclaimer on the phone (owner, 2026-10-11).
+      expect(container.querySelector('.snow-alerts__tag')).toBeNull();
       cleanup();
     }
   });

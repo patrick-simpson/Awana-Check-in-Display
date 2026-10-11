@@ -20,11 +20,10 @@ import { sampleAlertText, snowAlertCopy } from '../../lib/snowAlerts.js';
 //        phone's side of the frame only, so it never crosses the words.
 //   1.3  the SNOW DAY? kicker slams in (the storm week's names the night).
 //   1.7  SIGN UP FOR / CANCELLATION TEXTS drop in word by word.
-//   2.6  the phone falls into frame and settles at its tilt; 3.5 its screen
-//        wakes to a lock screen; a glow comes up behind it.
-//   4.2  the text slides down onto the lock screen and the phone BUZZES,
-//        rings running out of it (again at 10.0 and 15.5). The EXAMPLE TEXT
-//        tag lands on it at 4.6: the bubble is a sample, never news.
+//   2.6  a Pixel 11 Pro XL falls into frame and settles at its tilt; 3.5
+//        its screen wakes to the Android lock screen; a glow comes up behind.
+//   4.2  the church's text arrives as a Messages notification and the phone
+//        BUZZES, rings running out of it (again at 10.0 and 15.5).
 //   4.8  the line under the headline; 5.2 the snowdrifts rise across the
 //        foot, burying the phone's base.
 //   5.8  the QR plate pops onto the drift, 6.2 the label and the address.
@@ -141,8 +140,28 @@ const RINGS = BUZZES.flatMap((t) => [0, 0.22, 0.44].map((lag, k) => ({
 })));
 const WAKE = landsAt(3.5, 0.45, { opacity: [0, 1] }, 'easeOut');
 const GLOW = landsAt(3.5, 1.1, { opacity: [0, 1] }, 'easeOut');
-const NOTE = landsAt(4.2, 0.55, { opacity: [0, 1, 1], y: ['-130%', '6%', '0%'], scale: [0.92, 1.01, 1] }, EASE_SLAM);
-const TAG = landsAt(4.6, 0.5, { opacity: [0, 1, 1], scale: [0.4, 1.12, 1], rotate: [-18, 4, 0] }, EASE_SLAM);
+// A notification arriving on the Pixel lock screen fades up into place.
+const NOTE = landsAt(4.2, 0.45, { opacity: [0, 1, 1], y: ['18%', '-1%', '0%'], scale: [0.96, 1.005, 1] }, EASE_OUT);
+
+// Material Symbols (Apache 2.0) and the lock screen's own glyphs, 24-unit box.
+const ICON = Object.freeze({
+  wifi: 'M12 21l3.6-4.8A6 6 0 0 0 12 15a6 6 0 0 0-3.6 1.2L12 21zM12 3C7.95 3 4.21 4.34 1.2 6.6L3 9c2.5-1.88 5.62-3 9-3s6.5 1.12 9 3l1.8-2.4C19.79 4.34 16.05 3 12 3zm0 6c-2.7 0-5.19.89-7.2 2.4l1.8 2.4C8.1 12.67 9.97 12 12 12s3.9.67 5.4 1.8l1.8-2.4C17.19 9.89 14.7 9 12 9z',
+  signal: 'M2 22h20V2z',
+  chat: 'M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H7l-5 4V6a2 2 0 0 1 2-2z',
+  less: 'M7.41 15.41 12 10.83l4.59 4.58L18 14l-6-6-6 6z',
+  torch: 'M6 2h12v5l-2 3v12H8V10L6 7V2zm2 2v1.5h8V4H8zm4 8a1.6 1.6 0 1 0 0 3.2 1.6 1.6 0 0 0 0-3.2z',
+  camera: 'M9 2 7.17 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3.17L15 2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+});
+// The under-display sensor's mark: open ridges, drawn as strokes.
+const FINGERPRINT = Object.freeze([
+  'M12 15a14 14 0 0 1 24 0',
+  'M9 22a16 16 0 0 1 30 0',
+  'M14 33c0-8 4-13 10-13s10 5 10 13',
+  'M19 38c-1-3-1-5-1-7 0-4 2.5-7 6-7s6 3 6 7v2',
+  'M24 30v4c0 3 1 6 3 8',
+  'M30 39c1.5 1.5 3 2.2 5 2.5',
+  'M13 40c1.5-2 1.6-4.6 1.4-7',
+]);
 const SCREEN_SNOW = (() => {
   const rnd = seeded(77);
   return Array.from({ length: 34 }, (_, i) => ({
@@ -211,28 +230,53 @@ export default function SnowAlertsPromo({ promo }) {
         </div>
         <M.div className="snow-alerts__phone-slot" {...PHONE_DROP}>
           <M.div className="snow-alerts__phone" {...BUZZ}>
+            {/* Pixel 11 Pro XL: the lock key above the volume rocker, right side. */}
+            <span className="snow-alerts__key snow-alerts__key--power" />
+            <span className="snow-alerts__key snow-alerts__key--volume" />
             <div className="snow-alerts__screen">
               <M.div className="snow-alerts__lock" {...WAKE}>
                 <svg className="snow-alerts__screen-snow" viewBox="0 0 100 100" preserveAspectRatio="none">
                   {SCREEN_SNOW.map((f) => <circle key={f.key} cx={f.cx} cy={f.cy} r={f.r} fill="#fff" opacity={f.o} />)}
                 </svg>
+                <div className="snow-alerts__status">
+                  <svg viewBox="0 0 24 24"><path d={ICON.wifi} /></svg>
+                  <svg viewBox="0 0 24 24"><path d={ICON.signal} /></svg>
+                  <span className="snow-alerts__battery"><span>82</span></span>
+                </div>
                 <div className="snow-alerts__clock">
-                  <span className="snow-alerts__day">{sample.weekday}</span>
                   <span className="snow-alerts__time">4:30</span>
+                  <span className="snow-alerts__date">
+                    {sample.lockDate}
+                    <span className="snow-alerts__weather"><Snowflake size="1em" />28°F</span>
+                  </span>
                 </div>
                 <M.div className="snow-alerts__note" {...NOTE}>
-                  <div className="snow-alerts__note-head">
-                    <span className="snow-alerts__app"><Snowflake size="72%" /></span>
-                    <span className="snow-alerts__sender">KVB Church</span>
-                    <span className="snow-alerts__now">now</span>
+                  <span className="snow-alerts__avatar">
+                    K
+                    <span className="snow-alerts__badge"><svg viewBox="0 0 24 24"><path d={ICON.chat} /></svg></span>
+                  </span>
+                  <div className="snow-alerts__note-main">
+                    <div className="snow-alerts__note-head">
+                      <span className="snow-alerts__sender">KVBC</span>
+                      <span className="snow-alerts__now">· now</span>
+                      <span className="snow-alerts__expand"><svg viewBox="0 0 24 24"><path d={ICON.less} /></svg></span>
+                    </div>
+                    <div className="snow-alerts__note-body">{sample.text}</div>
+                    <div className="snow-alerts__actions">
+                      <span>Mark as read</span>
+                      <span>Reply</span>
+                    </div>
                   </div>
-                  <div className="snow-alerts__note-body">{sample.text}</div>
                 </M.div>
+                <svg className="snow-alerts__fingerprint" viewBox="0 0 48 48">
+                  {FINGERPRINT.map((d) => <path key={d} d={d} />)}
+                </svg>
+                <span className="snow-alerts__shortcut snow-alerts__shortcut--left"><svg viewBox="0 0 24 24"><path d={ICON.torch} fillRule="evenodd" /></svg></span>
+                <span className="snow-alerts__shortcut snow-alerts__shortcut--right"><svg viewBox="0 0 24 24"><path d={ICON.camera} fillRule="evenodd" /></svg></span>
               </M.div>
-              <div className="snow-alerts__island" />
+              <div className="snow-alerts__punch" />
             </div>
           </M.div>
-          <M.div className="snow-alerts__tag" {...TAG}>Example text</M.div>
         </M.div>
       </div>
 

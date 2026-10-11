@@ -118,6 +118,7 @@ describe('sampleAlertText: the phone’s example text', () => {
   it('is the church’s real message, dated the day it airs', () => {
     expect(sampleAlertText(new Date(2026, 11, 11, 16, 30))).toEqual({
       weekday: 'Friday',
+      lockDate: 'Fri, Dec 11',
       text: 'Awana has been cancelled on 12/11/26 at KVBC. Clubbers should come prepared with both weeks’ sections next week.',
     });
     expect(sampleAlertText(new Date(2027, 0, 6)).text).toContain('on 1/6/27 at KVBC');
