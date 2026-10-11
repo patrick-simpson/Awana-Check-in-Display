@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  SNOW_ALERT_SEC, SNOW_CADENCE, SNOW_INCHES, inSnowSeason, snowAlertCopy, snowOutlook,
+  SNOW_ALERT_SEC, SNOW_CADENCE, SNOW_INCHES, inSnowSeason, sampleAlertText, snowAlertCopy, snowOutlook,
 } from './snowAlerts.js';
 
 // Wednesdays, the shape the calendar feed delivers. 2026-12-02 is a Wednesday.
@@ -87,17 +87,17 @@ describe('snowAlertCopy: what the slide says', () => {
   it('is the ordinary-week sign-up pitch without a storm', () => {
     expect(snowAlertCopy(null)).toEqual({
       kicker: 'Snow day?',
-      headline: ['Know before', 'you go.'],
-      body: 'When snow cancels club, we send a text. Sign up once and it finds you.',
+      headline: ['Sign up for', 'cancellation texts'],
+      body: 'When snow cancels club, you’ll get a text. Scan once and you’re set for the winter.',
       storm: false,
     });
   });
 
   it('names the night when snow is coming', () => {
     const at = (when) => snowAlertCopy({ date: '2026-12-02', when, weekday: 'Wednesday', inches: 3 });
-    expect(at('later').kicker).toBe('Snow in the forecast for Wednesday');
-    expect(at('tomorrow').kicker).toBe('Snow in the forecast for tomorrow');
-    expect(at('tonight').kicker).toBe('Snow in the forecast tonight');
+    expect(at('later').kicker).toBe('Wednesday looks snowy');
+    expect(at('tomorrow').kicker).toBe('Tomorrow looks snowy');
+    expect(at('tonight').kicker).toBe('Tonight looks snowy');
     expect(at('later').storm).toBe(true);
     expect(at('later').body).toBe('If snow cancels club, we’ll text you. Not signed up yet? Scan now. It takes a minute.');
     // The headline is the same either way: the urgency is in the kicker.
@@ -111,5 +111,16 @@ describe('snowAlertCopy: what the slide says', () => {
       expect(all).not.toContain('—');
       expect(all).not.toContain("'");
     }
+  });
+});
+
+describe('sampleAlertText: the phone’s example text', () => {
+  it('is the church’s real message, dated the day it airs', () => {
+    expect(sampleAlertText(new Date(2026, 11, 11, 16, 30))).toEqual({
+      weekday: 'Friday',
+      text: 'Awana has been cancelled on 12/11/26 at KVBC. Clubbers should come prepared with both weeks’ sections next week.',
+    });
+    expect(sampleAlertText(new Date(2027, 0, 6)).text).toContain('on 1/6/27 at KVBC');
+    expect(sampleAlertText(new Date(2027, 0, 6)).weekday).toBe('Wednesday');
   });
 });

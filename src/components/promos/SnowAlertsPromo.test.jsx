@@ -34,9 +34,9 @@ describe('SnowAlertsPromo', () => {
   it('says the ordinary-week pitch, with the address under the code', () => {
     const { container } = mount(promo());
     expect(text(container, '.snow-alerts__kicker')).toBe('Snow day?');
-    expect(container.querySelector('.snow-alerts__headline').getAttribute('aria-label')).toBe('Know before you go.');
-    expect([...container.querySelectorAll('.snow-alerts__word')].map((w) => w.textContent)).toEqual(['Know', 'before', 'you', 'go.']);
-    expect(text(container, '.snow-alerts__body')).toBe('When snow cancels club, we send a text. Sign up once and it finds you.');
+    expect(container.querySelector('.snow-alerts__headline').getAttribute('aria-label')).toBe('Sign up for cancellation texts');
+    expect([...container.querySelectorAll('.snow-alerts__word')].map((w) => w.textContent)).toEqual(['Sign', 'up', 'for', 'cancellation', 'texts']);
+    expect(text(container, '.snow-alerts__body')).toBe('When snow cancels club, you’ll get a text. Scan once and you’re set for the winter.');
     expect(text(container, '.snow-alerts__scan-label')).toBe('Scan for the text');
     expect(text(container, '.snow-alerts__url')).toBe('kvbchurch.org/alerts');
   });
@@ -44,10 +44,10 @@ describe('SnowAlertsPromo', () => {
   it('names the night, in the storm colours, when snow is coming', () => {
     const { container } = mount(storm());
     expect(container.querySelector('.snow-alerts--storm')).not.toBeNull();
-    expect(text(container, '.snow-alerts__kicker')).toBe('Snow in the forecast for Wednesday');
+    expect(text(container, '.snow-alerts__kicker')).toBe('Wednesday looks snowy');
     expect(text(container, '.snow-alerts__body')).toBe('If snow cancels club, we’ll text you. Not signed up yet? Scan now. It takes a minute.');
     cleanup();
-    expect(text(mount(storm('tonight')).container, '.snow-alerts__kicker')).toBe('Snow in the forecast tonight');
+    expect(text(mount(storm('tonight')).container, '.snow-alerts__kicker')).toBe('Tonight looks snowy');
   });
 
   it('draws the real QR code for the sign-up', () => {
@@ -59,13 +59,16 @@ describe('SnowAlertsPromo', () => {
     expect(qr.getAttribute('viewBox')).toBe(`-2 -2 ${alertsQrPath().size + 4} ${alertsQrPath().size + 4}`);
   });
 
-  it('marks the text on the phone as an example, so a snow week never reads it as news', () => {
+  it('shows the church’s real text on the phone, dated today, marked as an example', () => {
     for (const p of [promo(), storm('tonight')]) {
       const { container } = mount(p);
+      const now = new Date();
+      const date = `${now.getMonth() + 1}/${now.getDate()}/${String(now.getFullYear() % 100).padStart(2, '0')}`;
       expect(text(container, '.snow-alerts__tag')).toBe('Example text');
-      expect(text(container, '.snow-alerts__note-title')).toBe('Snow day: no Awana tonight');
-      // The lock screen names a weekday, never a real date.
-      expect(text(container, '.snow-alerts__day')).toBe('Wednesday');
+      expect(text(container, '.snow-alerts__note-body')).toBe(
+        `Awana has been cancelled on ${date} at KVBC. Clubbers should come prepared with both weeks’ sections next week.`,
+      );
+      expect(text(container, '.snow-alerts__day')).toBe(now.toLocaleDateString('en-US', { weekday: 'long' }));
       cleanup();
     }
   });
@@ -73,8 +76,8 @@ describe('SnowAlertsPromo', () => {
   it('reads as one image to a screen reader, with every fact in its label', () => {
     const { container } = mount(storm());
     const label = container.querySelector('.snow-alerts').getAttribute('aria-label');
-    expect(label).toContain('Snow in the forecast for Wednesday');
-    expect(label).toContain('Know before you go.');
+    expect(label).toContain('Wednesday looks snowy');
+    expect(label).toContain('Sign up for cancellation texts');
     expect(label).toContain('kvbchurch.org/alerts');
   });
 
@@ -88,7 +91,7 @@ describe('SnowAlertsPromo', () => {
 
   it('gives PromoSlide its detail table', () => {
     expect(detailsFor(promo())).toBe(DETAILS.default);
-    expect(DETAILS.default).toEqual(['When snow cancels club, we send a text. Sign up once and it finds you.']);
+    expect(DETAILS.default).toEqual(['When snow cancels club, you’ll get a text. Scan once and you’re set for the winter.']);
   });
 
   it('never uses an em dash or a straight apostrophe on screen', () => {

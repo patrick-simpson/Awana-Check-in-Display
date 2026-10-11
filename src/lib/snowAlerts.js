@@ -132,22 +132,40 @@ export function snowOutlook(events, todayStr, forecast, specialDates = null) {
  * @returns {{ kicker: string, headline: string[], body: string, storm: boolean }}
  */
 export function snowAlertCopy(outlook) {
-  const headline = ['Know before', 'you go.'];
+  const headline = ['Sign up for', 'cancellation texts'];
   if (!outlook) {
     return {
       kicker: 'Snow day?',
       headline,
-      body: 'When snow cancels club, we send a text. Sign up once and it finds you.',
+      body: 'When snow cancels club, you’ll get a text. Scan once and you’re set for the winter.',
       storm: false,
     };
   }
-  const night = outlook.when === 'tonight' ? 'tonight'
-    : outlook.when === 'tomorrow' ? 'for tomorrow'
-      : `for ${outlook.weekday}`;
+  const night = outlook.when === 'tonight' ? 'Tonight'
+    : outlook.when === 'tomorrow' ? 'Tomorrow'
+      : outlook.weekday;
   return {
-    kicker: `Snow in the forecast ${night}`,
+    kicker: `${night} looks snowy`,
     headline,
     body: 'If snow cancels club, we’ll text you. Not signed up yet? Scan now. It takes a minute.',
     storm: true,
+  };
+}
+
+/**
+ * The phone's sample text: the church's real cancellation message, word for
+ * word (owner, 2026-10-11, with the apostrophe in "weeks’" put right), dated
+ * the day the slide is on screen, and the lock screen's weekday to match. The
+ * EXAMPLE TEXT tag on the phone is what says it is a sample.
+ *
+ * @param {Date} now
+ * @returns {{ weekday: string, text: string }}
+ */
+export function sampleAlertText(now) {
+  const yy = String(now.getFullYear() % 100).padStart(2, '0');
+  const date = `${now.getMonth() + 1}/${now.getDate()}/${yy}`;
+  return {
+    weekday: now.toLocaleDateString('en-US', { weekday: 'long' }),
+    text: `Awana has been cancelled on ${date} at KVBC. Clubbers should come prepared with both weeks’ sections next week.`,
   };
 }

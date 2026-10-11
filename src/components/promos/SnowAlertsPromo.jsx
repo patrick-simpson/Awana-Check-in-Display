@@ -1,10 +1,11 @@
 import { M } from '../../lib/motion.jsx';
 import { landsAt, keyframes, seeded, EASE_SLAM, EASE_OUT } from './kit.jsx';
 import { ALERTS_SHORT, alertsQrPath } from '../../lib/alertsQr.js';
-import { snowAlertCopy } from '../../lib/snowAlerts.js';
+import { useState } from 'react';
+import { sampleAlertText, snowAlertCopy } from '../../lib/snowAlerts.js';
 
 // ─────────────────────────────────────────────────────────────
-// Snow alerts: "Know before you go." The text-message sign-up, told as the
+// Snow alerts: "Sign up for cancellation texts." The text-message sign-up, told as the
 // text itself (owner's concept pick, 2026-10-11).
 //
 // Not a printed poster, so it wears the lobby's own kit (Paytone One shouts,
@@ -18,7 +19,7 @@ import { snowAlertCopy } from '../../lib/snowAlerts.js';
 //        GPU only moves (never redraws), the near one blowing past on the
 //        phone's side of the frame only, so it never crosses the words.
 //   1.3  the SNOW DAY? kicker slams in (the storm week's names the night).
-//   1.7  KNOW BEFORE / YOU GO. drop in word by word.
+//   1.7  SIGN UP FOR / CANCELLATION TEXTS drop in word by word.
 //   2.6  the phone falls into frame and settles at its tilt; 3.5 its screen
 //        wakes to a lock screen; a glow comes up behind it.
 //   4.2  the text slides down onto the lock screen and the phone BUZZES,
@@ -102,7 +103,7 @@ function SnowLayer({ layer, storm }) {
 
 // ── The copy ─────────────────────────────────────────────────
 const KICKER = landsAt(1.3, 0.55, { opacity: [0, 1, 1], scale: [0.55, 1.08, 1], rotate: [-6, 1.5, -2] }, EASE_SLAM);
-const WORD_AT = Object.freeze([1.7, 1.86, 2.08, 2.24]);
+const WORD_AT = Object.freeze([1.7, 1.84, 1.98, 2.16, 2.36]);
 const word = (i) => landsAt(WORD_AT[i], 0.6, {
   opacity: [0, 1, 1],
   y: ['-0.7em', '0.06em', '0em'],
@@ -189,6 +190,8 @@ function Snowflake({ size }) {
 export default function SnowAlertsPromo({ promo }) {
   const copy = snowAlertCopy(promo?.snow ?? null);
   const lines = headlineLines(copy.headline);
+  // Dated the day it airs, fixed for the slide's own 20 s on screen.
+  const [sample] = useState(() => sampleAlertText(new Date()));
 
   return (
     <div
@@ -214,7 +217,7 @@ export default function SnowAlertsPromo({ promo }) {
                   {SCREEN_SNOW.map((f) => <circle key={f.key} cx={f.cx} cy={f.cy} r={f.r} fill="#fff" opacity={f.o} />)}
                 </svg>
                 <div className="snow-alerts__clock">
-                  <span className="snow-alerts__day">Wednesday</span>
+                  <span className="snow-alerts__day">{sample.weekday}</span>
                   <span className="snow-alerts__time">4:30</span>
                 </div>
                 <M.div className="snow-alerts__note" {...NOTE}>
@@ -223,8 +226,7 @@ export default function SnowAlertsPromo({ promo }) {
                     <span className="snow-alerts__sender">KVB Church</span>
                     <span className="snow-alerts__now">now</span>
                   </div>
-                  <div className="snow-alerts__note-title">Snow day: no Awana tonight</div>
-                  <div className="snow-alerts__note-body">Roads are bad, so club is canceled. Stay warm, see you next week!</div>
+                  <div className="snow-alerts__note-body">{sample.text}</div>
                 </M.div>
               </M.div>
               <div className="snow-alerts__island" />

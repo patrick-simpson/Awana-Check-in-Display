@@ -580,7 +580,7 @@ wins over readability, but every fact lands on the end card. Signage only
 Owner request 2026-10-11: a slide that gets parents signed up for the text the
 church sends when snow cancels club, with a QR code and the URL
 (kvbchurch.org/alerts, which redirects to the Church Center "Notification
-Preferences" form). Concept 1 of three, "Know before you go": a night blizzard,
+Preferences" form). Concept 1 of three: a night blizzard,
 a phone that drops in and lights up with the cancellation text, then the QR on a
 snowdrift. `src/lib/snowAlerts.js` is the pure half, `SnowAlertsPromo.jsx` +
 `src/styles/promos/snow-alerts.css` the art, `src/lib/alertsQr.js` the code.
@@ -602,10 +602,14 @@ snowdrift. `src/lib/snowAlerts.js` is the pure half, `SnowAlertsPromo.jsx` +
   `weather.js`: Open-Meteo daily `snowfall_sum` in inches, 8 days, every 3 h,
   only in season, last good copy kept). No forecast means the calm cadence and
   wording, never a guess. The kicker then names the night (`snowAlertCopy`:
-  "tonight", "for tomorrow", "for Wednesday") in the hot colour.
-- **The phone's text is marked EXAMPLE TEXT** and its lock screen names a
-  weekday, never a date, so a snow week's "no Awana tonight" can never be read
-  as news. Keep that tag.
+  "Tonight / Tomorrow / Wednesday looks snowy") in the hot colour. The
+  headline is the owner's own words, SIGN UP FOR / CANCELLATION TEXTS, every
+  week.
+- **The phone shows the church's real cancellation text** (`sampleAlertText`,
+  word for word but for the apostrophe in "weeks’"), dated the day the slide
+  airs, with the lock screen's weekday to match (owner, 2026-10-11, over the
+  risk of a real-looking date). The EXAMPLE TEXT tag is therefore the only
+  thing that says it is a sample: keep it.
 - **The QR is art, not code at runtime.** `alertsQr.js` holds the module matrix
   (version 3, error correction Q); `alertsQr.test.js` regenerates it with the
   `qrcode` dev dependency and fails on any difference, so change the URL there
