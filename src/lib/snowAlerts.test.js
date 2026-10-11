@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  SNOW_ALERT_SEC, SNOW_CADENCE, SNOW_INCHES, inSnowSeason, sampleAlertText, snowAlertCopy, snowOutlook,
+  SNOW_ALERT_SEC, SNOW_CADENCE, SNOW_INCHES, batteryLevel, inSnowSeason, lockTime, sampleAlertText, snowAlertCopy, snowOutlook,
 } from './snowAlerts.js';
 
 // Wednesdays, the shape the calendar feed delivers. 2026-12-02 is a Wednesday.
@@ -87,8 +87,7 @@ describe('snowAlertCopy: what the slide says', () => {
   it('is the ordinary-week sign-up pitch without a storm', () => {
     expect(snowAlertCopy(null)).toEqual({
       kicker: 'Snow day?',
-      headline: ['Sign up for', 'cancellation texts'],
-      body: 'When snow cancels club, you’ll get a text. Scan once and you’re set for the winter.',
+      headline: ['Sign up for', 'cancellation', 'texts'],
       storm: false,
     });
   });
@@ -99,7 +98,7 @@ describe('snowAlertCopy: what the slide says', () => {
     expect(at('tomorrow').kicker).toBe('Tomorrow looks snowy');
     expect(at('tonight').kicker).toBe('Tonight looks snowy');
     expect(at('later').storm).toBe(true);
-    expect(at('later').body).toBe('If snow cancels club, we’ll text you. Not signed up yet? Scan now. It takes a minute.');
+    expect(at('later')).not.toHaveProperty('body');
     // The headline is the same either way: the urgency is in the kicker.
     expect(at('later').headline).toEqual(snowAlertCopy(null).headline);
   });
@@ -107,7 +106,7 @@ describe('snowAlertCopy: what the slide says', () => {
   it('never uses an em dash or a straight apostrophe', () => {
     for (const o of [null, { date: '2026-12-02', when: 'later', weekday: 'Wednesday', inches: 2 }]) {
       const c = snowAlertCopy(o);
-      const all = [c.kicker, ...c.headline, c.body].join(' ');
+      const all = [c.kicker, ...c.headline].join(' ');
       expect(all).not.toContain('—');
       expect(all).not.toContain("'");
     }
@@ -123,5 +122,24 @@ describe('sampleAlertText: the phone’s example text', () => {
     });
     expect(sampleAlertText(new Date(2027, 0, 6)).text).toContain('on 1/6/27 at KVBC');
     expect(sampleAlertText(new Date(2027, 0, 6)).weekday).toBe('Wednesday');
+  });
+});
+
+describe('the phone’s live lock screen', () => {
+  it('keeps a Pixel’s 12-hour clock', () => {
+    expect(lockTime(new Date(2026, 11, 2, 16, 30))).toBe('4:30');
+    expect(lockTime(new Date(2026, 11, 2, 0, 5))).toBe('12:05');
+    expect(lockTime(new Date(2026, 11, 2, 12, 0))).toBe('12:00');
+    expect(lockTime(new Date(2026, 11, 2, 9, 7))).toBe('9:07');
+  });
+
+  it('reads tonight’s check-ins as the battery, stopping at 100', () => {
+    expect(batteryLevel(0)).toBe(0);
+    expect(batteryLevel(47)).toBe(47);
+    expect(batteryLevel(100)).toBe(100);
+    expect(batteryLevel(163)).toBe(100);
+    expect(batteryLevel(null)).toBe(0);
+    expect(batteryLevel(undefined)).toBe(0);
+    expect(batteryLevel(-3)).toBe(0);
   });
 });

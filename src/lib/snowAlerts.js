@@ -125,29 +125,21 @@ export function snowOutlook(events, todayStr, forecast, specialDates = null) {
 }
 
 /**
- * The slide's words. One headline whatever the week; the kicker and the line
- * under it turn urgent, and name the night, when snow is forecast for it.
+ * The slide's words. One headline whatever the week; the kicker turns
+ * urgent, and names the night, when snow is forecast for it.
  *
  * @param {SnowOutlook|null|undefined} outlook
- * @returns {{ kicker: string, headline: string[], body: string, storm: boolean }}
+ * @returns {{ kicker: string, headline: string[], storm: boolean }}
  */
 export function snowAlertCopy(outlook) {
-  const headline = ['Sign up for', 'cancellation texts'];
-  if (!outlook) {
-    return {
-      kicker: 'Snow day?',
-      headline,
-      body: 'When snow cancels club, you’ll get a text. Scan once and you’re set for the winter.',
-      storm: false,
-    };
-  }
+  const headline = ['Sign up for', 'cancellation', 'texts'];
+  if (!outlook) return { kicker: 'Snow day?', headline, storm: false };
   const night = outlook.when === 'tonight' ? 'Tonight'
     : outlook.when === 'tomorrow' ? 'Tomorrow'
       : outlook.weekday;
   return {
     kicker: `${night} looks snowy`,
     headline,
-    body: 'If snow cancels club, we’ll text you. Not signed up yet? Scan now. It takes a minute.',
     storm: true,
   };
 }
@@ -171,4 +163,25 @@ export function sampleAlertText(now) {
     lockDate: `${wd}, ${mon} ${now.getDate()}`,
     text: `Awana has been cancelled on ${date} at KVBC. Clubbers should come prepared with both weeks’ sections next week.`,
   };
+}
+
+/**
+ * The Pixel lock screen's clock: 12-hour, no leading zero, no AM/PM ("4:30").
+ *
+ * @param {Date} now
+ */
+export function lockTime(now) {
+  const h = now.getHours() % 12 || 12;
+  return `${h}:${String(now.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * The phone's battery reads tonight's check-ins, as a percentage that stops
+ * at 100 (owner, 2026-10-11).
+ *
+ * @param {number|null|undefined} checkedIn
+ */
+export function batteryLevel(checkedIn) {
+  const n = Number.isFinite(checkedIn) ? Math.floor(Number(checkedIn)) : 0;
+  return Math.max(0, Math.min(100, n));
 }

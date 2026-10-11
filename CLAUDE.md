@@ -603,8 +603,9 @@ snowdrift. `src/lib/snowAlerts.js` is the pure half, `SnowAlertsPromo.jsx` +
   only in season, last good copy kept). No forecast means the calm cadence and
   wording, never a guess. The kicker then names the night (`snowAlertCopy`:
   "Tonight / Tomorrow / Wednesday looks snowy") in the hot colour. The
-  headline is the owner's own words, SIGN UP FOR / CANCELLATION TEXTS, every
-  week.
+  headline is the owner's own words, SIGN UP FOR / CANCELLATION / TEXTS, every
+  week, stacked on three lines straight above the code: there is no line of
+  copy between them (owner, 2026-10-11), so do not add one back.
 - **The phone is a Pixel 11 Pro XL on the Android 17 lock screen** (owner,
   2026-10-11): the body at its real 162.7 x 76.5 mm ratio, the glass at the
   panel's 20:9, a centred punch hole, the lock key above the volume rocker, and
@@ -614,8 +615,13 @@ snowdrift. `src/lib/snowAlerts.js` is the pure half, `SnowAlertsPromo.jsx` +
   (letter tile, badge, actions), the fingerprint mark and the two corner
   shortcuts. It shows the church's real cancellation text (`sampleAlertText`,
   word for word but for the apostrophe in "weeks’"), dated the day the slide
-  airs, with the lock screen's date to match. There is no EXAMPLE TEXT tag any
-  more (the owner removed it, over the risk of a real-looking date).
+  airs. There is no EXAMPLE TEXT tag any more (the owner removed it, over the
+  risk of a real-looking date). **The lock screen is live**: its clock is the
+  current time (`lockTime`, re-read each minute), its weather the lobby's own
+  (`useWeather`, which also fetches while the snow slide can air; no reading,
+  no weather shown), and its battery tonight's check-ins (`batteryLevel`,
+  capped at 100). App provides the weather and the count through
+  `LobbyLiveContext` (`src/lib/lobbyLive.jsx`).
 - **The QR is art, not code at runtime.** `alertsQr.js` holds the module matrix
   (version 3, error correction Q); `alertsQr.test.js` regenerates it with the
   `qrcode` dev dependency and fails on any difference, so change the URL there
@@ -1320,6 +1326,16 @@ tab ids, which section it opens on, the phase in plain words).
   the `html.embedded .panel--tabbed` cap still applies. `e2e/settings.spec.js`
   checks the panes at three sizes and the phone flow; `e2e/panels.spec.js`
   presses Undo (a plain panel button) for the squish tests.
+- **Joy** (owner, 2026-10-11: "joyful animations as I select each option and
+  enter each tab"). Entering a section, its title swings in and its cards
+  cascade up on the squish's spring (the pane body is keyed per section); the
+  rail's picked item hops. Ticking a box, picking a radio option or a menu
+  value boings that control and bursts kit sparkles from it
+  (`src/lib/settingsJoy.js`, from one `change` listener on the dialog, as DOM
+  classes, never a keyframe keyed on `:checked`, which would also play on
+  mount); unticking only boops. Individual `scale` / `rotate` / `translate`
+  only. Zero animation and reduced motion stop all of it, and the script makes
+  no burst under either.
 - Copy elsewhere names sections as `Settings → Setup`, `Settings → Slides`,
   `Settings → Screen & corner`: rename a section and grep for its name.
 

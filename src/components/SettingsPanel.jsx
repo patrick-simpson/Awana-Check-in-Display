@@ -17,6 +17,7 @@ import {
   SlidesSection, StatusSection, statusProblems,
 } from './settings/sections.jsx';
 import { FollowingContext } from './settings/fields.jsx';
+import { celebrateChange } from '../lib/settingsJoy.js';
 import awanaClubsMark from '../../shared/brand/logos/awana-clubs-white.svg';
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -337,6 +338,16 @@ export default function SettingsPanel({
     requestAnimationFrame(() => navRefs.current[section]?.focus());
   };
 
+  // Every box, radio option and menu choice gets its own little celebration
+  // (src/lib/settingsJoy.js): one native listener for the whole dialog.
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return undefined;
+    const onChange = (e) => celebrateChange(e);
+    dialog.addEventListener('change', onChange);
+    return () => dialog.removeEventListener('change', onChange);
+  }, []);
+
   // Escape closes from anywhere (nothing is ever lost: changes are already
   // applied). Tab is kept inside the dialog.
   useEffect(() => {
@@ -490,7 +501,7 @@ export default function SettingsPanel({
               <button ref={backRef} type="button" className="ghost settings-back" onClick={back} aria-label="Back to all settings">
                 ← All settings
               </button>
-              <h3 className="settings-pane__title">{current.label}</h3>
+              <h3 className="settings-pane__title" key={section}>{current.label}</h3>
             </div>
             <div className="panel-body" key={`${section}-${generation}`} onBlur={onPaneBlur} onKeyDown={onPaneKeyDown}>
               {body}

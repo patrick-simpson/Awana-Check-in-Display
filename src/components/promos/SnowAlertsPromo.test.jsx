@@ -4,6 +4,7 @@ import { ZeroAnimationContext } from '../../lib/motion.jsx';
 import PromoSlide, { detailsFor } from '../PromoSlide.jsx';
 import { DETAILS } from './SnowAlertsPromo.jsx';
 import { alertsQrPath } from '../../lib/alertsQr.js';
+import { LobbyLiveContext } from '../../lib/lobbyLive.jsx';
 
 // No global test setup file in this repo, so RTL's automatic cleanup doesn't
 // run: do it explicitly. Fake timers can't drive framer-motion, so these pin
@@ -36,7 +37,8 @@ describe('SnowAlertsPromo', () => {
     expect(text(container, '.snow-alerts__kicker')).toBe('Snow day?');
     expect(container.querySelector('.snow-alerts__headline').getAttribute('aria-label')).toBe('Sign up for cancellation texts');
     expect([...container.querySelectorAll('.snow-alerts__word')].map((w) => w.textContent)).toEqual(['Sign', 'up', 'for', 'cancellation', 'texts']);
-    expect(text(container, '.snow-alerts__body')).toBe('When snow cancels club, you’ll get a text. Scan once and you’re set for the winter.');
+    // No line between the headline and the code (owner, 2026-10-11).
+    expect(container.querySelector('.snow-alerts__body')).toBeNull();
     expect(text(container, '.snow-alerts__scan-label')).toBe('Scan for the text');
     expect(text(container, '.snow-alerts__url')).toBe('kvbchurch.org/alerts');
   });
@@ -45,7 +47,6 @@ describe('SnowAlertsPromo', () => {
     const { container } = mount(storm());
     expect(container.querySelector('.snow-alerts--storm')).not.toBeNull();
     expect(text(container, '.snow-alerts__kicker')).toBe('Wednesday looks snowy');
-    expect(text(container, '.snow-alerts__body')).toBe('If snow cancels club, we’ll text you. Not signed up yet? Scan now. It takes a minute.');
     cleanup();
     expect(text(mount(storm('tonight')).container, '.snow-alerts__kicker')).toBe('Tonight looks snowy');
   });
@@ -77,6 +78,30 @@ describe('SnowAlertsPromo', () => {
     }
   });
 
+  it('shows the lobby’s weather and tonight’s check-ins as the battery', () => {
+    const live = (value) => render(
+      <LobbyLiveContext.Provider value={value}>
+        <PromoSlide promo={promo()} />
+      </LobbyLiveContext.Provider>,
+    ).container;
+    let c = live({ weather: { temp: 27, code: 73, isDay: false, units: 'fahrenheit' }, checkedIn: 64 });
+    expect(c.querySelector('.snow-alerts__weather').textContent).toBe('27°F');
+    expect(c.querySelector('.snow-alerts__battery').textContent).toBe('64');
+    expect(c.querySelector('.snow-alerts__battery').style.getPropertyValue('--level')).toBe('64%');
+    cleanup();
+    c = live({ weather: null, checkedIn: 140 });
+    expect(c.querySelector('.snow-alerts__weather')).toBeNull();
+    expect(c.querySelector('.snow-alerts__battery').textContent).toBe('100');
+  });
+
+  it('keeps the phone’s clock on the current time', () => {
+    const fmt = (d) => `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const before = fmt(new Date());
+    const { container } = mount(promo());
+    // Either side of a minute's turn, never a fixed time.
+    expect([before, fmt(new Date())]).toContain(text(container, '.snow-alerts__time'));
+  });
+
   it('reads as one image to a screen reader, with every fact in its label', () => {
     const { container } = mount(storm());
     const label = container.querySelector('.snow-alerts').getAttribute('aria-label');
@@ -95,7 +120,7 @@ describe('SnowAlertsPromo', () => {
 
   it('gives PromoSlide its detail table', () => {
     expect(detailsFor(promo())).toBe(DETAILS.default);
-    expect(DETAILS.default).toEqual(['When snow cancels club, you’ll get a text. Scan once and you’re set for the winter.']);
+    expect(DETAILS.default).toEqual(['Sign up for cancellation texts']);
   });
 
   it('never uses an em dash or a straight apostrophe on screen', () => {

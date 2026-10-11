@@ -1,8 +1,10 @@
 import { M } from '../../lib/motion.jsx';
 import { landsAt, keyframes, seeded, EASE_SLAM, EASE_OUT } from './kit.jsx';
 import { ALERTS_SHORT, alertsQrPath } from '../../lib/alertsQr.js';
-import { useState } from 'react';
-import { sampleAlertText, snowAlertCopy } from '../../lib/snowAlerts.js';
+import { useContext, useEffect, useState } from 'react';
+import { batteryLevel, lockTime, sampleAlertText, snowAlertCopy } from '../../lib/snowAlerts.js';
+import { LobbyLiveContext } from '../../lib/lobbyLive.jsx';
+import { getWeatherType } from '../../lib/weather.js';
 
 // ─────────────────────────────────────────────────────────────
 // Snow alerts: "Sign up for cancellation texts." The text-message sign-up, told as the
@@ -19,13 +21,12 @@ import { sampleAlertText, snowAlertCopy } from '../../lib/snowAlerts.js';
 //        GPU only moves (never redraws), the near one blowing past on the
 //        phone's side of the frame only, so it never crosses the words.
 //   1.3  the SNOW DAY? kicker slams in (the storm week's names the night).
-//   1.7  SIGN UP FOR / CANCELLATION TEXTS drop in word by word.
+//   1.7  SIGN UP FOR / CANCELLATION / TEXTS drop in word by word.
 //   2.6  a Pixel 11 Pro XL falls into frame and settles at its tilt; 3.5
 //        its screen wakes to the Android lock screen; a glow comes up behind.
 //   4.2  the church's text arrives as a Messages notification and the phone
 //        BUZZES, rings running out of it (again at 10.0 and 15.5).
-//   4.8  the line under the headline; 5.2 the snowdrifts rise across the
-//        foot, burying the phone's base.
+//   5.2  the snowdrifts rise across the foot, burying the phone's base.
 //   5.8  the QR plate pops onto the drift, 6.2 the label and the address.
 //        Everything is in place by 6.6 and HOLDS, still, to the end: 13+
 //        seconds for a parent to get a phone out and scan.
@@ -38,7 +39,7 @@ import { sampleAlertText, snowAlertCopy } from '../../lib/snowAlerts.js';
 // Each poster exports its detail lines; this one has no rotating line, but
 // the table keeps PromoSlide's index whole and names the copy in one place.
 export const DETAILS = Object.freeze({
-  default: Object.freeze([snowAlertCopy(null).body]),
+  default: Object.freeze([snowAlertCopy(null).headline.join(' ')]),
 });
 
 const QR = alertsQrPath();
@@ -108,7 +109,6 @@ const word = (i) => landsAt(WORD_AT[i], 0.6, {
   y: ['-0.7em', '0.06em', '0em'],
   rotate: [i % 2 ? 9 : -9, i % 2 ? -1.5 : 1.5, 0],
 }, EASE_SLAM);
-const BODY = landsAt(4.8, 0.7, { opacity: [0, 1], y: ['0.8em', '0em'] }, EASE_OUT);
 
 // ── The phone ────────────────────────────────────────────────
 const PHONE_DROP = keyframes([
@@ -206,17 +206,64 @@ function Snowflake({ size }) {
   );
 }
 
+/** Now, re-read on each minute's turn, so the phone's clock keeps time. */
+function useMinuteClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    let timer;
+    const arm = () => {
+      const t = new Date();
+      timer = setTimeout(() => { setNow(new Date()); arm(); }, 60_000 - (t.getSeconds() * 1000 + t.getMilliseconds()) + 20);
+    };
+    arm();
+    return () => clearTimeout(timer);
+  }, []);
+  return now;
+}
+
+/** The lock screen's weather glyph, Material-style, in the date line's colour. */
+function WeatherIcon({ weather }) {
+  const type = getWeatherType(weather.code);
+  if (type === 'snow') return <Snowflake size="1em" />;
+  const cloud = 'M18.5 19H7a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 17.9 9.5 4.75 4.75 0 0 1 18.5 19z';
+  return (
+    <svg className="snow-alerts__wx" viewBox="0 0 24 24" aria-hidden="true">
+      {type === 'clear' && weather.isDay !== false && (
+        <g>
+          <circle cx="12" cy="12" r="4.4" />
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+            <rect key={a} x="11" y="1.6" width="2" height="3.6" rx="1" transform={`rotate(${a} 12 12)`} />
+          ))}
+        </g>
+      )}
+      {type === 'clear' && weather.isDay === false && (
+        <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.4 5.4 0 0 1-7.54-7.54C12.92 3.04 12.46 3 12 3z" />
+      )}
+      {(type === 'cloudy' || type === 'rain' || type === 'thunder') && (
+        <path d={cloud} transform={type === 'cloudy' ? undefined : 'translate(0 -3)'} />
+      )}
+      {type === 'rain' && [7, 12, 17].map((x) => <rect key={x} x={x - 1} y="18" width="2" height="4.5" rx="1" transform={`rotate(20 ${x} 20)`} />)}
+      {type === 'thunder' && <path d="M12.5 15 9 20.5h3l-1.5 3.5L15 18h-3l1.5-3z" />}
+      {type === 'fog' && [6, 11, 16].map((y) => <rect key={y} x={y === 11 ? 2 : 4} y={y} width={y === 11 ? 20 : 16} height="2.2" rx="1.1" />)}
+    </svg>
+  );
+}
+
 export default function SnowAlertsPromo({ promo }) {
   const copy = snowAlertCopy(promo?.snow ?? null);
   const lines = headlineLines(copy.headline);
-  // Dated the day it airs, fixed for the slide's own 20 s on screen.
-  const [sample] = useState(() => sampleAlertText(new Date()));
+  // The lock screen is live: the clock and the text's date are now, the
+  // weather is the lobby's, the battery is tonight's check-ins.
+  const now = useMinuteClock();
+  const sample = sampleAlertText(now);
+  const { weather, checkedIn } = useContext(LobbyLiveContext);
+  const battery = batteryLevel(checkedIn);
 
   return (
     <div
       className={`promo-slide promo-slide--snow snow-alerts${copy.storm ? ' snow-alerts--storm' : ''}`}
       role="img"
-      aria-label={`${copy.kicker}. ${copy.headline.join(' ')} ${copy.body} Scan the code or visit ${ALERTS_SHORT}.`}
+      aria-label={`${copy.kicker}. ${copy.headline.join(' ')}. Scan the code or visit ${ALERTS_SHORT}.`}
     >
       <div className="snow-alerts__sky" aria-hidden="true" />
       <SnowLayer layer={LAYERS[0]} storm={copy.storm} />
@@ -241,13 +288,18 @@ export default function SnowAlertsPromo({ promo }) {
                 <div className="snow-alerts__status">
                   <svg viewBox="0 0 24 24"><path d={ICON.wifi} /></svg>
                   <svg viewBox="0 0 24 24"><path d={ICON.signal} /></svg>
-                  <span className="snow-alerts__battery"><span>82</span></span>
+                  <span className="snow-alerts__battery" style={{ '--level': `${battery}%` }}><span>{battery}</span></span>
                 </div>
                 <div className="snow-alerts__clock">
-                  <span className="snow-alerts__time">4:30</span>
+                  <span className="snow-alerts__time">{lockTime(now)}</span>
                   <span className="snow-alerts__date">
                     {sample.lockDate}
-                    <span className="snow-alerts__weather"><Snowflake size="1em" />28°F</span>
+                    {weather && typeof weather.temp === 'number' && (
+                      <span className="snow-alerts__weather">
+                        <WeatherIcon weather={weather} />
+                        {`${weather.temp}°${weather.units === 'celsius' ? 'C' : 'F'}`}
+                      </span>
+                    )}
                   </span>
                 </div>
                 <M.div className="snow-alerts__note" {...NOTE}>
@@ -299,7 +351,6 @@ export default function SnowAlertsPromo({ promo }) {
               </span>
             ))}
           </h2>
-          <M.p className="snow-alerts__body" {...BODY}>{copy.body}</M.p>
         </div>
 
         <div className="snow-alerts__scan">

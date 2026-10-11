@@ -33,6 +33,7 @@ import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
 import { useSnowForecast } from './hooks/useSnowForecast.js';
 import { inSnowSeason } from './lib/snowAlerts.js';
+import { LobbyLiveContext } from './lib/lobbyLive.jsx';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { buildPromoSlot, previewPromo } from './lib/promos.js';
 import PromoSlide from './components/PromoSlide.jsx';
@@ -651,7 +652,11 @@ export default function App() {
   // weather — a coupling nobody would guess.
   const weatherTheme = config.weatherTheme === true;
   const particleAuto = config.particleEffect === 'auto';
-  const weather = useWeather(config, (showWeatherChip || weatherTheme || particleAuto) && !FLAGS.overlay);
+  // The snow slide's phone shows the weather too, so it asks while that
+  // slide can air.
+  const snowPhone = config.calendarEnabled && config.seasonPromos !== false && inSnowSeason(todayStr);
+  const weather = useWeather(config, (showWeatherChip || weatherTheme || particleAuto || snowPhone) && !FLAGS.overlay);
+  const lobbyLive = useMemo(() => ({ weather, checkedIn: count }), [weather, count]);
   // 'auto' matches the particles to the sky outside: snowfall when it's
   // snowing, rainfall when it's raining or storming, nothing otherwise
   // (and nothing when the weather is unknown — no location, dead API).
@@ -1211,6 +1216,7 @@ export default function App() {
     // so config.reduceMotion === true means truly zero animation, not
     // just reduced transforms.
     <ZeroAnimationContext.Provider value={config.reduceMotion}>
+    <LobbyLiveContext.Provider value={lobbyLive}>
     <MotionConfig reducedMotion={config.reduceMotion ? 'always' : 'user'}>
     <div
       className={stageClass}
@@ -1591,6 +1597,7 @@ export default function App() {
       )}
     </div>
     </MotionConfig>
+    </LobbyLiveContext.Provider>
     </ZeroAnimationContext.Provider>
   );
 }
