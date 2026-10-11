@@ -146,7 +146,7 @@ export default function App() {
   // comes from a deck that can move on to an ordinary slide (see
   // ManualSlideshow), so a child can never wait forever.
   const [slideInfo, setSlideInfo] = useState({ key: 'none', special: false, poster: false });
-  // Settings → Slides → "Preview a promo": one promo played full screen on
+  // Settings → Slides → "Preview the promos": one promo played full screen on
   // this TV for its own hold, over whatever the slideshow is doing. It holds
   // check-ins exactly as the real poster would (names wait behind the
   // WAITING chip, then play in full), so a rehearsal never hides a child.
@@ -1252,7 +1252,7 @@ export default function App() {
         </ErrorBoundary>
       )}
 
-      {/* Settings → Slides → "Preview a promo": the poster over the slideshow,
+      {/* Settings → Slides → "Preview the promos": the poster over the slideshow,
           on this TV only, for its own hold. A click anywhere ends it. */}
       {previewUp && (
         <ErrorBoundary label="promo-preview" onError={stopPromoPreview}>

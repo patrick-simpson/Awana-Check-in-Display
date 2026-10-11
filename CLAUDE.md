@@ -638,9 +638,10 @@ snowdrift. `src/lib/snowAlerts.js` is the pure half, `SnowAlertsPromo.jsx` +
   the finished card (`?lowPower=1`).
 - Settings → Slides → "Season promos" turns it off with the fall posters.
 
-## Previewing a promo (Settings → Slides → "Preview a promo")
+## Previewing a promo (Settings → Slides → "Preview the promos")
 
-Owner request 2026-10-11: a way to watch each promo on demand. One button per
+Owner request 2026-10-11: a way to watch each promo on demand. The FIRST card
+in Slides (it sat last and was missed), grouped Fall posters / Snow alerts; one button per
 entry in `PREVIEW_PROMOS` (`src/lib/promos.js`): the four fall posters, the snow
 slide, and the snow slide's snow-week version. `previewPromo(key, ...)` builds
 the same descriptor `buildPromoSlot` would, whatever the date (a past poster

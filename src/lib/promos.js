@@ -254,7 +254,7 @@ function withSnowAlerts(fall, outlook, afterContest) {
 }
 
 /**
- * Settings → Slides → "Preview a promo": every promo this build knows, in the
+ * Settings → Slides → "Preview the promos": every promo this build knows, in the
  * order the buttons list them, whether or not today's date would show it.
  * The snow slide is there twice, once as an ordinary week and once as a
  * snow week, because those read differently.

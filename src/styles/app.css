@@ -1522,7 +1522,15 @@ html, body, #root {
 .panel .scope-tag--shared { background: var(--brand-blue); color: #ffffff; }
 .panel .scope-tag--screen { background: var(--brand-cloud); color: var(--panel-ink); box-shadow: inset 0 0 0 1.5px var(--panel-keyline); }
 .panel-card__tab .brand-tab__content {
-  padding: 0.75rem 3.1rem 1.3rem 1.4rem;
+  padding: 0.75rem 0.7rem 1.3rem 1.4rem;
+}
+/* The wave narrows to its tail, so its fat end has to grow WITH the title: at
+   the label's line the fill reaches ~72% of the shape's width, so the shape
+   is drawn 1.42x the label's own box and runs on past it to the right. A
+   fixed right padding let any title longer than ~7em run into the tail,
+   white on white ("WHAT PLAYS BEHIND THE NAM…"). */
+.panel-card__head > .panel-card__tab > svg {
+  width: 142%;
 }
 .panel-card__tab h3.section { color: #ffffff; }
 
@@ -4075,7 +4083,7 @@ details.advanced-fields > .hint { display: block; margin-bottom: 0.9rem; }
 }
 .board-preview .checkout-region { pointer-events: none; }
 
-/* ── Settings → Slides → "Preview a promo" ─────────────────────────────────
+/* ── Settings → Slides → "Preview the promos" ─────────────────────────────────
    The poster over the slideshow on this TV (App.jsx), at the background's
    own level so the status sticker, the flags and the WAITING chip stay on
    top of it, as they do over a real promo. A click anywhere ends it. */

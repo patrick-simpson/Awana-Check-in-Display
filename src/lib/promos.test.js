@@ -281,7 +281,7 @@ describe('buildPromoSlot with the snow-alerts slide', () => {
   });
 });
 
-describe('previewPromo: Settings → Slides → Preview a promo', () => {
+describe('previewPromo: Settings → Slides → Preview the promos', () => {
   it('offers every poster and both snow versions', () => {
     expect(PREVIEW_PROMOS.map((p) => p.key)).toEqual(['contest', 'friend', 'barfEpic', 'parents', 'snowAlerts', 'snowAlertsStorm']);
     for (const p of PREVIEW_PROMOS) expect(previewPromo(p.key, season, '2026-10-01')).not.toBeNull();
