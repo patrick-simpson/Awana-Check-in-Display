@@ -30,6 +30,7 @@
 
 import { clubNights, formatLongDate } from './calendarLogic.js';
 import { showDate, slideInWindow } from './slides.js';
+import { SNOW_ALERT_SEC, SNOW_CADENCE, inSnowSeason, snowOutlook } from './snowAlerts.js';
 
 /**
  * @typedef {Object} SeasonPromo
@@ -71,6 +72,24 @@ export const PROMO_DURATION_SEC = 15;
  */
 export function isPromoSlide(slide) {
   return slide?.type === 'promo';
+}
+
+/**
+ * The promo a slot shows on a given lap of the deck, or null when the slot
+ * sits that lap out. A deck that is nothing but the slot never sits out: it
+ * shows the first promo it has rather than a blank screen.
+ *
+ * @param {PromoSlot|any} slot
+ * @param {number} lap
+ * @param {number} deckLength
+ * @returns {PromoDescriptor|null}
+ */
+export function promoForLap(slot, lap, deckLength) {
+  const list = Array.isArray(slot?.promos) ? slot.promos : [];
+  if (!list.length) return null;
+  const pick = list[lap % list.length] ?? null;
+  if (pick || deckLength > 1) return pick;
+  return list.find(Boolean) ?? null;
 }
 
 /**
@@ -123,6 +142,7 @@ export function countdownLabel(n, todayStr, eventDate) {
  * @property {string|null} countdown
  * @property {boolean} afterContest
  * @property {number} durationSec
+ * @property {import('./snowAlerts.js').SnowOutlook|null} [snow] the snow-alerts slide only
  */
 
 /**
@@ -130,7 +150,7 @@ export function countdownLabel(n, todayStr, eventDate) {
  * @property {string} id
  * @property {'promo'} type
  * @property {number} durationSec
- * @property {PromoDescriptor[]} promos
+ * @property {Array<PromoDescriptor|null>} promos one entry per lap; null = no promo that lap
  */
 
 /**
@@ -148,13 +168,23 @@ export function countdownLabel(n, todayStr, eventDate) {
  * Never persisted and never published: like the calendar slides, this is
  * derived fresh from (events, today, config) on every render.
  *
+ * The snow-alerts slide (src/lib/snowAlerts.js) rides the same slot, on its
+ * own clock: in the snow season it takes one lap in SNOW_CADENCE.calm, or one
+ * in SNOW_CADENCE.storm when snow is forecast near club night, however many
+ * fall posters are live. The fall posters fill the other laps, and a lap with
+ * nothing to fill it is a null entry: ManualSlideshow steps straight past the
+ * slot that lap, so a lone snow slide is still rare. `snowAlerts` turns it on
+ * (App always does; the tests that predate it leave it off) and
+ * `snowForecast` is useSnowForecast()'s answer.
+ *
  * @param {Array<any>|null|undefined} events
  * @param {string} todayStr
- * @param {{ specialDates?: Record<string, any>|null, enabled?: boolean }} [opts]
+ * @param {{ specialDates?: Record<string, any>|null, enabled?: boolean, snowAlerts?: boolean,
+ *   snowForecast?: import('./snowAlerts.js').SnowForecast|null }} [opts]
  * @returns {PromoSlot|null}
  */
 export function buildPromoSlot(events, todayStr, opts = {}) {
-  const { specialDates = null, enabled = true } = opts;
+  const { specialDates = null, enabled = true, snowAlerts = false, snowForecast = null } = opts;
   if (!enabled) return null;
   // The counter is the whole point of these slides, and it needs the feed.
   // (It is also what keeps them out of the hermetic e2e smoke run, which
@@ -178,6 +208,47 @@ export function buildPromoSlot(events, todayStr, opts = {}) {
       durationSec: p.durationSec,
     }));
 
-  if (!promos.length) return null;
-  return { id: 'season_promo', type: 'promo', durationSec: PROMO_DURATION_SEC, promos };
+  const lapped = snowAlerts && inSnowSeason(today)
+    ? withSnowAlerts(promos, snowOutlook(events, today, snowForecast, specialDates), afterContest)
+    : promos;
+  if (!lapped.length) return null;
+  return { id: 'season_promo', type: 'promo', durationSec: PROMO_DURATION_SEC, promos: lapped };
+}
+
+/**
+ * The snow slide on its own cadence: [S, x, x, x, x, x] on a calm week and
+ * [S, x] when snow is coming, where each x is the next fall poster in turn, or
+ * null (no promo that lap) when none is live. Enough rounds that every live
+ * poster still gets its turn.
+ *
+ * @param {PromoDescriptor[]} fall
+ * @param {import('./snowAlerts.js').SnowOutlook|null} outlook
+ * @param {boolean} afterContest
+ * @returns {Array<PromoDescriptor|null>}
+ */
+function withSnowAlerts(fall, outlook, afterContest) {
+  /** @type {PromoDescriptor} */
+  const snow = {
+    id: 'promo_snow_alerts',
+    kind: 'snowAlerts',
+    eventDate: outlook ? outlook.date : '',
+    tonight: outlook?.when === 'tonight',
+    countdown: null,
+    afterContest,
+    durationSec: SNOW_ALERT_SEC,
+    snow: outlook,
+  };
+  const per = (outlook ? SNOW_CADENCE.storm : SNOW_CADENCE.calm) - 1;
+  const rounds = Math.max(1, Math.ceil(fall.length / per));
+  /** @type {Array<PromoDescriptor|null>} */
+  const out = [];
+  let next = 0;
+  for (let r = 0; r < rounds; r += 1) {
+    out.push(snow);
+    for (let i = 0; i < per; i += 1) {
+      out.push(fall.length ? fall[next % fall.length] : null);
+      next += 1;
+    }
+  }
+  return out;
 }

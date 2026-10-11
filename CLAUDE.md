@@ -560,9 +560,10 @@ wins over readability, but every fact lands on the end card. Signage only
   length on the next slide, and the stinger wave carries the lobby into and
   out of each poster. At 15 s a poster now holds the line a little longer
   than the old 8 s ones did.
-- Settings → Slides → **"Fall event promos"**
-  (`config.seasonPromos`) turns them off without touching the other
-  auto-slides.
+- Settings → Slides → **"Season promos"**
+  (`config.seasonPromos`) turns them off, and the snow-alerts slide with them
+  (next section), without touching the other auto-slides. It shows while
+  either season is live and its hint names what it switches.
 - Testing: vitest fake timers cannot drive framer-motion (it captured the
   real `requestAnimationFrame` at import), and Playwright's paused clock
   does not drive its opacity, so a moving frame has to be sampled in real
@@ -573,6 +574,53 @@ wins over readability, but every fact lands on the end card. Signage only
   together**. Deliberately hardcoded (owner's choice 2026-09-13), because
   the art is built on specific printed posters, not something an operator
   types a date into.
+
+## The snow-alerts slide (November to March)
+
+Owner request 2026-10-11: a slide that gets parents signed up for the text the
+church sends when snow cancels club, with a QR code and the URL
+(kvbchurch.org/alerts, which redirects to the Church Center "Notification
+Preferences" form). Concept 1 of three, "Know before you go": a night blizzard,
+a phone that drops in and lights up with the cancellation text, then the QR on a
+snowdrift. `src/lib/snowAlerts.js` is the pure half, `SnowAlertsPromo.jsx` +
+`src/styles/promos/snow-alerts.css` the art, `src/lib/alertsQr.js` the code.
+
+- **It rides the promo slot on its own cadence** (owner's calls): only from
+  Nov 1 to Mar 31 (`inSnowSeason`), one lap in six (`SNOW_CADENCE.calm`) on an
+  ordinary week, every other lap (`storm`) when an inch or more
+  (`SNOW_INCHES`) is forecast on the next club night or the day before it.
+  `buildPromoSlot(..., { snowAlerts: true, snowForecast })` weaves
+  `[S, x, x, x, x, x]` / `[S, x]`, the fall posters filling the x laps and
+  `null` where none is live; `promoForLap` reads a lap and ManualSlideshow's
+  `nextStep` steps past a null lap (a layout effect moves on before paint if
+  the deck lands on one), so a lone snow slide is still rare. A deck that is
+  only the slot never sits out. It holds check-ins like any promo, so a parent
+  mid-scan never loses the code under a name, and it still needs the feed.
+- **"Snow is coming" is the next club night** from `clubNights()` (so a
+  cancelled night or a `noClub` week is never threatened), within
+  `SNOW_LOOKAHEAD_DAYS`, from `useSnowForecast` (`fetchSnowForecast` in
+  `weather.js`: Open-Meteo daily `snowfall_sum` in inches, 8 days, every 3 h,
+  only in season, last good copy kept). No forecast means the calm cadence and
+  wording, never a guess. The kicker then names the night (`snowAlertCopy`:
+  "tonight", "for tomorrow", "for Wednesday") in the hot colour.
+- **The phone's text is marked EXAMPLE TEXT** and its lock screen names a
+  weekday, never a date, so a snow week's "no Awana tonight" can never be read
+  as news. Keep that tag.
+- **The QR is art, not code at runtime.** `alertsQr.js` holds the module matrix
+  (version 3, error correction Q); `alertsQr.test.js` regenerates it with the
+  `qrcode` dev dependency and fails on any difference, so change the URL there
+  and run `node scripts/promo/alerts-qr.mjs`. It is 19u square on white with a
+  quiet zone and holds still from 6.6 s to the end of the 20 s hold
+  (`SNOW_ALERT_SEC`); never put motion on it.
+- **It wears the lobby's kit**, not a poster's faces: every class is
+  `.snow-alerts*` (the root also carries `.promo-slide--snow`, which sets no
+  font), so `promoFonts.test.js` holds. Its stages are sized in `--u` like the
+  lobby. The blizzard is three tiled layers the GPU only moves (each loop one
+  whole tile, so the frozen frame matches), the near one clipped to the phone's
+  side so it never crosses the words or the code; no clip-path, no filter
+  animation. Every beat is `landsAt` / `keyframes`, and the last keyframe is
+  the finished card (`?lowPower=1`).
+- Settings → Slides → "Season promos" turns it off with the fall posters.
 
 ## The flagship welcome slide (first in every pass, except Wednesday club)
 

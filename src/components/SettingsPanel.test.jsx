@@ -498,7 +498,7 @@ describe('Slides', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-01T12:00:00'));
     const props = open();
-    const promos = screen.getByLabelText('Fall event promos');
+    const promos = screen.getByLabelText('Season promos');
     expect(promos.checked).toBe(true);
     fireEvent.click(promos);
     expect(props.onChange).toHaveBeenCalledWith({ seasonPromos: false });
@@ -507,11 +507,21 @@ describe('Slides', () => {
     vi.useRealTimers();
   });
 
-  it('after the season the promos toggle leaves the page', () => {
+  it('the promos toggle stays through the snow season and names what it switches', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-12-01T12:00:00'));
     open();
-    expect(screen.queryByLabelText('Fall event promos')).toBeNull();
+    expect(screen.getByLabelText('Season promos')).toBeTruthy();
+    expect(screen.getByText(/snow-alerts sign-up/)).toBeTruthy();
+    expect(screen.queryByText(/Poster Contest/)).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('after both seasons the promos toggle leaves the page', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2027-06-01T12:00:00'));
+    open();
+    expect(screen.queryByLabelText('Season promos')).toBeNull();
     vi.useRealTimers();
   });
 

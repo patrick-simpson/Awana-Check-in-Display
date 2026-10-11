@@ -31,6 +31,8 @@ import { useTally } from './hooks/useTally.js';
 import { useTheme } from './hooks/useTheme.js';
 import { useCalendar } from './hooks/useCalendar.js';
 import { useWeather } from './hooks/useWeather.js';
+import { useSnowForecast } from './hooks/useSnowForecast.js';
+import { inSnowSeason } from './lib/snowAlerts.js';
 import { buildCalendarSlides, deriveClubInfo, localDateStr } from './lib/calendarLogic.js';
 import { buildPromoSlot } from './lib/promos.js';
 import { fireMilestone, setConfettiLevel, setConfettiLoad, setConfettiSkin } from './lib/confetti.js';
@@ -664,12 +666,19 @@ export default function App() {
   // published, and memoized on exactly the inputs it reads so the background's
   // hold timer isn't restarted by every check-in.
   const seasonPromos = config.seasonPromos;
+  // The snow-alerts slide's forecast (src/lib/snowAlerts.js): asked for only in
+  // the snow season and only when the slide could show, so a September screen
+  // or an OBS overlay never calls the weather API for it.
+  const promosOn = calendarEnabled && seasonPromos !== false;
+  const snowForecast = useSnowForecast(config, promosOn && inSnowSeason(todayStr) && !FLAGS.overlay);
   const promoSlot = useMemo(
     () => buildPromoSlot(calendar.events, todayStr, {
       specialDates,
-      enabled: calendarEnabled && seasonPromos !== false,
+      enabled: promosOn,
+      snowAlerts: true,
+      snowForecast,
     }),
-    [calendar.events, todayStr, specialDates, calendarEnabled, seasonPromos]
+    [calendar.events, todayStr, specialDates, promosOn, snowForecast]
   );
 
   // One array identity per (calendarSlides, promoSlot) pair, for the same
